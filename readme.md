@@ -25,6 +25,8 @@ pip uninstall torch torchvision torch-scatter torch-sparse torch-cluster torch-s
 pip install torch --index-url https://download.pytorch.org/whl/cu121
 pip install --no-index pyg-lib torch-scatter torch-sparse torch-cluster torch-spline-conv -f https://data.pyg.org/whl/torch-2.5.1+cu121.html
 pip install torch-geometric
+
+pip install -e .
 ```
 
 Install NewtonNet
@@ -58,7 +60,7 @@ Download Transition-1x dataset
 # wget https://figshare.com/ndownloader/files/36035789 -O Transition1x.h5
 
 cd Data
-# git clone https://gitlab.com/matschreiner/Transition1x
+git clone https://gitlab.com/matschreiner/Transition1x
 cd Transition1x
 pip install -e .
 # pip install '.[example]'

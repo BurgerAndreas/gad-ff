@@ -6,7 +6,11 @@ __pycache__/
 .DS_Store
 .keep
 icon
+Icon
 .vscode
+
+# sub repos
+Data/Transition1x
 
 # Data
 *.npz
