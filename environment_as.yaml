@@ -1,0 +1,49 @@
+name: gad
+channels:
+  - nvidia
+  - pytorch
+  - conda-forge
+dependencies:
+  - python>=3.10
+  - pytorch::pytorch==2.4.0
+  - pytorch::pytorch-cuda=12.1
+  # - matplotlib  # we cannot depend on matplotlib explicitly, it works implicitly
+  - jupyter
+  - pip
+  - ase
+  - numpy>=1.26.0,<2.0.0
+  - scipy
+  - scikit-learn
+  - tqdm
+  # - rdkit>=2024.3.6  # this version (potentially or above) is required!! (earlier, maybe all) 2023 versions do not work
+  - conda-forge::rdkit=2024
+  - openbabel=3.1.1
+  - pyyaml
+  - seaborn
+  - dxtb
+  - mctc-lib
+  - torchmetrics
+  - pip:
+    - joblib
+    - submitit
+    - pre-commit
+    - black==22.6.0
+    - usort==1.0.4
+    - ufmt==2.3.0
+    - flake8==7.0.0
+    - hydra-core
+    - hydra-submitit-launcher
+    - rmsd
+    - pytorch_warmup
+    - e3nn==0.5.1
+    - fairchem-core==1.10.0
+    - huggingface_hub>=0.27.1
+    - -e .
+    # from here below, we use find-links
+    - --find-links https://data.pyg.org/whl/torch-2.4.0+cu121.html
+    - torch_cluster==1.6.3+pt24cu121
+    - torch_geometric==2.5.3
+    - pyg-lib==0.4.0+pt24cu121
+    - torch_scatter==2.1.2+pt24cu121
+    - torch_sparse==0.6.18+pt24cu121
+    - torch_spline_conv==1.2.2+pt24cu121

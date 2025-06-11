@@ -67,4 +67,24 @@ python download_t1x.py ./data
 cd ../..
 ```
 
+Process data by running
+- `MLHessian-TSopt/Scripts/split.ipynb`
 
+## TODO
+
+Check which model / checkpoint has the nicest Hessian:
+- `MLHessian-TSopt/Analysis/Figure2.ipynb` and `MLHessian-TSopt/Analysis/Figure4bc.ipynb`: Wrapper notebook for model testing regarding Hessian predictions.
+- `MLHessian-TSopt/Analysis/Figure4c.ipynb`: Wrapper notebook for optimized transition state comparisons.
+
+Generate GAD dataset using one of the following models:
+- `MLHessian-TSopt/Models/PretrainedModels/training_1`: Pre-trained model in NewtonNet paper, trained on ANI dataset.
+- `MLHessian-TSopt/Models/PretrainedModels/training_9`: Pre-trained model in NewtonNet paper, trained on ANI-1x dataset.
+- `MLHessian-TSopt/Models/FinetunedModels/training_44`: Fine-tuned model from `training_1` above, trained on Transition-1x dataset composition split 5.
+
+Finetune NewtonNet using their training script:
+- `NewtonNet/scripts/newtonnet_train.py`
+
+Test the model:
+- `Scripts/test.ipynb`: Wrapper notebook for model testing using the holdout test reactions in Transition-1x dataset.
+- `Scripts/noise.ipynb`: Wrapper notebook for initial guess geometry generation and subsequent noising of Sella benchmark reactions.
+- `Scripts/opt/nn_sella_quacc.py`: Wrapper script for NewtonNet-based optimizations.
