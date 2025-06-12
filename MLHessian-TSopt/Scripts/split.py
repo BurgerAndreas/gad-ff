@@ -34,9 +34,9 @@ do_combine_t1x_ani1x = False
 do_create_composition_splits = True
 do_create_aug_conformation_splits = True
 
-print('\n# Processing Transition1x reactions')
 
 def process_t1x_reaction():
+    print('\n# Processing Transition1x reactions')
     dataloader = t1xloader(f'{DIR_T1x}/data/transition1x.h5')
 
     current_rxn = None
@@ -75,7 +75,7 @@ if do_process_t1x_reaction:
 
 def count_t1x_reaction():
     N_tot, A_max = 0, 0
-    for file in tqdm(os.listdir(f'{DIR_T1x}/reaction_data')):
+    for file in tqdm(os.listdir(f'{DIR_T1x}/reaction_data'), desc='Counting T1x reaction'):
         if file.endswith('.npz'):
             data = np.load(f'{DIR_T1x}/reaction_data/{file}')
         else:
@@ -92,9 +92,9 @@ print('Total number of samples (T1x reaction):', N_tot)
 print('Maximum number of atoms (T1x reaction):', A_max)
 
 
-print('\n# Processing Transition1x compositions')
 
 def process_t1x_composition():
+    print('\n# Processing Transition1x compositions')
     dataloader = t1xloader(f'{DIR_T1x}/data/transition1x.h5')
 
     current_formula = None
@@ -102,7 +102,7 @@ def process_t1x_composition():
 
     os.makedirs(f'{DIR_T1x}/composition_data', exist_ok=True)
 
-    for molecule in tqdm(dataloader):
+    for molecule in tqdm(dataloader, desc="T1x compositions"):
         last_formula = current_formula
         current_formula = molecule['formula']
         if current_formula != last_formula:
@@ -134,7 +134,7 @@ if do_process_t1x_composition:
 
 def count_t1x_composition():
     N_tot, A_max = 0, 0
-    for file in tqdm(os.listdir(f'{DIR_T1x}/composition_data')):
+    for file in tqdm(os.listdir(f'{DIR_T1x}/composition_data'), desc="Counting T1x composiion"):
         if file.endswith('.npz'):
             data = np.load(f'{DIR_T1x}/composition_data/{file}')
         else:
@@ -151,12 +151,15 @@ print('Total number of samples (T1x composition):', N_tot)
 print('Maximum number of atoms (T1x composition):', A_max)
 
 
-print('\n# Processing ANI1x')
 
 def process_ani1x_data():
+    print('\n# Processing ANI1x')
     self_energy = {'H':-0.500607632585, 'C':-37.8302333826, 'N':-54.5680045287, 'O':-75.0362229210}
 
-    for molecule in tqdm(ani1xloader.iter_data_buckets(f'{DIR_ANI1x}/data/ani1x-release.h5', keys=['wb97x_dz.energy','wb97x_dz.forces'])):
+    for molecule in tqdm(
+        ani1xloader.iter_data_buckets(f'{DIR_ANI1x}/data/ani1x-release.h5', keys=['wb97x_dz.energy','wb97x_dz.forces']),
+        desc="Processing Ani1x"
+        ):
         formula = Atoms(numbers=molecule['atomic_numbers']).symbols
         np.savez_compressed(f'{DIR_ANI1x}/data/{formula}.npz',
             R=np.array(molecule['coordinates']),
@@ -169,11 +172,11 @@ if do_process_ani1x:
     process_ani1x_data()
 
 
-print('\n# Counting ANI1x')
 
 def count_ani1x():
+    print('\n# Counting ANI1x')
     N_tot, A_max = 0, 0
-    for file in tqdm(os.listdir(f'{DIR_ANI1x}/data')):
+    for file in tqdm(os.listdir(f'{DIR_ANI1x}/data'), desc="Counting Ani1x"):
         if file.endswith('.npz'):
             data = np.load(f'{DIR_ANI1x}/data/{file}')
         else:
@@ -190,15 +193,15 @@ print('Total number of samples (ANI1x):', N_tot)
 print('Maximum number of atoms (ANI1x):', A_max)
 
 
-print('\n# Processing ANI1x augmented data')
 
 def process_ani1x_aug_data():
+    print('\n# Processing ANI1x augmented data')
     count = {'CH': 0, 'NH': 0, 'OH': 0, 'CC': 0, 'CN': 0, 'CO': 0, 'NN': 0, 'NO': 0, 'OO': 0}
 
     N_tot = 0
     if not os.path.exists(f'{DIR_ANI1x}/aug_data'):
         os.makedirs(f'{DIR_ANI1x}/aug_data')
-    for file in tqdm(os.listdir(f'{DIR_ANI1x}/data')):
+    for file in tqdm(os.listdir(f'{DIR_ANI1x}/data'), desc="Processing Ani1x aug"):
         if file.endswith('.npz'):
             data = np.load(f'{DIR_ANI1x}/data/{file}')
         else:
@@ -243,12 +246,15 @@ if do_process_ani1x_aug:
     print("Count of augmented samples (ANI1x augmented):", count)
 
 
-print('\n# Combining Transition1x and ANI1x augmented data')
 
 def combine_t1x_ani1x():
+    print('\n# Combining Transition1x and ANI1x augmented data')
     os.makedirs(f'{DIR_T1x}/augmented_data', exist_ok=True)
 
-    for file in tqdm(set(os.listdir(f'{DIR_T1x}/composition_data') + os.listdir(f'{DIR_ANI1x}/aug_data'))):
+    for file in tqdm(
+        set(os.listdir(f'{DIR_T1x}/composition_data') + os.listdir(f'{DIR_ANI1x}/aug_data')),
+        desc="Combinin T1x Ani1x"
+        ):
         if file.endswith('.npz'):
             pass
         else:
@@ -276,9 +282,9 @@ if do_combine_t1x_ani1x:
     combine_t1x_ani1x()
 
 
-print('\n# Creating composition splits')
-
+# This requires 64 - 128 GB of RAM
 def create_splits():
+    print('\n# Creating composition splits')
     set_test = ["C2H4N4O", "C3H7NO2", "C4H5NO", "C3H7N3", "C2H4N2", "C4H10O", "C5H7NO", "C5H11N", "C3H4N2O", "C4H2", "C2H5N3O", "C5H9N", "C3H5NO", "C6H14O", "C3H8O2", "C2H4O2", "C7H12"]
     set_val = [["C5H8O", "C3H4N4", "C2H3N3O2", "C2H3N5", "CH3N5", "C4H6N2", "C3H6O3", "C2H4N2O2", "C3H2O3", "CN2O3", "C3H5N", "C7H8", "C4H5N3", "C5H4O", "C2HNO3", "C5H8N2", "C2H3N3O"],
             ["C4HNO", "C3H2N2", "C3HNO2", "C3H6N2O", "CH2N4O", "C5H2O", "C2H2O2", "C5H12O", "C5H10O2", "C6H13N", "C4H7N3", "C3H2N2O", "C3H3N3", "C4H10O2", "C5H10N2", "CH4N2O", "C3H6O"],
@@ -291,6 +297,7 @@ def create_splits():
 
     os.makedirs(f'{DIR_T1x}/splits/', exist_ok=True)
     for num_crossval in range(4):
+        print(f"Creating composition split {num_crossval}")
         R = {'train':[], 'val':[], 'test':[], 'extra':[]}
         Z = {'train':[], 'val':[], 'test':[], 'extra':[]}
         E = {'train':[], 'val':[], 'test':[], 'extra':[]}
@@ -299,7 +306,10 @@ def create_splits():
         os.makedirs(f'{DIR_T1x}/splits/composition_split_5{num_crossval}aug', exist_ok=True)
         
         N = {'train':0, 'val':0, 'test':0, 'extra':0}
-        for file in tqdm(os.listdir(f'{DIR_T1x}/augmented_data')):
+        for file in tqdm(
+            os.listdir(f'{DIR_T1x}/augmented_data'),
+            desc="Reading augmented data"
+            ):
             if file.endswith('.npz'):
                 data = np.load(f'{DIR_T1x}/augmented_data/{file}')
             else:
@@ -331,7 +341,8 @@ def create_splits():
                 Z=np.vstack(Z[set_split]),
                 E=np.vstack(E[set_split]), 
                 F=np.vstack(F[set_split]))
-            print(set_split, 'samples:', N[set_split])
+            print(set_split, 'samples saved:', N[set_split])
+        print(f"saving extra data...")
         np.savez_compressed(f'{DIR_T1x}/splits/composition_split_5{num_crossval}aug/extra_data.npz',
             R=np.vstack(R['train']+R['extra']),
             Z=np.vstack(Z['train']+Z['extra']),
@@ -346,14 +357,17 @@ if do_create_composition_splits:
     create_splits()
 
 
-print('\n# Creating augmented conformation splits')
 
 def create_crossval_splits():
+    print('\n# Creating augmented conformation splits')
     np.random.seed(0)
 
     RXN, R, Z, E_abs, E, F = [], [], [], [], [], []
     N_tot = 0
-    for file in tqdm(os.listdir(f'{DIR_T1x}/augmented_data')):
+    for file in tqdm(
+        os.listdir(f'{DIR_T1x}/augmented_data'),
+        desc="reading augmented data"
+        ):
         if (file.endswith('.npz')) and (file in os.listdir(f'{DIR_T1x}/composition_data')):
             data = np.load(f'{DIR_T1x}/augmented_data/{file}')
         else:
