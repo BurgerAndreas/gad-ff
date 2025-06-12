@@ -26,6 +26,13 @@ print(os.listdir(f'{DIR_ANI1x}/data'))
 print(f"Files in {DIR_T1x}/data:")
 print(os.listdir(f'{DIR_T1x}/data'))
 
+do_process_t1x_reaction = False
+do_process_t1x_composition = False
+do_process_ani1x = False
+do_process_ani1x_aug = False
+do_combine_t1x_ani1x = False
+do_create_composition_splits = True
+do_create_aug_conformation_splits = True
 
 print('\n# Processing Transition1x reactions')
 
@@ -62,7 +69,8 @@ def process_t1x_reaction():
     print('done!')
     return RXN, R, Z, E_abs, E, F
 
-process_t1x_reaction()
+if do_process_t1x_reaction:
+    process_t1x_reaction()
 
 
 def count_t1x_reaction():
@@ -120,7 +128,8 @@ def process_t1x_composition():
     print('done!')
     return RXN, R, Z, E_abs, E, F
 
-process_t1x_composition()
+if do_process_t1x_composition:
+    process_t1x_composition()
 
 
 def count_t1x_composition():
@@ -156,7 +165,8 @@ def process_ani1x_data():
             F=np.array(molecule['wb97x_dz.forces']) * units.Ha / (units.kcal/units.mol))
     print('done!')
 
-process_ani1x_data()
+if do_process_ani1x:
+    process_ani1x_data()
 
 
 print('\n# Counting ANI1x')
@@ -227,9 +237,10 @@ def process_ani1x_aug_data():
             N_tot += np.count_nonzero(np.any(compressed, axis=(1, 2)))
     return N_tot, count
         
-N_tot, count = process_ani1x_aug_data()
-print("Total number of samples (ANI1x augmented):", N_tot)
-print("Count of augmented samples (ANI1x augmented):", count)
+if do_process_ani1x_aug:
+    N_tot, count = process_ani1x_aug_data()
+    print("Total number of samples (ANI1x augmented):", N_tot)
+    print("Count of augmented samples (ANI1x augmented):", count)
 
 
 print('\n# Combining Transition1x and ANI1x augmented data')
@@ -261,7 +272,8 @@ def combine_t1x_ani1x():
                 shutil.copyfile(f'{DIR_ANI1x}/aug_data/{file}', f'{DIR_T1x}/augmented_data/{file}')
     print('done!')
 
-combine_t1x_ani1x()
+if do_combine_t1x_ani1x:
+    combine_t1x_ani1x()
 
 
 print('\n# Creating composition splits')
@@ -277,11 +289,14 @@ def create_splits():
                 ['C3H2O3', 'C6H13N', 'C2H4N4', 'C2H6O2', 'C2H6N2O', 'C3H6N2O', 'C4H2N2O', 'C4H6', 'C5H5N', 'C3H2N4', 'C5H3NO', 'C6H6', 'C3H4N2', 'C4H7NO', 'C2H5NO2', 'C3H5NO2', 'C4H3NO', '.DS_S', 'C3H4O3', 'C3H5NO3', 'C5H8O', 'C2H6O', 'C5H5NO', 'C2H4N2O', 'C3H2N2', 'C6H12O', 'C3H2O', 'C3H6O2', 'C3H4N4', 'C3H8N2O', 'C2H2N2O2', 'C3H6O3', 'C2H2O2', 'C5H4O', 'C5H12', 'C4H9NO2', 'C3HNO2', 'C2N2', 'C5H4', 'C5H10N2', 'C5H8N2', 'C4H5NO2', 'C4H8O3', 'C7H16', 'C3H5N3', 'C4H4N2O', 'C3H5N', 'C4H8N2O', 'C7H14', 'C2H3N3', 'C5H6', 'C2H3N3O2', 'C6H6O', 'C5H10', 'C3H4O', 'C5H12O', 'C3H4', 'C4H6N2O', 'C5H12O2', 'C3H3N3', 'C7H10', 'C2H2N2O', 'C3H2N2O', 'C4H6O', 'C6H7N', 'CN2O3', 'C5H2O', 'C3H3NO3', 'C4H7NO2', 'C4H10O3', 'C4H8N2', 'C2H3N5', 'C5H8O2', 'C4H10O2', 'C5H10O2', 'CH3N5', 'C3H2N2O2', 'C2HNO3', 'C2H3NO2', 'C3H3NO2', 'C3H7NO', 'C4H9N', 'C5H4O2', 'C2H3NO', 'C4H4N2', 'CH2N4O', 'C6H4O', 'C4H2O2', 'C4H5N', 'C3HN', 'C3H8', 'C4H6N2', 'C2H4N2O2', 'CH4N2O', 'C4HNO', 'C4H10N2O', 'C3H7N', 'C5H6O2', 'C2H3N', 'C6H5N', 'C3H7N3O', 'C4H4O', 'C4H6O3', 'C4H6O2', 'C5H10O', 'C3H6O', 'C7H8', 'C5H8', 'C6H9N', 'C4H4O2', 'C4H8O', 'C3H6N2O2', 'C3H3NO', 'C5H4N2', 'C4H4O3', 'C5H7N', 'C4H3N', 'C4H10', 'CHN3O', 'C5H9NO', 'C6H11N', 'C6H14', 'C3H3N3O', 'C2H3N3O', 'C4H7N3', 'C4H5N3', 'C3H4N2O2', 'C3H8O3', 'C4H8', 'C6H12', 'C5H6O', 'C6H10', 'C4H3N3', 'C6H8', 'C6H10O', 'C4H9NO', 'C2H4O'],
                 ['C3H2O3', 'C6H13N', 'C2H6O2', 'C3H6N2O', 'C4H2N2O', 'C4H6', 'C3H6N2', 'C5H5N', 'C3H2N4', 'C3N2O', 'C5H3NO', 'C3H4N2', 'C4H3NO2', 'C4H7NO', 'C2H2N4', 'C2H5NO2', 'C3H5NO2', 'C4H3NO', '.DS_S', 'C3H4O3', 'C3H4O2', 'C3H5NO3', 'C5H8O', 'C2H6O', 'C2H4N2O', 'C3H2N2', 'C3H2O', 'C3H6O2', 'C3H4N4', 'C2H2N2O2', 'C3H6O3', 'C2H2O2', 'C3H8N2O2', 'C5H4O', 'C5H12', 'C4H9NO2', 'C3HNO2', 'C5H10N2', 'C5H8N2', 'C4H5NO2', 'C4H8O3', 'C4H8O2', 'C7H16', 'C3H5N3', 'C4H4N2O', 'C3H5N', 'C4H8N2O', 'C7H14', 'C2H3N3', 'C4H7N', 'C5H6', 'C2H3N3O2', 'C6H6O', 'C5H10', 'C3H4O', 'C5H12O', 'C4N2', 'C3H4', 'C4H6N2O', 'C5H12O2', 'C3H3N3', 'C7H10', 'C3H2N2O', 'C4H6O', 'C6H7N', 'CN2O3', 'C5H2O', 'C3H3NO3', 'C4H7NO2', 'C4H10O3', 'C3H8O', 'C4H8N2', 'C2H3N5', 'C5H8O2', 'C4H10O2', 'C5H10O2', 'CH3N5', 'CHN3O2', 'C3H2N2O2', 'C2HNO3', 'C2H3NO2', 'C3H3NO2', 'C3H7NO', 'C6H8O', 'C4H9N', 'C5H4O2', 'C2H3NO', 'C4H4N2', 'CH2N4O', 'C6H4O', 'C3H5N3O', 'C3HN', 'C3H8', 'C4H6N2', 'C2H4N2O2', 'CH4N2O', 'C4HNO', 'C4H10N2O', 'C3H7N', 'C5H6O2', 'C2H3N', 'C6H5N', 'C3H7N3O', 'C4H4O', 'C5H6N2', 'C4H6O3', 'C5H10O', 'C3H6O', 'C2H5NO', 'C7H8', 'C5H8', 'C6H9N', 'C4H4O2', 'C4H8O', 'C3H6N2O2', 'C3H3NO', 'C5H4N2', 'C4H4O3', 'C5H7N', 'C2HNO', 'C4H10', 'CHN3O', 'C5H9NO', 'C5H11NO', 'C3H3N3O', 'C2H3N3O', 'C4H7N3', 'C4H5N3', 'C3H4N2O2', 'C3H8O3', 'C4H8', 'C6H12', 'C5H6O', 'C3HN3O', 'C4H3N3', 'C6H8', 'C4H9NO', 'C2H4O']]
 
+    os.makedirs(f'{DIR_T1x}/splits/', exist_ok=True)
     for num_crossval in range(4):
         R = {'train':[], 'val':[], 'test':[], 'extra':[]}
         Z = {'train':[], 'val':[], 'test':[], 'extra':[]}
         E = {'train':[], 'val':[], 'test':[], 'extra':[]}
         F = {'train':[], 'val':[], 'test':[], 'extra':[]}
+        
+        os.makedirs(f'{DIR_T1x}/splits/composition_split_5{num_crossval}aug', exist_ok=True)
         
         N = {'train':0, 'val':0, 'test':0, 'extra':0}
         for file in tqdm(os.listdir(f'{DIR_T1x}/augmented_data')):
@@ -327,7 +342,8 @@ def create_splits():
 
     print('done!')
 
-create_splits()
+if do_create_composition_splits:
+    create_splits()
 
 
 print('\n# Creating augmented conformation splits')
@@ -374,4 +390,5 @@ def create_crossval_splits():
     print(f"Complete augmented conformation split {num_crossval}")
     print('done!')
 
-create_crossval_splits()
+if do_create_aug_conformation_splits:
+    create_crossval_splits()
