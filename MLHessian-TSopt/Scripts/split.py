@@ -12,7 +12,9 @@ from tqdm import tqdm
 N_tot, A_max = 9644740, 23
 
 
-DIR_ROOT = '/ssd/Code/gad-ff'
+# DIR_ROOT = '/ssd/Code/gad-ff'
+dir_this_file = os.path.dirname(os.path.abspath(__file__))
+DIR_ROOT = os.path.dirname(os.path.dirname(dir_this_file))
 
 # there should by a file {DIR_ANI1x}/data/ani1x-release.h5
 DIR_ANI1x = f'{DIR_ROOT}/Data/ANI1x'

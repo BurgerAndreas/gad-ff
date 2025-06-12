@@ -1,14 +1,19 @@
 
 
-
 ```bash
 wget "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
 bash Miniforge3-$(uname)-$(uname -m).sh
 ```
 
+```bash
+git clone git@github.com:BurgerAndreas/gad-ff.git
+cd gad-ff
+```
+
+
 Create a new conda environment and activate it
 ```bash
-mamba create --name gad python=3.12
+mamba create --name gad python=3.12 -y
 mamba activate gad
 ```
 
@@ -46,8 +51,9 @@ Download ANI-1x dataset
 [dataset](https://springernature.figshare.com/articles/dataset/ANI-1x_Dataset_Release/10047041?backTo=%2Fcollections%2FThe_ANI-1ccx_and_ANI-1x_data_sets_coupled-cluster_and_density_functional_theory_properties_for_molecules%2F4712477&file=18112775)
 ```bash
 mkdir -p Data/ANI1x/data
-cd Data/ANI1x/data
+cd Data/ANI1x
 pip install -e .
+cd data
 # 5 GB
 wget https://springernature.figshare.com/ndownloader/files/18112775 -O ani1x-release.h5
 cd ../../..
