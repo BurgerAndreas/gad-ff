@@ -1,4 +1,6 @@
+# GAD-FF
 
+## Installation
 
 ```bash
 wget "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
@@ -37,9 +39,7 @@ pip install -e .
 Install NewtonNet
 ```bash
 # git clone https://github.com/THGLab/NewtonNet/tree/v2.0.1
-
 cd NewtonNet
-
 pip install -e .
 cd ..
 ```
@@ -75,19 +75,54 @@ python download_t1x.py ./data
 cd ../..
 ```
 
+Optional: Download DFT reference data (15GB)
+[paper](https://www.nature.com/articles/s41467-024-52481-5)
+[figshare](https://figshare.com/articles/dataset/Data_for_Deep_Learning_of_ab_initio_Hessians_for_Transition_State_Optimization/25356616).
+```bash
+mkdir -p Data/outputs_dft
+cd Data/outputs_dft
+wget https://figshare.com/ndownloader/articles/25356616/versions/1 -O outputs_dft.zip
+unzip outputs_dft.zip
+ls -l
+cd ../..
+```
+
 Process data by running
 - `MLHessian-TSopt/Scripts/split.ipynb`
 
-## TODO
+Set up environment variables (adjust to your paths)
+```bash
+touch .env
+```
+```bash
+# .env
+HOMEROOT=${PROJECT}/gad-ff
+# some scratch space where we can write files during training. can be the same as HOMEROOT
+PROJECTROOT=${PROJECT}/gad-ff
+# the python environment to use (run `which python` to find it)
+PYTHONBIN=${PROJECT}/miniforge3/envs/gad/bin
+WANDB_ENTITY=andreas-burger
+MPLCONFIGDIR=${PROJECTROOT}/.matplotlib
+DIR_T1x_SPLITS=${PROJECTROOT}/Data/Transition1x/splits
+```
+
+## Run
+
+Create GAD dataset
+```bash
+python create_dataset.py --config configs/create_dataset.yaml
+```
+
+
+## WIP
 
 Check which model / checkpoint has the nicest Hessian:
 - `MLHessian-TSopt/Analysis/Figure2.ipynb` and `MLHessian-TSopt/Analysis/Figure4bc.ipynb`: Wrapper notebook for model testing regarding Hessian predictions.
 - `MLHessian-TSopt/Analysis/Figure4c.ipynb`: Wrapper notebook for optimized transition state comparisons.
 
 Generate GAD dataset using one of the following models:
-- `MLHessian-TSopt/Models/PretrainedModels/training_1`: Pre-trained model in NewtonNet paper, trained on ANI dataset.
-- `MLHessian-TSopt/Models/PretrainedModels/training_9`: Pre-trained model in NewtonNet paper, trained on ANI-1x dataset.
-- `MLHessian-TSopt/Models/FinetunedModels/training_44`: Fine-tuned model from `training_1` above, trained on Transition-1x dataset composition split 5.
+- `MLHessian-TSopt/Models/FinetunedModels/training_56`: Fine-tuned model from NewtonNet pretrained on ANI (training_1), trained on T1x-aug dataset composition (harder) split 50 (`Data/Transition1x/splits/composition_split_50aug/`).
+- `MLHessian-TSopt/Models/FinetunedModels/training_52`: Fine-tuned model from NewtonNet pretrained on ANI (training_1), trained on T1x-aug dataset conformation (easier) split 0 (`Data/Transition1x/splits/conformation_split_0aug/`).
 
 Finetune NewtonNet using their training script:
 - `NewtonNet/scripts/newtonnet_train.py`
@@ -96,3 +131,10 @@ Test the model:
 - `Scripts/test.ipynb`: Wrapper notebook for model testing using the holdout test reactions in Transition-1x dataset.
 - `Scripts/noise.ipynb`: Wrapper notebook for initial guess geometry generation and subsequent noising of Sella benchmark reactions.
 - `Scripts/opt/nn_sella_quacc.py`: Wrapper script for NewtonNet-based optimizations.
+
+## FAQ
+
+- Composition split vs. Conformation split. The T1x dataset for training is split in two different ways. 
+    - Molecular compositions: Harder. Tests generalization to unseen configurations. Reactant, product, and transition state geometries are all in the same set.
+    - Molecular conformations: Easier. Tests generalization to unseen parts of the potential energy surface. Reactant and transition state might be train, and product might be test.
+

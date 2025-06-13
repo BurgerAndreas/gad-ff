@@ -1,10 +1,8 @@
-
-
 """
 Train a ML FF to predict the GAD vector field.
 
 Caveat: NewtonNet predicts conservative force, i.e. by taking the negative gradient of the potential energy w.r.t. the atomic positions.
-There is not potential energy of the GAD vector field. 
+There is not potential energy of the GAD vector field.
 Instead we want to directly predict the GAD vector field.
 
 Possible approaches:

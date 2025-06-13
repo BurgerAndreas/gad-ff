@@ -1,8 +1,17 @@
 # MLHessian-TSopt
 
 This repository contains wrapper scripts for running and analyzing transition state calculations using NewtonNet deep learning model and Sella optimizer.
+[Paper](https://www.nature.com/articles/s41467-024-52481-5)
+
 ```bash
 git clone https://github.com/THGLab/MLHessian-TSopt.git
+```
+
+## Data
+
+DFT reference data is available at [Figshare](https://figshare.com/articles/dataset/Data_for_Deep_Learning_of_ab_initio_Hessians_for_Transition_State_Optimization/25356616).
+```bash
+wget https://figshare.com/ndownloader/articles/25356616/versions/1 -O outputs_dft.zip
 ```
 
 ## Script overview
@@ -19,7 +28,7 @@ git clone https://github.com/THGLab/MLHessian-TSopt.git
 - `Models/PretrainedModels/training_1`: Pre-trained model in NewtonNet paper, trained on ANI dataset.
 - `Models/PretrainedModels/training_9`: Pre-trained model in NewtonNet paper, trained on ANI-1x dataset.
 - `Models/FinetunedModels/training_44`: Fine-tuned model from `training_1` above, trained on Transition-1x dataset composition split 5.
-- `Models/FinetunedModels/training_56`: Fine-tuned model from `training_1` above, trained on Transition-1x dataset composition split 5.
+- `Models/FinetunedModels/training_56`: Fine-tuned model from `training_1` above, trained on Transition-1x dataset composition split 50.
 - `Models/FinetunedModels/training_64`: Fine-tuned model from `training_1` above, trained on Transition-1x dataset composition split 51.
 - `Models/FinetunedModels/training_63`: Fine-tuned model from `training_1` above, trained on Transition-1x dataset composition split 52.
 - `Models/FinetunedModels/training_58`: Fine-tuned model from `training_1` above, trained on Transition-1x dataset composition split 53.

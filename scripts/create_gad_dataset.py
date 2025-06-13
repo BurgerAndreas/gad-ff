@@ -1,4 +1,3 @@
-
 """
 Augmented Transition1x dataset (https://www.nature.com/articles/s41467-024-52481-5) -> GAD dataset.
 

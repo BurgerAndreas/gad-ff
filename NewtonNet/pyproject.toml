@@ -3,7 +3,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "NewtonNet"
+name = "newtonnet"
 description = "A Newtonian message passing network for deep learning of interatomic potentials and forces"
 version = "2.1.0"
 readme = "README.md"

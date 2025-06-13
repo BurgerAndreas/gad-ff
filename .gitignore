@@ -15,6 +15,7 @@ Data/Transition1x
 # Data
 *.npz
 *.h5
+*.zip
 
 # C extensions
 *.so
