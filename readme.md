@@ -39,7 +39,11 @@ pip install -e .
 Install NewtonNet
 ```bash
 # git clone https://github.com/THGLab/NewtonNet/tree/v2.0.1
-cd NewtonNet
+# cd NewtonNet; git checkout v1.0.1
+cd NewtonNet1
+pip install -e .
+cd ..
+cd NewtonNet2
 pip install -e .
 cd ..
 ```
@@ -111,6 +115,9 @@ DIR_T1x_SPLITS=${PROJECTROOT}/Data/Transition1x/splits
 
 Create GAD dataset
 ```bash
+mamba activate gad
+source .env
+
 python create_dataset.py --config configs/create_dataset.yaml
 ```
 
@@ -139,3 +146,10 @@ Test the model:
     - Molecular compositions: Harder. Tests generalization to unseen configurations. Reactant, product, and transition state geometries are all in the same set.
     - Molecular conformations: Easier. Tests generalization to unseen parts of the potential energy surface. Reactant and transition state might be train, and product might be test.
 
+
+## Useful things
+
+MLHessian-TSopt used NewtonNet v1:
+- https://github.com/THGLab/NewtonNet/blob/v1.0.1/newtonnet/utils/ase_interface.py
+- https://github.com/THGLab/NewtonNet/blob/v1.0.1/newtonnet/data/pyanitools.py
+- https://github.com/THGLab/NewtonNet/blob/v1.0.1/newtonnet/data/parse_raw.py#L538

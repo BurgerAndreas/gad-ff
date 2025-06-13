@@ -9,6 +9,8 @@ icon
 Icon
 .vscode
 
+.matplotlib/
+
 # sub repos
 Data/Transition1x
 
