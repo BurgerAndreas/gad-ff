@@ -36,16 +36,33 @@ pip install torch-geometric
 pip install -e .
 ```
 
+Install MACE
+```bash
+pip install cuequivariance cuequivariance-torch cuequivariance-ops-torch-cu12
+git clone https://github.com/ACEsuit/mace.git
+pip install -e ./mace
+```
+
+
 Install NewtonNet
 ```bash
 # git clone https://github.com/THGLab/NewtonNet/tree/v2.0.1
 # cd NewtonNet; git checkout v1.0.1
-cd NewtonNet1
-pip install -e .
-cd ..
-cd NewtonNet2
-pip install -e .
-cd ..
+pip install -e ./NewtonNet1
+pip install -e ./NewtonNet2
+```
+
+Download RGD1 dataset
+[paper](https://www.nature.com/articles/s41597-023-02043-z)
+[figshare](https://figshare.com/articles/dataset/model_reaction_database/21066901)
+[code](https://github.com/zhaoqy1996/RGD1)
+```bash
+mkdir -p Data/RGD1
+cd Data/RGD1
+wget https://figshare.com/ndownloader/articles/21066901/versions/9 -O rgd1.zip
+unzip rgd1.zip
+ls -l
+cd ../..
 ```
 
 Download ANI-1x dataset

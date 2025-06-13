@@ -10,9 +10,13 @@ Icon
 .vscode
 
 .matplotlib/
+outputs/
+outlsurm/
+
 
 # sub repos
 Data/Transition1x
+Data/RGD1
 
 # Data
 *.npz
