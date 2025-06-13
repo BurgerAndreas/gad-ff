@@ -83,6 +83,7 @@ mkdir -p Data/outputs_dft
 cd Data/outputs_dft
 wget https://figshare.com/ndownloader/articles/25356616/versions/1 -O outputs_dft.zip
 unzip outputs_dft.zip
+unzip outputs.zip
 ls -l
 cd ../..
 ```

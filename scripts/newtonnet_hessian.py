@@ -5,6 +5,7 @@ import torch
 from torch.optim import Adam
 import yaml
 
+import newtonnet 
 from newtonnet.layers.activations import get_activation_by_string
 from newtonnet.models import NewtonNet
 

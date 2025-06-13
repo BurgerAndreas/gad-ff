@@ -16,6 +16,7 @@ Data/Transition1x
 *.npz
 *.h5
 *.zip
+**/outputs_dft/
 
 # C extensions
 *.so
