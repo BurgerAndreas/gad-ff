@@ -2,14 +2,14 @@ import torch
 from torch.optim import Adam
 import yaml
 
-from newtonnet.layers.activations import get_activation_by_string
-from newtonnet.models import NewtonNet
+from newtonnet1.layers.activations import get_activation_by_string
+from newtonnet1.models import NewtonNet
 
-from newtonnet.train import Trainer
-from newtonnet.data import parse_train_test
+from newtonnet1.train import Trainer
+from newtonnet1.data import parse_train_test
 
 # torch.autograd.set_detect_anomaly(True)
-torch.set_default_tensor_type(torch.DoubleTensor)
+torch.set_default_dtype(torch.DoubleTensor)
 
 # settings
 settings_path = 'config.yml'

@@ -3,10 +3,10 @@ import numpy as np
 from ase.io import read
 from ase.md.langevin import Langevin
 from ase.units import fs
-from newtonnet.utils.ase_interface import MLAseCalculator
+from newtonnet2.utils.ase_interface import MLAseCalculator
 
 
-print('Running aspirin MD simulation with NewtonNet...')
+print('Running aspirin MD simulation with newtonnet2...')
 atoms = read('md17_data/aspirin/ccsd_test/raw/aspirin_ccsd-test.xyz', index=0)
 calc = MLAseCalculator(
     model_path='md17_model/training_1/models/best_model.pt', 

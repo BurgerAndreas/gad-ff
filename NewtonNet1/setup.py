@@ -1,6 +1,6 @@
 import setuptools
 from os import path
-import newtonnet
+import newtonnet1
 
 here = path.abspath(path.dirname(__file__))
 
@@ -21,13 +21,13 @@ if __name__ == "__main__":
         "A Newtonian message passing network for deep learning of interatomic potentials and forces",
         long_description=long_description,
         long_description_content_type="text/markdown",
-        scripts=['cli/newtonnet_train'],
+        scripts=['cli/newtonnet_train.py'],
         keywords=[
             'Machine Learning', 'Data Mining', 'Quantum Chemistry',
             'Molecular Dynamics'
         ],
         license='MIT',
-        packages=setuptools.find_packages(),
+        packages=['newtonnet1'],
         # install_requires=["numpy<2.0", "scipy", "scikit-learn", "pandas", "ase", "tqdm", "pyyaml", "torch"],
         include_package_data=True,
         classifiers=[

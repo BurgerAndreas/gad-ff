@@ -1,7 +1,7 @@
 # NewtonNet
 A [Newtonian message passing network](https://doi.org/10.1039/D2DD00008C) for deep learning of interatomic potentials and forces
 
-![architecture](newtonnet/models/newtonnet.png) 
+![architecture](newtonnet/models/newtonnet2.png) 
 
 ## Installation and Dependencies
 
@@ -19,7 +19,7 @@ mamba activate newtonnet
 
 Now, you can install NewtonNet in the conda environment by cloning this repository:
 ```bash
-git clone https://github.com/THGLab/NewtonNet.git
+git clone https://github.com/THGLab/newtonnet2.git
 
 cd NewtonNet
 
@@ -52,7 +52,7 @@ Optionally for large datasets, you might want to process the data on a CPU node 
 python preprocess.py --root md17_data/aspirin/ccsd_train
 ```
 
-All models are assumed in [ASE units](https://wiki.fysik.dtu.dk/ase/ase/units.html), such as eV and Ang. You can call an ASE calculator from `newtonnet.utils.ase_interface`. An example MD script can be found in `simulate.py`.
+All models are assumed in [ASE units](https://wiki.fysik.dtu.dk/ase/ase/units.html), such as eV and Ang. You can call an ASE calculator from `newtonnet2.utils.ase_interface`. An example MD script can be found in `simulate.py`.
 
 The documentation of the modules are available at most cases. Please look up local classes or functions and consult with the docstrings in the code.
 

@@ -10,7 +10,7 @@ Please install (or load) conda and then proceed with the following commands:
 
 Now, you can install NewtonNet in the conda environment by cloning this repository:
 
-    git clone https://github.com/THGLab/NewtonNet.git
+    git clone https://github.com/THGLab/newtonnet1.git
 
 and then runnig the following command inside the NewtonNet repository (where you have access to setup.py):
 

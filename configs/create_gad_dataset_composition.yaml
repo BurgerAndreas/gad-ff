@@ -3,12 +3,15 @@ general:
   # device: [cuda:0, cuda:1]      # cpu / cuda:0 / [cuda:0, cuda:1, cuda:2, cuda:3] / list of cuda
   # driver: /global/home/users/ericyuan/NewtonNet/cli/newtonnet_train                                # path to the run script
   # output: [/global/home/users/ericyuan/20230310_Transition1x/output_final, 1]                 # path and iterator for the output directory
+  device: cuda:0      # cpu / cuda:0 / [cuda:0, cuda:1, cuda:2, cuda:3] / list of cuda
 
 data:
   # train_path: /global/scratch/users/ericyuan/Transition1x/composition_split_50aug/train_data.npz   # path to the training data
   # val_path: /global/scratch/users/ericyuan/Transition1x/composition_split_50aug/val_data.npz   # path to the validation data
   # test_path:  /global/scratch/users/ericyuan/Transition1x/composition_split_50aug/test_data.npz     # path to the test data
-  train_path: ${env:DIR_T1x_SPLITS}/composition_split_50aug/train_data.npz   # path to the training data
+  train_path: ${oc.env:DIR_T1x_SPLITS}/composition_split_50aug/train_data.npz   # path to the training data
+  val_path: ${oc.env:DIR_T1x_SPLITS}/composition_split_50aug/val_data.npz   # path to the validation data
+  test_path: ${oc.env:DIR_T1x_SPLITS}/composition_split_50aug/test_data.npz     # path to the test data
   train_size: -1   # -1 for all
   test_size: -1
   val_size: -1
@@ -17,7 +20,7 @@ data:
 
 model:
   # pre_trained: /global/home/users/ericyuan/20230310_Transition1x/0.1-iv+ln-cont/training_1/models/best_model_state.tar          # path to the previously trained model for warm-up start
-  pre_trained: ${env:HOMEROOT}/MLHessian-TSopt/Models/PretrainedModels/training_56/models/best_model_state.tar         
+  pre_trained: ${oc.env:HOMEROOT}/MLHessian-TSopt/Models/PretrainedModels/training_56/models/best_model_state.tar         
   requires_dr: True           # if derivative of the output is required
   w_energy: 1.0               # the weight of energy loss in the loss function
   w_force: 20.0               # EDITED from 100 # the weight of force loss in the loss function

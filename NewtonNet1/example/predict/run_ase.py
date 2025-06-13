@@ -1,5 +1,5 @@
 
-from newtonnet.utils.ase_interface import MLAseCalculator
+from newtonnet1.utils.ase_interface import MLAseCalculator
 from ase import Atoms
 
 mlcalculator = MLAseCalculator(

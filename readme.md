@@ -153,3 +153,4 @@ MLHessian-TSopt used NewtonNet v1:
 - https://github.com/THGLab/NewtonNet/blob/v1.0.1/newtonnet/utils/ase_interface.py
 - https://github.com/THGLab/NewtonNet/blob/v1.0.1/newtonnet/data/pyanitools.py
 - https://github.com/THGLab/NewtonNet/blob/v1.0.1/newtonnet/data/parse_raw.py#L538
+- instead of `combust.utils` use `newtonnet.utils`
