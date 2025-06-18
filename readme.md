@@ -166,8 +166,13 @@ Test the model:
 
 ## Useful things
 
-MLHessian-TSopt used NewtonNet v1:
-- https://github.com/THGLab/NewtonNet/blob/v1.0.1/newtonnet/utils/ase_interface.py
-- https://github.com/THGLab/NewtonNet/blob/v1.0.1/newtonnet/data/pyanitools.py
-- https://github.com/THGLab/NewtonNet/blob/v1.0.1/newtonnet/data/parse_raw.py#L538
-- instead of `combust.utils` use `newtonnet.utils`
+- The --model="ScaleShiftMACE" model includes a residual connection at first, which will usually improve the model’s accuracy but will make the model output incorrect isolated atoms energies. Use this model if you are not interested in bond-breaking energies
+- `--energy_key="REF_energy" --forces_key="REF_forces"`
+
+reasonable errors are:
+if using DFT reference energies:
+Energy RMSE: 0.1–4 eV/atom
+Forces RMSE: 0.5–4 eV/Å
+The initial loss for finetuning should be relatively small:
+Energy: 40–300 meV/atom
+Forces: 100–600 meV/Å
