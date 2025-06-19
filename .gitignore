@@ -23,6 +23,7 @@ Data/RGD1
 *.h5
 *.zip
 **/outputs_dft/
+*.ckpt
 
 # C extensions
 *.so
