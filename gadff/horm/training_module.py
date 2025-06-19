@@ -4,7 +4,6 @@ PyTorch Lightning module for training AlphaNet
 
 from typing import Dict, List, Optional, Tuple
 import os
-import pdb
 from pathlib import Path
 import torch
 from torch import nn
@@ -13,7 +12,7 @@ from torch_geometric.loader import DataLoader
 from torch.optim.lr_scheduler import (
     CosineAnnealingWarmRestarts,
     StepLR,
-    CosineAnnealingLR,
+    # CosineAnnealingLR,
 )
 from pytorch_lightning import LightningModule
 from torchmetrics import (
@@ -355,11 +354,8 @@ class PotentialModule(LightningModule):
             true_jacs_per_mol.append(subsampled_curr)
 
         # just copying what DDPLoss does for our special case
-        custom_loss = (
-            lambda jac, true_jac: torch.norm(jac - true_jac, p=2, dim=-1)
-            .sum(dim=1)
-            .mean(dim=0)
-        )
+        def custom_loss(jac, true_jac):
+            return torch.norm(jac - true_jac, p=2, dim=-1).sum(dim=1).mean(dim=0)
         losses = [
             custom_loss(-jac, true_jac)
             for jac, true_jac in zip(jacs_per_mol, true_jacs_per_mol)

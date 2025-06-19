@@ -149,7 +149,6 @@ def get_smallest_eigenvec_and_values_from_batched_hessians(batch, hessians, n_sm
 ###################################################################################################
 def test_hessian_utils():
     import os
-    import copy
     import time
     from torch_geometric.loader import DataLoader
     from gadff.dirutils import find_project_root

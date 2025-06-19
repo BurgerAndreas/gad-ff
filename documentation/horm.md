@@ -71,6 +71,34 @@ Run the following command to download the dataset:
 python download_horm_data_kaggle.py
 ```
 
+```bash
+ls ~/.cache/kagglehub/datasets/yunhonghan/hessian-dataset-for-optimizing-reactive-mliphorm/versions/5
+
+total 23G
+4.0K horm_data
+1.1G RGD1.lmdb
+21G ts1x_hess_train_big.lmdb
+620M ts1x-val.lmdb
+```
+
+Keys in the dataset:
+```python
+['force_constant', 'charges', 'energy', 'freq', 'forces', 'one_hot', 'pos', 'natoms', 'eig_values', 'hessian']
+```
+```python
+Shapes per key:
+forces: torch.Size([22, 3])
+freq: torch.Size([66])
+force_constant: torch.Size([66])
+charges: torch.Size([22])
+one_hot: torch.Size([22, 5])
+energy: torch.Size([])
+pos: torch.Size([22, 3])
+hessian: torch.Size([4356])
+eig_values: torch.Size([66])
+natoms: torch.Size([])
+```
+
 ## Model checkpoints
 Pre-trained model checkpoints can be downloaded from: https://huggingface.co/yhong55/HORM
 
