@@ -10,7 +10,7 @@ Key output shapes:
 """
 
 import torch
-from torch_geometric.loader import DataLoader
+from torch_geometric.loader import DataLoader as TGDataLoader
 from gadff.horm.training_module import PotentialModule, compute_extra_props
 from gadff.horm.ff_lmdb import LmdbDataset
 import os
@@ -48,7 +48,7 @@ def load_dataset(dataset_path, batch_size=4):
     print(f"Loading dataset from: {dataset_path}")
 
     dataset = LmdbDataset(dataset_path)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+    dataloader = TGDataLoader(dataset, batch_size=batch_size, shuffle=False)
 
     print(f"Dataset loaded with {len(dataset)} samples")
     return dataloader
@@ -84,7 +84,7 @@ def main():
 
     # Try different dataset paths in order of preference
     dataset_paths = [
-        "data/sample_100.lmdb",  # Local small dataset for testing
+        # "data/sample_100.lmdb",  # Local small dataset for testing
         os.path.expanduser(
             "~/.cache/kagglehub/datasets/yunhonghan/hessian-dataset-for-optimizing-reactive-mliphorm/versions/5/ts1x-val.lmdb"
         ),

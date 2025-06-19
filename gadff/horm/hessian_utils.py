@@ -150,7 +150,7 @@ def get_smallest_eigenvec_and_values_from_batched_hessians(batch, hessians, n_sm
 def test_hessian_utils():
     import os
     import time
-    from torch_geometric.loader import DataLoader
+    from torch_geometric.loader import DataLoader as TGDataLoader
     from gadff.dirutils import find_project_root
     from gadff.horm.training_module import PotentialModule, compute_extra_props
     from gadff.horm.ff_lmdb import LmdbDataset
@@ -206,7 +206,7 @@ def test_hessian_utils():
 
     print(f"Loading dataset from: {dataset_path}")
     dataset = LmdbDataset(dataset_path)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    dataloader = TGDataLoader(dataset, batch_size=batch_size, shuffle=True)
     print(f"Dataset loaded with {len(dataset)} samples")
 
 
@@ -271,7 +271,7 @@ def test_hessian_utils():
     max_batch_size = None
     for batch_size in range(1, 100):
         try:
-            dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+            dataloader = TGDataLoader(dataset, batch_size=batch_size, shuffle=True)
             for i, batch in enumerate(dataloader):
                 batch = batch.to(device)
                 batch = compute_extra_props(batch)
@@ -296,7 +296,7 @@ def test_hessian_utils():
     max_batch_size_wasteful = None
     for batch_size in range(1, 100):
         try:
-            dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+            dataloader = TGDataLoader(dataset, batch_size=batch_size, shuffle=True)
             for i, batch in enumerate(dataloader):
                 batch = batch.to(device)
                 batch = compute_extra_props(batch)
@@ -327,7 +327,7 @@ def test_hessian_utils():
     print("=" * 50)
     
     # dataset = dataset[:100]
-    dataloader = DataLoader(dataset, batch_size=max_batch_size_wasteful, shuffle=True)
+    dataloader = TGDataLoader(dataset, batch_size=max_batch_size_wasteful, shuffle=True)
     
     t0 = time.time()
     for i, batch in enumerate(dataloader):

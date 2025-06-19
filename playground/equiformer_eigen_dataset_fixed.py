@@ -1,24 +1,16 @@
 #!/usr/bin/env python3
 """
 Script to create new LMDB datasets with all original fields plus the smallest two eigenvalues and eigenvectors of the Hessian (from EquiformerV2).
-
-create a modified version of the dataset, which also includes the smallest two eigenvectors and eigenvalues of the Hessian of EquiformerV2. Make a plan for a script that loops through the dataset, computes the eigenvalues and eigenvectors, and saves the predictions. Think about if it is better to save a new dataset extra or to append new columns to the exisiting dataset
-
-Create a new dataset/file Use the same format as the original dataset. Add all keys of the old dataset to the new dataset. First test which keys are included in the original dataset. Make sure the ordering (indexing) between the old and the new dataset is also the same.
-
 Processes all three datasets:
 - RGD1.lmdb
 - ts1x_hess_train_big.lmdb
 - ts1x-val.lmdb
 For each, creates a -eigen.lmdb file with the new fields.
-
-rm -f ~/.cache/kagglehub/datasets/yunhonghan/hessian-dataset-for-optimizing-reactive-mliphorm/versions/5/ts1x-val-eigen.lmdb
 """
 import os
 import pickle
 import lmdb
 import torch
-import copy
 from torch_geometric.loader import DataLoader as TGDataLoader
 import torch.nn.functional as F
 from tqdm import tqdm
@@ -26,6 +18,7 @@ from gadff.horm.training_module import PotentialModule, compute_extra_props
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.horm.hessian_utils import compute_hessian_batches, get_smallest_eigenvec_and_values_from_batched_hessians
 from gadff.dirutils import find_project_root
+from torch_geometric.data import Batch
 
 root_dir = find_project_root()
 dataset_dir = os.path.expanduser(
@@ -33,8 +26,8 @@ dataset_dir = os.path.expanduser(
 )
 dataset_files = [
     "ts1x-val.lmdb",
-    "ts1x_hess_train_big.lmdb",
-    "RGD1.lmdb",
+    # "ts1x_hess_train_big.lmdb",
+    # "RGD1.lmdb",
 ]
 checkpoint_path = os.path.join(root_dir, "ckpt/eqv2.ckpt")
 
@@ -69,59 +62,59 @@ def create_eigen_dataset():
         print("Shapes per key:")
         for key in first_sample.keys():
             print(f"{key}: {first_sample[key].shape}")
-            
-        dataloader = TGDataLoader(dataset, batch_size=1, shuffle=False)
+        
+        dataloader = TGDataLoader(dataset, batch_size=batch_size, shuffle=False)
         
         # ---- Prepare output LMDB ----
         map_size = 2 * os.path.getsize(input_lmdb_path)  # generous size
         out_env = lmdb.open(output_lmdb_path, map_size=map_size)
         
         # ---- Main loop ----
-        num_samples_written = 0
         with out_env.begin(write=True) as txn:
-            for batch_idx, batch in tqdm(enumerate(dataloader), total=len(dataset)):
-                # Make a deep copy to avoid modifying the original data object in memory
-                data_copy = copy.deepcopy(batch)
-                if not save_hessian:
-                    # remove data.hessian from the copy
-                    if hasattr(data_copy, 'hessian'):
-                        del data_copy.hessian
+            pbar = tqdm(total=len(dataset), desc=f"Processing {dataset_file}")
+            for batch_idx, batch in enumerate(dataloader):
+                data_list = batch.to_data_list()  # Process each item in the batch
+                for i, data in enumerate(data_list):
+                    # Move to device and prepare
+                    data = data.to(device)
+                    data.pos.requires_grad_(True)
+                    
+                    # Create a batch of 1 for compute_extra_props
+                    single_item_batch = Batch.from_data_list([data])
+                    single_item_batch = compute_extra_props(single_item_batch)
+                    
+                    # Forward pass
+                    with torch.no_grad():
+                        energy, forces = model.potential.forward(single_item_batch)
+                    
+                    # Compute Hessian and eigenpairs
+                    hessians = compute_hessian_batches(single_item_batch, single_item_batch.pos, energy, forces)
+                    smallest_eigenvals, smallest_eigenvecs = get_smallest_eigenvec_and_values_from_batched_hessians(
+                        single_item_batch, hessians, n_smallest=2
+                    )
+                    
+                    # Flatten eigenvectors to shape [2, N_atoms*3]
+                    n_atoms = data.natoms.item() if hasattr(data.natoms, 'item') else int(data.natoms)
+                    eigvecs = smallest_eigenvecs[0].T.contiguous().reshape(2, n_atoms*3).cpu()
+                    eigvals = smallest_eigenvals[0].cpu()
+                    
+                    # Add new fields to the original data object
+                    data.hessian_eigenvalues = eigvals
+                    data.hessian_eigenvectors = eigvecs
+                    if not save_hessian:
+                        # remove data.hessian
+                        if hasattr(data, 'hessian'):
+                            del data.hessian
 
-                # Move to device and prepare
-                batch = batch.to(device)
-                batch.pos.requires_grad_(True)
-                batch = compute_extra_props(batch)
+                    # Serialize and write
+                    idx = batch_idx * batch_size + i
+                    txn.put(f"{idx}".encode("ascii"), pickle.dumps(data.to('cpu')))
                 
-                # Forward pass
-                energy, forces = model.potential.forward(batch)
-                
-                # Compute Hessian and eigenpairs
-                hessians = compute_hessian_batches(batch, batch.pos, energy, forces)
-                smallest_eigenvals, smallest_eigenvecs = get_smallest_eigenvec_and_values_from_batched_hessians(
-                    batch, hessians, n_smallest=2
-                )
-                
-                # Flatten eigenvectors to shape [2, N_atoms*3]
-                n_atoms = data_copy.natoms.item() if hasattr(data_copy.natoms, 'item') else int(data_copy.natoms)
-                eigvecs = smallest_eigenvecs[0].T.contiguous().reshape(2, n_atoms*3).cpu()
-                eigvals = smallest_eigenvals[0].cpu()
-                
-                # Add new fields to the original data object
-                data_copy.hessian_eigenvalues = eigvals
-                data_copy.hessian_eigenvectors = eigvecs
+                pbar.update(len(data_list))
+            pbar.close()
 
-                txn.put(
-                    f"{batch_idx}".encode("ascii"),
-                    pickle.dumps(data_copy, protocol=pickle.HIGHEST_PROTOCOL),
-                )
-                num_samples_written += 1
-                
-            # end of loop
-            txn.put(
-                "length".encode("ascii"),
-                pickle.dumps(num_samples_written, protocol=pickle.HIGHEST_PROTOCOL),
-            )
-        out_env.close()
+            # Store length
+            txn.put("length".encode("ascii"), pickle.dumps(len(dataset)))
         print(f"Done. New dataset written to {output_lmdb_path}")
         summary.append((dataset_file, len(dataset), output_lmdb_path))
 
@@ -157,7 +150,7 @@ def test_eigen_dataset():
         print("Make sure to run create_eigen_dataset() first!")
         return
     
-    # ---- Create dataloader ----
+    # ---- Create TGDataLoader ----
     # Limit to first few samples for testing
     test_indices = list(range(min(num_test_samples, len(eigen_dataset))))
     test_subset = torch.utils.data.Subset(eigen_dataset, test_indices)
@@ -248,4 +241,4 @@ def test_eigen_dataset():
 
 if __name__ == "__main__":
     create_eigen_dataset()
-    test_eigen_dataset()
+    test_eigen_dataset() 

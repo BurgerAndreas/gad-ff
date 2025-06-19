@@ -1,5 +1,5 @@
 from gadff.horm.training_module import PotentialModule, compute_extra_props
-from torch_geometric.loader import DataLoader
+from torch_geometric.loader import DataLoader as TGDataLoader
 from gadff.horm.ff_lmdb import LmdbDataset
 import torch
 from tqdm import tqdm
@@ -58,7 +58,7 @@ def evaluate(lmdb_path, checkpoint_path):
     ).potential.to("cuda")
 
     dataset = LmdbDataset(lmdb_path)
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
+    dataloader = TGDataLoader(dataset, batch_size=1, shuffle=False)
 
     # Initialize metrics
     total_e_error = 0.0

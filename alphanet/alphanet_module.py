@@ -8,7 +8,7 @@ from pathlib import Path
 import torch
 from torch import nn
 
-from torch_geometric.loader import DataLoader
+from torch_geometric.loader import DataLoader as TGDataLoader
 from torch.optim.lr_scheduler import (
     CosineAnnealingWarmRestarts,
     StepLR,
@@ -117,24 +117,24 @@ class PotentialModule(LightningModule):
         else:
             raise NotImplementedError
 
-    def train_dataloader(self) -> DataLoader:
-        return DataLoader(
+    def train_dataloader(self) -> TGDataLoader:
+        return TGDataLoader(
             self.train_dataset,
             batch_size=self.training_config["bz"],
             shuffle=True,
             num_workers=self.training_config["num_workers"],
         )
 
-    def val_dataloader(self) -> DataLoader:
-        return DataLoader(
+    def val_dataloader(self) -> TGDataLoader:
+        return TGDataLoader(
             self.val_dataset,
             batch_size=self.training_config["bz"] * 2,
             shuffle=False,
             num_workers=self.training_config["num_workers"],
         )
 
-    def test_dataloader(self) -> DataLoader:
-        return DataLoader(
+    def test_dataloader(self) -> TGDataLoader:
+        return TGDataLoader(
             self.test_dataset,
             batch_size=self.training_config["bz"],
             shuffle=False,
