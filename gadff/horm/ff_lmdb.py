@@ -124,11 +124,45 @@ class LmdbDataset(Dataset):
             self.env.close()
 
 
+def remove_hessian_transform(data):
+    # Remove 'hessian' if present as attribute
+    if hasattr(data, 'hessian'):
+        delattr(data, 'hessian')
+    # Remove 'hessian' if present as key (for dict-like)
+    # if isinstance(data, dict) and 'hessian' in data:
+    #     del data['hessian']
+    return data
+
+
 if __name__ == "__main__":
-    lmdb_path = (
-        "/kaggle/input/hessian-dataset-for-optimizing-reactive-mliphorm/ts1x-val.lmdb"
+    import os
+    
+    dataset_dir = os.path.expanduser(
+        "~/.cache/kagglehub/datasets/yunhonghan/hessian-dataset-for-optimizing-reactive-mliphorm/versions/5/"
     )
+    dataset_files = [
+        "ts1x-val.lmdb",
+        "ts1x_hess_train_big.lmdb",
+        "RGD1.lmdb",
+    ]
+    lmdb_path = os.path.join(dataset_dir, dataset_files[0])
     lmdb_dataset = LmdbDataset(lmdb_path)
     print("length of lmdb_dataset:", len(lmdb_dataset))
     print("first element of lmdb_dataset:", lmdb_dataset[0])
     print("first element of lmdb_dataset.pos:", lmdb_dataset[0].pos)
+    first_elem = lmdb_dataset[0]
+    print('')
+    print("hasattr(first_elem, 'hessian'):", hasattr(first_elem, 'hessian'))
+    print("'hessian' in first_elem:", 'hessian' in first_elem)
+
+    # Test with transform that removes hessian
+    lmdb_dataset_no_hessian = LmdbDataset(lmdb_path, transform=remove_hessian_transform)
+    first_elem = lmdb_dataset_no_hessian[0]
+    print('')
+    print("hasattr(first_elem, 'hessian'):", hasattr(first_elem, 'hessian'))
+    print("'hessian' in first_elem:", 'hessian' in first_elem)
+
+    for fname in dataset_files:
+        path = os.path.join(dataset_dir, fname)
+        ds = LmdbDataset(path)
+        print(f"Size of {fname}: {len(ds)}")

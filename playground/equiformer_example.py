@@ -16,7 +16,7 @@ from gadff.horm.ff_lmdb import LmdbDataset
 import os
 from gadff.units import ev_angstrom_2_to_hartree_bohr_2
 from gadff.dirutils import find_project_root
-from gadff.horm.hessian_utils import compute_hessian_batches, get_smallest_eigenvec_and_values_from_batched_hessians
+from gadff.horm.hessian_utils import compute_hessian_batches, get_smallest_eigen_from_batched_hessians
 
 
 def load_model(checkpoint_path):
@@ -132,7 +132,7 @@ def main():
             print(f"  Hessian shape: {hessians[0].shape}")
 
             # Compute the two smallest eigenvalues and corresponding eigenvectors
-            smallest_eigenvals, smallest_eigenvecs = get_smallest_eigenvec_and_values_from_batched_hessians(
+            smallest_eigenvals, smallest_eigenvecs = get_smallest_eigen_from_batched_hessians(
                 batch, hessians, n_smallest=2
             )
             print(f"  Two smallest eigenvalues: {smallest_eigenvals[0]}")

@@ -79,6 +79,10 @@ total 23G
 1.1G RGD1.lmdb
 21G ts1x_hess_train_big.lmdb
 620M ts1x-val.lmdb
+
+Size of ts1x-val.lmdb: 50844
+Size of ts1x_hess_train_big.lmdb: 1725362
+Size of RGD1.lmdb: 60000
 ```
 
 Keys in the dataset:
@@ -128,7 +132,7 @@ wget https://huggingface.co/yhong55/HORM/resolve/main/eqv2.ckpt -O ckpt/eqv2.ckp
 ### Dataset
 - The models were trained on the HORM dataset.
 - The geometries in the HORM dataset are sampled from Transition1x and RGD1. 
-- All sampled geometries were recomputed by GPU4PYSCF at the ω B97X/6-31G* level of theory to obtain energies, forces, and Hessian
+- All sampled geometries were recomputed by GPU4PYSCF at the $\omega$B97X/6-31G* level of theory to obtain energies, forces, and Hessian
 - T1x: 9,000 reactions to the training set and the remaining 1,073 reactions to the validation set. From these, 1,725,362 geometries corresponding to the training reactions and 50,844 geometries from the validation reactions were used to train the models.
 - RGD1: From approximately 950,000 available reactions, we randomly selected 80,000 and sampled up to 15 geometries per reaction along their IRC trajectories. From this pool, 60,000 geometries were randomly chosen.
 

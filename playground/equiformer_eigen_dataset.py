@@ -23,16 +23,34 @@ from torch_geometric.loader import DataLoader as TGDataLoader
 import torch.nn.functional as F
 from tqdm import tqdm
 from gadff.horm.training_module import PotentialModule, compute_extra_props
-from gadff.horm.ff_lmdb import LmdbDataset
-from gadff.horm.hessian_utils import compute_hessian_batches, get_smallest_eigenvec_and_values_from_batched_hessians
+from gadff.horm.ff_lmdb import LmdbDataset, remove_hessian_transform
+from gadff.horm.hessian_utils import compute_hessian_batches, predict_eigen_from_batch, compute_hessian_single_batch, get_smallest_eigen_from_batched_hessians
 from gadff.dirutils import find_project_root
+
+def remove_dir_recursively(path):
+    if os.path.exists(path):
+        if os.path.isdir(path):
+            # Remove all files in the directory before removing the directory itself
+            for filename in os.listdir(path):
+                file_path = os.path.join(path, filename)
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.remove(file_path)
+                elif os.path.isdir(file_path):
+                    # Recursively remove subdirectories if any
+                    import shutil
+                    shutil.rmtree(file_path)
+            os.rmdir(path)
+        else:
+            os.remove(path)
+    # success if path does not exist anymore
+    return not os.path.exists(path)
 
 root_dir = find_project_root()
 dataset_dir = os.path.expanduser(
     "~/.cache/kagglehub/datasets/yunhonghan/hessian-dataset-for-optimizing-reactive-mliphorm/versions/5/"
 )
 dataset_files = [
-    "ts1x-val.lmdb",
+    # "ts1x-val.lmdb",
     "ts1x_hess_train_big.lmdb",
     "RGD1.lmdb",
 ]
@@ -58,9 +76,19 @@ def create_eigen_dataset():
     for dataset_file in dataset_files:
         input_lmdb_path = os.path.join(dataset_dir, dataset_file)
         output_lmdb_path = input_lmdb_path.replace(".lmdb", "-eigen.lmdb")
+        # Clean up old database files if they exist
+        successfully_removed = remove_dir_recursively(output_lmdb_path)
+        remove_dir_recursively(f"{output_lmdb_path}-lock")
+        if not successfully_removed:
+            raise RuntimeError(f"Output database file {output_lmdb_path} already exists!")
+        
         print(f"\nProcessing {input_lmdb_path} -> {output_lmdb_path}")
         # ---- Load dataset ----
-        dataset = LmdbDataset(input_lmdb_path)
+        
+        if save_hessian:
+            dataset = LmdbDataset(input_lmdb_path)
+        else:
+            dataset = LmdbDataset(input_lmdb_path, transform=remove_hessian_transform)
         print(f"Loaded dataset with {len(dataset)} samples from {input_lmdb_path}")
         
         # ---- Print keys of first sample ----
@@ -77,15 +105,12 @@ def create_eigen_dataset():
         out_env = lmdb.open(output_lmdb_path, map_size=map_size)
         
         # ---- Main loop ----
+        print("")
         num_samples_written = 0
         with out_env.begin(write=True) as txn:
             for batch_idx, batch in tqdm(enumerate(dataloader), total=len(dataset)):
                 # Make a deep copy to avoid modifying the original data object in memory
                 data_copy = copy.deepcopy(batch)
-                if not save_hessian:
-                    # remove data.hessian from the copy
-                    if hasattr(data_copy, 'hessian'):
-                        del data_copy.hessian
 
                 # Move to device and prepare
                 batch = batch.to(device)
@@ -96,15 +121,12 @@ def create_eigen_dataset():
                 energy, forces = model.potential.forward(batch)
                 
                 # Compute Hessian and eigenpairs
-                hessians = compute_hessian_batches(batch, batch.pos, energy, forces)
-                smallest_eigenvals, smallest_eigenvecs = get_smallest_eigenvec_and_values_from_batched_hessians(
-                    batch, hessians, n_smallest=2
-                )
+                smallest_eigenvals, smallest_eigenvecs = predict_eigen_from_batch(batch=batch, model=model)
                 
                 # Flatten eigenvectors to shape [2, N_atoms*3]
                 n_atoms = data_copy.natoms.item() if hasattr(data_copy.natoms, 'item') else int(data_copy.natoms)
-                eigvecs = smallest_eigenvecs[0].T.contiguous().reshape(2, n_atoms*3).cpu()
-                eigvals = smallest_eigenvals[0].cpu()
+                eigvecs = smallest_eigenvecs.T.contiguous().reshape(2, n_atoms*3).cpu()
+                eigvals = smallest_eigenvals.cpu()
                 
                 # Add new fields to the original data object
                 data_copy.hessian_eigenvalues = eigvals

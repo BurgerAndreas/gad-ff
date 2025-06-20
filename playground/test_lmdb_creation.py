@@ -75,20 +75,20 @@ def main():
         print("No dataset found! Please check dataset paths.")
         return
 
-    output_db_path = os.path.join(root_dir, "data/test_10_samples_with_pred.lmdb")
+    output_lmdb_path = os.path.join(root_dir, "data/test_10_samples_with_pred.lmdb")
     # Clean up old database files if they exist
-    if os.path.exists(output_db_path):
-        os.remove(output_db_path)
-    if os.path.exists(f"{output_db_path}-lock"):
-        os.remove(f"{output_db_path}-lock")
-    if os.path.exists(output_db_path):
-        raise RuntimeError(f"Output database file {output_db_path} already exists!")
+    if os.path.exists(output_lmdb_path):
+        os.remove(output_lmdb_path)
+    if os.path.exists(f"{output_lmdb_path}-lock"):
+        os.remove(f"{output_lmdb_path}-lock")
+    if os.path.exists(output_lmdb_path):
+        raise RuntimeError(f"Output database file {output_lmdb_path} already exists!")
 
-    db_dir = os.path.dirname(output_db_path)
+    db_dir = os.path.dirname(output_lmdb_path)
     if not os.path.exists(db_dir):
         os.makedirs(db_dir)
 
-    target_env = lmdb.open(output_db_path, map_size=1099511627776, subdir=False)
+    target_env = lmdb.open(output_lmdb_path, map_size=1099511627776, subdir=False)
 
     model, device = load_model(checkpoint_path)
     dataloader = load_dataset(dataset_path, batch_size=1)
@@ -121,7 +121,7 @@ def main():
             pickle.dumps(num_samples_written, protocol=pickle.HIGHEST_PROTOCOL),
         )
     target_env.close()
-    print(f"\nSuccessfully created LMDB dataset at: {output_db_path}")
+    print(f"\nSuccessfully created LMDB dataset at: {output_lmdb_path}")
 
 
 def verify_lmdb_creation():
