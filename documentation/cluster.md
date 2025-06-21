@@ -37,25 +37,18 @@ pip3 install --no-cache-dir torch-geometric
 
 pip3 install --no-cache-dir numpy>=1.26.0 scipy scikit-learn pandas ase==3.25.0 plotly imageio seaborn black tqdm joblib einops ipykernel toml omegaconf nbformat nglview py3Dmol==2.5.0 hydra-submitit-launcher hydra-core==1.* wandb==0.19.11 pyyaml dxtb[libcint] torchmetrics joblib submitit rmsd pytorch_warmup e3nn==0.5.1 fairchem-core==1.10.0 huggingface_hub>=0.27.1 kagglehub>=0.3.12 networkx==3.4.2 pydantic==2.11.4 opt-einsum-fx==0.1.4 lmdb==1.5.1 h5py>=3.10.0 progressbar==2.5
 pip3 install --no-cache-dir triton==2.2.0 pytorch-lightning==2.5.1.post0
-pip3 install --no-cache-dir rdkit==2024.9.6
 pip3 install les@git+https://github.com/ChengUCB/les
 
-# if you are using mace
-# pip3 install --no-cache-dir cuequivariance-ops-torch-cu12==0.5.0 cuequivariance-torch==0.5.0 
-
-# mamba install openmm==8.2.0 openbabel=3.1.1
+# compute canada
+# pip3 install --no-cache-dir rdkit==2024.9.6
+module load rdkit/2023.09.5 openmm/8.2.0 openbabel/3.1.1
 ```
 
-rdkit installation failed on compute canada, so we force it
+If you want to use MACE
 ```bash
-# download directly from 
-# https://pypi.org/project/rdkit/2024.9.6/#rdkit-2024.9.6-cp311-cp311-manylinux_2_28_x86_64.whl
-wget https://files.pythonhosted.org/packages/cc/3f/472c33312ca8a55242fc2cf6179809f4a967185e9dc6e76ea28ddd37a097/rdkit-2024.9.6-cp311-cp311-manylinux_2_28_x86_64.whl
-# rename to bypass 'is not a supported wheel on this platform'
-cp rdkit-2024.9.6-cp311-cp311-manylinux_2_28_x86_64.whl rdkit-2024.9.6-py3-none-any.whl
-
-# overwrite any kinds of compute canada restrictions
-PIP_CONFIG_FILE=/dev/null pip3 install rdkit-2024.9.6-py3-none-any.whl --force-reinstall --no-deps --no-build-isolation --no-cache-dir --find-links "" --constraint /dev/null --no-index --no-warn-script-location --disable-pip-version-check
+pip install cuequivariance cuequivariance-torch cuequivariance-ops-torch-cu12
+git clone https://github.com/ACEsuit/mace.git
+pip install -e ./mace
 ```
 
 
