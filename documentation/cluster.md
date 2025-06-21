@@ -24,7 +24,8 @@ module load gcc/12.3
 ```
 
 ```bash
-pip3 install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cu126
+pip3 uninstall torch torchvision torchaudio torch-scatter torch-sparse torch-cluster torch-spline-conv -y
+pip3 install --no-cache-dir torch==2.4.1 --index-url https://download.pytorch.org/whl/cu126
 
 # check this works
 gadenv/bin/python
@@ -32,7 +33,7 @@ import torch
 exit()
 
 # install the rest
-pip3 install --no-cache-dir --no-index pyg-lib torch-scatter torch-sparse torch-cluster torch-spline-conv -f https://data.pyg.org/whl/torch-2.7.1+cu128.html
+pip3 install --no-cache-dir --no-index pyg-lib torch-scatter torch-sparse torch-cluster torch-spline-conv -f https://data.pyg.org/whl/torch-2.4.1+cu126.html
 pip3 install --no-cache-dir torch-geometric
 
 pip3 install --no-cache-dir numpy>=1.26.0 scipy scikit-learn pandas ase==3.25.0 plotly imageio seaborn black tqdm joblib einops ipykernel toml omegaconf nbformat nglview py3Dmol==2.5.0 hydra-submitit-launcher hydra-core==1.* wandb==0.19.11 pyyaml dxtb[libcint] torchmetrics joblib submitit rmsd pytorch_warmup e3nn==0.5.1 fairchem-core==1.10.0 huggingface_hub>=0.27.1 kagglehub>=0.3.12 networkx==3.4.2 pydantic==2.11.4 opt-einsum-fx==0.1.4 lmdb==1.5.1 h5py>=3.10.0 progressbar==2.5
@@ -41,7 +42,9 @@ pip3 install les@git+https://github.com/ChengUCB/les
 
 # compute canada
 # pip3 install --no-cache-dir rdkit==2024.9.6
-module load rdkit/2023.09.5 openmm/8.2.0 openbabel/3.1.1
+module load rdkit/2023.09.5 openmm/8.2.0 openbabel/3.1.1 mctc-lib/0.3.1
+
+pip install -e .
 ```
 
 If you want to use MACE
