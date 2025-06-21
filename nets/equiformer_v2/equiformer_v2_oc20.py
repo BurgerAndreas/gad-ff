@@ -477,7 +477,7 @@ class EquiformerV2_OC20(BaseModel):
         )
         energy.index_add_(0, data.batch, node_energy.view(-1))
         energy = energy / _AVG_NUM_NODES
-        hessian_ij = self.grad_hess_ij(energy=energy, posj=posj, posi=posi)
+        # hessian_ij = self.grad_hess_ij(energy=energy, posj=posj, posi=posi)
         ###############################################################
         # Force estimation
         ###############################################################

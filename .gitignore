@@ -11,7 +11,7 @@ Icon
 
 .matplotlib/
 outputs/
-outlsurm/
+outslurm/
 
 *.whl
 *env
