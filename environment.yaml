@@ -48,7 +48,7 @@ dependencies:
     - triton==2.2.0
     - lmdb==1.5.1
     - py3Dmol==2.5.0
-    - h5py==3.14.0
+    - h5py>=3.10.0
     - progressbar==2.5
     # Editable install with no version control (mace-torch==0.3.14)
     - pytorch-lightning==2.5.1.post0
