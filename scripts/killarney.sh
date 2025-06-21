@@ -9,14 +9,14 @@
 #SBATCH --output=/project/aip-aspuru/aburger/gad-ff/outslurm/slurm-%j.txt 
 #SBATCH --error=/project/aip-aspuru/aburger/gad-ff/outslurm/slurm-%j.txt
 
+# activate venv
+source ${PYTHONBIN}/activate
+
 # get environment variables
 source .env
 
-module load cuda/12.6
-module load gcc/12.3
-
-# activate environment
-# source ${PYTHONBIN}/activate
+#module load cuda/12.6
+#module load gcc/12.3
 
 echo `date`: Job $SLURM_JOB_ID is allocated resources.
 echo "Inside slurm_launcher.slrm ($0). received arguments: $@"
