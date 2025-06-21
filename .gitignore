@@ -13,6 +13,8 @@ Icon
 outputs/
 outlsurm/
 
+*.whl
+*env
 
 # sub repos
 Data/Transition1x
