@@ -150,6 +150,7 @@ if __name__ == "__main__":
     print("length of lmdb_dataset:", len(lmdb_dataset))
     print("first element of lmdb_dataset:", lmdb_dataset[0])
     print("first element of lmdb_dataset.pos:", lmdb_dataset[0].pos)
+    print("first element of lmdb_dataset.ae:", lmdb_dataset[0].ae)
     first_elem = lmdb_dataset[0]
     print('')
     print("hasattr(first_elem, 'hessian'):", hasattr(first_elem, 'hessian'))

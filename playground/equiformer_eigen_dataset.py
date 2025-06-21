@@ -2,9 +2,12 @@
 """
 Script to create new LMDB datasets with all original fields plus the smallest two eigenvalues and eigenvectors of the Hessian (from EquiformerV2).
 
-create a modified version of the dataset, which also includes the smallest two eigenvectors and eigenvalues of the Hessian of EquiformerV2. Make a plan for a script that loops through the dataset, computes the eigenvalues and eigenvectors, and saves the predictions. Think about if it is better to save a new dataset extra or to append new columns to the exisiting dataset
-
-Create a new dataset/file Use the same format as the original dataset. Add all keys of the old dataset to the new dataset. First test which keys are included in the original dataset. Make sure the ordering (indexing) between the old and the new dataset is also the same.
+Creates a modified version of the dataset, which also includes the smallest two eigenvectors and eigenvalues of the Hessian of EquiformerV2. 
+The scripts loops through the dataset, computes the eigenvalues and eigenvectors, and saves the predictions. 
+Saves a new dataset extra instead of appending new columns to the exisiting dataset.
+Uses the same format as the original dataset. 
+Adds all keys of the old dataset to the new dataset. 
+Ensures that the ordering (indexing) between the old and the new dataset is also the same.
 
 Processes all three datasets:
 - RGD1.lmdb
@@ -12,7 +15,10 @@ Processes all three datasets:
 - ts1x-val.lmdb
 For each, creates a -eigen.lmdb file with the new fields.
 
-rm -f ~/.cache/kagglehub/datasets/yunhonghan/hessian-dataset-for-optimizing-reactive-mliphorm/versions/5/ts1x-val-eigen.lmdb
+Saves the new dataset to 
+~/.cache/kagglehub/datasets/yunhonghan/hessian-dataset-for-optimizing-reactive-mliphorm/versions/5/ts1x-val-eigen.lmdb
+
+Quite slow, takes ~10h for 50k samples, and ~2 weeks for 1.7M samples.
 """
 import os
 import pickle
@@ -50,20 +56,27 @@ dataset_dir = os.path.expanduser(
     "~/.cache/kagglehub/datasets/yunhonghan/hessian-dataset-for-optimizing-reactive-mliphorm/versions/5/"
 )
 dataset_files = [
-    # "ts1x-val.lmdb",
-    "ts1x_hess_train_big.lmdb",
-    "RGD1.lmdb",
+    # "ts1x-val.lmdb", # 50844 samples
+    # "ts1x_hess_train_big.lmdb", # 1725362 samples
+    "RGD1.lmdb", # 60000 samples
 ]
 checkpoint_path = os.path.join(root_dir, "ckpt/eqv2.ckpt")
 
-def create_eigen_dataset():
+def create_eigen_dataset(save_hessian=False):
+    """
+    Creates a new dataset with the smallest two eigenvalues and eigenvectors of the Hessian of EquiformerV2.
+    Saves the new dataset to a new file.
+    Adds all keys of the old dataset to the new dataset.
+    Ensures that the ordering (indexing) between the old and the new dataset is also the same.
+
+    Args:
+        save_hessian (bool): If True, saves the Hessian of the original dataset again.
+            The Hessian is by far the largest part of the dataset.
+            If False, removes the Hessian from the original dataset.
+    """
     # ---- Config ----
     batch_size = 1  # must be 1 for per-sample Hessian
     
-    # If to save the Hessian of the original dataset again
-    # It is by far the largest part of the dataset
-    save_hessian = False
-
     # ---- Load model once ----
     print(f"Loading model from: {checkpoint_path}")
     model = PotentialModule.load_from_checkpoint(checkpoint_path, strict=False)
@@ -111,22 +124,30 @@ def create_eigen_dataset():
             for batch_idx, batch in tqdm(enumerate(dataloader), total=len(dataset)):
                 # Make a deep copy to avoid modifying the original data object in memory
                 data_copy = copy.deepcopy(batch)
+                
+                # atomization energy. shape used by equiformerv2
+                if not hasattr(batch, 'ae'):
+                    batch.ae = torch.zeros_like(batch.energy)
+                
+                tqdm.write(f"Size of batch: {batch.pos.shape}")
 
                 # Move to device and prepare
                 batch = batch.to(device)
-                batch.pos.requires_grad_(True)
+                # batch.pos.requires_grad_(True)
                 batch = compute_extra_props(batch)
                 
                 # Forward pass
                 energy, forces = model.potential.forward(batch)
                 
                 # Compute Hessian and eigenpairs
-                smallest_eigenvals, smallest_eigenvecs = predict_eigen_from_batch(batch=batch, model=model)
+                # smallest_eigenvals, smallest_eigenvecs = predict_eigen_from_batch(batch=batch, model=model)
+                hessians = compute_hessian_batches(batch, batch.pos, None, forces)
+                smallest_eigenvals, smallest_eigenvecs = get_smallest_eigen_from_batched_hessians(batch, hessians, n_smallest=2)
                 
                 # Flatten eigenvectors to shape [2, N_atoms*3]
                 n_atoms = data_copy.natoms.item() if hasattr(data_copy.natoms, 'item') else int(data_copy.natoms)
-                eigvecs = smallest_eigenvecs.T.contiguous().reshape(2, n_atoms*3).cpu()
-                eigvals = smallest_eigenvals.cpu()
+                eigvecs = smallest_eigenvecs[0].T.contiguous().reshape(2, n_atoms*3).cpu()
+                eigvals = smallest_eigenvals[0].cpu()
                 
                 # Add new fields to the original data object
                 data_copy.hessian_eigenvalues = eigvals
@@ -150,6 +171,7 @@ def create_eigen_dataset():
     print("\nAll datasets processed.")
     for fname, n, outpath in summary:
         print(f"{fname}: {n} samples -> {outpath}") 
+    return summary
 
 def test_eigen_dataset():
     """
