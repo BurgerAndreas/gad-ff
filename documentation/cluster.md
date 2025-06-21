@@ -43,7 +43,19 @@ pip3 install les@git+https://github.com/ChengUCB/les
 # if you are using mace
 # pip3 install --no-cache-dir cuequivariance-ops-torch-cu12==0.5.0 cuequivariance-torch==0.5.0 
 
-# mamba install openmm==8.2.0 openbabel=3.1.1 conda-forge::rdkit=2024 -y
+# mamba install openmm==8.2.0 openbabel=3.1.1
+```
+
+rdkit installation failed on compute canada, so we force it
+```bash
+# download directly from 
+# https://pypi.org/project/rdkit/2024.9.6/#rdkit-2024.9.6-cp311-cp311-manylinux_2_28_x86_64.whl
+wget https://files.pythonhosted.org/packages/cc/3f/472c33312ca8a55242fc2cf6179809f4a967185e9dc6e76ea28ddd37a097/rdkit-2024.9.6-cp311-cp311-manylinux_2_28_x86_64.whl
+# rename to bypass 'is not a supported wheel on this platform'
+cp rdkit-2024.9.6-cp311-cp311-manylinux_2_28_x86_64.whl rdkit-2024.9.6-py3-none-any.whl
+
+# overwrite any kinds of compute canada restrictions
+PIP_CONFIG_FILE=/dev/null pip3 install rdkit-2024.9.6-py3-none-any.whl --force-reinstall --no-deps --no-build-isolation --no-cache-dir --find-links "" --constraint /dev/null --no-index --no-warn-script-location --disable-pip-version-check
 ```
 
 
