@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -A aip-aspuru
 #SBATCH -D /project/aip-aspuru/aburger/gad-ff
-#SBATCH --time=60:00:00
+#SBATCH --time=71:00:00
 #SBATCH --gres=gpu:l40s:1 
 #SBATCH --mem=128GB
 #SBATCH --job-name=gad 
