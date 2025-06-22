@@ -150,8 +150,10 @@ class EquiformerV2_OC20(BaseModel):
         do_eigvec_2=False,
         do_eigval_1=False,
         do_eigval_2=False,
+        **kwargs
     ):
         super().__init__()
+        print(f"EquiformerV2_OC20: ignoring kwargs: {kwargs}")
 
         self.use_pbc = use_pbc
         self.regress_forces = regress_forces
