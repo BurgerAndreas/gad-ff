@@ -26,6 +26,8 @@ Data/RGD1
 *.zip
 **/outputs_dft/
 *.ckpt
+*.lmdb
+*.lmdb-lock
 
 # C extensions
 *.so

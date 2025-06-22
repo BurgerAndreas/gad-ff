@@ -27,7 +27,7 @@ from gadff.horm.utils import average_over_batch_metrics, pretty_print
 import gadff.horm.utils as diff_utils
 from alphanet.models.alphanet import AlphaNet
 import yaml
-from gadff.dirutils import find_project_root
+from gadff.path_config import find_project_root
 
 
 LR_SCHEDULER = {

@@ -22,7 +22,7 @@ try:
     from .gemnet_gp.gemnet import GraphParallelGemNetT as GraphParallelGemNetT
     from .gemnet_oc.gemnet_oc import GemNetOC
 except ImportError as e:
-    print("Will not be able to use GemNetOC. Error: ", e)
+    print("Will not be able to use GemNet. Error: ", e)
 
 from .forcenet import ForceNet
 from .painn.painn import PaiNN

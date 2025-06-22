@@ -25,7 +25,7 @@ from tqdm import tqdm
 from gadff.horm.training_module import PotentialModule, compute_extra_props
 from gadff.horm.ff_lmdb import LmdbDataset, remove_hessian_transform
 from gadff.horm.hessian_utils import compute_hessian_batches, predict_eigen_from_batch, compute_hessian_single_batch, get_smallest_eigen_from_batched_hessians
-from gadff.dirutils import find_project_root
+from gadff.path_config import find_project_root
 
 def remove_dir_recursively(path):
     if os.path.exists(path):

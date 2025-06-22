@@ -12,10 +12,10 @@ import torch
 from torch_geometric.data import Batch
 from torch_geometric.loader import DataLoader as TGDataLoader
 
-from gadff.dirutils import find_project_root
+from gadff.path_config import find_project_root
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.horm.training_module import PotentialModule, compute_extra_props
-
+from gadff.path_config import DATASET_DIR_HORM_EIGEN, DATASET_FILES_HORM, DATA_PATH_HORM_SAMPLE, CHECKPOINT_PATH_EQUIFORMER_HORM
 
 def load_model(checkpoint_path):
     """Load EquiformerV2 model from checkpoint."""
@@ -33,14 +33,6 @@ def load_model(checkpoint_path):
     print(f"Model loaded on device: {device}")
     return model, device
 
-
-def load_dataset(dataset_path, batch_size=1):
-    """Load HORM dataset and create DataLoader."""
-    print(f"Loading dataset from: {dataset_path}")
-    dataset = LmdbDataset(dataset_path)
-    dataloader = TGDataLoader(dataset, batch_size=batch_size, shuffle=False)
-    print(f"Dataset loaded with {len(dataset)} samples")
-    return dataloader
 
 
 def predict_forces(model, batch, device):
@@ -60,22 +52,13 @@ def main():
     """Main function to run prediction and create new dataset."""
     root_dir = find_project_root()
     print(f"Root directory: {root_dir}")
-    checkpoint_path = os.path.join(root_dir, "ckpt/eqv2.ckpt")
-    dataset_paths = [
-        "data/sample_100.lmdb",
-        os.path.expanduser(
-            "~/.cache/kagglehub/datasets/yunhonghan/hessian-dataset-for-optimizing-reactive-mliphorm/versions/5/ts1x-val.lmdb"
-        ),
-        os.path.expanduser(
-            "~/.cache/kagglehub/datasets/yunhonghan/hessian-dataset-for-optimizing-reactive-mliphorm/versions/5/RGD1.lmdb"
-        ),
-    ]
-    dataset_path = next((path for path in dataset_paths if os.path.exists(path)), None)
-    if dataset_path is None:
-        print("No dataset found! Please check dataset paths.")
-        return
+    checkpoint_path = CHECKPOINT_PATH_EQUIFORMER_HORM
+    dataset_path = DATA_PATH_HORM_SAMPLE
 
-    output_lmdb_path = os.path.join(root_dir, "data/test_10_samples_with_pred.lmdb")
+    output_lmdb_path = os.path.join(
+        os.path.dirname(DATA_PATH_HORM_SAMPLE),
+        "test_10_samples_with_pred.lmdb"
+    )
     # Clean up old database files if they exist
     if os.path.exists(output_lmdb_path):
         os.remove(output_lmdb_path)
@@ -91,7 +74,8 @@ def main():
     target_env = lmdb.open(output_lmdb_path, map_size=1099511627776, subdir=False)
 
     model, device = load_model(checkpoint_path)
-    dataloader = load_dataset(dataset_path, batch_size=1)
+    dataset = LmdbDataset(dataset_path)
+    dataloader = TGDataLoader(dataset, batch_size=1, shuffle=False)
 
     print("\n" + "=" * 50)
     print("Processing samples and writing to LMDB")
@@ -104,6 +88,14 @@ def main():
                 break
             print(f"Processing and writing sample {i+1}...")
             data_object = copy.deepcopy(batch.to_data_list()[0])
+            
+            if i == 0:
+                print("batch", type(batch))
+                print("batch.to_data_list()", type(batch.to_data_list()))
+                print("batch.to_data_list()[0]", type(batch.to_data_list()[0]))
+                sample = dataset[i]
+                print("sample", type(sample))
+            
             forces = predict_forces(model, batch, device)
             data_object.forces_pred = forces.cpu().detach()
 
