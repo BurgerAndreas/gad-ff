@@ -52,10 +52,14 @@ def setup_training(cfg: DictConfig):
 
     pm = EigenPotentialModule(model_config, optimizer_config, training_config)
 
+    wandb_kwargs = {}
+    if not cfg.use_wandb:
+        wandb_kwargs["mode"] = "disabled"
     logger = wandb_logger = WandbLogger(
         project=cfg.project,
         log_model=False,
         name=run_name,
+        **wandb_kwargs,
     )
 
     ckpt_output_path = f"checkpoint/{cfg.project}/{wandb_logger.experiment.name}"
@@ -106,4 +110,8 @@ def main(cfg: DictConfig) -> None:
     trainer.fit(pm, ckpt_path=CHECKPOINT_PATH_EQUIFORMER_HORM)
 
 if __name__ == "__main__":
+    """Try:
+    python scripts/train_eigen.py +extra=debug
+    python scripts/train_eigen.py training.bz=2
+    """
     main()

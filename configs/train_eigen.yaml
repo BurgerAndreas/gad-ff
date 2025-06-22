@@ -56,3 +56,5 @@ pltrainer:
   accumulate_grad_batches: 1
   limit_train_batches: 1600
   limit_val_batches: 80 
+
+use_wandb: true
