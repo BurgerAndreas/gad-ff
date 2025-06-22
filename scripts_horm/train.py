@@ -15,7 +15,7 @@ from pytorch_lightning.strategies.ddp import DDPStrategy
 from gadff.horm.training_module import PotentialModule
 
 
-model_type = "EquiformerV2"
+model_type = "AlphaNet"
 version = "jac2"
 project = "horm-test"
 run_name = f"{model_type}-{version}-" + str(uuid4()).split("-")[-1]

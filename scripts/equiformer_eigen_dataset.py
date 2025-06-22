@@ -76,7 +76,10 @@ def create_eigen_dataset(save_hessian=False, dataset_file="ts1x-val.lmdb"):
 
     summary = []
 
-    input_lmdb_path = os.path.join(DATASET_DIR_HORM_EIGEN, dataset_file)
+    if os.path.exists(dataset_file):
+        input_lmdb_path = os.path.abspath(dataset_file)
+    else:
+        input_lmdb_path = os.path.join(DATASET_DIR_HORM_EIGEN, dataset_file)
     output_lmdb_path = input_lmdb_path.replace(".lmdb", "-eigen.lmdb")
     # Clean up old database files if they exist
     successfully_removed = remove_dir_recursively(output_lmdb_path)
@@ -174,6 +177,8 @@ def create_eigen_dataset(save_hessian=False, dataset_file="ts1x-val.lmdb"):
 
 if __name__ == "__main__":
     """Try:
+    python scripts/equiformer_eigen_dataset.py --dataset-file data/sample_100.lmdb
+    
     python scripts/equiformer_eigen_dataset.py --dataset-file ts1x-val.lmdb
     python scripts/equiformer_eigen_dataset.py --dataset-file RGD1.lmdb
     python scripts/equiformer_eigen_dataset.py --dataset-file ts1x_hess_train_big.lmdb

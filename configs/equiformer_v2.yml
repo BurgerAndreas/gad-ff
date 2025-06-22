@@ -1,11 +1,11 @@
-
+# @package _global_
 # from https://github.com/deepprinciple/HORM
 
-trainer: forces_v2
+# ocp_trainer: forces_v2
 
 
 model:
-  # name: equiformer_v2
+  name: EquiformerV2
 
   use_pbc:                  False
   regress_forces:           True

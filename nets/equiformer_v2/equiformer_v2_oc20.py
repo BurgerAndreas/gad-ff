@@ -145,6 +145,11 @@ class EquiformerV2_OC20(BaseModel):
         drop_path_rate=0.05,
         proj_drop=0.0,
         weight_init="normal",
+        # added for eigenvalue/eigenvector prediction
+        do_eigvec_1=False,
+        do_eigvec_2=False,
+        do_eigval_1=False,
+        do_eigval_2=False,
     ):
         super().__init__()
 
@@ -352,6 +357,95 @@ class EquiformerV2_OC20(BaseModel):
                 self.use_sep_s2_act,
                 alpha_drop=0.0,
             )
+        
+        ################################################################
+        # Add extra heads for eigenvalue/eigenvector prediction
+        ################################################################
+        # Eigenvectors are vectors (degree 1) like forces
+        # we will just use the same architecture as the force head
+        if do_eigvec_1:
+            self.eigvec_1_head = SO2EquivariantGraphAttention(
+                self.sphere_channels,
+                self.attn_hidden_channels,
+                self.num_heads,
+                self.attn_alpha_channels,
+                self.attn_value_channels,
+                1,
+                self.lmax_list,
+                self.mmax_list,
+                self.SO3_rotation,
+                self.mappingReduced,
+                self.SO3_grid,
+                self.max_num_elements,
+                self.edge_channels_list,
+                self.block_use_atom_edge_embedding,
+                self.use_m_share_rad,
+                self.attn_activation,
+                self.use_s2_act_attn,
+                self.use_attn_renorm,
+                self.use_gate_act,
+                self.use_sep_s2_act,
+                alpha_drop=0.0,
+            )
+        else:
+            self.eigvec_1_head = None
+        if do_eigvec_2:
+            self.eigvec_2_head = SO2EquivariantGraphAttention(
+                self.sphere_channels,
+                self.attn_hidden_channels,
+                self.num_heads,
+                self.attn_alpha_channels,
+                self.attn_value_channels,
+                1,
+                self.lmax_list,
+                self.mmax_list,
+                self.SO3_rotation,
+                self.mappingReduced,
+                self.SO3_grid,
+                self.max_num_elements,
+                self.edge_channels_list,
+                self.block_use_atom_edge_embedding,
+                self.use_m_share_rad,
+                self.attn_activation,
+                self.use_s2_act_attn,
+                self.use_attn_renorm,
+                self.use_gate_act,
+                self.use_sep_s2_act,
+                alpha_drop=0.0,
+            )
+            
+        # eigenvalues are scalars (degree 0) like energy
+        # we will just use the same architecture as the energy head
+        if do_eigval_1:
+            self.eigval_1_head = FeedForwardNetwork(
+                self.sphere_channels,
+                self.ffn_hidden_channels,
+                1,
+                self.lmax_list,
+                self.mmax_list,
+                self.SO3_grid,
+                self.ffn_activation,
+                self.use_gate_act,
+                self.use_grid_mlp,
+                self.use_sep_s2_act,
+            )
+        else:
+            self.eigval_1_head = None
+        if do_eigval_2:
+            self.eigval_2_head = FeedForwardNetwork(
+                self.sphere_channels,
+                self.ffn_hidden_channels,
+                1,
+                self.lmax_list,
+                self.mmax_list,
+                self.SO3_grid,
+                self.ffn_activation,
+                self.use_gate_act,
+                self.use_grid_mlp,
+                self.use_sep_s2_act,
+            )
+        else:
+            self.eigval_2_head = None
 
         self.apply(self._init_weights)
         self.apply(self._uniform_init_rad_func_linear_weights)
@@ -371,7 +465,19 @@ class EquiformerV2_OC20(BaseModel):
         return Hji
 
     @conditional_grad(torch.enable_grad())
-    def forward(self, data):
+    def forward(self, data, eigen=False):
+        """
+        If eigen=True, return predictions for eigenvalues and eigenvectors of the Hessian in outputs dict.
+        
+        Returns:
+            energy: (N*B,)
+            forces: (N*B, 3)
+            outputs (Optional): dict of eigenvalues and eigenvectors of the Hessian
+                eigval_1: (N*B,)
+                eigval_2: (N*B,)
+                eigvec_1: (N*B, 3)
+                eigvec_2: (N*B, 3)
+        """
         self.batch_size = len(data.natoms)
         self.dtype = data.pos.dtype
         self.device = data.pos.device
@@ -478,6 +584,7 @@ class EquiformerV2_OC20(BaseModel):
         energy.index_add_(0, data.batch, node_energy.view(-1))
         energy = energy / _AVG_NUM_NODES
         # hessian_ij = self.grad_hess_ij(energy=energy, posj=posj, posi=posi)
+        
         ###############################################################
         # Force estimation
         ###############################################################
@@ -485,6 +592,26 @@ class EquiformerV2_OC20(BaseModel):
         forces = self.force_block(x, atomic_numbers, edge_distance, edge_index)
         forces = forces.embedding.narrow(1, 1, 3)
         forces = forces.view(-1, 3)
+        
+        ###############################################################
+        # Eigenvalue/eigenvector estimation
+        ###############################################################
+        if eigen:
+            outputs = {}
+            if self.eigval_1_head is not None:
+                eigval_1 = self.eigval_1_head(x)
+                outputs["eigval_1"] = eigval_1
+            if self.eigval_2_head is not None:
+                eigval_2 = self.eigval_2_head(x)
+                outputs["eigval_2"] = eigval_2
+            if self.eigvec_1_head is not None:
+                eigvec_1 = self.eigvec_1_head(x)
+                outputs["eigvec_1"] = eigvec_1
+            if self.eigvec_2_head is not None:
+                eigvec_2 = self.eigvec_2_head(x)
+                outputs["eigvec_2"] = eigvec_2
+            
+            return energy.reshape(data.ae.shape), forces, outputs
 
         return energy.reshape(data.ae.shape), forces
 

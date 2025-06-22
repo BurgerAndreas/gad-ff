@@ -1,0 +1,58 @@
+# Eigen training configuration
+defaults:
+  - equiformer_v2
+  - _self_
+
+# Eigenvalue/eigenvector prediction flags 
+model:
+  do_eigvec_1: true
+  do_eigvec_2: true  
+  do_eigval_1: true
+  do_eigval_2: true
+
+# Model configuration
+model_type: "EquiformerV2"
+version: "0.1"
+project: "gadff"
+
+# Optimizer configuration
+optimizer:
+  lr: 5e-4  # paper says 3e-4, code uses 5e-4
+  betas: [0.9, 0.999]
+  weight_decay: 0
+  amsgrad: true
+
+# Training configuration  
+training:
+  trn_path: "data/sample_100-eigen.lmdb"
+  val_path: "data/sample_100-eigen.lmdb"
+  bz: 128
+  num_workers: 48
+  clip_grad: true
+  gradient_clip_val: 0.1
+  ema: false
+  lr_schedule_type: "step"
+  lr_schedule_config:
+    gamma: 0.85
+    step_size: 50
+
+  # Loss weights
+  weight_eigval1: 1.0
+  weight_eigval2: 1.0
+  weight_eigvec1: 1.0
+  weight_eigvec2: 1.0
+
+  # Loss type
+  loss_type: "l1"
+
+# Pytorch Lightning Trainer configuration
+pltrainer:
+  devices: 1
+  num_nodes: 1
+  accelerator: "gpu"
+  strategy: "ddp_find_unused_parameters_true"
+  max_epochs: 10000
+  gradient_clip_val: 0.1
+  accumulate_grad_batches: 1
+  limit_train_batches: 1600
+  limit_val_batches: 80 

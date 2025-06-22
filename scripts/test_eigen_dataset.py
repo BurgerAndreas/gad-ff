@@ -20,8 +20,14 @@ def test_dataset_consistency(original_dataset_name="ts1x-val.lmdb", eigen_datase
     print(f"\n=== Testing Dataset Consistency ===")
     
     # Load both datasets
-    original_path = os.path.join(DATASET_DIR_HORM_EIGEN, original_dataset_name)
-    eigen_path = os.path.join(DATASET_DIR_HORM_EIGEN, eigen_dataset_name)
+    if os.path.exists(original_dataset_name):
+        original_path = os.path.abspath(original_dataset_name)
+    else:
+        original_path = os.path.join(DATASET_DIR_HORM_EIGEN, original_dataset_name)
+    if os.path.exists(eigen_dataset_name):
+        eigen_path = os.path.abspath(eigen_dataset_name)
+    else:
+        eigen_path = os.path.join(DATASET_DIR_HORM_EIGEN, eigen_dataset_name)
     
     print(f"Loading original dataset: {original_path}")
     try:
@@ -152,7 +158,10 @@ def test_eigen_dataset(dataset_name="ts1x-val-eigen.lmdb", max_batches=-1):
     and compare predicted forces to stored forces and first eigenvector.
     """
     # ---- Config ----
-    eigen_dataset_path = os.path.join(DATASET_DIR_HORM_EIGEN, dataset_name)
+    if os.path.exists(dataset_name):
+        eigen_dataset_path = os.path.abspath(dataset_name)
+    else:
+        eigen_dataset_path = os.path.join(DATASET_DIR_HORM_EIGEN, dataset_name)
     batch_size = 2
     num_test_samples = 20  # Limit for testing
     
@@ -289,7 +298,9 @@ def test_eigen_dataset(dataset_name="ts1x-val-eigen.lmdb", max_batches=-1):
 
 if __name__ == "__main__":
     # Test consistency between original and eigen datasets
-    test_dataset_consistency(original_dataset_name="ts1x-val.lmdb", eigen_dataset_name="ts1x-val-eigen.lmdb", num_samples=10)
+    # test_dataset_consistency(original_dataset_name="ts1x-val.lmdb", eigen_dataset_name="ts1x-val-eigen.lmdb", num_samples=10)
+    test_dataset_consistency(original_dataset_name="data/sample_100.lmdb", eigen_dataset_name="data/sample_100-eigen.lmdb", num_samples=10)
     
     # Test eigen dataset functionality
-    test_eigen_dataset(dataset_name="ts1x-val-eigen.lmdb", max_batches=10)
+    # test_eigen_dataset(dataset_name="ts1x-val-eigen.lmdb", max_batches=10)
+    test_eigen_dataset(dataset_name="data/sample_100-eigen.lmdb", max_batches=10)
