@@ -123,7 +123,7 @@ def process_subset(dataset_file, start_idx, end_idx, job_id, save_hessian=False)
     full_size = os.path.getsize(input_lmdb_path)
     subset_ratio = len(subset_dataset) / len(full_dataset)
     map_size = int(2 * full_size * subset_ratio) + 1024*1024*100  # Add 100MB buffer
-    out_env = lmdb.open(temp_output_path, map_size=map_size)
+    out_env = lmdb.open(temp_output_path, map_size=map_size, subdir=False)
     
     # ---- Main loop ----
     print("")
@@ -133,7 +133,7 @@ def process_subset(dataset_file, start_idx, end_idx, job_id, save_hessian=False)
             global_idx = start_idx + local_idx
             
             # Make a deep copy to avoid modifying the original data object in memory
-            data_copy = copy.deepcopy(batch)
+            data_copy = copy.deepcopy(subset_dataset[local_idx])
             
             # atomization energy. shape used by equiformerv2
             if not hasattr(batch, 'ae'):
@@ -153,7 +153,7 @@ def process_subset(dataset_file, start_idx, end_idx, job_id, save_hessian=False)
             smallest_eigenvals, smallest_eigenvecs = get_smallest_eigen_from_batched_hessians(batch, hessians, n_smallest=2)
             
             # Flatten eigenvectors to shape [2, N_atoms*3]
-            n_atoms = data_copy.natoms.item() if hasattr(data_copy.natoms, 'item') else int(data_copy.natoms)
+            n_atoms = batch.natoms.item() if hasattr(batch.natoms, 'item') else int(batch.natoms)
             eigvecs = smallest_eigenvecs[0].T.contiguous().reshape(2, n_atoms*3).cpu()
             eigvals = smallest_eigenvals[0].cpu()
             
@@ -277,7 +277,7 @@ def combine_subsets(dataset_file, save_hessian=False):
         print("✓ All expected indices are present")
     
     # Clean up temporary files
-    cleanup_temp_files(dataset_file)
+    # cleanup_temp_files(dataset_file)
     
     return output_lmdb_path, total_samples
 
