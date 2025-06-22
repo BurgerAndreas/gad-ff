@@ -3,6 +3,7 @@ import pickle
 import lmdb
 import torch
 import copy
+import argparse
 from torch_geometric.loader import DataLoader as TGDataLoader
 import torch.nn.functional as F
 from tqdm import tqdm
@@ -297,10 +298,29 @@ def test_eigen_dataset(dataset_name="ts1x-val-eigen.lmdb", max_batches=-1):
     print(f"  Samples with |eigenvector similarity| < 0.1: {low_eigenvec_sim_count}/{len(eigenvec_differences)} ({100*low_eigenvec_sim_count/len(eigenvec_differences):.1f}%)")
 
 if __name__ == "__main__":
+    """
+    python scripts/test_eigen_dataset.py --original-dataset data/sample_100.lmdb 
+    python scripts/test_eigen_dataset.py --original-dataset RGD1.lmdb 
+    python scripts/test_eigen_dataset.py --original-dataset ts1x-val.lmdb 
+    python scripts/test_eigen_dataset.py --original-dataset ts1x_hess_train_big.lmdb 
+    """
+    parser = argparse.ArgumentParser(description="Test eigen datasets")
+    parser.add_argument("--original-dataset", type=str, default="data/sample_100.lmdb",
+                       help="Path to original dataset file")
+    parser.add_argument("--eigen-dataset", type=str, default=None,
+                       help="Path to eigen dataset file (default: auto-derived from original)")
+    
+    args = parser.parse_args()
+    
+    # Auto-derive eigen dataset name if not provided
+    if args.eigen_dataset is None:
+        # Insert "-eigen" before the file extension
+        base, ext = os.path.splitext(args.original_dataset)
+        args.eigen_dataset = f"{base}-eigen{ext}"
+    
     # Test consistency between original and eigen datasets
-    # test_dataset_consistency(original_dataset_name="ts1x-val.lmdb", eigen_dataset_name="ts1x-val-eigen.lmdb", num_samples=10)
-    test_dataset_consistency(original_dataset_name="data/sample_100.lmdb", eigen_dataset_name="data/sample_100-eigen.lmdb", num_samples=10)
+    test_dataset_consistency(original_dataset_name=args.original_dataset, 
+                           eigen_dataset_name=args.eigen_dataset, num_samples=10)
     
     # Test eigen dataset functionality
-    # test_eigen_dataset(dataset_name="ts1x-val-eigen.lmdb", max_batches=10)
-    test_eigen_dataset(dataset_name="data/sample_100-eigen.lmdb", max_batches=10)
+    test_eigen_dataset(dataset_name=args.eigen_dataset, max_batches=10)

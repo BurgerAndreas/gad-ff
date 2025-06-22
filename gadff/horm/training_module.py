@@ -516,7 +516,6 @@ class PotentialModule(LightningModule):
         return self._shared_eval(batch, batch_idx, "test", *args)
 
     def on_validation_batch_end(self, outputs, batch, batch_idx, dataloader_idx=0):
-
         self.val_step_outputs.append(outputs)
 
     def on_validation_epoch_end(self):
