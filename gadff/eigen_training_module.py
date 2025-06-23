@@ -150,15 +150,24 @@ class EigenPotentialModule(PotentialModule):
             batch.to(self.device), eigen=True
         )
         
-        eigval_1 = outputs["eigval_1"]
+        loss_eigval1 = torch.tensor(0.0)
+        loss_eigval2 = torch.tensor(0.0)
+        loss_eigvec1 = torch.tensor(0.0)
+        loss_eigvec2 = torch.tensor(0.0)
+        
         eigval_2 = outputs["eigval_2"]
         eigvec_1 = outputs["eigvec_1"]
         eigvec_2 = outputs["eigvec_2"]
         
-        loss_eigval1 = self.loss_fn(eigval_1, batch.hessian_eigenvalue_1)
-        loss_eigval2 = self.loss_fn(eigval_2, batch.hessian_eigenvalue_2)
-        loss_eigvec1 = self.loss_fn(eigvec_1, batch.hessian_eigenvector_1)
-        loss_eigvec2 = self.loss_fn(eigvec_2, batch.hessian_eigenvector_2)
+        if self.model_config["do_eigval_1"]:
+            eigval_1 = outputs["eigval_1"]
+            loss_eigval1 = self.loss_fn(eigval_1, batch.hessian_eigenvalue_1)
+        if self.model_config["do_eigval_2"]:
+            loss_eigval2 = self.loss_fn(eigval_2, batch.hessian_eigenvalue_2)
+        if self.model_config["do_eigvec_1"]:
+            loss_eigvec1 = self.loss_fn(eigvec_1, batch.hessian_eigenvector_1)
+        if self.model_config["do_eigvec_2"]:
+            loss_eigvec2 = self.loss_fn(eigvec_2, batch.hessian_eigenvector_2)
         
         info = {
             "MAE_eigval1": loss_eigval1.detach().item(),
