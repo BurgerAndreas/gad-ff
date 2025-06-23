@@ -27,12 +27,17 @@ def load_model(checkpoint_path):
     ckpt = torch.load(checkpoint_path, map_location="cpu")
     model_name = ckpt["hyper_parameters"]["model_config"]["name"]
     print(f"Model type: {model_name}")
+    print(f"Checkpoint keys: {ckpt.keys()}")
 
     # Load the full model
     model = PotentialModule.load_from_checkpoint(
         checkpoint_path,
         strict=False,
     )
+    # print(f"Model: {model}")
+    print(f"Model: {model.__class__.__name__}")
+    print(f"Epoch: {model.current_epoch}")
+    print(f"Step: {model.global_step}")
 
     # Move to GPU if available
     device = "cuda" if torch.cuda.is_available() else "cpu"

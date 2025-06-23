@@ -12,6 +12,7 @@ Icon
 .matplotlib/
 outputs/
 outslurm/
+wandb
 
 *.whl
 *env

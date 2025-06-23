@@ -72,11 +72,11 @@ class PotentialModule(LightningModule):
         self.model_config = model_config
 
         if self.model_config["name"] == "EquiformerV2":
-
             root_dir = find_project_root()
-            with open(os.path.join(root_dir, "configs/equiformer_v2.yml"), "r") as file:
+            with open(os.path.join(root_dir, "configs/equiformer_v2.yaml"), "r") as file:
                 config = yaml.safe_load(file)
             model_config = config["model"]
+            model_config.update(self.model_config)
             self.potential = EquiformerV2_OC20(**model_config)
         elif self.model_config["name"] == "AlphaNet":
             self.potential = AlphaNet(AlphaConfig(model_config)).float()
@@ -141,6 +141,7 @@ class PotentialModule(LightningModule):
         self.val_step_outputs = []
 
     def configure_optimizers(self):
+        print("Configuring optimizer")
         optimizer = torch.optim.AdamW(
             self.potential.parameters(), **self.optimizer_config
         )
@@ -154,6 +155,7 @@ class PotentialModule(LightningModule):
         return optimizer
 
     def setup(self, stage: Optional[str] = None):
+        print("Setting up dataset")
         if stage == "fit":
             self.train_dataset = LmdbDataset(
                 Path(self.training_config["trn_path"]),

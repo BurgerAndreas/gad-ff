@@ -56,6 +56,14 @@ _AVG_NUM_NODES = 77.81317
 _AVG_DEGREE = 23.395238876342773  # IS2RE: 100k, max_radius = 5, max_neighbors = 100
 
 
+def get_scalar_from_embedding(embedding, data):
+    embedding = embedding.embedding.narrow(1, 0, 1)
+    scalars = torch.zeros(
+        len(data.natoms), device=embedding.device, dtype=embedding.dtype
+    )
+    scalars.index_add_(0, data.batch, embedding.view(-1))
+    return scalars / _AVG_NUM_NODES
+
 @registry.register_model("equiformer_v2")
 class EquiformerV2_OC20(BaseModel):
     """
@@ -366,6 +374,7 @@ class EquiformerV2_OC20(BaseModel):
         # Eigenvectors are vectors (degree 1) like forces
         # we will just use the same architecture as the force head
         if do_eigvec_1:
+            print(f"{self.__class__.__name__}: Adding eigvec_1_head")
             self.eigvec_1_head = SO2EquivariantGraphAttention(
                 self.sphere_channels,
                 self.attn_hidden_channels,
@@ -392,6 +401,7 @@ class EquiformerV2_OC20(BaseModel):
         else:
             self.eigvec_1_head = None
         if do_eigvec_2:
+            print(f"{self.__class__.__name__}: Adding eigvec_2_head")
             self.eigvec_2_head = SO2EquivariantGraphAttention(
                 self.sphere_channels,
                 self.attn_hidden_channels,
@@ -419,6 +429,7 @@ class EquiformerV2_OC20(BaseModel):
         # eigenvalues are scalars (degree 0) like energy
         # we will just use the same architecture as the energy head
         if do_eigval_1:
+            print(f"{self.__class__.__name__}: Adding eigval_1_head")
             self.eigval_1_head = FeedForwardNetwork(
                 self.sphere_channels,
                 self.ffn_hidden_channels,
@@ -434,6 +445,7 @@ class EquiformerV2_OC20(BaseModel):
         else:
             self.eigval_1_head = None
         if do_eigval_2:
+            print(f"{self.__class__.__name__}: Adding eigval_2_head")
             self.eigval_2_head = FeedForwardNetwork(
                 self.sphere_channels,
                 self.ffn_hidden_channels,
@@ -579,12 +591,14 @@ class EquiformerV2_OC20(BaseModel):
         # Energy estimation
         ###############################################################
         node_energy = self.energy_block(x)
-        node_energy = node_energy.embedding.narrow(1, 0, 1)
-        energy = torch.zeros(
-            len(data.natoms), device=node_energy.device, dtype=node_energy.dtype
-        )
-        energy.index_add_(0, data.batch, node_energy.view(-1))
-        energy = energy / _AVG_NUM_NODES
+        # node_energy = node_energy.embedding.narrow(1, 0, 1)
+        # energy = torch.zeros(
+        #     len(data.natoms), device=node_energy.device, dtype=node_energy.dtype
+        # )
+        # energy.index_add_(0, data.batch, node_energy.view(-1))
+        # energy = energy / _AVG_NUM_NODES
+        energy = get_scalar_from_embedding(node_energy, data)
+        
         # hessian_ij = self.grad_hess_ij(energy=energy, posj=posj, posi=posi)
         
         ###############################################################
@@ -601,16 +615,22 @@ class EquiformerV2_OC20(BaseModel):
         if eigen:
             outputs = {}
             if self.eigval_1_head is not None:
-                eigval_1 = self.eigval_1_head(x)
+                node_eigval_1 = self.eigval_1_head(x)
+                eigval_1 = get_scalar_from_embedding(node_eigval_1, data)
                 outputs["eigval_1"] = eigval_1
             if self.eigval_2_head is not None:
-                eigval_2 = self.eigval_2_head(x)
+                node_eigval_2 = self.eigval_2_head(x)
+                eigval_2 = get_scalar_from_embedding(node_eigval_2, data)
                 outputs["eigval_2"] = eigval_2
             if self.eigvec_1_head is not None:
-                eigvec_1 = self.eigvec_1_head(x)
+                eigvec_1 = self.eigvec_1_head(x, atomic_numbers, edge_distance, edge_index)
+                eigvec_1 = eigvec_1.embedding.narrow(1, 1, 3)
+                eigvec_1 = eigvec_1.view(-1, 3)
                 outputs["eigvec_1"] = eigvec_1
             if self.eigvec_2_head is not None:
-                eigvec_2 = self.eigvec_2_head(x)
+                eigvec_2 = self.eigvec_2_head(x, atomic_numbers, edge_distance, edge_index)
+                eigvec_2 = eigvec_2.embedding.narrow(1, 1, 3)
+                eigvec_2 = eigvec_2.view(-1, 3)
                 outputs["eigvec_2"] = eigvec_2
             
             return energy.reshape(data.ae.shape), forces, outputs

@@ -1,7 +1,7 @@
 """
 Pytorch Lightning training module for predicting Hessian eigenvalues and eigenvectors.
 """
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any, Mapping
 import os
 from pathlib import Path
 import torch
@@ -14,6 +14,7 @@ from torch.optim.lr_scheduler import (
     StepLR,
     # CosineAnnealingLR,
 )
+import pytorch_lightning as pl
 from pytorch_lightning import LightningModule
 from torchmetrics import (
     MeanAbsoluteError,
@@ -28,6 +29,19 @@ import gadff.horm.utils as diff_utils
 import yaml
 from gadff.path_config import find_project_root
 from gadff.horm.training_module import PotentialModule, compute_extra_props
+
+class MyPLTrainer(pl.Trainer):
+    
+    # Does not do anything?
+    # self.trainer.strategy.load_model_state_dict
+    def load_model_state_dict(self, checkpoint: Mapping[str, Any], strict: bool = True) -> None:
+        print(f"MyPLTrainer: Loading model state dict with strict: {strict}")
+        print(f"Checkpoint keys: {checkpoint.keys()}")
+        print(f"Checkpoint state_dict keys: {checkpoint['state_dict'].keys()}")
+        # assert self.lightning_module is not None
+        # self.lightning_module.load_state_dict(checkpoint["state_dict"], strict=strict)
+        super().load_model_state_dict(checkpoint, strict)
+
 
 class EigenPotentialModule(PotentialModule):
     def __init__(
@@ -44,6 +58,10 @@ class EigenPotentialModule(PotentialModule):
             optimizer_config=optimizer_config,
             training_config=training_config,
         )
+        
+        # For Lightning 
+        # Allow non-strict checkpoint loading for transfer learning
+        self.strict_loading = False
         
         # Only needed to predict forces from energy of Hessian from forces
         self.pos_require_grad = False
@@ -90,6 +108,7 @@ class EigenPotentialModule(PotentialModule):
         print(f"Trainable parameters: {trainable_params:,} / {total_params:,} ({trainable_params/total_params*100:.2f}%)")
     
     def configure_optimizers(self):
+        print("Configuring optimizer")
         # Only optimize parameters that require gradients (unfrozen heads)
         self._freeze_except_heads(self.heads_to_train)
         trainable_params = [p for p in self.potential.parameters() if p.requires_grad]
@@ -111,6 +130,14 @@ class EigenPotentialModule(PotentialModule):
             return [optimizer], [scheduler]
         return optimizer
     
+    def load_model_state_dict(self, checkpoint: Mapping[str, Any], strict: bool = True) -> None:
+        print(f"EigenPotentialModule: Loading model state dict with strict: {strict}")
+        print(f"Checkpoint keys: {checkpoint.keys()}")
+        print(f"Checkpoint state_dict keys: {checkpoint['state_dict'].keys()}")
+        # assert self.lightning_module is not None
+        # self.lightning_module.load_state_dict(checkpoint["state_dict"], strict=strict)
+        super().load_model_state_dict(checkpoint, strict)
+
     @torch.enable_grad()
     def compute_loss(self, batch):
         batch.pos.requires_grad_()
@@ -128,10 +155,10 @@ class EigenPotentialModule(PotentialModule):
         eigvec_1 = outputs["eigvec_1"]
         eigvec_2 = outputs["eigvec_2"]
         
-        loss_eigval1 = self.loss_fn(eigval_1, batch.eigval_1)
-        loss_eigval2 = self.loss_fn(eigval_2, batch.eigval_2)
-        loss_eigvec1 = self.loss_fn(eigvec_1, batch.eigvec_1)
-        loss_eigvec2 = self.loss_fn(eigvec_2, batch.eigvec_2)
+        loss_eigval1 = self.loss_fn(eigval_1, batch.hessian_eigenvalue_1)
+        loss_eigval2 = self.loss_fn(eigval_2, batch.hessian_eigenvalue_2)
+        loss_eigvec1 = self.loss_fn(eigvec_1, batch.hessian_eigenvector_1)
+        loss_eigvec2 = self.loss_fn(eigvec_2, batch.hessian_eigenvector_2)
         
         info = {
             "MAE_eigval1": loss_eigval1.detach().item(),
@@ -191,10 +218,10 @@ class EigenPotentialModule(PotentialModule):
         eigvec_1_pred = outputs["eigvec_1"]
         eigvec_2_pred = outputs["eigvec_2"]
         
-        eigval_1_true = batch.eigval_1
-        eigval_2_true = batch.eigval_2
-        eigvec_1_true = batch.eigvec_1
-        eigvec_2_true = batch.eigvec_2
+        eigval_1_true = batch.hessian_eigenvalue_1
+        eigval_2_true = batch.hessian_eigenvalue_2
+        eigvec_1_true = batch.hessian_eigenvector_1
+        eigvec_2_true = batch.hessian_eigenvector_2
         
         eval_metrics = {}
         
@@ -329,4 +356,5 @@ class EigenPotentialModule(PotentialModule):
             self.log(k, v, sync_dist=True)
 
         self.val_step_outputs.clear()
+        
         
