@@ -20,7 +20,7 @@ python scripts/train_eigen.py +extra=debug
 
 Verify that we can overfit to the tiny dataset (using one node of 4x L40s)
 ```bash
-python scripts/train_eigen.py +experiment=overfit100
+sbatch scripts/killarney_4xl40s.sh scripts/train_eigen.py +experiment=overfit100
 ```
 
 ## Background

@@ -37,7 +37,7 @@ pip3 uninstall torch-cluster pyg-lib torch-scatter torch-sparse torch-geometric 
 pip3 install --no-cache-dir --no-index torch-scatter -f https://data.pyg.org/whl/torch-2.4.1+cu128.html
 pip3 install --no-cache-dir torch-geometric==2.6.1
 
-pip3 install --no-cache-dir numpy>=1.26.0 scipy scikit-learn pandas ase==3.25.0 plotly imageio seaborn black tqdm joblib einops ipykernel toml omegaconf nbformat nglview py3Dmol==2.5.0 hydra-submitit-launcher hydra-core==1.* wandb==0.19.11 pyyaml dxtb[libcint] torchmetrics joblib submitit rmsd pytorch_warmup e3nn==0.5.1 huggingface_hub>=0.27.1 kagglehub>=0.3.12 networkx==3.4.2 pydantic==2.11.4 opt-einsum-fx==0.1.4 lmdb==1.5.1 h5py>=3.10.0 progressbar==2.5
+pip3 install --no-cache-dir numpy>=1.26.0 scipy scikit-learn pandas ase==3.25.0 plotly imageio seaborn black tqdm joblib einops ipykernel toml omegaconf nbformat nglview py3Dmol==2.5.0 hydra-submitit-launcher hydra-core==1.* wandb==0.19.11 wandb-core pyyaml dxtb[libcint] torchmetrics joblib submitit rmsd pytorch_warmup e3nn==0.5.1 huggingface_hub>=0.27.1 kagglehub>=0.3.12 networkx==3.4.2 pydantic==2.11.4 opt-einsum-fx==0.1.4 lmdb==1.5.1 h5py>=3.10.0 progressbar==2.5
 #  fairchem-core==1.10.0
 pip3 install --no-cache-dir triton==2.2.0 pytorch-lightning==2.5.1.post0
 pip3 install les@git+https://github.com/ChengUCB/les

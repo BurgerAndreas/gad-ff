@@ -185,31 +185,6 @@ class EigenPotentialModule(PotentialModule):
         return loss, info
     
     
-    def __shared_eval(self, batch, batch_idx, prefix, *args):
-        with torch.enable_grad():
-            loss, info = self.compute_loss(batch)
-            info["totloss"] = loss.item()
-
-            info_prefix = {}
-            for k, v in info.items():
-                key = f"{prefix}-{k}"
-                if isinstance(v, torch.Tensor):
-                    v = v.detach()
-                    if v.is_cuda:
-                        v = v.cpu()
-                    if v.numel() == 1:
-                        info_prefix[key] = v.item()
-                    else:
-                        info_prefix[key] = v.numpy()
-                else:
-                    info_prefix[key] = v
-                self.log(
-                    key, v, on_step=True, on_epoch=True, prog_bar=True, logger=True
-                )
-
-            del info
-        return info_prefix
-
     def compute_eval_loss(self, batch):
         """Compute comprehensive evaluation metrics for eigenvalues and eigenvectors."""
         batch = compute_extra_props(
@@ -380,13 +355,16 @@ class EigenPotentialModule(PotentialModule):
     def on_validation_epoch_end(self):
 
         val_epoch_metrics = average_over_batch_metrics(self.val_step_outputs)
+        
+        # print all keys and values
         if self.trainer.is_global_zero:
-            pretty_print(self.current_epoch, val_epoch_metrics, prefix="val")
+            # pretty_print(self.current_epoch, val_epoch_metrics, prefix="val")
+            pretty_print(self.current_epoch, val_epoch_metrics["totloss"], prefix="val")
 
         val_epoch_metrics.update({"epoch": self.current_epoch})
         for k, v in val_epoch_metrics.items():
             self.log(k, v, sync_dist=True)
-
+        
         self.val_step_outputs.clear()
         
         

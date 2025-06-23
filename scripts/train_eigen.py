@@ -69,12 +69,13 @@ def setup_training(cfg: DictConfig):
     wandb_kwargs = {}
     if not cfg.use_wandb:
         wandb_kwargs["mode"] = "disabled"
-    logger = wandb_logger = WandbLogger(
+    wandb_logger = WandbLogger(
         project=cfg.project,
         log_model=False,
         name=run_name,
         **wandb_kwargs,
     )
+    print(f"WandbLogger initialized with experiment name: {wandb_logger.experiment.name}")
 
     ckpt_output_path = f"checkpoint/{cfg.project}/{wandb_logger.experiment.name}"
 
@@ -112,7 +113,7 @@ def setup_training(cfg: DictConfig):
         callbacks=callbacks,
         # path for logs and weights when no logger/ckpt_callback passed
         default_root_dir=ckpt_output_path,
-        logger=logger,
+        logger=wandb_logger,
         gradient_clip_val=cfg.pltrainer.gradient_clip_val,
         accumulate_grad_batches=cfg.pltrainer.accumulate_grad_batches,
         limit_train_batches=cfg.pltrainer.limit_train_batches,
