@@ -222,10 +222,19 @@ class EigenPotentialModule(PotentialModule):
             batch.to(self.device), eigen=True
         )
         
-        eigval_1_pred = outputs["eigval_1"]
-        eigval_2_pred = outputs["eigval_2"]
-        eigvec_1_pred = outputs["eigvec_1"]
-        eigvec_2_pred = outputs["eigvec_2"]
+        eigval_1_pred = None
+        eigval_2_pred = None
+        eigvec_1_pred = None
+        eigvec_2_pred = None
+        
+        if self.model_config["do_eigval_1"]:
+            eigval_1_pred = outputs["eigval_1"]
+        if self.model_config["do_eigval_2"]:
+            eigval_2_pred = outputs["eigval_2"]
+        if self.model_config["do_eigvec_1"]:
+            eigvec_1_pred = outputs["eigvec_1"]
+        if self.model_config["do_eigvec_2"]:
+            eigvec_2_pred = outputs["eigvec_2"]
         
         eigval_1_true = batch.hessian_eigenvalue_1
         eigval_2_true = batch.hessian_eigenvalue_2
@@ -234,14 +243,19 @@ class EigenPotentialModule(PotentialModule):
         
         eval_metrics = {}
         
+        ###################################################
         # Eigenvalue metrics
-        eval_metrics["rmse_eigval1"] = torch.sqrt(torch.mean((eigval_1_pred - eigval_1_true)**2)).item()
-        eval_metrics["rmse_eigval2"] = torch.sqrt(torch.mean((eigval_2_pred - eigval_2_true)**2)).item()
+        if eigval_1_pred is not None:
+            eval_metrics["rmse_eigval1"] = torch.sqrt(torch.mean((eigval_1_pred - eigval_1_true)**2)).item()
+        if eigval_2_pred is not None:
+            eval_metrics["rmse_eigval2"] = torch.sqrt(torch.mean((eigval_2_pred - eigval_2_true)**2)).item()
         
         # MAPE for eigenvalues (avoid division by zero)
         eps = 1e-8
-        eval_metrics["mape_eigval1"] = torch.mean(torch.abs((eigval_1_pred - eigval_1_true) / (torch.abs(eigval_1_true) + eps))).item() * 100
-        eval_metrics["mape_eigval2"] = torch.mean(torch.abs((eigval_2_pred - eigval_2_true) / (torch.abs(eigval_2_true) + eps))).item() * 100
+        if eigval_1_pred is not None:
+            eval_metrics["mape_eigval1"] = torch.mean(torch.abs((eigval_1_pred - eigval_1_true) / (torch.abs(eigval_1_true) + eps))).item() * 100
+        if eigval_2_pred is not None:
+            eval_metrics["mape_eigval2"] = torch.mean(torch.abs((eigval_2_pred - eigval_2_true) / (torch.abs(eigval_2_true) + eps))).item() * 100
         
         # Sign agreement for eigenvalues (important for Hessian analysis)
         def sign_agreement(y_pred, y_true):
@@ -250,17 +264,20 @@ class EigenPotentialModule(PotentialModule):
             agreement = (pred_signs == true_signs).float()
             return torch.mean(agreement).item()
         
-        eval_metrics["sign_agreement_eigval1"] = sign_agreement(eigval_1_pred, eigval_1_true)
-        eval_metrics["sign_agreement_eigval2"] = sign_agreement(eigval_2_pred, eigval_2_true)
+        if eigval_1_pred is not None:
+            eval_metrics["sign_agreement_eigval1"] = sign_agreement(eigval_1_pred, eigval_1_true)
+        if eigval_2_pred is not None:
+            eval_metrics["sign_agreement_eigval2"] = sign_agreement(eigval_2_pred, eigval_2_true)
         
         # Both signs are correct simultaneously
-        pred_signs_1 = torch.sign(eigval_1_pred)
-        true_signs_1 = torch.sign(eigval_1_true)
-        pred_signs_2 = torch.sign(eigval_2_pred)
-        true_signs_2 = torch.sign(eigval_2_true)
-        
-        both_signs_correct = ((pred_signs_1 == true_signs_1) & (pred_signs_2 == true_signs_2)).float()
-        eval_metrics["both_signs_correct"] = torch.mean(both_signs_correct).item()
+        if eigval_1_pred is not None and eigval_2_pred is not None:
+            pred_signs_1 = torch.sign(eigval_1_pred)
+            true_signs_1 = torch.sign(eigval_1_true)
+            pred_signs_2 = torch.sign(eigval_2_pred)
+            true_signs_2 = torch.sign(eigval_2_true)
+            
+            both_signs_correct = ((pred_signs_1 == true_signs_1) & (pred_signs_2 == true_signs_2)).float()
+            eval_metrics["both_signs_correct"] = torch.mean(both_signs_correct).item()
         
         # Index 1 saddle point classification metrics (one negative, one positive eigenvalue)
         def is_index1_saddle(eigval1, eigval2):
@@ -269,32 +286,33 @@ class EigenPotentialModule(PotentialModule):
             sign2 = torch.sign(eigval2)
             return ((sign1 < 0) & (sign2 > 0)) | ((sign1 > 0) & (sign2 < 0))
         
-        true_saddle1 = is_index1_saddle(eigval_1_true, eigval_2_true)
-        pred_saddle1 = is_index1_saddle(eigval_1_pred, eigval_2_pred)
+        if eigval_1_pred is not None and eigval_2_pred is not None:
+            true_saddle1 = is_index1_saddle(eigval_1_true, eigval_2_true)
+            pred_saddle1 = is_index1_saddle(eigval_1_pred, eigval_2_pred)
+            
+            # Classification metrics for index 1 saddle points
+            tp_saddle1 = (true_saddle1 & pred_saddle1).float().sum()
+            fp_saddle1 = (~true_saddle1 & pred_saddle1).float().sum()
+            fn_saddle1 = (true_saddle1 & ~pred_saddle1).float().sum()
+            tn_saddle1 = (~true_saddle1 & ~pred_saddle1).float().sum()
+            
+            total_samples = len(true_saddle1)
+            
+            eval_metrics["tp_index1_saddle"] = tp_saddle1.item()
+            eval_metrics["fp_index1_saddle"] = fp_saddle1.item()
+            eval_metrics["fn_index1_saddle"] = fn_saddle1.item()
+            eval_metrics["tn_index1_saddle"] = tn_saddle1.item()
         
-        # Classification metrics for index 1 saddle points
-        tp_saddle1 = (true_saddle1 & pred_saddle1).float().sum()
-        fp_saddle1 = (~true_saddle1 & pred_saddle1).float().sum()
-        fn_saddle1 = (true_saddle1 & ~pred_saddle1).float().sum()
-        tn_saddle1 = (~true_saddle1 & ~pred_saddle1).float().sum()
-        
-        total_samples = len(true_saddle1)
-        
-        eval_metrics["tp_index1_saddle"] = tp_saddle1.item()
-        eval_metrics["fp_index1_saddle"] = fp_saddle1.item()
-        eval_metrics["fn_index1_saddle"] = fn_saddle1.item()
-        eval_metrics["tn_index1_saddle"] = tn_saddle1.item()
-        
-        # Derived metrics
-        precision_saddle1 = tp_saddle1 / (tp_saddle1 + fp_saddle1 + eps)
-        recall_saddle1 = tp_saddle1 / (tp_saddle1 + fn_saddle1 + eps)
-        f1_saddle1 = 2 * precision_saddle1 * recall_saddle1 / (precision_saddle1 + recall_saddle1 + eps)
-        accuracy_saddle1 = (tp_saddle1 + tn_saddle1) / total_samples
-        
-        eval_metrics["precision_index1_saddle"] = precision_saddle1.item()
-        eval_metrics["recall_index1_saddle"] = recall_saddle1.item()
-        eval_metrics["f1_index1_saddle"] = f1_saddle1.item()
-        eval_metrics["accuracy_index1_saddle"] = accuracy_saddle1.item()
+            # Derived metrics
+            precision_saddle1 = tp_saddle1 / (tp_saddle1 + fp_saddle1 + eps)
+            recall_saddle1 = tp_saddle1 / (tp_saddle1 + fn_saddle1 + eps)
+            f1_saddle1 = 2 * precision_saddle1 * recall_saddle1 / (precision_saddle1 + recall_saddle1 + eps)
+            accuracy_saddle1 = (tp_saddle1 + tn_saddle1) / total_samples
+            
+            eval_metrics["precision_index1_saddle"] = precision_saddle1.item()
+            eval_metrics["recall_index1_saddle"] = recall_saddle1.item()
+            eval_metrics["f1_index1_saddle"] = f1_saddle1.item()
+            eval_metrics["accuracy_index1_saddle"] = accuracy_saddle1.item()
         
         # Eigenvector metrics
         # Cosine similarity (most important for vectors)
@@ -303,8 +321,10 @@ class EigenPotentialModule(PotentialModule):
             v2_norm = v2 / (torch.norm(v2, dim=-1, keepdim=True) + eps)
             return torch.mean(torch.sum(v1_norm * v2_norm, dim=-1))
         
-        eval_metrics["cosine_sim_eigvec1"] = cosine_similarity_vectors(eigvec_1_pred, eigvec_1_true).item()
-        eval_metrics["cosine_sim_eigvec2"] = cosine_similarity_vectors(eigvec_2_pred, eigvec_2_true).item()
+        if eigvec_1_pred is not None:
+            eval_metrics["cosine_sim_eigvec1"] = cosine_similarity_vectors(eigvec_1_pred, eigvec_1_true).item()
+        if eigvec_2_pred is not None:
+            eval_metrics["cosine_sim_eigvec2"] = cosine_similarity_vectors(eigvec_2_pred, eigvec_2_true).item()
         
         # Angular error in degrees
         def angular_error(v1, v2):
@@ -313,17 +333,21 @@ class EigenPotentialModule(PotentialModule):
             angle_rad = torch.acos(torch.abs(cos_sim))  # abs because eigenvectors can have opposite signs
             return torch.rad2deg(angle_rad)
         
-        eval_metrics["angular_error_eigvec1"] = angular_error(eigvec_1_pred, eigvec_1_true).item()
-        eval_metrics["angular_error_eigvec2"] = angular_error(eigvec_2_pred, eigvec_2_true).item()
+        if eigvec_1_pred is not None:
+            eval_metrics["angular_error_eigvec1"] = angular_error(eigvec_1_pred, eigvec_1_true).item()
+        if eigvec_2_pred is not None:
+            eval_metrics["angular_error_eigvec2"] = angular_error(eigvec_2_pred, eigvec_2_true).item()
         
         # Vector magnitude error
-        mag_1_pred = torch.norm(eigvec_1_pred, dim=-1)
-        mag_1_true = torch.norm(eigvec_1_true, dim=-1)
-        mag_2_pred = torch.norm(eigvec_2_pred, dim=-1)
-        mag_2_true = torch.norm(eigvec_2_true, dim=-1)
+        if eigvec_1_pred is not None:
+            mag_1_pred = torch.norm(eigvec_1_pred, dim=-1)
+            mag_1_true = torch.norm(eigvec_1_true, dim=-1)
+            eval_metrics["mae_eigvec1_magnitude"] = torch.mean(torch.abs(mag_1_pred - mag_1_true)).item()
         
-        eval_metrics["mae_eigvec1_magnitude"] = torch.mean(torch.abs(mag_1_pred - mag_1_true)).item()
-        eval_metrics["mae_eigvec2_magnitude"] = torch.mean(torch.abs(mag_2_pred - mag_2_true)).item()
+        if eigvec_2_pred is not None:
+            mag_2_pred = torch.norm(eigvec_2_pred, dim=-1)
+            mag_2_true = torch.norm(eigvec_2_true, dim=-1)
+            eval_metrics["mae_eigvec2_magnitude"] = torch.mean(torch.abs(mag_2_pred - mag_2_true)).item()
         
         return eval_metrics
     
