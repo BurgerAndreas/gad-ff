@@ -24,17 +24,11 @@ from pytorch_lightning.strategies.ddp import DDPStrategy
 
 from gadff.eigen_training_module import EigenPotentialModule, MyPLTrainer
 from gadff.path_config import DATASET_DIR_HORM_EIGEN, DATASET_FILES_HORM, CHECKPOINT_PATH_EQUIFORMER_HORM
-
+from gadff.logging_utils import name_from_config
 
 def setup_training(cfg: DictConfig):
-    if isinstance(cfg.training.trn_path, str):
-        dataset_name = cfg.training.trn_path.split("/")[-1].split(".")[0].replace("-eigen", "")
-    else:
-        dataset_name = ""
-        for path in cfg.training.trn_path:
-            dataset_name += "-" + path.split("/")[-1].split(".")[0].replace("-eigen", "")
-    run_name = f"{cfg.version}-{cfg.experiment_name}-{dataset_name}-" + str(uuid4()).split("-")[-1]
-
+    run_name = name_from_config(cfg)
+    
     # from the paper:
     # Model Layers HiddenDim Heads LearningRate BatchSize
     # EquiformerV2 4 128 4 3e-4 128

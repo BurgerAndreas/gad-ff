@@ -69,3 +69,12 @@ ckpt_model_path: horm
 ckpt_trainer_path: null
 
 experiment_name: "base"
+
+# variables we can access in our code
+job_name: 'results'
+# job_name: ${hydra:job.name}
+config_name: ${hydra:job.config_name}
+# Stores the command line arguments overrides
+override_dirname: ${hydra:job.override_dirname}
+# Changes the current working directory to the output directory for each job
+# hydra.job.chdir: False
