@@ -19,3 +19,5 @@ pltrainer:
 #   do_eigvec_2: false
 
 use_wandb: false
+
+experiment_name: "debug"

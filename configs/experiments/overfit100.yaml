@@ -6,7 +6,7 @@
 training:
   trn_path: "data/sample_100-eigen.lmdb"
   val_path: "data/sample_100-eigen.lmdb"
-  bz: 64
+  bz: 100
   num_workers: 16 # 48
   # lr_schedule_type: "constant"  # No learning rate decay for overfitting
   
@@ -20,4 +20,6 @@ pltrainer:
   limit_train_batches: null  # Remove limit to see full tiny dataset 
   limit_val_batches: null    # Remove validation limit
   val_check_interval: 100    # Validate less frequently
-  log_every_n_steps: 10      # Log more frequently to monitor overfitting
+  # log_every_n_steps: 10      # Log more frequently to monitor overfitting
+
+experiment_name: "overfit100"

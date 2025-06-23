@@ -27,7 +27,8 @@ from gadff.path_config import DATASET_DIR_HORM_EIGEN, DATASET_FILES_HORM, CHECKP
 
 
 def setup_training(cfg: DictConfig):
-    run_name = f"{cfg.version}-" + str(uuid4()).split("-")[-1]
+    dataset_name = cfg.training.trn_path.split("/")[-1].split(".")[0].replace("-eigen", "")
+    run_name = f"{cfg.version}-{cfg.experiment_name}-{dataset_name}-" + str(uuid4()).split("-")[-1]
 
     # from the paper:
     # Model Layers HiddenDim Heads LearningRate BatchSize
@@ -131,7 +132,7 @@ def main(cfg: DictConfig) -> None:
 
 if __name__ == "__main__":
     """Try:
-    python scripts/train_eigen.py +extra=debug
+    python scripts/train_eigen.py +experiment=debug
     python scripts/train_eigen.py training.bz=2
     """
     main()

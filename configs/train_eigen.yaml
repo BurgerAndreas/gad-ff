@@ -67,3 +67,5 @@ ckpt_model_path: horm
 
 # Checkpoint that contains model weights and optimizerstate , lr state, etc. 
 ckpt_trainer_path: null
+
+experiment_name: "base"

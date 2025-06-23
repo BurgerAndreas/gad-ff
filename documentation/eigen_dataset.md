@@ -65,5 +65,5 @@ ls -lh ~/.cache/kagglehub/datasets/yunhonghan/hessian-dataset-for-optimizing-rea
 
 Get training
 ```bash
-python scripts/train_eigen.py +extra=debug
+python scripts/train_eigen.py +experiment=debug
 ```
