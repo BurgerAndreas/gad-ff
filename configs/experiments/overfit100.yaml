@@ -1,0 +1,23 @@
+# @package _global_
+
+# Overfit experiment configuration for tiny dataset
+# This config is designed to overfit to sample_100.lmdb quickly
+
+training:
+  trn_path: "data/sample_100-eigen.lmdb"
+  val_path: "data/sample_100-eigen.lmdb"
+  bz: 64
+  num_workers: 16 # 48
+  # lr_schedule_type: "constant"  # No learning rate decay for overfitting
+  
+pltrainer:
+  devices: 4  # Use all 4 GPUs on the node
+  num_nodes: 1
+  accelerator: "gpu"
+  # auto, ddp, ddp_find_unused_parameters_true
+  strategy: "ddp_find_unused_parameters_true"
+  max_epochs: 1000  # Fewer epochs since we're overfitting small data
+  limit_train_batches: null  # Remove limit to see full tiny dataset 
+  limit_val_batches: null    # Remove validation limit
+  val_check_interval: 100    # Validate less frequently
+  log_every_n_steps: 10      # Log more frequently to monitor overfitting

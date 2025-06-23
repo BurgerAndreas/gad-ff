@@ -1,6 +1,8 @@
 # Creating the Eigen dataset 
 Smallest Hessian eigenvalues and their eigenvectors
 
+For more information about the HORM dataset, see [documentation/horm.md](documentation/horm.md)
+
 ### Prerequisites
 
 Start an interactive job

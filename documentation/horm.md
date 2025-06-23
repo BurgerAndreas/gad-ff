@@ -75,14 +75,9 @@ python download_horm_data_kaggle.py
 ls ~/.cache/kagglehub/datasets/yunhonghan/hessian-dataset-for-optimizing-reactive-mliphorm/versions/5
 
 total 23G
-4.0K horm_data
-1.1G RGD1.lmdb
-21G ts1x_hess_train_big.lmdb
-620M ts1x-val.lmdb
-
-Size of ts1x-val.lmdb: 50844
-Size of ts1x_hess_train_big.lmdb: 1725362
-Size of RGD1.lmdb: 60000
+1.1G RGD1.lmdb (60000 samples)
+21G ts1x_hess_train_big.lmdb (1725362 samples)
+620M ts1x-val.lmdb (50844 samples)
 ```
 
 Keys in the dataset:

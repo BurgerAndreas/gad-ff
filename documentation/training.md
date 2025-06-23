@@ -2,18 +2,49 @@
 
 Extra prediction heads for the Hessian eigenvalues and eigenvectors.
 
-### Start job
+## Start job
 
 Killarney
 ```bash
 salloc -A aip-aspuru -t 60:00:00 -D /project/aip-aspuru/aburger/gad-ff --gres=gpu:l40s:1 --mem=128GB
-```
-Balam
-```bash
-debugjob --clean -g 1
+source gadenv/bin/activate
+source .env
 ```
 
-Try training
+## Training
+
+Verify the training script and environment are working
 ```bash
 python scripts/train_eigen.py +extra=debug
 ```
+
+Verify that we can overfit to the tiny dataset (using one node of 4x L40s)
+```bash
+python scripts/train_eigen.py +experiment=overfit100
+```
+
+## Background
+
+We have two training datasets and one validation dataset:
+```bash
+ls ~/.cache/kagglehub/datasets/yunhonghan/hessian-dataset-for-optimizing-reactive-mliphorm/versions/5
+
+total 23G
+1.1G RGD1.lmdb (60000 samples)
+21G ts1x_hess_train_big.lmdb (1725362 samples)
+620M ts1x-val.lmdb (50844 samples)
+```
+Plus a tiny subset for debugging
+```bash
+ls data
+
+sample_100.lmdb
+```
+
+There are two kinds of nodes on our Killarney cluster:
+
+Performance Tier | Nodes | Model | CPU | Cores | System Memory | GPUs per node | Total GPUs \
+Standard Compute | 168 | Dell 750xa | 2 x Intel Xeon Gold 6338 | 64 | 512 GB | 4 x NVIDIA L40S 48GB | 672 \
+Performance Compute | 10 | Dell XE9680 | 2 x Intel Xeon Gold 6442Y | 48 | 2048 GB | 8 x NVIDIA H100 SXM 80GB | 80
+
+
