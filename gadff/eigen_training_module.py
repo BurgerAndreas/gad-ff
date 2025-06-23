@@ -12,7 +12,7 @@ from torch_geometric.loader import DataLoader as TGDataLoader
 from torch.optim.lr_scheduler import (
     CosineAnnealingWarmRestarts,
     StepLR,
-    # CosineAnnealingLR,
+    ConstantLR,
 )
 import pytorch_lightning as pl
 from pytorch_lightning import LightningModule
@@ -114,14 +114,11 @@ class EigenPotentialModule(PotentialModule):
         trainable_params = [p for p in self.potential.parameters() if p.requires_grad]
         optimizer = torch.optim.AdamW(trainable_params, **self.optimizer_config)
 
-        if not self.training_config["lr_schedule_type"] is None:
-            from torch.optim.lr_scheduler import (
-                CosineAnnealingWarmRestarts,
-                StepLR,
-            )
+        if self.training_config["lr_schedule_type"] is not None:
             LR_SCHEDULER = {
                 "cos": CosineAnnealingWarmRestarts,
                 "step": StepLR,
+                "constant": ConstantLR,
             }
             scheduler_func = LR_SCHEDULER[self.training_config["lr_schedule_type"]]
             scheduler = scheduler_func(
