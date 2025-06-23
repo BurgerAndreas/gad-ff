@@ -16,6 +16,7 @@ source .env
 Verify the training script and environment are working
 ```bash
 python scripts/train_eigen.py +extra=debug
+sbatch scripts/killarney.sh scripts/train_eigen.py +extra=debug
 ```
 
 Verify that we can overfit to the tiny dataset (using one node of 4x L40s)

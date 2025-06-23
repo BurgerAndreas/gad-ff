@@ -358,8 +358,8 @@ class EigenPotentialModule(PotentialModule):
         
         # print all keys and values
         if self.trainer.is_global_zero:
-            # pretty_print(self.current_epoch, val_epoch_metrics, prefix="val")
-            pretty_print(self.current_epoch, val_epoch_metrics["totloss"], prefix="val")
+            pretty_print(self.current_epoch, val_epoch_metrics, prefix="val")
+            # pretty_print(self.current_epoch, val_epoch_metrics["totloss"], prefix="val")
 
         val_epoch_metrics.update({"epoch": self.current_epoch})
         for k, v in val_epoch_metrics.items():
