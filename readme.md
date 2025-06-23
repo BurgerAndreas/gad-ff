@@ -1,16 +1,42 @@
 # GAD-FF
 
 ## Installation
-See [documentation/cluster.md](documentation/cluster.md)
 
-## Run
+Setup the environment [documentation/cluster.md](documentation/cluster.md)
 
+
+
+
+
+## Use our model
+
+Use our model, that directly predicts the Hessian eigenvalues and eigenvectors
+(based on the HORM EquiformerV2 model)
 ```bash
-python scripts/equiformer_eigen_dataset.py
+# download checkpoint
+TODO
+
+# predict
 ```
+
+## Recreate our models
+
+Recreate our Eigen dataset [documentation/eigen_dataset.md](documentation/eigen_dataset.md)
+
+Recreate our direct-prediction-Hessian-eigen model [documentation/training.md](documentation/training.md)
 
 ## FAQ
 
 - Composition split vs. Conformation split. The T1x dataset for training is split in two different ways. 
     - Molecular compositions: Harder. Tests generalization to unseen configurations. Reactant, product, and transition state geometries are all in the same set.
     - Molecular conformations: Easier. Tests generalization to unseen parts of the potential energy surface. Reactant and transition state might be train, and product might be test.
+
+## Citation
+
+```bibtex
+TODO
+```
+
+```bibtex
+HORM
+```

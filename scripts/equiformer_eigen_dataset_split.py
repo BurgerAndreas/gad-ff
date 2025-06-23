@@ -139,7 +139,7 @@ def process_subset(dataset_file, start_idx, end_idx, job_id, save_hessian=False)
             if not hasattr(batch, 'ae'):
                 batch.ae = torch.zeros_like(batch.energy)
             
-            tqdm.write(f"Processing global index {global_idx}, batch size: {batch.pos.shape}")
+            # tqdm.write(f"Processing global index {global_idx}, batch size: {batch.pos.shape}")
 
             # Move to device and prepare
             batch = batch.to(device)

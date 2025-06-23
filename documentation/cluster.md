@@ -102,7 +102,22 @@ ln -s ${PROJECT}/.mamba ${HOME}/.mamba
 ls -la ${PROJECT}/.mamba
 ```
 
-### Start job
+
+### Setup
+
+```bash
+# download HORM dataset (11GB)
+python scripts_horm/download_horm_data_kaggle.py
+```
+
+```bash
+# Download HORM EquiformerV2 with Energy-Force-Hessian Training
+mkdir -p ckpt
+wget https://huggingface.co/yhong55/HORM/resolve/main/eqv2.ckpt -O ckpt/eqv2.ckpt
+```
+
+
+### Start an interactive session
 
 Killarney
 ```bash
@@ -111,22 +126,4 @@ salloc -A aip-aspuru -t 60:00:00 -D /project/aip-aspuru/aburger/gad-ff --gres=gp
 Balam
 ```bash
 debugjob --clean -g 1
-```
-
-Try training
-```bash
-python scripts/train_eigen.py +extra=debug
-```
-
-### Setup
-
-```shell
-# download HORM dataset (11GB)
-python scripts_horm/download_horm_data_kaggle.py
-```
-
-```shell
-# Download EquiformerV2 with Energy-Force-Hessian Training
-mkdir -p ckpt
-wget https://huggingface.co/yhong55/HORM/resolve/main/eqv2.ckpt -O ckpt/eqv2.ckpt
 ```

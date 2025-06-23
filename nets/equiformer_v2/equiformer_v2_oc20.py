@@ -425,6 +425,8 @@ class EquiformerV2_OC20(BaseModel):
                 self.use_sep_s2_act,
                 alpha_drop=0.0,
             )
+        else:
+            self.eigvec_2_head = None
             
         # eigenvalues are scalars (degree 0) like energy
         # we will just use the same architecture as the energy head
