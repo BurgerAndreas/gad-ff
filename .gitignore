@@ -29,6 +29,7 @@ Data/RGD1
 *.ckpt
 *.lmdb
 *.lmdb-lock
+*.png
 
 # C extensions
 *.so

@@ -228,6 +228,14 @@ class EigenPotentialModule(PotentialModule):
         if eigval_2_pred is not None:
             eval_metrics["mape_eigval2"] = torch.mean(torch.abs((eigval_2_pred - eigval_2_true) / (torch.abs(eigval_2_true) + eps))).item() * 100
         
+        # Relative error for eigenvalues (mean over batch)
+        if eigval_1_pred is not None:
+            rel_err_eigval1 = torch.abs(eigval_1_pred - eigval_1_true) / (torch.abs(eigval_1_true) + eps)
+            eval_metrics["relerr_eigval1"] = torch.mean(rel_err_eigval1).item()
+        if eigval_2_pred is not None:
+            rel_err_eigval2 = torch.abs(eigval_2_pred - eigval_2_true) / (torch.abs(eigval_2_true) + eps)
+            eval_metrics["relerr_eigval2"] = torch.mean(rel_err_eigval2).item()
+        
         # Sign agreement for eigenvalues (important for Hessian analysis)
         def sign_agreement(y_pred, y_true):
             pred_signs = torch.sign(y_pred)
@@ -259,6 +267,7 @@ class EigenPotentialModule(PotentialModule):
         
         if eigval_1_pred is not None and eigval_2_pred is not None:
             true_saddle1 = is_index1_saddle(eigval_1_true, eigval_2_true)
+            eval_metrics["true_saddle1"] = true_saddle1.float().mean().item()
             pred_saddle1 = is_index1_saddle(eigval_1_pred, eigval_2_pred)
             
             # Classification metrics for index 1 saddle points
