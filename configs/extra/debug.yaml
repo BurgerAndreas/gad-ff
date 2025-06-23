@@ -15,5 +15,7 @@ pltrainer:
   limit_train_batches: 2
   limit_val_batches: 2 
 
+# model:
+#   do_eigvec_2: false
+
 use_wandb: false
-load_checkpoint: true
