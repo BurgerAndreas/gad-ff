@@ -17,6 +17,18 @@ Download the HORM dataset (11GB)
 python scripts_horm/download_horm_data_kaggle.py
 ```
 
+## DFT Hessian-eigen dataset
+
+```bash
+python scripts/create_dft_hess_eigen_dataset.py --dataset-file data/sample_100.lmdb
+    
+python scripts/create_dft_hess_eigen_dataset.py --dataset-file ts1x-val.lmdb
+python scripts/create_dft_hess_eigen_dataset.py --dataset-file RGD1.lmdb
+python scripts/create_dft_hess_eigen_dataset.py --dataset-file ts1x_hess_train_big.lmdb
+"""
+
+## EquiformerV2 Hessian-eigen dataset
+
 ### Test
 Test if the dataset creation is working
 ```bash

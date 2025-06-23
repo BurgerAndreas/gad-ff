@@ -98,6 +98,10 @@ eig_values: torch.Size([66])
 natoms: torch.Size([])
 ```
 
+All models are trained on the HORM-Transition1x training set
+and evaluated on both the in-distribution (ID) Transition1x validation set and the out-of-distribution
+(OOD) HORM-RGD1 subset
+
 ## Model checkpoints
 Pre-trained model checkpoints can be downloaded from: https://huggingface.co/yhong55/HORM
 

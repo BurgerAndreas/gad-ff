@@ -8,7 +8,7 @@ training:
   val_path: "data/sample_100-dft-hess-eigen.lmdb"
   bz: 100
   num_workers: 16 # 48
-  # lr_schedule_type: "constant"  # No learning rate decay for overfitting
+  lr_schedule_type: null  # No learning rate decay for overfitting
   
 pltrainer:
   devices: 4  # Use all 4 GPUs on the node

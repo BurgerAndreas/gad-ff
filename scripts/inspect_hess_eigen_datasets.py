@@ -155,7 +155,7 @@ def plot_individual_histograms(eigenvals_1, eigenvals_2, dataset_name, output_di
     
     plt.tight_layout()
     fname = f"{output_dir}/{dataset_name}_eigenvalue_histograms.png"
-    print(f"Saved {fname}")
+    print(f" Saved {fname}")
     plt.savefig(fname, dpi=300, bbox_inches='tight')
     plt.close()
 
@@ -180,7 +180,7 @@ def plot_joint_distribution_2d(eigenvals_1, eigenvals_2, dataset_name, output_di
     plt.tight_layout()
     fname = f"{output_dir}/{dataset_name}_joint_distribution.png"
     plt.savefig(fname, dpi=300, bbox_inches='tight')
-    print(f"Saved {fname}")
+    print(f" Saved {fname}")
     plt.close()
 
 
@@ -222,7 +222,7 @@ def plot_logx_histograms(eigenvals_1, eigenvals_2, dataset_name, output_dir):
     plt.tight_layout()
     fname = f"{output_dir}/{dataset_name}_logx_histograms.png"
     plt.savefig(fname, dpi=300, bbox_inches='tight')
-    print(f"Saved {fname}")
+    print(f" Saved {fname}")
     plt.close()
 
 
@@ -254,7 +254,7 @@ def plot_logy_histograms(eigenvals_1, eigenvals_2, dataset_name, output_dir):
     plt.tight_layout()
     fname = f"{output_dir}/{dataset_name}_logy_histograms.png"
     plt.savefig(fname, dpi=300, bbox_inches='tight')
-    print(f"Saved {fname}")
+    print(f" Saved {fname}")
     plt.close()
 
 
@@ -283,7 +283,7 @@ def plot_kde_joint_distribution(eigenvals_1, eigenvals_2, dataset_name, output_d
     plt.tight_layout()
     fname = f"{output_dir}/{dataset_name}_kde_joint.png"
     plt.savefig(fname, dpi=300, bbox_inches='tight')
-    print(f"Saved {fname}")
+    print(f" Saved {fname}")
     plt.close()
     
 def plot_scatter_joint_distribution(eigenvals_1, eigenvals_2, dataset_name, output_dir):
@@ -305,7 +305,7 @@ def plot_scatter_joint_distribution(eigenvals_1, eigenvals_2, dataset_name, outp
     plt.tight_layout()
     fname = f"{output_dir}/{dataset_name}_scatter_joint.png"
     plt.savefig(fname, dpi=300, bbox_inches='tight')
-    print(f"Saved {fname}")
+    print(f" Saved {fname}")
     plt.close()
 
 
@@ -374,9 +374,11 @@ def print_statistics_table(all_stats):
 
 def main():
     parser = argparse.ArgumentParser(description='Inspect eigenvalue distributions in HORM eigen datasets')
-    parser.add_argument('--datasets', nargs='+', 
-                        default=['data/sample_100-equ-hess-eigen.lmdb', 'ts1x-val-equ-hess-eigen.lmdb', 'RGD1-equ-hess-eigen.lmdb'],
-                        help='Dataset files to analyze (default: ts1x-val-equ-hess-eigen.lmdb RGD1-equ-hess-eigen.lmdb)')
+    parser.add_argument(
+        '--datasets', nargs='+', 
+        default=['data/sample_100-dft-hess-eigen.lmdb', 'ts1x-val-dft-hess-eigen.lmdb', 'RGD1-dft-hess-eigen.lmdb'],
+        help='Dataset files to analyze (default: ts1x-val-dft-hess-eigen.lmdb RGD1-dft-hess-eigen.lmdb)'
+    )
     parser.add_argument('--max-samples', type=int, default=None,
                         help='Maximum number of samples to load per dataset (default: all)')
     parser.add_argument('--output-dir', default='eigenvalue_plots',
@@ -437,4 +439,8 @@ def main():
 
 
 if __name__ == "__main__":
+    """Example usage:
+    python scripts/inspect_hess_eigen_datasets.py --datasets data/sample_100-dft-hess-eigen.lmdb ts1x-val-dft-hess-eigen.lmdb RGD1-dft-hess-eigen.lmdb ts1x_hess_train_big-dft-hess-eigen.lmdb
+    python scripts/inspect_hess_eigen_datasets.py --datasets data/sample_100-equ-hess-eigen.lmdb ts1x-val-equ-hess-eigen.lmdb RGD1-equ-hess-eigen.lmdb
+    """
     main() 

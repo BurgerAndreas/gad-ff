@@ -108,42 +108,47 @@ def create_dfteigen_dataset(save_hessian=False, dataset_file="ts1x-val.lmdb"):
     with out_env.begin(write=True) as txn:
         for sample_idx in tqdm(range(len(dataset)), total=len(dataset)):
             
-            # Get the original sample
-            original_sample = dataset[sample_idx]
-            data_copy = copy.deepcopy(original_sample)
+            try:
+                # Get the original sample
+                original_sample = dataset[sample_idx]
+                data_copy = copy.deepcopy(original_sample)
+                
+                # Compute smallest eigenvalues and eigenvectors from DFT Hessian
+                dft_hessian = original_sample.hessian  # Shape should be [3*N * 3*N]
             
-            # Compute smallest eigenvalues and eigenvectors from DFT Hessian
-            dft_hessian = original_sample.hessian  # Shape should be [3*N * 3*N]
-           
-            # Memory movement overhead is not worth it
-            # dft_hessian = dft_hessian.to(device)
-            
-            n_atoms = original_sample.pos.shape[0] # [N]
-            dft_hessian = dft_hessian.reshape(n_atoms*3, n_atoms*3) # [N*3, N*3]
-            
-            eigenvalues, eigenvectors = torch.linalg.eigh(dft_hessian)
-            smallest_eigenvals = eigenvalues[:2].cpu() # [2]
-            smallest_eigenvecs = eigenvectors[:, :2].cpu() # [3*N, 2]
-            
-            # Reshape eigenvectors to [2, N, 3] format
-            eigvecs_reshaped = smallest_eigenvecs.T.reshape(2, n_atoms, 3)  # [2, N, 3]
-            
-            # Add new fields to the original data object
-            data_copy.hessian_eigenvalue_1 = smallest_eigenvals[0:1]  # Keep as [1] tensor
-            data_copy.hessian_eigenvalue_2 = smallest_eigenvals[1:2]  # Keep as [1] tensor
-            data_copy.hessian_eigenvector_1 = eigvecs_reshaped[0]  # [N, 3]
-            data_copy.hessian_eigenvector_2 = eigvecs_reshaped[1]  # [N, 3]
-            
-            # Optionally remove the hessian to save space
-            if not save_hessian:
-                if hasattr(data_copy, 'hessian'):
-                    delattr(data_copy, 'hessian')
+                # Memory movement overhead is not worth it
+                # dft_hessian = dft_hessian.to(device)
+                
+                n_atoms = original_sample.pos.shape[0] # [N]
+                dft_hessian = dft_hessian.reshape(n_atoms*3, n_atoms*3) # [N*3, N*3]
+                
+                eigenvalues, eigenvectors = torch.linalg.eigh(dft_hessian)
+                smallest_eigenvals = eigenvalues[:2].cpu() # [2]
+                smallest_eigenvecs = eigenvectors[:, :2].cpu() # [3*N, 2]
+                
+                # Reshape eigenvectors to [2, N, 3] format
+                eigvecs_reshaped = smallest_eigenvecs.T.reshape(2, n_atoms, 3)  # [2, N, 3]
+                
+                # Add new fields to the original data object
+                data_copy.hessian_eigenvalue_1 = smallest_eigenvals[0:1]  # Keep as [1] tensor
+                data_copy.hessian_eigenvalue_2 = smallest_eigenvals[1:2]  # Keep as [1] tensor
+                data_copy.hessian_eigenvector_1 = eigvecs_reshaped[0]  # [N, 3]
+                data_copy.hessian_eigenvector_2 = eigvecs_reshaped[1]  # [N, 3]
+                
+                # Optionally remove the hessian to save space
+                if not save_hessian:
+                    if hasattr(data_copy, 'hessian'):
+                        delattr(data_copy, 'hessian')
 
-            txn.put(
-                f"{sample_idx}".encode("ascii"),
-                pickle.dumps(data_copy, protocol=pickle.HIGHEST_PROTOCOL),
-            )
-            num_samples_written += 1
+                txn.put(
+                    f"{sample_idx}".encode("ascii"),
+                    pickle.dumps(data_copy, protocol=pickle.HIGHEST_PROTOCOL),
+                )
+                num_samples_written += 1
+                
+            except Exception as e:
+                print(f"Error processing sample {sample_idx}: {e}", flush=True)
+                exit()
             
         # end of loop
         txn.put(
