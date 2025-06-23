@@ -19,24 +19,24 @@ python scripts/train_eigen.py +experiment=debug
 sbatch scripts/killarney.sh scripts/train_eigen.py +experiment=debug
 ```
 
-Verify that we can overfit to the tiny dataset (using one node of 4x L40s)
+Verify that we can overfit to the tiny dataset (using one L40s)
 ```bash
-sbatch scripts/killarney_4xl40s.sh scripts/train_eigen.py +experiment=overfit100
+sbatch scripts/killarney.sh scripts/train_eigen.py +experiment=overfit100
 ```
 
 Fit on the smaller training dataset (RGD1), test on TS1x
 ```bash
-sbatch scripts/killarney.sh scripts/train_eigen.py +experiment=rgd1
+sbatch scripts/killarney_4xl40s.sh scripts/train_eigen.py +experiment=rgd1
 ```
 
 Fit on the larger training dataset (TS1x), test on TS1x
 ```bash
-sbatch scripts/killarney.sh scripts/train_eigen.py +experiment=ts1x
+sbatch scripts/killarney_4xl40s.sh scripts/train_eigen.py +experiment=ts1x
 ```
 
 Fit on both datasets (RGD1 and TS1x), test on TS1x
 ```bash
-sbatch scripts/killarney.sh scripts/train_eigen.py +experiment=alldata
+sbatch scripts/killarney_4xl40s.sh scripts/train_eigen.py +experiment=alldata
 ```
 
 ## Background

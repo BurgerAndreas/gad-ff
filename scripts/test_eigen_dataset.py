@@ -13,7 +13,7 @@ from gadff.horm.hessian_utils import compute_hessian_batches, predict_eigen_from
 from gadff.path_config import DATASET_DIR_HORM_EIGEN, CHECKPOINT_PATH_EQUIFORMER_HORM
 
 
-def test_dataset_consistency(original_dataset_name="ts1x-val.lmdb", eigen_dataset_name="ts1x-val-eigen.lmdb", num_samples=10):
+def test_dataset_consistency(original_dataset_name="ts1x-val.lmdb", eigen_dataset_name="ts1x-val-dft-hess-eigen.lmdb", num_samples=10):
     """
     Compare the original dataset with the eigen dataset to ensure all original data is preserved
     and only the hessian eigen information is added.
@@ -153,9 +153,9 @@ def test_dataset_consistency(original_dataset_name="ts1x-val.lmdb", eigen_datase
     return all_consistent
 
 
-def test_eigen_dataset(dataset_name="ts1x-val-eigen.lmdb", max_batches=-1):
+def test_eigen_dataset(dataset_name="ts1x-val-dft-hess-eigen.lmdb", max_batches=-1):
     """
-    Load the ts1x-val-eigen.lmdb dataset, test EquiformerV2 forward pass,
+    Load the ts1x-val-dft-hess-eigen.lmdb dataset, test EquiformerV2 forward pass,
     and compare predicted forces to stored forces and first eigenvector.
     """
     # ---- Config ----
@@ -314,9 +314,9 @@ if __name__ == "__main__":
     
     # Auto-derive eigen dataset name if not provided
     if args.eigen_dataset is None:
-        # Insert "-eigen" before the file extension
+        # Insert "-dft-hess-eigen" before the file extension
         base, ext = os.path.splitext(args.original_dataset)
-        args.eigen_dataset = f"{base}-eigen{ext}"
+        args.eigen_dataset = f"{base}-dft-hess-eigen{ext}"
     
     # Test consistency between original and eigen datasets
     test_dataset_consistency(original_dataset_name=args.original_dataset, 

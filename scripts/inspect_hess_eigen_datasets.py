@@ -375,8 +375,8 @@ def print_statistics_table(all_stats):
 def main():
     parser = argparse.ArgumentParser(description='Inspect eigenvalue distributions in HORM eigen datasets')
     parser.add_argument('--datasets', nargs='+', 
-                        default=['data/sample_100-eigen.lmdb', 'ts1x-val-eigen.lmdb', 'RGD1-eigen.lmdb'],
-                        help='Dataset files to analyze (default: ts1x-val-eigen.lmdb RGD1-eigen.lmdb)')
+                        default=['data/sample_100-equ-hess-eigen.lmdb', 'ts1x-val-equ-hess-eigen.lmdb', 'RGD1-equ-hess-eigen.lmdb'],
+                        help='Dataset files to analyze (default: ts1x-val-equ-hess-eigen.lmdb RGD1-equ-hess-eigen.lmdb)')
     parser.add_argument('--max-samples', type=int, default=None,
                         help='Maximum number of samples to load per dataset (default: all)')
     parser.add_argument('--output-dir', default='eigenvalue_plots',
@@ -401,7 +401,8 @@ def main():
             dataset_path = os.path.abspath(dataset_file)
         else:
             dataset_path = os.path.join(args.data_dir, dataset_file)
-        dataset_name = dataset_file.replace('-eigen.lmdb', '').replace('.lmdb', '')
+        dataset_name = dataset_file.replace('-equ-hess-eigen.lmdb', '').replace('.lmdb', '')
+        dataset_name = dataset_file.replace('-dft-hess-eigen.lmdb', '').replace('.lmdb', '')
         
         print(f"\n{'='*60}")
         print(f"Processing: {dataset_name}")

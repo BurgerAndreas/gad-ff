@@ -16,12 +16,13 @@ Use our model, that directly predicts the Hessian eigenvalues and eigenvectors
 # download checkpoint
 TODO
 
-# predict
+# run inference
+TODO
 ```
 
 ## Recreate our models
 
-Recreate our Eigen dataset [documentation/eigen_dataset.md](documentation/eigen_dataset.md)
+Recreate our Hessian-eigen dataset [documentation/eigen_dataset.md](documentation/eigen_dataset.md)
 
 Recreate our direct-prediction-Hessian-eigen model [documentation/training.md](documentation/training.md)
 

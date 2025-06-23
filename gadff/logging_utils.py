@@ -52,16 +52,6 @@ def name_from_config(args: omegaconf.DictConfig, is_checkpoint_name=False) -> st
     print(f"Name{' checkpoint' if is_checkpoint_name else ''}: {_name}")
     return _name
 
-# def name_from_config(cfg):
-#     if isinstance(cfg.training.trn_path, str):
-#         dataset_name = cfg.training.trn_path.split("/")[-1].split(".")[0].replace("-eigen", "")
-#     else:
-#         dataset_name = ""
-#         for path in cfg.training.trn_path:
-#             dataset_name += "-" + path.split("/")[-1].split(".")[0].replace("-eigen", "")
-#     run_name = f"{cfg.version}-{cfg.experiment_name}-{dataset_name}-" + str(uuid4()).split("-")[-1]
-#     return run_name
-
 def set_gpu_name(args):
     """Set wandb.run.name."""
     try:

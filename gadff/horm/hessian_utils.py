@@ -38,13 +38,10 @@ def compute_full_hessian(coords, energy, forces=None, with_gradients=False):
     return hessian.reshape(n_comp, -1)
 
 def get_smallest_eigen_from_full_hessian(batch, hessian, n_smallest=2) -> tuple[list[torch.Tensor], list[torch.Tensor]]:
-    """Compute Hessian matrix using autograd.
-    Return n_smallest eigenvalues and eigenvectors per batch.
+    """Return n_smallest eigenvalues and eigenvectors per batch.
     Does not have gradients, cannot be used for training.
-    
-    coords needs to be the same as the one used to compute forces.
-    returns:
-    lists of tensors of shape [B, n_smallest] and [B, n_smallest, n_atoms*3]
+    Returns:
+        lists of tensors of shape [B, n_smallest] and [B, n_smallest, n_atoms*3]
     """
     
     # Compute Hessian and eigenspectrum for each batch separately

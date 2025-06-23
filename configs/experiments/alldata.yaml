@@ -3,8 +3,8 @@
 # Fit on the larger training dataset (TS1x), test on TS1x
 
 training:
-  trn_path: ["ts1x_hess_train_big-eigen.lmdb", "RGD1-eigen.lmdb"]
-  val_path: "ts1x-val-eigen.lmdb"
+  trn_path: ["ts1x_hess_train_big-dft-hess-eigen.lmdb", "RGD1-dft-hess-eigen.lmdb"]
+  val_path: "ts1x-val-dft-hess-eigen.lmdb"
   bz: 128
   num_workers: 16 # 48
   # lr_schedule_type: "constant"  # No learning rate decay for overfitting

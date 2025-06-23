@@ -13,10 +13,10 @@ Processes all three datasets:
 - RGD1.lmdb
 - ts1x_hess_train_big.lmdb
 - ts1x-val.lmdb
-For each, creates a -eigen.lmdb file with the new fields.
+For each, creates a -equ-hess-eigen.lmdb file with the new fields.
 
 Saves the new dataset to 
-~/.cache/kagglehub/datasets/yunhonghan/hessian-dataset-for-optimizing-reactive-mliphorm/versions/5/ts1x-val-eigen.lmdb
+~/.cache/kagglehub/datasets/yunhonghan/hessian-dataset-for-optimizing-reactive-mliphorm/versions/5/ts1x-val-equ-hess-eigen.lmdb
 
 Quite slow, takes ~10h for 50k samples, and ~2 weeks for 1.7M samples.
 """
@@ -80,7 +80,7 @@ def create_eigen_dataset(save_hessian=False, dataset_file="ts1x-val.lmdb"):
         input_lmdb_path = os.path.abspath(dataset_file)
     else:
         input_lmdb_path = os.path.join(DATASET_DIR_HORM_EIGEN, dataset_file)
-    output_lmdb_path = input_lmdb_path.replace(".lmdb", "-eigen.lmdb")
+    output_lmdb_path = input_lmdb_path.replace(".lmdb", "-equ-hess-eigen.lmdb")
     # Clean up old database files if they exist
     successfully_removed = remove_dir_recursively(output_lmdb_path)
     remove_dir_recursively(f"{output_lmdb_path}-lock")
@@ -177,11 +177,11 @@ def create_eigen_dataset(save_hessian=False, dataset_file="ts1x-val.lmdb"):
 
 if __name__ == "__main__":
     """Try:
-    python scripts/equiformer_eigen_dataset.py --dataset-file data/sample_100.lmdb
+    python scripts/create_equ_hess_eigen_dataset.py --dataset-file data/sample_100.lmdb
     
-    python scripts/equiformer_eigen_dataset.py --dataset-file ts1x-val.lmdb
-    python scripts/equiformer_eigen_dataset.py --dataset-file RGD1.lmdb
-    python scripts/equiformer_eigen_dataset.py --dataset-file ts1x_hess_train_big.lmdb
+    python scripts/create_equ_hess_eigen_dataset.py --dataset-file ts1x-val.lmdb
+    python scripts/create_equ_hess_eigen_dataset.py --dataset-file RGD1.lmdb
+    python scripts/create_equ_hess_eigen_dataset.py --dataset-file ts1x_hess_train_big.lmdb
     """
     parser = argparse.ArgumentParser(description="Create eigen dataset with Hessian eigenvalues and eigenvectors")
     parser.add_argument(

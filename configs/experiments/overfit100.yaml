@@ -4,8 +4,8 @@
 # This config is designed to overfit to sample_100.lmdb quickly
 
 training:
-  trn_path: "data/sample_100-eigen.lmdb"
-  val_path: "data/sample_100-eigen.lmdb"
+  trn_path: "data/sample_100-dft-hess-eigen.lmdb"
+  val_path: "data/sample_100-dft-hess-eigen.lmdb"
   bz: 100
   num_workers: 16 # 48
   # lr_schedule_type: "constant"  # No learning rate decay for overfitting
