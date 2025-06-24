@@ -22,6 +22,7 @@ sbatch scripts/killarney.sh scripts/train_eigen.py experiment=debug
 Verify that we can overfit to the tiny dataset (using one L40s)
 ```bash
 sbatch scripts/killarney.sh scripts/train_eigen.py experiment=overfit100
+sbatch scripts/killarney.sh scripts/train_eigen.py experiment=overfit100 training.loss_type_vec=cosine
 ```
 
 Fit on the smaller training dataset (RGD1), test on TS1x
@@ -40,6 +41,8 @@ sbatch scripts/killarney_h100.sh scripts/train_eigen.py experiment=rgd1
 Fit on the larger training dataset (TS1x), test on TS1x
 ```bash
 sbatch scripts/killarney.sh scripts/train_eigen.py experiment=ts1x
+sbatch scripts/killarney.sh scripts/train_eigen.py experiment=ts1x training.loss_type_vec=cosine
+sbatch scripts/killarney.sh scripts/train_eigen.py experiment=ts1x training.loss_type_vec=cosine training.lr_schedule_type=null
 ```
 
 Fit on both datasets (RGD1 and TS1x), test on TS1x

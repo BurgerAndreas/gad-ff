@@ -16,6 +16,8 @@ IGNORE_OVERRIDES_CHECKPOINT = [
 REPLACE = {
     "+": "",
     "experiment=": "",
+    "experiment": "",
+    "training.": "",
     "training.lr_schedule_type=": "lr=",
 }
 
@@ -40,13 +42,13 @@ def name_from_config(args: omegaconf.DictConfig, is_checkpoint_name=False) -> st
                         [ignore in arg for ignore in IGNORE_OVERRIDES_CHECKPOINT]
                     ):
                         continue
-                for key, value in REPLACE.items():
-                    override = arg.replace(key, value)
-                override_names += " " + override
+                override_names += " " + arg
     except Exception as error:
         print("\nname_from_config() failed:", error)
         print("args:", args)
         raise error
+    for key, value in REPLACE.items():
+        override_names = override_names.replace(key, value)
     # logger.info("name_from_config() mname: %s, override_names: %s", mname, override_names)
     _name = mname + override_names
     print(f"Name{' checkpoint' if is_checkpoint_name else ''}: {_name}")
