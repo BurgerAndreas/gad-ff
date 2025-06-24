@@ -30,25 +30,9 @@ import copy
 from tqdm import tqdm
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.horm.hessian_utils import get_smallest_eigen_from_full_hessian
-from gadff.path_config import DATASET_DIR_HORM_EIGEN
+from gadff.path_config import DATASET_DIR_HORM_EIGEN, _fix_dataset_path, remove_dir_recursively
 
-def remove_dir_recursively(path):
-    if os.path.exists(path):
-        if os.path.isdir(path):
-            # Remove all files in the directory before removing the directory itself
-            for filename in os.listdir(path):
-                file_path = os.path.join(path, filename)
-                if os.path.isfile(file_path) or os.path.islink(file_path):
-                    os.remove(file_path)
-                elif os.path.isdir(file_path):
-                    # Recursively remove subdirectories if any
-                    import shutil
-                    shutil.rmtree(file_path)
-            os.rmdir(path)
-        else:
-            os.remove(path)
-    # success if path does not exist anymore
-    return not os.path.exists(path)
+
 
 
 def create_dfteigen_dataset(save_hessian=False, dataset_file="ts1x-val.lmdb"):
@@ -68,10 +52,7 @@ def create_dfteigen_dataset(save_hessian=False, dataset_file="ts1x-val.lmdb"):
 
     summary = []
 
-    if os.path.exists(dataset_file):
-        input_lmdb_path = os.path.abspath(dataset_file)
-    else:
-        input_lmdb_path = os.path.join(DATASET_DIR_HORM_EIGEN, dataset_file)
+    input_lmdb_path = _fix_dataset_path(dataset_file)
     output_lmdb_path = input_lmdb_path.replace(".lmdb", "-dft-hess-eigen.lmdb")
     
     # Clean up old database files if they exist

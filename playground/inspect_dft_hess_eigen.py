@@ -1,0 +1,218 @@
+#!/usr/bin/env python3
+"""
+Script to inspect and compare eigenvalue computations on DFT Hessians.
+
+Computes eigenvalues of the Hessian for the first 100 samples using both torch.linalg.eig and torch.linalg.eigh.
+Checks ordering, compares differences between methods, and analyzes Hessian asymmetry errors.
+"""
+import argparse
+import numpy as np
+import time
+import torch
+from tqdm import tqdm
+from gadff.horm.ff_lmdb import LmdbDataset
+from gadff.path_config import _fix_dataset_path
+
+
+def inspect_dft_hess_eigen(dataset_file="ts1x-val.lmdb", num_samples=100):
+    """
+    Inspects eigenvalue computations on DFT Hessians for the first num_samples.
+    
+    Args:
+        dataset_file (str): Name of the dataset file to process
+        num_samples (int): Number of samples to analyze (default: 100)
+    """
+    # ---- Load dataset ----
+    input_lmdb_path = _fix_dataset_path(dataset_file)
+    dataset = LmdbDataset(input_lmdb_path)
+    print(f"Loaded dataset with {len(dataset)} samples from {input_lmdb_path}")
+    
+    # Check if hessian field exists
+    first_sample = dataset[0]
+    if not hasattr(first_sample, 'hessian'):
+        raise ValueError("Dataset does not contain 'hessian' field. Cannot compute DFT eigenvalues.")
+    
+    print(f"Processing first {num_samples} samples...")
+    
+    # Storage for results
+    eig_eigenvals_all = []
+    eigh_eigenvals_all = []
+    eigenval_diffs = []
+    eigenvec_diffs = []
+    asymmetry_errors = []
+    eig_ordered_correctly = []
+    eigh_ordered_correctly = []
+    
+    # ---- Main analysis loop ----
+    for sample_idx in tqdm(range(min(num_samples, len(dataset))), desc="Processing samples"):
+        try:
+            # Get sample and extract hessian
+            sample = dataset[sample_idx]
+            dft_hessian = sample.hessian
+            n_atoms = sample.pos.shape[0]
+            
+            # Reshape hessian to [3*N, 3*N] format
+            hessian_matrix = dft_hessian.reshape(n_atoms*3, n_atoms*3)
+            
+            # Check asymmetry error
+            asymmetry_error = torch.max(torch.abs(hessian_matrix - hessian_matrix.T)).item()
+            asymmetry_errors.append(asymmetry_error)
+            
+            # Compute eigenvalues using both methods
+            # torch.linalg.eig returns complex eigenvalues, but for symmetric matrices they should be real
+            eig_eigenvals, eig_eigenvecs = torch.linalg.eig(hessian_matrix)
+            eigh_eigenvals, eigh_eigenvecs = torch.linalg.eigh(hessian_matrix)
+            
+            # Convert complex eigenvalues to real (should have zero imaginary part for symmetric matrices)
+            eig_eigenvals_real = eig_eigenvals.real
+            
+            # Store all eigenvalues for comparison
+            eig_eigenvals_all.append(eig_eigenvals_real.cpu().numpy())
+            eigh_eigenvals_all.append(eigh_eigenvals.cpu().numpy())
+            
+            # Check if eigenvalues are ordered (smallest first)
+            eig_sorted = torch.all(eig_eigenvals_real[:-1] <= eig_eigenvals_real[1:])
+            eigh_sorted = torch.all(eigh_eigenvals[:-1] <= eigh_eigenvals[1:])
+            eig_ordered_correctly.append(eig_sorted.item())
+            eigh_ordered_correctly.append(eigh_sorted.item())
+            
+            # Sort both sets of eigenvalues for comparison
+            eig_sorted_vals, eig_sort_indices = torch.sort(eig_eigenvals_real)
+            eigh_sorted_vals = eigh_eigenvals  # eigh already returns sorted eigenvalues
+            
+            # Compare eigenvalue differences
+            eigenval_diff = torch.max(torch.abs(eig_sorted_vals - eigh_sorted_vals)).item()
+            eigenval_diffs.append(eigenval_diff)
+            
+            # Compare corresponding eigenvectors (need to sort eig eigenvectors)
+            eig_sorted_vecs = eig_eigenvecs.real[:, eig_sort_indices]
+            eigh_vecs = eigh_eigenvecs
+            
+            # Eigenvectors can differ by sign, so check both orientations
+            vec_diff_positive = torch.mean(torch.abs(eig_sorted_vecs - eigh_vecs)).item()
+            vec_diff_negative = torch.mean(torch.abs(eig_sorted_vecs + eigh_vecs)).item()
+            vec_diff = min(vec_diff_positive, vec_diff_negative)
+            eigenvec_diffs.append(vec_diff)
+            
+        except Exception as e:
+            print(f"Error processing sample {sample_idx}: {e}")
+            continue
+    
+    # ---- Print Summary Statistics ----
+    print(f"\n=== Analysis Results for {len(eigenval_diffs)} samples ===")
+    
+    print(f"\n--- Eigenvalue Ordering ---")
+    eig_ordered_pct = np.mean(eig_ordered_correctly) * 100
+    eigh_ordered_pct = np.mean(eigh_ordered_correctly) * 100
+    print(f"torch.linalg.eig eigenvalues ordered (smallest first): {eig_ordered_pct:.1f}% of samples")
+    print(f"torch.linalg.eigh eigenvalues ordered (smallest first): {eigh_ordered_pct:.1f}% of samples")
+    
+    print(f"\n--- Hessian Asymmetry Errors ---")
+    print(f"Asymmetry error - Max: {np.max(asymmetry_errors):.2e}")
+    print(f"Asymmetry error - Min: {np.min(asymmetry_errors):.2e}")
+    print(f"Asymmetry error - Avg: {np.mean(asymmetry_errors):.2e}")
+    print(f"Asymmetry error - Std: {np.std(asymmetry_errors):.2e}")
+    
+    print(f"\n--- Eigenvalue Differences (eig vs eigh) ---")
+    print(f"Max eigenvalue difference: {np.max(eigenval_diffs):.2e}")
+    print(f"Min eigenvalue difference: {np.min(eigenval_diffs):.2e}")
+    print(f"Avg eigenvalue difference: {np.mean(eigenval_diffs):.2e}")
+    print(f"Std eigenvalue difference: {np.std(eigenval_diffs):.2e}")
+    
+    print(f"\n--- Eigenvector Differences (eig vs eigh) ---")
+    print(f"Max eigenvector difference: {np.max(eigenvec_diffs):.2e}")
+    print(f"Min eigenvector difference: {np.min(eigenvec_diffs):.2e}")
+    print(f"Avg eigenvector difference: {np.mean(eigenvec_diffs):.2e}")
+    print(f"Std eigenvector difference: {np.std(eigenvec_diffs):.2e}")
+    
+    # ---- Additional Analysis ----
+    print(f"\n--- Additional Analysis ---")
+
+    # Analysis for torch.linalg.eigh
+    print(f"\n[torch.linalg.eigh]")
+
+    all_eigh_eigenvals = np.concatenate(eigh_eigenvals_all)
+    print(f"Eigenvalue range: [{np.min(all_eigh_eigenvals):.2e}, {np.max(all_eigh_eigenvals):.2e}]")
+
+    negative_eigenvals_count_eigh = np.sum(all_eigh_eigenvals < 0)
+    total_eigenvals_eigh = len(all_eigh_eigenvals)
+    print(f"Negative eigenvalues: {negative_eigenvals_count_eigh}/{total_eigenvals_eigh} ({negative_eigenvals_count_eigh/total_eigenvals_eigh*100:.1f}%)")
+
+    smallest_eigenvals_eigh = [eigenvals[0] for eigenvals in eigh_eigenvals_all]
+    print(f"Smallest eigenvalue - Min: {np.min(smallest_eigenvals_eigh):.2e}")
+    print(f"Smallest eigenvalue - Max: {np.max(smallest_eigenvals_eigh):.2e}")
+    print(f"Smallest eigenvalue - Avg: {np.mean(smallest_eigenvals_eigh):.2e}")
+
+    # Analysis for torch.linalg.eig
+    print(f"\n[torch.linalg.eig]")
+
+    all_eig_eigenvals = np.concatenate([np.sort(eigvals.real) for eigvals in eig_eigenvals_all])
+    print(f"Eigenvalue range: [{np.min(all_eig_eigenvals):.2e}, {np.max(all_eig_eigenvals):.2e}]")
+
+    negative_eigenvals_count_eig = np.sum(all_eig_eigenvals < 0)
+    total_eigenvals_eig = len(all_eig_eigenvals)
+    print(f"Negative eigenvalues: {negative_eigenvals_count_eig}/{total_eigenvals_eig} ({negative_eigenvals_count_eig/total_eigenvals_eig*100:.1f}%)")
+
+    smallest_eigenvals_eig = [np.sort(eigenvals.real)[0] for eigenvals in eig_eigenvals_all]
+    print(f"Smallest eigenvalue - Min: {np.min(smallest_eigenvals_eig):.2e}")
+    print(f"Smallest eigenvalue - Max: {np.max(smallest_eigenvals_eig):.2e}")
+    print(f"Smallest eigenvalue - Avg: {np.mean(smallest_eigenvals_eig):.2e}")
+    
+    # ---- Timing ----
+    print(f"\n--- Timing ---")
+    t0 = time.time()
+    for sample_idx in range(min(num_samples, len(dataset))):
+        # Get sample and extract hessian
+        sample = dataset[sample_idx]
+        dft_hessian = sample.hessian
+        n_atoms = sample.pos.shape[0]
+        # Reshape hessian to [3*N, 3*N] format
+        hessian_matrix = dft_hessian.reshape(n_atoms*3, n_atoms*3)
+        eig_eigenvals, eig_eigenvecs = torch.linalg.eig(hessian_matrix)
+    eig_elapsed = time.time() - t0
+    print(f"Timing: 100 samples with torch.linalg.eig: {eig_elapsed:.4f} seconds")
+
+    t0 = time.time()
+    for sample_idx in range(min(num_samples, len(dataset))):
+        # Get sample and extract hessian
+        sample = dataset[sample_idx]    
+        dft_hessian = sample.hessian
+        n_atoms = sample.pos.shape[0]
+        # Reshape hessian to [3*N, 3*N] format
+        hessian_matrix = dft_hessian.reshape(n_atoms*3, n_atoms*3)
+        eigh_eigenvals, eigh_eigenvecs = torch.linalg.eigh(hessian_matrix)
+    eigh_elapsed = time.time() - t0
+    print(f"Timing: 100 samples with torch.linalg.eigh: {eigh_elapsed:.4f} seconds")
+
+    return {
+        'asymmetry_errors': asymmetry_errors,
+        'eigenval_diffs': eigenval_diffs,
+        'eigenvec_diffs': eigenvec_diffs,
+        'eig_ordered_correctly': eig_ordered_correctly,
+        'eigh_ordered_correctly': eigh_ordered_correctly,
+        'eigenvals_eig': eig_eigenvals_all,
+        'eigenvals_eigh': eigh_eigenvals_all
+    }
+
+
+if __name__ == "__main__":
+    """
+    python playground/inspect_dft_hess_eigen.py
+    python playground/inspect_dft_hess_eigen.py --dataset-file RGD1.lmdb --num-samples 50
+    """
+    parser = argparse.ArgumentParser(description="Inspect DFT Hessian eigenvalue computations")
+    parser.add_argument(
+        "--dataset-file", 
+        type=str, 
+        default="ts1x-val.lmdb",
+        help="Name of the dataset file to process (default: ts1x-val.lmdb)"
+    )
+    parser.add_argument(
+        "--num-samples",
+        type=int,
+        default=100,
+        help="Number of samples to analyze (default: 100)"
+    )
+    args = parser.parse_args()
+    
+    inspect_dft_hess_eigen(dataset_file=args.dataset_file, num_samples=args.num_samples) 
