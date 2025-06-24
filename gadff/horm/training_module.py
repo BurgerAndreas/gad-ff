@@ -27,7 +27,7 @@ from gadff.horm.utils import average_over_batch_metrics, pretty_print
 import gadff.horm.utils as diff_utils
 from alphanet.models.alphanet import AlphaNet
 import yaml
-from gadff.path_config import find_project_root
+from gadff.path_config import find_project_root, DATASET_DIR_HORM_EIGEN
 
 
 LR_SCHEDULER = {
@@ -36,6 +36,16 @@ LR_SCHEDULER = {
 }
 GLOBAL_ATOM_NUMBERS = torch.tensor([1, 6, 7, 8])
 
+def _fix_dataset_path(_path):
+    if os.path.exists(_path):
+        # set absolute path
+        return os.path.abspath(_path)
+    else:
+        new_path = os.path.join(DATASET_DIR_HORM_EIGEN, _path)
+        if os.path.exists(new_path):
+            return new_path
+        else:
+            raise FileNotFoundError(f"Dataset path {_path} not found")
 
 def compute_extra_props(batch, pos_require_grad=True):
     """Adds device, z, and removes mean batch"""
@@ -124,6 +134,7 @@ class PotentialModule(LightningModule):
             print(
                 "Please Check your model name (choose from 'EquiformerV2', 'AlphaNet', 'LEFTNet', 'LEFTNet-df')"
             )
+        training_config = self.fix_paths(training_config)
         self.optimizer_config = optimizer_config
         self.training_config = training_config
         self.pos_require_grad = True
@@ -139,6 +150,14 @@ class PotentialModule(LightningModule):
         self.MAPEEval = MeanAbsolutePercentageError()
         self.cosineEval = CosineSimilarity(reduction="mean")
         self.val_step_outputs = []
+    
+    def fix_paths(self, training_config):
+        """
+        Fix paths in the training config to be relative to the project root.
+        """
+        training_config["trn_path"] = _fix_dataset_path(training_config["trn_path"])
+        training_config["val_path"] = _fix_dataset_path(training_config["val_path"])
+        return training_config
 
     def configure_optimizers(self):
         print("Configuring optimizer")

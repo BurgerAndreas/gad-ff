@@ -29,22 +29,12 @@ from gadff.logging_utils import name_from_config
 def setup_training(cfg: DictConfig):
     run_name = name_from_config(cfg)
     
-    # from the paper:
+    # from the HORM paper:
     # Model Layers HiddenDim Heads LearningRate BatchSize
     # EquiformerV2 4 128 4 3e-4 128
     # maximum spherical harmonic degree of lmax = 4
     # with open("configs/equiformer_v2.yaml", "r") as f:
     #     model_config = yaml.safe_load(f)
-
-    # add extra heads to predict Hessian eigenvalues and eigenvectors
-    # Add eigenvalue/eigenvector prediction flags to model config
-    # model_config.update({
-    #     'do_eigvec_1': cfg.do_eigvec_1,
-    #     'do_eigvec_2': cfg.do_eigvec_2,
-    #     'do_eigval_1': cfg.do_eigval_1,
-    #     'do_eigval_2': cfg.do_eigval_2,
-    # })
-    
     model_config = cfg.model
     # print("Model config:\n", yaml.dump(model_config))
 
