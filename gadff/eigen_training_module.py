@@ -30,8 +30,28 @@ import yaml
 from gadff.path_config import find_project_root
 from gadff.horm.training_module import PotentialModule, compute_extra_props
 
+def _cosine_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    """Sign-invariant cosine similarity loss: 1 - |cos(pred, target)|"""
+    eps = 1e-8
+    pred_norm = pred / (torch.norm(pred, dim=-1, keepdim=True) + eps)
+    target_norm = target / (torch.norm(target, dim=-1, keepdim=True) + eps)
+    cosine_sim = torch.sum(pred_norm * target_norm, dim=-1)
+    return torch.mean(1.0 - torch.abs(cosine_sim))
+
+def _min_l2_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    """Minimum L2 loss between pred vs target and pred vs -target"""
+    loss_pos = torch.mean((pred - target) ** 2, dim=-1)
+    loss_neg = torch.mean((pred + target) ** 2, dim=-1)
+    return torch.mean(torch.min(loss_pos, loss_neg))
+
+def _min_l1_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    """Minimum L1 loss between pred vs target and pred vs -target"""
+    loss_pos = torch.mean(torch.abs(pred - target), dim=-1)
+    loss_neg = torch.mean(torch.abs(pred + target), dim=-1)
+    return torch.mean(torch.min(loss_pos, loss_neg))
+
+
 class MyPLTrainer(pl.Trainer):
-    
     # Does not do anything?
     # self.trainer.strategy.load_model_state_dict
     def load_model_state_dict(self, checkpoint: Mapping[str, Any], strict: bool = True) -> None:
@@ -66,6 +86,24 @@ class EigenPotentialModule(PotentialModule):
         # Only needed to predict forces from energy of Hessian from forces
         self.pos_require_grad = False
         
+        # Eigenvectors of real symmetric matrices are only unique up to a sign
+        # So we need sign invariant loss functions
+        # Standard non-sign invariant loss functions
+        if training_config["loss_type_vec"] == "l1":
+            self.loss_fn_vec = nn.L1Loss()
+        elif training_config["loss_type_vec"] == "l2":
+            self.loss_fn_vec = nn.MSELoss()
+        # Sign invariant loss functions
+        elif training_config["loss_type_vec"] == "cosine":
+            self.loss_fn_vec = _cosine_loss
+        elif training_config["loss_type_vec"] == "min_l2":
+            self.loss_fn_vec = _min_l2_loss
+        elif training_config["loss_type_vec"] == "min_l1":
+            self.loss_fn_vec = _min_l1_loss
+        else:
+            raise ValueError(f"Invalid loss type for vectors: {training_config['loss_type_vec']}")
+        
+        # For eigenvalues, we can use the standard L1 or L2 loss
         if training_config["loss_type"] == "l1":
             self.loss_fn = nn.L1Loss()
         elif training_config["loss_type"] == "l2":
@@ -160,10 +198,10 @@ class EigenPotentialModule(PotentialModule):
             loss_eigval2 = self.loss_fn(eigval_2, batch.hessian_eigenvalue_2)
         if self.model_config["do_eigvec_1"]:
             eigvec_1 = outputs["eigvec_1"]
-            loss_eigvec1 = self.loss_fn(eigvec_1, batch.hessian_eigenvector_1)
+            loss_eigvec1 = self.loss_fn_vec(eigvec_1, batch.hessian_eigenvector_1)
         if self.model_config["do_eigvec_2"]:
             eigvec_2 = outputs["eigvec_2"]
-            loss_eigvec2 = self.loss_fn(eigvec_2, batch.hessian_eigenvector_2)
+            loss_eigvec2 = self.loss_fn_vec(eigvec_2, batch.hessian_eigenvector_2)
         
         info = {
             "MAE_eigval1": loss_eigval1.detach().item(),
@@ -372,5 +410,7 @@ class EigenPotentialModule(PotentialModule):
             self.log(k, v, sync_dist=True)
         
         self.val_step_outputs.clear()
+        
+
         
         

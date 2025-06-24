@@ -3,6 +3,7 @@ PyTorch Lightning module for training AlphaNet
 """
 
 from typing import Dict, List, Optional, Tuple
+from omegaconf import ListConfig
 import os
 from pathlib import Path
 import torch
@@ -171,10 +172,19 @@ class PotentialModule(LightningModule):
         print("Setting up dataset")
         if stage == "fit":
             print(f"Loading training dataset from {self.training_config['trn_path']}")
-            self.train_dataset = LmdbDataset(
-                Path(self.training_config["trn_path"]),
-                **self.training_config,
-            )
+            if isinstance(self.training_config["trn_path"], list) or isinstance(self.training_config["trn_path"], tuple) or isinstance(self.training_config["trn_path"], ListConfig):
+                dataset = []
+                for path in self.training_config["trn_path"]:
+                    dataset.append(LmdbDataset(
+                        Path(path),
+                        **self.training_config,
+                    ))
+                self.train_dataset = dataset
+            else:
+                self.train_dataset = LmdbDataset(
+                    Path(self.training_config["trn_path"]),
+                    **self.training_config,
+                )
             self.val_dataset = LmdbDataset(
                 Path(self.training_config["val_path"]),
                 **self.training_config,

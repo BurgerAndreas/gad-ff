@@ -46,6 +46,8 @@ training:
 
   # Loss type
   loss_type: "l1"
+  # Sign-invariant loss for eigenvectors: "cosine", "min_l2", "min_l1", "l1", "l2"
+  loss_type_vec: "min_l2"  
   
   # Checkpoint loading options
   load_weights_only: false  # If true, only load model weights, ignore training state (epoch, optimizer, etc.)

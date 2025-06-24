@@ -121,7 +121,7 @@ def main(cfg: DictConfig) -> None:
 
 if __name__ == "__main__":
     """Try:
-    python scripts/train_eigen.py +experiment=debug
+    python scripts/train_eigen.py experiment=debug
     python scripts/train_eigen.py training.bz=2
     """
     main()
