@@ -14,7 +14,7 @@ from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.path_config import _fix_dataset_path
 
 
-def inspect_dft_hess_eigen(dataset_file="ts1x-val.lmdb", num_samples=100):
+def inspect_dft_hess_eigen(dataset_file="ts1x-val.lmdb", num_samples=100, flip_sign=False):
     """
     Inspects eigenvalue computations on DFT Hessians for the first num_samples.
     
@@ -53,6 +53,9 @@ def inspect_dft_hess_eigen(dataset_file="ts1x-val.lmdb", num_samples=100):
             
             # Reshape hessian to [3*N, 3*N] format
             hessian_matrix = dft_hessian.reshape(n_atoms*3, n_atoms*3)
+            
+            if flip_sign:
+                hessian_matrix = -hessian_matrix
             
             # Check asymmetry error
             asymmetry_error = torch.max(torch.abs(hessian_matrix - hessian_matrix.T)).item()
@@ -197,8 +200,8 @@ def inspect_dft_hess_eigen(dataset_file="ts1x-val.lmdb", num_samples=100):
 
 if __name__ == "__main__":
     """
-    python playground/inspect_dft_hess_eigen.py
-    python playground/inspect_dft_hess_eigen.py --dataset-file RGD1.lmdb --num-samples 50
+    python playground/inspect_dft_hess_eigen_stats.py
+    python playground/inspect_dft_hess_eigen_stats.py --dataset-file RGD1.lmdb --num-samples 50 --flip-sign
     """
     parser = argparse.ArgumentParser(description="Inspect DFT Hessian eigenvalue computations")
     parser.add_argument(
@@ -213,6 +216,11 @@ if __name__ == "__main__":
         default=100,
         help="Number of samples to analyze (default: 100)"
     )
+    parser.add_argument(
+        "--flip-sign",
+        action="store_true",
+        help="Flip the sign of the Hessian"
+    )
     args = parser.parse_args()
     
-    inspect_dft_hess_eigen(dataset_file=args.dataset_file, num_samples=args.num_samples) 
+    inspect_dft_hess_eigen(dataset_file=args.dataset_file, num_samples=args.num_samples, flip_sign=args.flip_sign) 

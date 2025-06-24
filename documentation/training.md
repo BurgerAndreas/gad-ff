@@ -26,17 +26,24 @@ sbatch scripts/killarney.sh scripts/train_eigen.py +experiment=overfit100
 
 Fit on the smaller training dataset (RGD1), test on TS1x
 ```bash
-sbatch scripts/killarney_4xl40s.sh scripts/train_eigen.py +experiment=rgd1
+sbatch scripts/killarney_2xl40s.sh scripts/train_eigen.py experiment=rgd1 gpu=two
+sbatch scripts/killarney_2xl40s.sh scripts/train_eigen.py experiment=rgd1 gpu=two training.lr_schedule_type=null
+
+# smaller batch size instead
+sbatch scripts/killarney.sh scripts/train_eigen.py experiment=rgd1 training.bz=100
+
+# H100 instead
+sbatch scripts/killarney_h100.sh scripts/train_eigen.py experiment=rgd1 
 ```
 
 Fit on the larger training dataset (TS1x), test on TS1x
 ```bash
-sbatch scripts/killarney_4xl40s.sh scripts/train_eigen.py +experiment=ts1x
+sbatch scripts/killarney.sh scripts/train_eigen.py +experiment=ts1x
 ```
 
 Fit on both datasets (RGD1 and TS1x), test on TS1x
 ```bash
-sbatch scripts/killarney_4xl40s.sh scripts/train_eigen.py +experiment=alldata
+sbatch scripts/killarney_h100.sh scripts/train_eigen.py +experiment=alldata
 ```
 
 ## Background

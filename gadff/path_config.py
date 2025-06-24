@@ -57,15 +57,20 @@ def remove_dir_recursively(path):
     return not os.path.exists(path)
 
 def _fix_dataset_path(_path):
-    if os.path.exists(_path):
-        # set absolute path
-        return os.path.abspath(_path)
-    else:
-        new_path = os.path.join(DATASET_DIR_HORM_EIGEN, _path)
-        if os.path.exists(new_path):
-            return new_path
+    def _fix_dataset_path_single(_path):
+        if os.path.exists(_path):
+            # set absolute path
+            return os.path.abspath(_path)
         else:
-            raise FileNotFoundError(f"Dataset path {_path} not found")
+            new_path = os.path.join(DATASET_DIR_HORM_EIGEN, _path)
+            if os.path.exists(new_path):
+                return new_path
+            else:
+                raise FileNotFoundError(f"Dataset path {_path} not found")
+    if isinstance(_path, list) or isinstance(_path, tuple):
+        return [_fix_dataset_path_single(p) for p in _path]
+    else:
+        return _fix_dataset_path_single(_path)
 
 if __name__ == "__main__":
     print(find_project_root())

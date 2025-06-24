@@ -35,7 +35,7 @@ from gadff.path_config import DATASET_DIR_HORM_EIGEN, _fix_dataset_path, remove_
 
 
 
-def create_dfteigen_dataset(save_hessian=False, dataset_file="ts1x-val.lmdb"):
+def create_dfteigen_dataset(save_hessian=False, dataset_file="ts1x-val.lmdb", debug=False):
     """
     Creates a new dataset with the smallest two eigenvalues and eigenvectors of the DFT-computed Hessian.
     Saves the new dataset to a new file.
@@ -53,7 +53,10 @@ def create_dfteigen_dataset(save_hessian=False, dataset_file="ts1x-val.lmdb"):
     summary = []
 
     input_lmdb_path = _fix_dataset_path(dataset_file)
-    output_lmdb_path = input_lmdb_path.replace(".lmdb", "-dft-hess-eigen.lmdb")
+    if debug:
+        output_lmdb_path = input_lmdb_path.replace(".lmdb", "-dft-hess-eigen-DEBUG.lmdb")
+    else:
+        output_lmdb_path = input_lmdb_path.replace(".lmdb", "-dft-hess-eigen.lmdb")
     
     # Clean up old database files if they exist
     successfully_removed = remove_dir_recursively(output_lmdb_path)
@@ -103,7 +106,22 @@ def create_dfteigen_dataset(save_hessian=False, dataset_file="ts1x-val.lmdb"):
                 n_atoms = original_sample.pos.shape[0] # [N]
                 dft_hessian = dft_hessian.reshape(n_atoms*3, n_atoms*3) # [N*3, N*3]
                 
+                # [N*3], [N*3, N*3]
                 eigenvalues, eigenvectors = torch.linalg.eigh(dft_hessian)
+                
+                # Sort eigenvalues and eigenvectors so that eigenvalues are in ascending order
+                sorted_eigenvals, sort_indices = torch.sort(eigenvalues)
+                print(f"eigenvalues shape: {eigenvalues.shape}")
+                print(f"eigenvectors shape: {eigenvectors.shape}")
+                print(f"sort_indices shape: {sort_indices.shape}")
+                sorted_eigenvecs = eigenvectors[:, sort_indices]
+                print(f"eigenvectors shape: {eigenvectors.shape}")
+                assert sorted_eigenvals[0] <= sorted_eigenvals[1]
+                eigenvalues = sorted_eigenvals
+                eigenvectors = sorted_eigenvecs
+                
+                exit()
+                
                 smallest_eigenvals = eigenvalues[:2].cpu() # [2]
                 smallest_eigenvecs = eigenvectors[:, :2].cpu() # [3*N, 2]
                 
@@ -165,6 +183,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Keep the original hessian field in the output dataset (default: False)"
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Debug mode (default: False)"
+    )
     args = parser.parse_args()
     
-    create_dfteigen_dataset(save_hessian=args.save_hessian, dataset_file=args.dataset_file) 
+    create_dfteigen_dataset(save_hessian=args.save_hessian, dataset_file=args.dataset_file, debug=args.debug) 
