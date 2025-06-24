@@ -8,9 +8,7 @@ training:
 
 # Pytorch Lightning Trainer configuration
 pltrainer:
-  devices: 1
   # accelerator: "cpu"
-  strategy: "auto"
   max_epochs: 2
   limit_train_batches: 2
   limit_val_batches: 2 

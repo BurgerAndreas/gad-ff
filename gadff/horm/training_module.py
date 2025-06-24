@@ -146,7 +146,7 @@ class PotentialModule(LightningModule):
             self.potential.parameters(), **self.optimizer_config
         )
 
-        if not self.training_config["lr_schedule_type"] is None:
+        if self.training_config["lr_schedule_type"] is not None:
             scheduler_func = LR_SCHEDULER[self.training_config["lr_schedule_type"]]
             scheduler = scheduler_func(
                 optimizer=optimizer, **self.training_config["lr_schedule_config"]
@@ -157,6 +157,7 @@ class PotentialModule(LightningModule):
     def setup(self, stage: Optional[str] = None):
         print("Setting up dataset")
         if stage == "fit":
+            print(f"Loading training dataset from {self.training_config['trn_path']}")
             self.train_dataset = LmdbDataset(
                 Path(self.training_config["trn_path"]),
                 **self.training_config,

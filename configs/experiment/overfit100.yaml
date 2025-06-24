@@ -11,11 +11,6 @@ training:
   lr_schedule_type: null  # No learning rate decay for overfitting
   
 pltrainer:
-  devices: 4  # Use all 4 GPUs on the node
-  num_nodes: 1
-  accelerator: "gpu"
-  # auto, ddp, ddp_find_unused_parameters_true
-  strategy: "ddp"
   max_epochs: 1000  # Fewer epochs since we're overfitting small data
   limit_train_batches: null  # Remove limit to see full tiny dataset 
   limit_val_batches: null    # Remove validation limit

@@ -9,11 +9,6 @@ training:
   num_workers: 16 # 48
   
 pltrainer:
-  devices: 4  # Use all 4 GPUs on the node
-  num_nodes: 1
-  accelerator: "gpu"
-  # auto, ddp, ddp_find_unused_parameters_true
-  strategy: "ddp"
   val_check_interval: 100    # Validate less frequently
 
 experiment_name: "alldata"
