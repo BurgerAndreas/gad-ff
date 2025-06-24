@@ -1,5 +1,5 @@
 import os
-
+from omegaconf import ListConfig
 
 def find_project_root(
     start_path=None, markers=("pyproject.toml", ".git")
@@ -67,7 +67,7 @@ def _fix_dataset_path(_path):
                 return new_path
             else:
                 raise FileNotFoundError(f"Dataset path {_path} not found")
-    if isinstance(_path, list) or isinstance(_path, tuple):
+    if isinstance(_path, list) or isinstance(_path, tuple) or isinstance(_path, ListConfig):
         return [_fix_dataset_path_single(p) for p in _path]
     else:
         return _fix_dataset_path_single(_path)

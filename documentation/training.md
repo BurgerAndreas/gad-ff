@@ -44,6 +44,8 @@ sbatch scripts/killarney.sh scripts/train_eigen.py +experiment=ts1x
 Fit on both datasets (RGD1 and TS1x), test on TS1x
 ```bash
 sbatch scripts/killarney_h100.sh scripts/train_eigen.py +experiment=alldata
+# H100 instead
+sbatch scripts/killarney_h100.sh scripts/train_eigen.py experiment=alldata 
 ```
 
 ## Background

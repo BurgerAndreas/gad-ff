@@ -14,7 +14,7 @@ from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.path_config import _fix_dataset_path
 
 
-def inspect_dft_hess_eigen(dataset_file="ts1x-val.lmdb", num_samples=100, flip_sign=False):
+def inspect_dft_hess_eigen(dataset_file="ts1x-val.lmdb", num_samples=1000, flip_sign=False):
     """
     Inspects eigenvalue computations on DFT Hessians for the first num_samples.
     
@@ -131,35 +131,90 @@ def inspect_dft_hess_eigen(dataset_file="ts1x-val.lmdb", num_samples=100, flip_s
     # ---- Additional Analysis ----
     print(f"\n--- Additional Analysis ---")
 
-    # Analysis for torch.linalg.eigh
-    print(f"\n[torch.linalg.eigh]")
-
-    all_eigh_eigenvals = np.concatenate(eigh_eigenvals_all)
-    print(f"Eigenvalue range: [{np.min(all_eigh_eigenvals):.2e}, {np.max(all_eigh_eigenvals):.2e}]")
-
-    negative_eigenvals_count_eigh = np.sum(all_eigh_eigenvals < 0)
-    total_eigenvals_eigh = len(all_eigh_eigenvals)
-    print(f"Negative eigenvalues: {negative_eigenvals_count_eigh}/{total_eigenvals_eigh} ({negative_eigenvals_count_eigh/total_eigenvals_eigh*100:.1f}%)")
+    # Analysis for torch.linalg.eigh - smallest eigenvalues only
+    print(f"\n[torch.linalg.eigh - Smallest Eigenvalues]")
 
     smallest_eigenvals_eigh = [eigenvals[0] for eigenvals in eigh_eigenvals_all]
+    second_smallest_eigenvals_eigh = [eigenvals[1] for eigenvals in eigh_eigenvals_all]
+    
     print(f"Smallest eigenvalue - Min: {np.min(smallest_eigenvals_eigh):.2e}")
     print(f"Smallest eigenvalue - Max: {np.max(smallest_eigenvals_eigh):.2e}")
     print(f"Smallest eigenvalue - Avg: {np.mean(smallest_eigenvals_eigh):.2e}")
+    
+    positive_smallest_eigh = np.sum(np.array(smallest_eigenvals_eigh) > 0)
+    positive_second_smallest_eigh = np.sum(np.array(second_smallest_eigenvals_eigh) > 0)
+    total_samples = len(smallest_eigenvals_eigh)
+    print(f"Positive smallest eigenvalues: {positive_smallest_eigh}/{total_samples} ({positive_smallest_eigh/total_samples*100:.1f}%)")
+    print(f"Positive second smallest eigenvalues: {positive_second_smallest_eigh}/{total_samples} ({positive_second_smallest_eigh/total_samples*100:.1f}%)")
 
-    # Analysis for torch.linalg.eig
-    print(f"\n[torch.linalg.eig]")
-
-    all_eig_eigenvals = np.concatenate([np.sort(eigvals.real) for eigvals in eig_eigenvals_all])
-    print(f"Eigenvalue range: [{np.min(all_eig_eigenvals):.2e}, {np.max(all_eig_eigenvals):.2e}]")
-
-    negative_eigenvals_count_eig = np.sum(all_eig_eigenvals < 0)
-    total_eigenvals_eig = len(all_eig_eigenvals)
-    print(f"Negative eigenvalues: {negative_eigenvals_count_eig}/{total_eigenvals_eig} ({negative_eigenvals_count_eig/total_eigenvals_eig*100:.1f}%)")
+    # Analysis for torch.linalg.eig - smallest eigenvalues only
+    print(f"\n[torch.linalg.eig - Smallest Eigenvalues]")
 
     smallest_eigenvals_eig = [np.sort(eigenvals.real)[0] for eigenvals in eig_eigenvals_all]
+    second_smallest_eigenvals_eig = [np.sort(eigenvals.real)[1] for eigenvals in eig_eigenvals_all]
+    
     print(f"Smallest eigenvalue - Min: {np.min(smallest_eigenvals_eig):.2e}")
     print(f"Smallest eigenvalue - Max: {np.max(smallest_eigenvals_eig):.2e}")
     print(f"Smallest eigenvalue - Avg: {np.mean(smallest_eigenvals_eig):.2e}")
+    
+    positive_smallest_eig = np.sum(np.array(smallest_eigenvals_eig) > 0)
+    positive_second_smallest_eig = np.sum(np.array(second_smallest_eigenvals_eig) > 0)
+    print(f"Positive smallest eigenvalues: {positive_smallest_eig}/{total_samples} ({positive_smallest_eig/total_samples*100:.1f}%)")
+    print(f"Positive second smallest eigenvalues: {positive_second_smallest_eig}/{total_samples} ({positive_second_smallest_eig/total_samples*100:.1f}%)")
+    
+    # ---- Critical Point Classification ----
+    print(f"\n--- Critical Point Classification ---")
+    
+    # Classification for torch.linalg.eigh
+    print(f"\n[torch.linalg.eigh - Critical Point Types]")
+    
+    local_minima_eigh = 0
+    local_maxima_eigh = 0
+    index1_saddles_eigh = 0
+    higher_saddles_eigh = 0
+    
+    for eigenvals in eigh_eigenvals_all:
+        negative_count = np.sum(eigenvals < 0)
+        if negative_count == 0:
+            local_minima_eigh += 1
+        elif negative_count == len(eigenvals):
+            local_maxima_eigh += 1
+        elif negative_count == 1:
+            index1_saddles_eigh += 1
+        else:
+            higher_saddles_eigh += 1
+    
+    print(f"Local minima (all eigenvalues > 0): {local_minima_eigh}/{total_samples} ({local_minima_eigh/total_samples*100:.1f}%)")
+    print(f"Local maxima (all eigenvalues < 0): {local_maxima_eigh}/{total_samples} ({local_maxima_eigh/total_samples*100:.1f}%)")
+    print(f"Index-1 saddle points (1 negative eigenvalue): {index1_saddles_eigh}/{total_samples} ({index1_saddles_eigh/total_samples*100:.1f}%)")
+    print(f"Higher-order saddle points (>1 negative eigenvalues): {higher_saddles_eigh}/{total_samples} ({higher_saddles_eigh/total_samples*100:.1f}%)")
+    
+    # Classification for torch.linalg.eig
+    print(f"\n[torch.linalg.eig - Critical Point Types]")
+    
+    local_minima_eig = 0
+    local_maxima_eig = 0
+    index1_saddles_eig = 0
+    higher_saddles_eig = 0
+    
+    for eigenvals in eig_eigenvals_all:
+        eigenvals_real = eigenvals.real
+        negative_count = np.sum(eigenvals_real < 0)
+        if negative_count == 0:
+            local_minima_eig += 1
+        elif negative_count == len(eigenvals_real):
+            local_maxima_eig += 1
+        elif negative_count == 1:
+            index1_saddles_eig += 1
+        else:
+            higher_saddles_eig += 1
+    
+    print(f"Local minima (all eigenvalues > 0): {local_minima_eig}/{total_samples} ({local_minima_eig/total_samples*100:.1f}%)")
+    print(f"Local maxima (all eigenvalues < 0): {local_maxima_eig}/{total_samples} ({local_maxima_eig/total_samples*100:.1f}%)")
+    print(f"Index-1 saddle points (1 negative eigenvalue): {index1_saddles_eig}/{total_samples} ({index1_saddles_eig/total_samples*100:.1f}%)")
+    print(f"Higher-order saddle points (>1 negative eigenvalues): {higher_saddles_eig}/{total_samples} ({higher_saddles_eig/total_samples*100:.1f}%)")
+    
+    
     
     # ---- Timing ----
     print(f"\n--- Timing ---")
@@ -213,8 +268,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--num-samples",
         type=int,
-        default=100,
-        help="Number of samples to analyze (default: 100)"
+        default=1000,
+        help="Number of samples to analyze (default: 1000)"
     )
     parser.add_argument(
         "--flip-sign",

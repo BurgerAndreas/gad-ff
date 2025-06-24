@@ -18,14 +18,14 @@ from gadff.horm.ff_lmdb import LmdbDataset, fix_hessian_eigen_transform
 from gadff.path_config import DATASET_DIR_HORM_EIGEN, DATASET_FILES_HORM
 
 
-def load_eigenvalues_from_dataset(dataset_path, max_samples=None):
+def load_eigenvalues_from_dataset(dataset_path, max_samples=None, flip_sign=False):
     """
     Load eigenvalues from an eigen dataset.
     
     Args:
         dataset_path: Path to the eigen dataset (.lmdb file)
         max_samples: Maximum number of samples to load (None for all)
-    
+        flip_sign: Flip the sign of the Hessian
     Returns:
         tuple: (eigenvals_1, eigenvals_2) as numpy arrays
     """
@@ -49,11 +49,14 @@ def load_eigenvalues_from_dataset(dataset_path, max_samples=None):
     for i in tqdm(range(num_samples), desc="Loading eigenvalues"):
         try:
             sample = dataset[i]
-            
+
             # Extract eigenvalues
             if hasattr(sample, 'hessian_eigenvalue_1') and hasattr(sample, 'hessian_eigenvalue_2'):
                 ev1 = sample.hessian_eigenvalue_1.item()
                 ev2 = sample.hessian_eigenvalue_2.item()
+                if flip_sign:
+                    ev1 = -ev1
+                    ev2 = -ev2
                 eigenvals_1.append(ev1)
                 eigenvals_2.append(ev2)
             else:
@@ -385,7 +388,8 @@ def main():
                         help='Directory to save plots (default: eigenvalue_plots)')
     parser.add_argument('--data-dir', default=DATASET_DIR_HORM_EIGEN,
                         help='Directory containing datasets')
-    
+    parser.add_argument('--flip-sign', action='store_true',
+                        help='Flip the sign of the Hessian')
     args = parser.parse_args()
     
     print("HORM Eigenvalue Dataset Inspector")
@@ -416,7 +420,7 @@ def main():
             continue
         
         # Load eigenvalues
-        eigenvals_1, eigenvals_2 = load_eigenvalues_from_dataset(dataset_path, args.max_samples)
+        eigenvals_1, eigenvals_2 = load_eigenvalues_from_dataset(dataset_path, args.max_samples, args.flip_sign)
         
         if eigenvals_1 is None or len(eigenvals_1) == 0:
             print(f"Error: No eigenvalues loaded from {dataset_file}")
@@ -440,6 +444,8 @@ def main():
 
 if __name__ == "__main__":
     """Example usage:
+    python scripts/inspect_hess_eigen_datasets.py --datasets RGD1-dft-hess-eigen.lmdb 
+    python scripts/inspect_hess_eigen_datasets.py --datasets RGD1-dft-hess-eigen.lmdb --flip-sign
     python scripts/inspect_hess_eigen_datasets.py --datasets data/sample_100-dft-hess-eigen.lmdb ts1x-val-dft-hess-eigen.lmdb RGD1-dft-hess-eigen.lmdb ts1x_hess_train_big-dft-hess-eigen.lmdb
     python scripts/inspect_hess_eigen_datasets.py --datasets data/sample_100-equ-hess-eigen.lmdb ts1x-val-equ-hess-eigen.lmdb RGD1-equ-hess-eigen.lmdb
     """
