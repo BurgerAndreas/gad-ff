@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 import torch
 from torch import nn
-import torch.nn.functional as F
 
 from torch_geometric.loader import DataLoader as TGDataLoader
 from torch.optim.lr_scheduler import (
@@ -29,26 +28,8 @@ import gadff.horm.utils as diff_utils
 import yaml
 from gadff.path_config import find_project_root
 from gadff.horm.training_module import PotentialModule, compute_extra_props
+from gadff.loss_functions import get_vector_loss_fn, get_scalar_loss_fn, cosine_similarity
 
-def _cosine_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-    """Sign-invariant cosine similarity loss: 1 - |cos(pred, target)|"""
-    eps = 1e-8
-    pred_norm = pred / (torch.norm(pred, dim=-1, keepdim=True) + eps)
-    target_norm = target / (torch.norm(target, dim=-1, keepdim=True) + eps)
-    cosine_sim = torch.sum(pred_norm * target_norm, dim=-1)
-    return torch.mean(1.0 - torch.abs(cosine_sim))
-
-def _min_l2_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-    """Minimum L2 loss between pred vs target and pred vs -target"""
-    loss_pos = torch.mean((pred - target) ** 2, dim=-1)
-    loss_neg = torch.mean((pred + target) ** 2, dim=-1)
-    return torch.mean(torch.min(loss_pos, loss_neg))
-
-def _min_l1_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-    """Minimum L1 loss between pred vs target and pred vs -target"""
-    loss_pos = torch.mean(torch.abs(pred - target), dim=-1)
-    loss_neg = torch.mean(torch.abs(pred + target), dim=-1)
-    return torch.mean(torch.min(loss_pos, loss_neg))
 
 
 class MyPLTrainer(pl.Trainer):
@@ -88,28 +69,8 @@ class EigenPotentialModule(PotentialModule):
         
         # Eigenvectors of real symmetric matrices are only unique up to a sign
         # So we need sign invariant loss functions
-        # Standard non-sign invariant loss functions
-        if training_config["loss_type_vec"] == "l1":
-            self.loss_fn_vec = nn.L1Loss()
-        elif training_config["loss_type_vec"] == "l2":
-            self.loss_fn_vec = nn.MSELoss()
-        # Sign invariant loss functions
-        elif training_config["loss_type_vec"] == "cosine":
-            self.loss_fn_vec = _cosine_loss
-        elif training_config["loss_type_vec"] == "min_l2":
-            self.loss_fn_vec = _min_l2_loss
-        elif training_config["loss_type_vec"] == "min_l1":
-            self.loss_fn_vec = _min_l1_loss
-        else:
-            raise ValueError(f"Invalid loss type for vectors: {training_config['loss_type_vec']}")
-        
-        # For eigenvalues, we can use the standard L1 or L2 loss
-        if training_config["loss_type"] == "l1":
-            self.loss_fn = nn.L1Loss()
-        elif training_config["loss_type"] == "l2":
-            self.loss_fn = nn.MSELoss()
-        else:
-            raise ValueError(f"Invalid loss type: {training_config['loss_type']}")
+        self.loss_fn_vec = get_vector_loss_fn(training_config["loss_type_vec"])
+        self.loss_fn = get_scalar_loss_fn(training_config["loss_type"])
         
         # self.loss_fn = nn.L1Loss()
         # self.MAEEval = MeanAbsoluteError()
@@ -334,19 +295,15 @@ class EigenPotentialModule(PotentialModule):
         
         # Eigenvector metrics
         # Cosine similarity (most important for vectors)
-        def cosine_similarity_vectors(v1, v2):
-            v1_norm = v1 / (torch.norm(v1, dim=-1, keepdim=True) + eps)
-            v2_norm = v2 / (torch.norm(v2, dim=-1, keepdim=True) + eps)
-            return torch.mean(torch.sum(v1_norm * v2_norm, dim=-1))
         
         if eigvec_1_pred is not None:
-            eval_metrics["cosine_sim_eigvec1"] = cosine_similarity_vectors(eigvec_1_pred, eigvec_1_true).item()
+            eval_metrics["cosine_sim_eigvec1"] = cosine_similarity(eigvec_1_pred, eigvec_1_true).item()
         if eigvec_2_pred is not None:
-            eval_metrics["cosine_sim_eigvec2"] = cosine_similarity_vectors(eigvec_2_pred, eigvec_2_true).item()
+            eval_metrics["cosine_sim_eigvec2"] = cosine_similarity(eigvec_2_pred, eigvec_2_true).item()
         
         # Angular error in degrees
         def angular_error(v1, v2):
-            cos_sim = cosine_similarity_vectors(v1, v2)
+            cos_sim = cosine_similarity(v1, v2)
             cos_sim = torch.clamp(cos_sim, -1.0, 1.0)  # Numerical stability
             angle_rad = torch.acos(torch.abs(cos_sim))  # abs because eigenvectors can have opposite signs
             return torch.rad2deg(angle_rad)
@@ -370,6 +327,7 @@ class EigenPotentialModule(PotentialModule):
         return eval_metrics
     
     def _shared_eval(self, batch, batch_idx, prefix, *args):
+        # compute training loss on eval set
         loss, info = self.compute_loss(batch)
         detached_loss = loss.detach()
         info["totloss"] = detached_loss.item()
@@ -379,6 +337,7 @@ class EigenPotentialModule(PotentialModule):
             info_prefix[f"{prefix}-{k}"] = v
         del info
         
+        # compute eval metrics on eval set
         eval_info = self.compute_eval_loss(batch)
         for k, v in eval_info.items():
             info_prefix[f"{prefix}-{k}"] = v
