@@ -69,13 +69,24 @@ class EigenPotentialModule(PotentialModule):
         
         # Eigenvectors of real symmetric matrices are only unique up to a sign
         # So we need sign invariant loss functions
-        self.loss_fn_vec = get_vector_loss_fn(training_config["loss_type_vec"])
-        self.loss_fn = get_scalar_loss_fn(training_config["loss_type"])
+        # Store as private attributes to avoid PyTorch module registration
+        self._loss_fn_vec = get_vector_loss_fn(training_config["loss_type_vec"])
+        self._loss_fn = get_scalar_loss_fn(training_config["loss_type"])
         
         # self.loss_fn = nn.L1Loss()
         # self.MAEEval = MeanAbsoluteError()
         # self.MAPEEval = MeanAbsolutePercentageError()
         # self.cosineEval = CosineSimilarity(reduction="mean")
+    
+    @property
+    def loss_fn(self):
+        """Access the scalar loss function."""
+        return self._loss_fn
+    
+    @property
+    def loss_fn_vec(self):
+        """Access the vector loss function."""
+        return self._loss_fn_vec
     
     def _freeze_except_heads(self, heads_to_train: List[str]) -> None:
         """
