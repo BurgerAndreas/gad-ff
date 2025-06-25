@@ -31,8 +31,8 @@ sbatch scripts/killarney_2xl40s.sh scripts/train_eigen.py experiment=rgd1 gpu=tw
 sbatch scripts/killarney_2xl40s.sh scripts/train_eigen.py experiment=rgd1 gpu=two training.lr_schedule_type=null
 
 # smaller batch size instead
-sbatch scripts/killarney.sh scripts/train_eigen.py experiment=rgd1 training.bz=100
-sbatch scripts/killarney.sh scripts/train_eigen.py experiment=rgd1 training.bz=100 training.lr_schedule_type=null
+sbatch scripts/killarney.sh scripts/train_eigen.py experiment=rgd1 training.bz=64
+sbatch scripts/killarney.sh scripts/train_eigen.py experiment=rgd1 training.bz=64 training.lr_schedule_type=null
 
 # H100 instead
 sbatch scripts/killarney_h100.sh scripts/train_eigen.py experiment=rgd1 

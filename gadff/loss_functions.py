@@ -21,9 +21,9 @@ def get_scalar_loss_fn(loss_name: str, **kwargs):
         return log_mse_loss
     elif loss_name == "huber":
         return HuberLoss(**kwargs)
-    elif loss_name == "mae":
+    elif loss_name.lower() in ["mae", "l1"]:
         return F.l1_loss
-    elif loss_name == "mse":
+    elif loss_name.lower() in ["mse", "l2"]:
         return F.mse_loss
     else:
         raise ValueError(f"Invalid loss name: {loss_name}")
