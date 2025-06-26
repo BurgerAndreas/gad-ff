@@ -69,11 +69,11 @@ class SchemaUniformDataset:
             data.rxn = torch.tensor(-1, dtype=torch.int64)
 
         # Remove extra attributes
-        if not hasattr(data, "freq"):
+        if hasattr(data, "freq"):
             delattr(data, "freq")
-        if not hasattr(data, "eig_values"):
+        if hasattr(data, "eig_values"):
             delattr(data, "eig_values")
-        if not hasattr(data, "force_constant"):
+        if hasattr(data, "force_constant"):
             delattr(data, "force_constant")
         return data
 
