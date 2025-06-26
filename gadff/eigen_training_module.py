@@ -216,6 +216,11 @@ class EigenPotentialModule(PotentialModule):
         hat_ae, hat_forces, outputs = self.potential.forward(
             batch.to(self.device), eigen=True
         )
+        
+        eigval_1_true = batch.hessian_eigenvalue_1
+        eigval_2_true = batch.hessian_eigenvalue_2
+        eigvec_1_true = batch.hessian_eigenvector_1
+        eigvec_2_true = batch.hessian_eigenvector_2
 
         eigval_1_pred = None
         eigval_2_pred = None
@@ -223,18 +228,13 @@ class EigenPotentialModule(PotentialModule):
         eigvec_2_pred = None
 
         if self.model_config["do_eigval_1"]:
-            eigval_1_pred = outputs["eigval_1"]
+            eigval_1_pred = outputs["eigval_1"].view(eigval_1_true.shape)
         if self.model_config["do_eigval_2"]:
-            eigval_2_pred = outputs["eigval_2"]
+            eigval_2_pred = outputs["eigval_2"].view(eigval_2_true.shape)
         if self.model_config["do_eigvec_1"]:
-            eigvec_1_pred = outputs["eigvec_1"]
+            eigvec_1_pred = outputs["eigvec_1"].view(eigvec_1_true.shape)
         if self.model_config["do_eigvec_2"]:
-            eigvec_2_pred = outputs["eigvec_2"]
-
-        eigval_1_true = batch.hessian_eigenvalue_1
-        eigval_2_true = batch.hessian_eigenvalue_2
-        eigvec_1_true = batch.hessian_eigenvector_1
-        eigvec_2_true = batch.hessian_eigenvector_2
+            eigvec_2_pred = outputs["eigvec_2"].view(eigvec_2_true.shape)
 
         eval_metrics = {}
 

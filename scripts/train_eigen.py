@@ -112,6 +112,7 @@ def setup_training(cfg: DictConfig):
         accumulate_grad_batches=cfg.pltrainer.accumulate_grad_batches,
         limit_train_batches=cfg.pltrainer.limit_train_batches,
         limit_val_batches=cfg.pltrainer.limit_val_batches,
+        log_every_n_steps=cfg.pltrainer.log_every_n_steps,
     )
     print("Trainer initialized")
     return trainer, pm
