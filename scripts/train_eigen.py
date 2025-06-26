@@ -6,29 +6,20 @@ Adds one extra head each to predict the smallest two eigenvalues and eigenvector
 """
 
 import os
-from uuid import uuid4
-from copy import deepcopy
-import yaml
 import torch
 import hydra
 from omegaconf import DictConfig
 
-import pytorch_lightning as pl
 from pytorch_lightning.callbacks import (
     TQDMProgressBar,
     EarlyStopping,
     ModelCheckpoint,
     LearningRateMonitor,
 )
-from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
-from pytorch_lightning.strategies.ddp import DDPStrategy
+from pytorch_lightning.loggers import WandbLogger
 
 from gadff.eigen_training_module import EigenPotentialModule, MyPLTrainer
-from gadff.path_config import (
-    DATASET_DIR_HORM_EIGEN,
-    DATASET_FILES_HORM,
-    CHECKPOINT_PATH_EQUIFORMER_HORM,
-)
+from gadff.path_config import CHECKPOINT_PATH_EQUIFORMER_HORM
 from gadff.logging_utils import name_from_config
 
 

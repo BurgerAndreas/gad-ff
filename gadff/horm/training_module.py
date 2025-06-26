@@ -41,10 +41,10 @@ GLOBAL_ATOM_NUMBERS = torch.tensor([1, 6, 7, 8])
 
 class SchemaUniformDataset:
     """Wrapper that ensures all datasets have the same attributes.
-    
+
     RGD1 lacks:
-    ae: <class 'torch.Tensor'> torch.Size([]) -> same as energy
-    rxn: <class 'torch.Tensor'> torch.Size([]) -> add -1 to all
+    ae: <class 'torch.Tensor'> torch.Size([]) torch.float32 -> same as energy
+    rxn: <class 'torch.Tensor'> torch.Size([]) torch.int64 -> add -1 to all
 
     All other (T1x based) datasets lack:
     freq: <class 'torch.Tensor'> torch.Size([N*3])
@@ -52,22 +52,22 @@ class SchemaUniformDataset:
     force_constant: <class 'torch.Tensor'> torch.Size([N*3])
     -> remove these attributes from the dataset
     """
-    
+
     def __init__(self, dataset):
         self.dataset = dataset
-        
+
     def __len__(self):
         return len(self.dataset)
-    
+
     def __getitem__(self, idx):
         data = self.dataset[idx]
-        
+
         # Add missing attributes
         if not hasattr(data, "ae"):
-            data.ae = torch.full_like(data.energy, data.energy.item())
+            data.ae = torch.tensor(data.energy.item(), dtype=data.energy.dtype)
         if not hasattr(data, "rxn"):
-            data.rxn = torch.full_like(data.energy, -1)
-        
+            data.rxn = torch.tensor(-1, dtype=torch.int64)
+
         # Remove extra attributes
         if not hasattr(data, "freq"):
             delattr(data, "freq")
@@ -226,10 +226,12 @@ class PotentialModule(LightningModule):
                     )
                     datasets.append(SchemaUniformDataset(dataset))
                     print(f"Loaded dataset from {path} with {len(dataset)} samples")
-                
+
                 # Combine all datasets into a single concatenated dataset
                 self.train_dataset = ConcatDataset(datasets)
-                print(f"Combined {len(datasets)} datasets into one with {len(self.train_dataset)} total samples")
+                print(
+                    f"Combined {len(datasets)} datasets into one with {len(self.train_dataset)} total samples"
+                )
             else:
                 self.train_dataset = LmdbDataset(
                     Path(self.training_config["trn_path"]),
