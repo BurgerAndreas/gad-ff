@@ -39,6 +39,45 @@ LR_SCHEDULER = {
 GLOBAL_ATOM_NUMBERS = torch.tensor([1, 6, 7, 8])
 
 
+class SchemaUniformDataset:
+    """Wrapper that ensures all datasets have the same attributes.
+    
+    RGD1 lacks:
+    ae: <class 'torch.Tensor'> torch.Size([]) -> same as energy
+    rxn: <class 'torch.Tensor'> torch.Size([]) -> add -1 to all
+
+    All other (T1x based) datasets lack:
+    freq: <class 'torch.Tensor'> torch.Size([N*3])
+    eig_values: <class 'torch.Tensor'> torch.Size([N*3])
+    force_constant: <class 'torch.Tensor'> torch.Size([N*3])
+    -> remove these attributes from the dataset
+    """
+    
+    def __init__(self, dataset):
+        self.dataset = dataset
+        
+    def __len__(self):
+        return len(self.dataset)
+    
+    def __getitem__(self, idx):
+        data = self.dataset[idx]
+        
+        # Add missing attributes
+        if not hasattr(data, "ae"):
+            data.ae = torch.full_like(data.energy, data.energy.item())
+        if not hasattr(data, "rxn"):
+            data.rxn = torch.full_like(data.energy, -1)
+        
+        # Remove extra attributes
+        if not hasattr(data, "freq"):
+            delattr(data, "freq")
+        if not hasattr(data, "eig_values"):
+            delattr(data, "eig_values")
+        if not hasattr(data, "force_constant"):
+            delattr(data, "force_constant")
+        return data
+
+
 def compute_extra_props(batch, pos_require_grad=True):
     """Adds device, z, and removes mean batch"""
     device = batch.energy.device
@@ -185,7 +224,7 @@ class PotentialModule(LightningModule):
                         Path(path),
                         **self.training_config,
                     )
-                    datasets.append(dataset)
+                    datasets.append(SchemaUniformDataset(dataset))
                     print(f"Loaded dataset from {path} with {len(dataset)} samples")
                 
                 # Combine all datasets into a single concatenated dataset
