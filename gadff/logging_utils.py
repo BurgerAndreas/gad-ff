@@ -19,6 +19,8 @@ REPLACE = {
     "experiment": "",
     "training.": "",
     "training.lr_schedule_type=": "lr=",
+    "loss_type_vec=": "lossvec=",
+    "loss_type=": "loss=",
 }
 
 
