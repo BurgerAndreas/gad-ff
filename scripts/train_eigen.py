@@ -4,6 +4,7 @@ Starts from the checkpoint of the EquiformerV2 model finetuned on the HORM datas
 Keeps the existing weights frozen.
 Adds one extra head each to predict the smallest two eigenvalues and eigenvectors of the Hessian.
 """
+
 import os
 from uuid import uuid4
 from copy import deepcopy
@@ -23,12 +24,17 @@ from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
 from pytorch_lightning.strategies.ddp import DDPStrategy
 
 from gadff.eigen_training_module import EigenPotentialModule, MyPLTrainer
-from gadff.path_config import DATASET_DIR_HORM_EIGEN, DATASET_FILES_HORM, CHECKPOINT_PATH_EQUIFORMER_HORM
+from gadff.path_config import (
+    DATASET_DIR_HORM_EIGEN,
+    DATASET_FILES_HORM,
+    CHECKPOINT_PATH_EQUIFORMER_HORM,
+)
 from gadff.logging_utils import name_from_config
+
 
 def setup_training(cfg: DictConfig):
     run_name = name_from_config(cfg)
-    
+
     # from the HORM paper:
     # Model Layers HiddenDim Heads LearningRate BatchSize
     # EquiformerV2 4 128 4 3e-4 128
@@ -43,15 +49,21 @@ def setup_training(cfg: DictConfig):
     training_config = dict(cfg.training)
 
     pm = EigenPotentialModule(model_config, optimizer_config, training_config)
-    if cfg.ckpt_model_path == 'horm':
-        ckpt = torch.load(CHECKPOINT_PATH_EQUIFORMER_HORM, map_location="cuda", weights_only=True)
+    if cfg.ckpt_model_path == "horm":
+        ckpt = torch.load(
+            CHECKPOINT_PATH_EQUIFORMER_HORM, map_location="cuda", weights_only=True
+        )
         print(f"Checkpoint keys: {ckpt.keys()}")
         print(f"Checkpoint state_dict keys: {len(ckpt['state_dict'].keys())}")
         # keys all start with `potential.`
-        state_dict = {k.replace("potential.", ""): v for k, v in ckpt["state_dict"].items()}
+        state_dict = {
+            k.replace("potential.", ""): v for k, v in ckpt["state_dict"].items()
+        }
         pm.potential.load_state_dict(state_dict, strict=False)
     elif os.path.exists(cfg.ckpt_model_path):
-        pm = EigenPotentialModule.load_from_checkpoint(cfg.ckpt_model_path, strict=False)
+        pm = EigenPotentialModule.load_from_checkpoint(
+            cfg.ckpt_model_path, strict=False
+        )
     else:
         print(f"Not loading model checkpoint from {cfg.ckpt_model_path}")
     print("EigenPotentialModule initialized")
@@ -65,7 +77,9 @@ def setup_training(cfg: DictConfig):
         name=run_name,
         **wandb_kwargs,
     )
-    print(f"WandbLogger initialized with experiment name: {wandb_logger.experiment.name}")
+    print(
+        f"WandbLogger initialized with experiment name: {wandb_logger.experiment.name}"
+    )
 
     ckpt_output_path = f"checkpoint/{cfg.project}/{wandb_logger.experiment.name}"
 
@@ -91,7 +105,6 @@ def setup_training(cfg: DictConfig):
         lr_monitor,
     ]
 
-
     print("Initializing trainer")
     # trainer = pl.Trainer(
     trainer = MyPLTrainer(
@@ -112,12 +125,14 @@ def setup_training(cfg: DictConfig):
     print("Trainer initialized")
     return trainer, pm
 
+
 @hydra.main(version_base=None, config_path="../configs", config_name="train_eigen")
 def main(cfg: DictConfig) -> None:
     torch.set_float32_matmul_precision("high")
     trainer, pm = setup_training(cfg)
     print("Fitting model")
     trainer.fit(pm, ckpt_path=cfg.ckpt_trainer_path)
+
 
 if __name__ == "__main__":
     """Try:

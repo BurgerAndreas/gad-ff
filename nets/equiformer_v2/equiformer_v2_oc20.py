@@ -64,6 +64,7 @@ def get_scalar_from_embedding(embedding, data):
     scalars.index_add_(0, data.batch, embedding.view(-1))
     return scalars / _AVG_NUM_NODES
 
+
 @registry.register_model("equiformer_v2")
 class EquiformerV2_OC20(BaseModel):
     """
@@ -158,7 +159,7 @@ class EquiformerV2_OC20(BaseModel):
         do_eigvec_2=False,
         do_eigval_1=False,
         do_eigval_2=False,
-        **kwargs
+        **kwargs,
     ):
         super().__init__()
         print(f"EquiformerV2_OC20: ignoring kwargs: {kwargs}")
@@ -367,7 +368,7 @@ class EquiformerV2_OC20(BaseModel):
                 self.use_sep_s2_act,
                 alpha_drop=0.0,
             )
-        
+
         ################################################################
         # Add extra heads for eigenvalue/eigenvector prediction
         ################################################################
@@ -427,7 +428,7 @@ class EquiformerV2_OC20(BaseModel):
             )
         else:
             self.eigvec_2_head = None
-            
+
         # eigenvalues are scalars (degree 0) like energy
         # we will just use the same architecture as the energy head
         if do_eigval_1:
@@ -484,7 +485,7 @@ class EquiformerV2_OC20(BaseModel):
     def forward(self, data, eigen=False):
         """
         If eigen=True, return predictions for eigenvalues and eigenvectors of the Hessian in outputs dict.
-        
+
         Returns:
             energy: (N*B,)
             forces: (N*B, 3)
@@ -600,9 +601,9 @@ class EquiformerV2_OC20(BaseModel):
         # energy.index_add_(0, data.batch, node_energy.view(-1))
         # energy = energy / _AVG_NUM_NODES
         energy = get_scalar_from_embedding(node_energy, data)
-        
+
         # hessian_ij = self.grad_hess_ij(energy=energy, posj=posj, posi=posi)
-        
+
         ###############################################################
         # Force estimation
         ###############################################################
@@ -610,7 +611,7 @@ class EquiformerV2_OC20(BaseModel):
         forces = self.force_block(x, atomic_numbers, edge_distance, edge_index)
         forces = forces.embedding.narrow(1, 1, 3)
         forces = forces.view(-1, 3)
-        
+
         ###############################################################
         # Eigenvalue/eigenvector estimation
         ###############################################################
@@ -625,16 +626,20 @@ class EquiformerV2_OC20(BaseModel):
                 eigval_2 = get_scalar_from_embedding(node_eigval_2, data)
                 outputs["eigval_2"] = eigval_2
             if self.eigvec_1_head is not None:
-                eigvec_1 = self.eigvec_1_head(x, atomic_numbers, edge_distance, edge_index)
+                eigvec_1 = self.eigvec_1_head(
+                    x, atomic_numbers, edge_distance, edge_index
+                )
                 eigvec_1 = eigvec_1.embedding.narrow(1, 1, 3)
                 eigvec_1 = eigvec_1.view(-1, 3)
                 outputs["eigvec_1"] = eigvec_1
             if self.eigvec_2_head is not None:
-                eigvec_2 = self.eigvec_2_head(x, atomic_numbers, edge_distance, edge_index)
+                eigvec_2 = self.eigvec_2_head(
+                    x, atomic_numbers, edge_distance, edge_index
+                )
                 eigvec_2 = eigvec_2.embedding.narrow(1, 1, 3)
                 eigvec_2 = eigvec_2.view(-1, 3)
                 outputs["eigvec_2"] = eigvec_2
-            
+
             return energy.reshape(data.ae.shape), forces, outputs
 
         return energy.reshape(data.ae.shape), forces

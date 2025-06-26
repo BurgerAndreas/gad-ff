@@ -126,8 +126,8 @@ class LmdbDataset(Dataset):
 
 def remove_hessian_transform(data):
     # Remove 'hessian' if present as attribute
-    if hasattr(data, 'hessian'):
-        delattr(data, 'hessian')
+    if hasattr(data, "hessian"):
+        delattr(data, "hessian")
     # Remove 'hessian' if present as key (for dict-like)
     # if isinstance(data, dict) and 'hessian' in data:
     #     del data['hessian']
@@ -138,13 +138,13 @@ def fix_hessian_eigen_transform(data):
     """Fixes errors in old versions of the code.
     Only needed for legacy compatibility.
     You can probably remove this function.
-    
+
     Sizes of tensors must match except in dimension 0.
-    
+
     Hessian eigen information is stored as:
     hessian_eigenvalues: torch.Size([2])
     hessian_eigenvectors: torch.Size([2, N*3])
-    
+
     Instead save as:
     hessian_eigenvalue_1: torch.Size([1])
     hessian_eigenvalue_2: torch.Size([1])
@@ -152,37 +152,37 @@ def fix_hessian_eigen_transform(data):
     hessian_eigenvector_2: torch.Size([N, 3])
     """
     # Check if hessian eigenvalue/eigenvector data exists
-    if hasattr(data, 'hessian_eigenvalues') and hasattr(data, 'hessian_eigenvectors'):
+    if hasattr(data, "hessian_eigenvalues") and hasattr(data, "hessian_eigenvectors"):
         eigenvalues = data.hessian_eigenvalues
         eigenvectors = data.hessian_eigenvectors
-        
+
         # Split eigenvalues into separate attributes
         data.hessian_eigenvalue_1 = eigenvalues[0:1]  # Keep as [1] tensor
         data.hessian_eigenvalue_2 = eigenvalues[1:2]  # Keep as [1] tensor
-        
+
         # Reshape and split eigenvectors from [2, N*3] to [N, 3] format
         n_atoms = len(data.pos)  # Get number of atoms from positions
         eigenvector_1 = eigenvectors[0].reshape(n_atoms, 3)
         eigenvector_2 = eigenvectors[1].reshape(n_atoms, 3)
-        
+
         data.hessian_eigenvector_1 = eigenvector_1
         data.hessian_eigenvector_2 = eigenvector_2
-        
+
         # Remove original attributes
-        delattr(data, 'hessian_eigenvalues')
-        delattr(data, 'hessian_eigenvectors')
-    
+        delattr(data, "hessian_eigenvalues")
+        delattr(data, "hessian_eigenvectors")
+
     # Remove batch artifacts manually
-    for key in ['batch', 'ptr']:
+    for key in ["batch", "ptr"]:
         if hasattr(data, key):
             delattr(data, key)
-    
+
     return data
-    
+
 
 if __name__ == "__main__":
     import os
-    
+
     dataset_dir = os.path.expanduser(
         "~/.cache/kagglehub/datasets/yunhonghan/hessian-dataset-for-optimizing-reactive-mliphorm/versions/5/"
     )
@@ -198,16 +198,16 @@ if __name__ == "__main__":
     print("first element of lmdb_dataset.pos:", lmdb_dataset[0].pos)
     print("first element of lmdb_dataset.ae:", lmdb_dataset[0].ae)
     first_elem = lmdb_dataset[0]
-    print('')
-    print("hasattr(first_elem, 'hessian'):", hasattr(first_elem, 'hessian'))
-    print("'hessian' in first_elem:", 'hessian' in first_elem)
+    print("")
+    print("hasattr(first_elem, 'hessian'):", hasattr(first_elem, "hessian"))
+    print("'hessian' in first_elem:", "hessian" in first_elem)
 
     # Test with transform that removes hessian
     lmdb_dataset_no_hessian = LmdbDataset(lmdb_path, transform=remove_hessian_transform)
     first_elem = lmdb_dataset_no_hessian[0]
-    print('')
-    print("hasattr(first_elem, 'hessian'):", hasattr(first_elem, 'hessian'))
-    print("'hessian' in first_elem:", 'hessian' in first_elem)
+    print("")
+    print("hasattr(first_elem, 'hessian'):", hasattr(first_elem, "hessian"))
+    print("'hessian' in first_elem:", "hessian" in first_elem)
 
     for fname in dataset_files:
         path = os.path.join(dataset_dir, fname)

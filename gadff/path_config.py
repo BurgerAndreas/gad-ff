@@ -1,9 +1,8 @@
 import os
 from omegaconf import ListConfig
 
-def find_project_root(
-    start_path=None, markers=("pyproject.toml", ".git")
-    ):
+
+def find_project_root(start_path=None, markers=("pyproject.toml", ".git")):
     """Walk up from start_path to find a directory containing one of the marker files."""
     if start_path is None:
         start_path = os.path.abspath(__file__)
@@ -17,6 +16,7 @@ def find_project_root(
             raise RuntimeError(f"Project root not found (looked for {markers})")
         dir_path = parent
 
+
 ROOT_DIR = find_project_root()
 
 # HORM dataset
@@ -24,9 +24,9 @@ DATASET_DIR_HORM_EIGEN = os.path.expanduser(
     "~/.cache/kagglehub/datasets/yunhonghan/hessian-dataset-for-optimizing-reactive-mliphorm/versions/5/"
 )
 DATASET_FILES_HORM = [
-    "ts1x-val.lmdb", # 50844 samples
-    "ts1x_hess_train_big.lmdb", # 1725362 samples
-    "RGD1.lmdb", # 60000 samples
+    "ts1x-val.lmdb",  # 50844 samples
+    "ts1x_hess_train_big.lmdb",  # 1725362 samples
+    "RGD1.lmdb",  # 60000 samples
 ]
 
 DATA_PATH_HORM_SAMPLE = os.path.join(ROOT_DIR, "data/sample_100.lmdb")
@@ -49,12 +49,14 @@ def remove_dir_recursively(path):
                 elif os.path.isdir(file_path):
                     # Recursively remove subdirectories if any
                     import shutil
+
                     shutil.rmtree(file_path)
             os.rmdir(path)
         else:
             os.remove(path)
     # success if path does not exist anymore
     return not os.path.exists(path)
+
 
 def _fix_dataset_path(_path):
     def _fix_dataset_path_single(_path):
@@ -67,10 +69,16 @@ def _fix_dataset_path(_path):
                 return new_path
             else:
                 raise FileNotFoundError(f"Dataset path {_path} not found")
-    if isinstance(_path, list) or isinstance(_path, tuple) or isinstance(_path, ListConfig):
+
+    if (
+        isinstance(_path, list)
+        or isinstance(_path, tuple)
+        or isinstance(_path, ListConfig)
+    ):
         return [_fix_dataset_path_single(p) for p in _path]
     else:
         return _fix_dataset_path_single(_path)
+
 
 if __name__ == "__main__":
     print(find_project_root())

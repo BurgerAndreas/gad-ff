@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 import math
 
+
 def get_normalization_layer(
     norm_type, lmax, num_channels, eps=1e-5, affine=True, normalization="component"
 ):

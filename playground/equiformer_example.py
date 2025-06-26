@@ -16,7 +16,10 @@ from gadff.horm.ff_lmdb import LmdbDataset
 import os
 from gadff.units import ev_angstrom_2_to_hartree_bohr_2
 from gadff.path_config import find_project_root
-from gadff.horm.hessian_utils import compute_hessian_batches, get_smallest_eigen_from_batched_hessians
+from gadff.horm.hessian_utils import (
+    compute_hessian_batches,
+    get_smallest_eigen_from_batched_hessians,
+)
 
 
 def load_model(checkpoint_path):
@@ -79,7 +82,6 @@ def predict_batch(model, batch, device, get_hessian=False):
     return energy, forces
 
 
-
 def main():
     """Main function to run prediction."""
     # Paths
@@ -129,7 +131,7 @@ def main():
         # Run prediction (gradients needed for Hessian computation)
         try:
             energy, forces = predict_batch(model, batch, device)
-            
+
             hessians = compute_hessian_batches(batch, batch.pos, energy, forces)
 
             print(f"  Energy shape: {energy.shape}")
@@ -137,8 +139,8 @@ def main():
             print(f"  Hessian shape: {hessians[0].shape}")
 
             # Compute the two smallest eigenvalues and corresponding eigenvectors
-            smallest_eigenvals, smallest_eigenvecs = get_smallest_eigen_from_batched_hessians(
-                batch, hessians, n_smallest=2
+            smallest_eigenvals, smallest_eigenvecs = (
+                get_smallest_eigen_from_batched_hessians(batch, hessians, n_smallest=2)
             )
             print(f"  Two smallest eigenvalues: {smallest_eigenvals[0]}")
             print(f"  Corresponding eigenvectors shape: {smallest_eigenvecs[0].shape}")

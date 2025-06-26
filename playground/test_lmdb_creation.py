@@ -15,7 +15,13 @@ from torch_geometric.loader import DataLoader as TGDataLoader
 from gadff.path_config import find_project_root
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.horm.training_module import PotentialModule, compute_extra_props
-from gadff.path_config import DATASET_DIR_HORM_EIGEN, DATASET_FILES_HORM, DATA_PATH_HORM_SAMPLE, CHECKPOINT_PATH_EQUIFORMER_HORM
+from gadff.path_config import (
+    DATASET_DIR_HORM_EIGEN,
+    DATASET_FILES_HORM,
+    DATA_PATH_HORM_SAMPLE,
+    CHECKPOINT_PATH_EQUIFORMER_HORM,
+)
+
 
 def load_model(checkpoint_path):
     """Load EquiformerV2 model from checkpoint."""
@@ -32,7 +38,6 @@ def load_model(checkpoint_path):
     model.eval()
     print(f"Model loaded on device: {device}")
     return model, device
-
 
 
 def predict_forces(model, batch, device):
@@ -56,8 +61,7 @@ def main():
     dataset_path = DATA_PATH_HORM_SAMPLE
 
     output_lmdb_path = os.path.join(
-        os.path.dirname(DATA_PATH_HORM_SAMPLE),
-        "test_10_samples_with_pred.lmdb"
+        os.path.dirname(DATA_PATH_HORM_SAMPLE), "test_10_samples_with_pred.lmdb"
     )
     # Clean up old database files if they exist
     if os.path.exists(output_lmdb_path):
@@ -88,14 +92,14 @@ def main():
                 break
             print(f"Processing and writing sample {i+1}...")
             data_object = copy.deepcopy(batch.to_data_list()[0])
-            
+
             if i == 0:
                 print("batch", type(batch))
                 print("batch.to_data_list()", type(batch.to_data_list()))
                 print("batch.to_data_list()[0]", type(batch.to_data_list()[0]))
                 sample = dataset[i]
                 print("sample", type(sample))
-            
+
             forces = predict_forces(model, batch, device)
             data_object.forces_pred = forces.cpu().detach()
 
@@ -128,7 +132,9 @@ def verify_lmdb_creation():
     new_db_path = os.path.join(root_dir, "data/test_10_samples_with_pred.lmdb")
 
     if not os.path.exists(original_db_path) or not os.path.exists(new_db_path):
-        print("One or both dataset files not found. Please run the creation script first.")
+        print(
+            "One or both dataset files not found. Please run the creation script first."
+        )
         return
 
     # Load both datasets
@@ -147,7 +153,9 @@ def verify_lmdb_creation():
     print("=" * 50)
 
     # Check other attributes for equality
-    attrs_to_check = [k for k in original_dataset[0].keys() if k in new_dataset[0].keys()]
+    attrs_to_check = [
+        k for k in original_dataset[0].keys() if k in new_dataset[0].keys()
+    ]
     print("attrs_to_check", attrs_to_check)
 
     all_good = True
@@ -180,7 +188,9 @@ def verify_lmdb_creation():
                     print(f"  [FAIL] Tensor attribute '{attr}' does not match.")
                     all_good = False
             elif val_orig != val_new:
-                print(f"  [FAIL] Attribute '{attr}' does not match: {val_orig} vs {val_new}")
+                print(
+                    f"  [FAIL] Attribute '{attr}' does not match: {val_orig} vs {val_new}"
+                )
                 all_good = False
 
     print("\n" + "=" * 50)
@@ -193,5 +203,5 @@ def verify_lmdb_creation():
 
 if __name__ == "__main__":
     torch.set_grad_enabled(True)
-    main() 
+    main()
     verify_lmdb_creation()

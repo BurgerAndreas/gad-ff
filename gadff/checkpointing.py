@@ -2,6 +2,7 @@ import torch
 from typing import Any, List, Mapping, OrderedDict
 from collections import namedtuple
 
+
 class _IncompatibleKeys(
     namedtuple("IncompatibleKeys", ["missing_keys", "unexpected_keys"]),
 ):
@@ -11,7 +12,8 @@ class _IncompatibleKeys(
         return super().__repr__()
 
     __str__ = __repr__
-    
+
+
 # torch/nn/modules/module.py
 def load_state_dict(
     self, state_dict: Mapping[str, Any], strict: bool = True, assign: bool = False
@@ -53,9 +55,7 @@ def load_state_dict(
         ``RuntimeError``.
     """
     if not isinstance(state_dict, Mapping):
-        raise TypeError(
-            f"Expected state_dict to be dict-like, got {type(state_dict)}."
-        )
+        raise TypeError(f"Expected state_dict to be dict-like, got {type(state_dict)}.")
 
     missing_keys: List[str] = []
     unexpected_keys: List[str] = []

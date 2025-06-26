@@ -38,7 +38,6 @@ LR_SCHEDULER = {
 GLOBAL_ATOM_NUMBERS = torch.tensor([1, 6, 7, 8])
 
 
-
 def compute_extra_props(batch, pos_require_grad=True):
     """Adds device, z, and removes mean batch"""
     device = batch.energy.device
@@ -46,7 +45,7 @@ def compute_extra_props(batch, pos_require_grad=True):
     batch.z = GLOBAL_ATOM_NUMBERS.to(device)[indices.to(device)]
     batch.pos = remove_mean_batch(batch.pos, batch.batch)
     # atomization energy. shape used by equiformerv2
-    if not hasattr(batch, 'ae'):
+    if not hasattr(batch, "ae"):
         batch.ae = torch.zeros_like(batch.energy)
     if pos_require_grad:
         batch.pos.requires_grad_(True)
@@ -78,7 +77,9 @@ class PotentialModule(LightningModule):
 
         if self.model_config["name"] == "EquiformerV2":
             root_dir = find_project_root()
-            with open(os.path.join(root_dir, "configs/equiformer_v2.yaml"), "r") as file:
+            with open(
+                os.path.join(root_dir, "configs/equiformer_v2.yaml"), "r"
+            ) as file:
                 config = yaml.safe_load(file)
             model_config = config["model"]
             model_config.update(self.model_config)
@@ -145,7 +146,7 @@ class PotentialModule(LightningModule):
         self.MAPEEval = MeanAbsolutePercentageError()
         self.cosineEval = CosineSimilarity(reduction="mean")
         self.val_step_outputs = []
-    
+
     def fix_paths(self, training_config):
         """
         Fix paths in the training config to be relative to the project root.
@@ -172,13 +173,19 @@ class PotentialModule(LightningModule):
         print("Setting up dataset")
         if stage == "fit":
             print(f"Loading training dataset from {self.training_config['trn_path']}")
-            if isinstance(self.training_config["trn_path"], list) or isinstance(self.training_config["trn_path"], tuple) or isinstance(self.training_config["trn_path"], ListConfig):
+            if (
+                isinstance(self.training_config["trn_path"], list)
+                or isinstance(self.training_config["trn_path"], tuple)
+                or isinstance(self.training_config["trn_path"], ListConfig)
+            ):
                 dataset = []
                 for path in self.training_config["trn_path"]:
-                    dataset.append(LmdbDataset(
-                        Path(path),
-                        **self.training_config,
-                    ))
+                    dataset.append(
+                        LmdbDataset(
+                            Path(path),
+                            **self.training_config,
+                        )
+                    )
                 self.train_dataset = dataset
             else:
                 self.train_dataset = LmdbDataset(
@@ -382,6 +389,7 @@ class PotentialModule(LightningModule):
         # just copying what DDPLoss does for our special case
         def custom_loss(jac, true_jac):
             return torch.norm(jac - true_jac, p=2, dim=-1).sum(dim=1).mean(dim=0)
+
         losses = [
             custom_loss(-jac, true_jac)
             for jac, true_jac in zip(jacs_per_mol, true_jacs_per_mol)

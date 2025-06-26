@@ -5,13 +5,11 @@ import torch
 from uuid import uuid4
 
 # allows to load checkpoint with the same name
-IGNORE_OVERRIDES = [
-]
+IGNORE_OVERRIDES = []
 
 # some stuff is not relevant for the checkpoint
 # e.g. inference kwargs
-IGNORE_OVERRIDES_CHECKPOINT = [
-]
+IGNORE_OVERRIDES_CHECKPOINT = []
 
 REPLACE = {
     "+": "",
@@ -55,6 +53,7 @@ def name_from_config(args: omegaconf.DictConfig, is_checkpoint_name=False) -> st
     _name = mname + override_names
     print(f"Name{' checkpoint' if is_checkpoint_name else ''}: {_name}")
     return _name
+
 
 def set_gpu_name(args):
     """Set wandb.run.name."""
