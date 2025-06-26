@@ -5,7 +5,8 @@
 training:
   trn_path: "RGD1-dft-hess-eigen.lmdb"
   val_path: "ts1x-val-dft-hess-eigen.lmdb"
-  bz: 128
+  # with DDP (Distributed Data Parallel), each GPU will get batch size many samples
+  bz: 64
   num_workers: 16 # 48
   
 pltrainer:
