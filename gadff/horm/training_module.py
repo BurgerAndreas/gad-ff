@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import torch
 from torch import nn
+from torch.utils.data import ConcatDataset
 
 from torch_geometric.loader import DataLoader as TGDataLoader
 from torch.optim.lr_scheduler import (
@@ -178,15 +179,18 @@ class PotentialModule(LightningModule):
                 or isinstance(self.training_config["trn_path"], tuple)
                 or isinstance(self.training_config["trn_path"], ListConfig)
             ):
-                dataset = []
+                datasets = []
                 for path in self.training_config["trn_path"]:
-                    dataset.append(
-                        LmdbDataset(
-                            Path(path),
-                            **self.training_config,
-                        )
+                    dataset = LmdbDataset(
+                        Path(path),
+                        **self.training_config,
                     )
-                self.train_dataset = dataset
+                    datasets.append(dataset)
+                    print(f"Loaded dataset from {path} with {len(dataset)} samples")
+                
+                # Combine all datasets into a single concatenated dataset
+                self.train_dataset = ConcatDataset(datasets)
+                print(f"Combined {len(datasets)} datasets into one with {len(self.train_dataset)} total samples")
             else:
                 self.train_dataset = LmdbDataset(
                     Path(self.training_config["trn_path"]),
