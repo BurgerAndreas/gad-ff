@@ -216,7 +216,7 @@ class EigenPotentialModule(PotentialModule):
         hat_ae, hat_forces, outputs = self.potential.forward(
             batch.to(self.device), eigen=True
         )
-        
+
         eigval_1_true = batch.hessian_eigenvalue_1
         eigval_2_true = batch.hessian_eigenvalue_2
         eigvec_1_true = batch.hessian_eigenvector_1

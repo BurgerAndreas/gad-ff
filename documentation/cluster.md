@@ -47,6 +47,9 @@ pip3 install les@git+https://github.com/ChengUCB/les
 module load rdkit/2023.09.5 openmm/8.2.0 openbabel/3.1.1 mctc-lib/0.3.1
 
 pip install -e .
+
+pip install -U "jax[cuda12]"==0.6.2
+pip install -e sella
 ```
 
 I had problems with the compute canada version of wandb, so I installed it manually

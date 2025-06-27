@@ -30,6 +30,10 @@ Data/RGD1
 *.lmdb
 *.lmdb-lock
 *.png
+*.txt
+*.log
+*.traj
+*.xyz
 
 # C extensions
 *.so

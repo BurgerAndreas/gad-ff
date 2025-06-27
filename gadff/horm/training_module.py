@@ -191,8 +191,11 @@ class PotentialModule(LightningModule):
         """
         Fix paths in the training config to be relative to the project root.
         """
-        training_config["trn_path"] = _fix_dataset_path(training_config["trn_path"])
-        training_config["val_path"] = _fix_dataset_path(training_config["val_path"])
+        try:
+            training_config["trn_path"] = _fix_dataset_path(training_config["trn_path"])
+            training_config["val_path"] = _fix_dataset_path(training_config["val_path"])
+        except Exception as e:
+            pass
         return training_config
 
     def configure_optimizers(self):
