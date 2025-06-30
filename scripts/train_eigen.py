@@ -75,7 +75,6 @@ def setup_training(cfg: DictConfig):
         project=cfg.project,
         log_model=False,
         name=run_name,
-        config=dict(cfg),
         **wandb_kwargs,
     )
     print(
