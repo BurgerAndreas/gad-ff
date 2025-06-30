@@ -101,7 +101,7 @@ parent_center_x = (parent_x_start + parent_x_end) / 2
 parent_center_y = (parent_y_start + parent_y_end) / 2
 ax.text(
     parent_center_x,
-    parent_center_y - 0.5,
+    parent_center_y - 0.7,
     "parent",
     va="center",
     ha="center",
@@ -132,13 +132,50 @@ nn_center_x = (nn_x_start + nn_x_end) / 2
 nn_center_y = (nn_y_start + nn_y_end) / 2
 ax.text(
     nn_center_x,
-    nn_y_start - 0.5,
+    nn_y_start - 0.3,
     "parent's nearest neighbour",
     va="center",
     ha="center",
     fontsize=17,
     fontweight="bold",
     color="coral",
+    zorder=4,
+    backgroundcolor="white",
+)
+
+# Add dark grey transparent block
+top_left_rect = patches.Rectangle(
+    (0, 0),  # bottom-left of the patch, as measured from the bottom left of the grid
+    2,
+    8,  # width and height of 2 units
+    linewidth=0,  # no border
+    edgecolor="none",
+    facecolor="darkgrey",
+    alpha=0.3,  # transparency
+    zorder=3,
+)
+ax.add_patch(top_left_rect)
+top_left_rect = patches.Rectangle(
+    # x, y. higher y is higher in the grid
+    (2, 0),  # bottom-left of the patch, as measured from the bottom left of the grid
+    6,
+    2,  # width and height of 2 units
+    linewidth=0,  # no border
+    edgecolor="none",
+    facecolor="darkgrey",
+    alpha=0.3,  # transparency
+    zorder=3,
+)
+ax.add_patch(top_left_rect)
+ax.text(
+    4,
+    0.3,
+    "done",
+    va="center",
+    ha="center",
+    fontsize=17,
+    fontweight="bold",
+    color="#2F2F2F",
     zorder=4,
     backgroundcolor="white",
 )

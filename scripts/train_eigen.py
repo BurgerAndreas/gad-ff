@@ -8,7 +8,10 @@ Adds one extra head each to predict the smallest two eigenvalues and eigenvector
 import os
 import torch
 import hydra
+import re
 from omegaconf import DictConfig
+import wandb
+from datetime import datetime
 
 from pytorch_lightning.callbacks import (
     TQDMProgressBar,
@@ -58,6 +61,12 @@ def setup_training(cfg: DictConfig):
     else:
         print(f"Not loading model checkpoint from {cfg.ckpt_model_path}")
     print("EigenPotentialModule initialized")
+    
+    # Add SLURM job ID to config if it exists in environment
+    cfg.slurm_job_id = None
+    if 'SLURM_JOB_ID' in os.environ:
+        cfg.slurm_job_id = os.environ['SLURM_JOB_ID']
+    print(f"SLURM job ID: {cfg.slurm_job_id}")
 
     wandb_kwargs = {}
     if not cfg.use_wandb:
@@ -66,13 +75,19 @@ def setup_training(cfg: DictConfig):
         project=cfg.project,
         log_model=False,
         name=run_name,
+        config=dict(cfg),
         **wandb_kwargs,
     )
     print(
         f"WandbLogger initialized with experiment name: {wandb_logger.experiment.name}"
     )
 
-    ckpt_output_path = f"checkpoint/{cfg.project}/{wandb_logger.experiment.name}"
+    checkpoint_name = re.sub(r"[^a-zA-Z0-9]", "", run_name)
+    if len(checkpoint_name) <= 1:
+        checkpoint_name = "base"
+    checkpoint_name = f"{checkpoint_name}-{cfg.slurm_job_id}-{wandb.run.id}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    ckpt_output_path = f"checkpoint/{cfg.project}/{checkpoint_name}"
+    print(f"Checkpoint output path: {ckpt_output_path}")
 
     checkpoint_callback = ModelCheckpoint(
         monitor="val-totloss",

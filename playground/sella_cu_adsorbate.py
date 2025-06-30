@@ -94,7 +94,7 @@ print("\nStarting Sella optimization to find transition state...")
 dyn = Sella(
     slab,
     constraints=cons,
-    trajectory=os.path.join(logfolder, "cu_sella_ts.traj"),
+    # trajectory=os.path.join(logfolder, "cu_sella_ts.traj"),
     order=1,  # Explicitly search for first-order saddle point
     eta=5e-5,  # Smaller finite difference step for higher accuracy
     delta0=5e-3,  # Larger initial trust radius for TS search
@@ -116,10 +116,6 @@ print("\n" + "=" * 60)
 print("VERIFYING TRANSITION STATE")
 print("=" * 60)
 
-# Perform frequency analysis to check if this is a transition state
-print("Performing frequency analysis...")
-
-# Only analyze the adsorbate atom since the slab is fixed
 adsorbate_indices = [adsorbate_index]
 print(f"Analyzing vibrations for adsorbate atom: {adsorbate_indices}")
 
@@ -144,12 +140,26 @@ negative_freq_count = 0
 imaginary_frequencies = []
 
 for i, (freq, energy) in enumerate(zip(frequencies, energies)):
-    if energy < 0:  # Negative eigenvalue = imaginary frequency
+    # Check if frequency is complex (imaginary) or if energy has imaginary component
+    if np.iscomplexobj(freq) and np.imag(freq) != 0:
         negative_freq_count += 1
-        imaginary_frequencies.append(freq)
-        print(f"{i:3d}    {freq:8.1f}i        {abs(energy):8.4f}")
+        imaginary_frequencies.append(np.imag(freq))  # Store the imaginary part
+        print(f"{i:3d}    {np.imag(freq):8.1f}i        {abs(np.imag(energy)):8.4f}")
+    elif np.iscomplexobj(energy) and np.imag(energy) != 0:
+        negative_freq_count += 1
+        imaginary_frequencies.append(np.imag(freq) if np.iscomplexobj(freq) else freq)
+        print(f"{i:3d}    {freq:8.1f}i        {abs(np.imag(energy)):8.4f}")
+    elif (not np.iscomplexobj(energy) and energy < 0) or (
+        not np.iscomplexobj(freq) and freq < 0
+    ):
+        negative_freq_count += 1
+        imaginary_frequencies.append(abs(freq))
+        print(f"{i:3d}    {abs(freq):8.1f}i        {abs(energy):8.4f}")
     else:
-        print(f"{i:3d}    {freq:8.1f}         {energy:8.4f}")
+        # Real positive frequency
+        real_freq = np.real(freq) if np.iscomplexobj(freq) else freq
+        real_energy = np.real(energy) if np.iscomplexobj(energy) else energy
+        print(f"{i:3d}    {real_freq:8.1f}         {real_energy:8.4f}")
 
 print("-" * 40)
 
@@ -194,15 +204,8 @@ else:
 print("=" * 60)
 
 # Optionally save the vibrational summary
-vib.summary(log=os.path.join(logfolder, "ts_verification_summary.txt"))
-print("Detailed vibrational summary saved to 'ts_logs/ts_verification_summary.txt'")
+# vib.summary(log=os.path.join(logfolder, "cu_ts_verification_summary.txt"))
+# print("Detailed vibrational summary saved to 'ts_logs/cu_ts_verification_summary.txt'")
 
 # Clean up temporary vibration files
 vib.clean()
-print("Temporary vibration files cleaned up")
-
-print("\nRecommendations for finding transition states:")
-print("1. Use a better initial guess (e.g., from NEB calculations)")
-print("2. Try different perturbation directions and magnitudes")
-print("3. Use dimer method or NEB for complex reaction pathways")
-print("4. Consider using a more accurate calculator than EMT")

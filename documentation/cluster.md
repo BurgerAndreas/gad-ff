@@ -2,6 +2,10 @@
 
 ### First time connecting to a cluster
 
+```bash
+ssh -Y aburger@killarney.alliancecan.ca
+```
+
 Add ssh key to github
 ```bash
 ssh-keygen -t ed25519

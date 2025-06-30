@@ -68,6 +68,8 @@ ckpt_model_path: horm
 # Checkpoint that contains model weights and optimizerstate , lr state, etc. 
 ckpt_trainer_path: null
 
+slurm_job_id: null
+
 # variables we can access in our code
 job_name: 'results'
 # job_name: ${hydra:job.name}
