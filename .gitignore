@@ -14,6 +14,12 @@ outputs/
 outslurm/
 wandb
 
+_*
+plots/
+plots_*/
+
+Data
+
 *.whl
 *env
 

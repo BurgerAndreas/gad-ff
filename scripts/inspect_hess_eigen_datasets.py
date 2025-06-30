@@ -355,8 +355,8 @@ def plot_scatter_joint_distribution(eigenvals_1, eigenvals_2, dataset_name, outp
     plt.close()
 
 
-def create_eigenvalue_plots(
-    eigenvals_1, eigenvals_2, dataset_name, output_dir="eigenvalue_plots"
+def create_plots_eigenvalue(
+    eigenvals_1, eigenvals_2, dataset_name, output_dir="plots_eigenvalue"
 ):
     """
     Create comprehensive plots for eigenvalue distributions.
@@ -456,8 +456,8 @@ def main():
     )
     parser.add_argument(
         "--output-dir",
-        default="eigenvalue_plots",
-        help="Directory to save plots (default: eigenvalue_plots)",
+        default="plots_eigenvalue",
+        help="Directory to save plots (default: plots_eigenvalue)",
     )
     parser.add_argument(
         "--data-dir",
@@ -514,7 +514,7 @@ def main():
         all_stats.append(stats)
 
         # Create plots
-        create_eigenvalue_plots(eigenvals_1, eigenvals_2, dataset_name, args.output_dir)
+        create_plots_eigenvalue(eigenvals_1, eigenvals_2, dataset_name, args.output_dir)
 
     # Print summary table
     if all_stats:

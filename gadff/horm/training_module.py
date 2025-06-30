@@ -27,7 +27,7 @@ from nets.equiformer_v2.equiformer_v2_oc20 import EquiformerV2_OC20
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.horm.utils import average_over_batch_metrics, pretty_print
 import gadff.horm.utils as diff_utils
-from alphanet.models.alphanet import AlphaNet
+from _alphanet.models.alphanet import AlphaNet
 import yaml
 from gadff.path_config import find_project_root, _fix_dataset_path
 
