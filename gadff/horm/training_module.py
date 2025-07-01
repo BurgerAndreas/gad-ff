@@ -24,10 +24,10 @@ from torchmetrics import (
 )
 from torch_scatter import scatter_mean
 from nets.equiformer_v2.equiformer_v2_oc20 import EquiformerV2_OC20
+
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.horm.utils import average_over_batch_metrics, pretty_print
 import gadff.horm.utils as diff_utils
-from _alphanet.models.alphanet import AlphaNet
 import yaml
 from gadff.path_config import find_project_root, _fix_dataset_path
 
@@ -117,14 +117,20 @@ class PotentialModule(LightningModule):
 
         if self.model_config["name"] == "EquiformerV2":
             root_dir = find_project_root()
+            config_path = os.path.join(root_dir, "configs/equiformer_v2.yaml")
+            if not os.path.exists(config_path):
+                config_path = os.path.join(root_dir, "equiformer_v2.yaml")
+            if not os.path.exists(config_path):
+                raise FileNotFoundError(f"Config file not found at {config_path}")
             with open(
-                os.path.join(root_dir, "configs/equiformer_v2.yaml"), "r"
+                config_path, "r"
             ) as file:
                 config = yaml.safe_load(file)
             model_config = config["model"]
             model_config.update(self.model_config)
             self.potential = EquiformerV2_OC20(**model_config)
         elif self.model_config["name"] == "AlphaNet":
+            from alphanet.models.alphanet import AlphaNet
             self.potential = AlphaNet(AlphaConfig(model_config)).float()
         elif (
             self.model_config["name"] == "LEFTNet"

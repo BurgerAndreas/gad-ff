@@ -3,20 +3,51 @@ ASE Calculator wrapper for Equiformer model.
 """
 
 from typing import Optional
-import torch
 import numpy as np
+import torch
+from torch_geometric.data import Data
+from ase import Atoms
 from ase.calculators.calculator import Calculator, all_changes
 from ase.data import atomic_numbers
-from torch_geometric.data import Data
+from ase.calculators.singlepoint import SinglePointCalculator as sp
+from ase.constraints import FixAtoms
+
+from ocpmodels.datasets import data_list_collater
+from ocpmodels.preprocessing import AtomsToGraphs
 
 from gadff.horm.training_module import PotentialModule, compute_extra_props
 
+# ocpmodels/common/relaxation/ase_utils.py
+def batch_to_atoms(batch):
+    n_systems = batch.natoms.shape[0]
+    natoms = batch.natoms.tolist()
+    numbers = torch.split(batch.atomic_numbers, natoms)
+    fixed = torch.split(batch.fixed, natoms)
+    forces = torch.split(batch.force, natoms)
+    positions = torch.split(batch.pos, natoms)
+    tags = torch.split(batch.tags, natoms)
+    cells = batch.cell
+    energies = batch.y.tolist()
 
-"""
-Might need to reimplement based on this:
-ocpmodels/common/relaxation/ase_utils.py
-ocpmodels/preprocessing/atoms_to_graphs.py
-"""
+    atoms_objects = []
+    for idx in range(n_systems):
+        atoms = Atoms(
+            numbers=numbers[idx].tolist(),
+            positions=positions[idx].cpu().detach().numpy(),
+            tags=tags[idx].tolist(),
+            cell=cells[idx].cpu().detach().numpy(),
+            constraint=FixAtoms(mask=fixed[idx].tolist()),
+            pbc=[True, True, True],
+        )
+        calc = sp(
+            atoms=atoms,
+            energy=energies[idx],
+            forces=forces[idx].cpu().detach().numpy(),
+        )
+        atoms.set_calculator(calc)
+        atoms_objects.append(atoms)
+
+    return atoms_objects
 
 
 def ase_atoms_to_torch_geometric(atoms):
@@ -63,6 +94,9 @@ def ase_atoms_to_torch_geometric(atoms):
 class EquiformerCalculator(Calculator):
     """
     Equiformer ASE Calculator.
+    
+    Might need to reimplement EquiformerCalculator based on:
+    ocpmodels/common/relaxation/ase_utils.py
 
     Args:
         checkpoint_path: Path to the Equiformer model checkpoint
@@ -99,10 +133,35 @@ class EquiformerCalculator(Calculator):
 
         # Set implemented properties
         self.implemented_properties = ["energy", "forces", "hessian"]
+        
+        # ocpmodels/common/relaxation/ase_utils.py
+        self.a2g = AtomsToGraphs(
+            max_neigh=self.model.potential.max_neighbors,
+            radius=self.model.potential.cutoff,
+            r_energy=False,
+            r_forces=False,
+            r_distances=False,
+            r_edges=False,
+            r_pbc=True,
+        )
+    
+    def forward(self, atoms, hessian=False):
+        """
+        Forward pass for the Equiformer calculator.
+        If hessian is True, it will compute the Hessian via autograd and eigenvalues/eigenvectors.
+        Otherwise, it will only compute the energy and forces.
+        """
+        properties = ["energy", "forces"]
+        if hessian:
+            properties += ["hessian", "eigen"]
+        self.calculate(atoms, properties=properties)
+        return self.results
 
     def calculate(self, atoms=None, properties=None, system_changes=all_changes):
         """
         Calculate properties for the given atoms.
+        
+        You can get the 
 
         Args:
             atoms: ASE Atoms object
@@ -111,20 +170,26 @@ class EquiformerCalculator(Calculator):
         """
         # Call base class to set atoms attribute
         Calculator.calculate(self, atoms)
+        # data_object = self.a2g.convert(atoms)
+        # batch = data_list_collater([data_object], otf_graph=True)
 
         # Convert ASE atoms to torch_geometric format
         batch = ase_atoms_to_torch_geometric(atoms)
         batch = batch.to(self.device)
 
+        if properties is None:
+            properties = []
         if "eigen" in properties:
             properties.append("hessian")
 
         # Prepare batch with extra properties
-        batch = compute_extra_props(batch, pos_require_grad="hessian" in properties)
+        batch = compute_extra_props(
+            batch, pos_require_grad="hessian" in properties
+        )
 
         # Run prediction
         with torch.enable_grad():
-            energy, forces = self.model.potential.forward(batch)
+            energy, forces, eigenoutputs = self.model.potential.forward(batch, eigen=True)
 
         # Store results
         self.results = {}
@@ -134,7 +199,13 @@ class EquiformerCalculator(Calculator):
 
         # Forces shape: [n_atoms, 3]
         self.results["forces"] = forces.detach().cpu().numpy()
+        
+        # predicted eigenvalues and eigenvectors of the Hessian
+        for key in ["eigval_1", "eigval_2", "eigvec_1", "eigvec_2"]:
+            if key in eigenoutputs:
+                self.results[key] = eigenoutputs[key].detach().cpu().numpy()
 
+        # Compute the Hessian via autodiff on the fly
         if "hessian" in properties:
             # 3D coordinates -> 3N^2 Hessian elements
             N = batch.pos.shape[0]
@@ -169,28 +240,33 @@ class EquiformerCalculator(Calculator):
 
     def get_hessian_autodiff(self, atoms):
         """
-        Get the Hessian matrix for the given atoms.
+        Get the Hessian matrix for the given atoms via autodiff (on the fly Hessian).
         """
         self.calculate(atoms, properties=["energy", "forces", "hessian"])
         return self.results["hessian"]
 
     def get_eigen_autodiff(self, atoms):
         """
-        Get the eigenvalues and eigenvectors for the given atoms.
+        Get the eigenvalues and eigenvectors for the given atoms via autodiff (on the fly eigenvalues).
         """
         self.calculate(atoms, properties=["energy", "forces", "hessian", "eigen"])
         return self.results["eigenvalues"], self.results["eigenvectors"]
 
-    def get_vibrational_analysis(self, atoms):
+    # Andreas: really not sure if this is correct
+    def get_vibrational_analysis(self, atoms, filter_threshold=1.0, preserve_imaginary=True):
         """
         Compute vibrational modes using mass-weighted Hessian.
 
         Args:
             atoms: ASE Atoms object
+            filter_threshold: Threshold for filtering small frequencies (cm^-1). 
+                            Set to 0.0 to keep all modes.
+            preserve_imaginary: If True, preserves imaginary frequencies regardless of threshold.
+                              Important for transition state analysis.
 
         Returns:
             dict: Dictionary containing vibrational analysis results:
-                - frequencies: vibrational frequencies in cm^-1
+                - frequencies: vibrational frequencies in cm^-1 (negative = imaginary)
                 - normal_modes: normal mode eigenvectors (mass-weighted)
                 - reduced_masses: reduced masses for each mode
                 - force_constants: force constants for each mode
@@ -241,12 +317,20 @@ class EquiformerCalculator(Calculator):
         # k = μ * ω^2
         force_constants = reduced_masses * (frequencies_cm / 5140.487) ** 2
 
-        # Filter out translational and rotational modes (first 6 modes)
-        # These typically have very small frequencies
-        vibrational_mask = (
-            np.abs(frequencies_cm) > 1.0
-        )  # Filter out modes with |freq| < 1 cm^-1
-        print(f"Masked {np.sum(~vibrational_mask)} modes")
+        # Filter out translational and rotational modes
+        # For transition state analysis, preserve imaginary frequencies (negative eigenvalues)
+        if filter_threshold > 0.0:
+            if preserve_imaginary:
+                # Keep imaginary frequencies (negative) and real frequencies above threshold
+                vibrational_mask = (frequencies_cm < 0) | (frequencies_cm > filter_threshold)
+            else:
+                # Traditional filtering by absolute value
+                vibrational_mask = np.abs(frequencies_cm) > filter_threshold
+        else:
+            # Keep all modes
+            vibrational_mask = np.ones(len(frequencies_cm), dtype=bool)
+            
+        print(f"Masked {np.sum(~vibrational_mask)} modes (filter_threshold={filter_threshold}, preserve_imaginary={preserve_imaginary})")
 
         return {
             "frequencies": frequencies_cm[vibrational_mask],
@@ -260,14 +344,46 @@ class EquiformerCalculator(Calculator):
             "vibrational_mask": vibrational_mask,
         }
 
+    def analyze_stationary_point(self, atoms):
+        """
+        Analyze whether the structure is a minimum, transition state, or higher-order saddle point.
+        
+        Args:
+            atoms: ASE Atoms object
+            
+        Returns:
+            dict: Analysis results containing:
+                - point_type: str ("minimum", "transition_state", "higher_order_saddle")
+                - n_imaginary: int (number of imaginary frequencies)
+                - frequencies: array of all frequencies
+                - imaginary_frequencies: array of imaginary frequencies only
+        """
+        vib_results = self.get_vibrational_analysis(atoms, filter_threshold=1.0, preserve_imaginary=True)
+        frequencies = vib_results["frequencies"]
+        
+        imaginary_freqs = frequencies[frequencies < 0]
+        n_imaginary = len(imaginary_freqs)
+        
+        if n_imaginary == 0:
+            point_type = "minimum"
+        elif n_imaginary == 1:
+            point_type = "transition_state"
+        else:
+            point_type = "higher_order_saddle"
+            
+        return {
+            "point_type": point_type,
+            "n_imaginary": n_imaginary,
+            "frequencies": frequencies,
+            "imaginary_frequencies": imaginary_freqs,
+            "all_results": vib_results
+        }
 
-def example_usage():
-    """
-    Example usage of the EquiformerCalculator.
-    """
-    from ase import Atoms
+
+if __name__ == "__main__":
     from gadff.path_config import find_project_root
     import os
+    from ase.vibrations import Vibrations
 
     # Create a simple water molecule for testing
     atoms = Atoms(
@@ -286,7 +402,7 @@ def example_usage():
     if not os.path.exists(checkpoint_path):
         print(f"Checkpoint not found at {checkpoint_path}")
         print("Please provide a valid checkpoint path")
-        return
+        exit()
 
     calculator = EquiformerCalculator(checkpoint_path=checkpoint_path)
 
@@ -311,25 +427,32 @@ def example_usage():
     print(f"Eigenvalues: {eigenvalues}")
     print(f"Eigenvectors: {eigenvectors.shape}")
 
-    # Compute vibrational analysis
-    print("\n=== Vibrational Analysis ===")
-    vib_results = calculator.get_vibrational_analysis(atoms)
+    # Compute vibrational analysis for transition state analysis
+    print("\n=== Vibrational Analysis (Transition State Compatible) ===")
+    vib_results = calculator.get_vibrational_analysis(atoms, preserve_imaginary=True)
 
     print(f"Number of vibrational modes: {len(vib_results['frequencies'])}")
     print(f"Vibrational frequencies (cm^-1):")
+    imaginary_count = 0
     for i, freq in enumerate(vib_results["frequencies"]):
-        print(f"  Mode {i+1}: {freq:.2f}")
+        if freq < 0:
+            print(f"  Mode {i+1}: {freq:.2f} (i)")
+            imaginary_count += 1
+        else:
+            print(f"  Mode {i+1}: {freq:.2f}")
+    
+    print(f"\nNumber of imaginary frequencies: {imaginary_count}")
+    if imaginary_count == 1:
+        print("This appears to be a transition state (1 imaginary frequency)")
+    elif imaginary_count == 0:
+        print("This appears to be a minimum (0 imaginary frequencies)")
+    else:
+        print(f"This has {imaginary_count} imaginary frequencies")
 
-    print(f"\nNormal modes shape: {vib_results['normal_modes'].shape}")
-    print(f"Reduced masses: {vib_results['reduced_masses']}")
-    print(f"Force constants: {vib_results['force_constants']}")
-
-    # Show all frequencies including translational/rotational modes
-    print(f"\nAll frequencies (including translational/rotational):")
-    for i, freq in enumerate(vib_results["all_frequencies"]):
-        mode_type = "vibrational" if vib_results["vibrational_mask"][i] else "trans/rot"
-        print(f"  Mode {i+1}: {freq:.2f} cm^-1 ({mode_type})")
-
-
-if __name__ == "__main__":
-    example_usage()
+    # Compare with ASE's Vibrations class
+    print("\n" + "="*40)
+    print("Comparison with ASE's Vibrations class")
+    vib = Vibrations(atoms)
+    vib.run()
+    vib.summary()
+    vib.clean()

@@ -5,13 +5,6 @@ defaults:
   - experiment: base
   - gpu: single
 
-# Eigenvalue/eigenvector prediction flags 
-model:
-  do_eigvec_1: true
-  do_eigvec_2: false  
-  do_eigval_1: true
-  do_eigval_2: true
-
 # Model configuration
 model_type: "EquiformerV2"
 version: "0.1"

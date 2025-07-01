@@ -49,3 +49,9 @@ model:
 
   weight_init:              'uniform'    # ['uniform', 'normal']
 
+  # Added for eigenvalue/eigenvector prediction
+  do_eigvec_1: true
+  do_eigvec_2: false  
+  do_eigval_1: true
+  do_eigval_2: true
+
