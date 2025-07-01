@@ -4,30 +4,9 @@ from omegaconf import ListConfig
 import os
 import torch
 from torch_geometric.data import Batch
-from torch_scatter import scatter_mean
 from nets.equiformer_v2.equiformer_v2_oc20 import EquiformerV2_OC20
-
+from nets.prediction_utils import compute_extra_props
 import yaml
-
-GLOBAL_ATOM_NUMBERS = torch.tensor([1, 6, 7, 8])
-
-def remove_mean_batch(x, indices):
-    mean = scatter_mean(x, indices, dim=0)
-    x = x - mean[indices]
-    return x
-
-def compute_extra_props(batch, pos_require_grad=True):
-    """Adds device, z, and removes mean batch"""
-    device = batch.pos.device
-    indices = batch.one_hot.long().argmax(dim=1)
-    batch.z = GLOBAL_ATOM_NUMBERS.to(device)[indices.to(device)]
-    batch.pos = remove_mean_batch(batch.pos, batch.batch)
-    # atomization energy. shape used by equiformerv2
-    if not hasattr(batch, "ae"):
-        batch.ae = torch.zeros_like(batch.energy)
-    if pos_require_grad:
-        batch.pos.requires_grad_(True)
-    return batch
 
 def get_model(config_path):
     with open(config_path, "r") as file:
@@ -148,8 +127,6 @@ if __name__ == "__main__":
         natoms=n_atoms,
         # just needs be a placeholder that decides the output energy shape
         energy=torch.randn(1), 
-        # forces=torch.randn(n_atoms, 3),
-        # ae=torch.zeros(1),
     )
     data = Batch.from_data_list([data])
     

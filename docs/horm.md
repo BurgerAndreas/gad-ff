@@ -4,6 +4,7 @@ This is the official implementation for the paper: "A Molecular Hessian Database
 
 Paper: https://arxiv.org/abs/2505.12447
 Code: https://github.com/deepprinciple/HORM
+Data: https://www.kaggle.com/datasets/yunhonghan/hessian-dataset-for-optimizing-reactive-mliphorm/data
 
 
 - [Overview](#overview)
@@ -138,18 +139,12 @@ wget https://huggingface.co/yhong55/HORM/resolve/main/eqv2.ckpt -O ckpt/eqv2.ckp
 ### Training
 - The Hessian was computed from the forces via autograd.
 - Randomly sample a subset of two columns from each Hessian matrix during training.
-- Training was done on A30 (24 GB) and H20 (96 GB) GPUs
+- Training was done on an unknown number of A30 (24 GB) and H20 (96 GB) GPUs
 
 For EquiformerV2:
 
 Layers HiddenDim Heads NHR LearningRate BatchSize \
 4 128 4 2 3e-4 128
-
-
-
-
-
-
 
 
 # License

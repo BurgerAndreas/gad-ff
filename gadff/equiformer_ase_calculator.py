@@ -4,6 +4,9 @@ ASE Calculator wrapper for Equiformer model.
 
 from typing import Optional
 import numpy as np
+import yaml
+import os
+
 import torch
 from torch_geometric.data import Data
 from ase import Atoms
@@ -11,11 +14,13 @@ from ase.calculators.calculator import Calculator, all_changes
 from ase.data import atomic_numbers
 from ase.calculators.singlepoint import SinglePointCalculator as sp
 from ase.constraints import FixAtoms
+from torch_scatter import scatter_mean
 
 from ocpmodels.datasets import data_list_collater
 from ocpmodels.preprocessing import AtomsToGraphs
 
-from gadff.horm.training_module import PotentialModule, compute_extra_props
+from nets.equiformer_v2.equiformer_v2_oc20 import EquiformerV2_OC20
+
 
 # ocpmodels/common/relaxation/ase_utils.py
 def batch_to_atoms(batch):
@@ -90,6 +95,25 @@ def ase_atoms_to_torch_geometric(atoms):
 
     return data
 
+GLOBAL_ATOM_NUMBERS = torch.tensor([1, 6, 7, 8])
+
+def remove_mean_batch(x, indices):
+    mean = scatter_mean(x, indices, dim=0)
+    x = x - mean[indices]
+    return x
+
+def compute_extra_props(batch, pos_require_grad=True):
+    """Adds device, z, and removes mean batch"""
+    device = batch.pos.device
+    indices = batch.one_hot.long().argmax(dim=1)
+    batch.z = GLOBAL_ATOM_NUMBERS.to(device)[indices.to(device)]
+    batch.pos = remove_mean_batch(batch.pos, batch.batch)
+    # atomization energy. shape used by equiformerv2
+    if not hasattr(batch, "ae"):
+        batch.ae = torch.zeros_like(batch.energy)
+    if pos_require_grad:
+        batch.pos.requires_grad_(True)
+    return batch
 
 class EquiformerCalculator(Calculator):
     """
@@ -107,6 +131,7 @@ class EquiformerCalculator(Calculator):
         self,
         checkpoint_path: str,
         device: Optional[torch.device] = None,
+        project_root: str = None,
         **kwargs,
     ):
         """
@@ -124,9 +149,16 @@ class EquiformerCalculator(Calculator):
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
 
         # Load model
-        print(f"Loading Equiformer model from: {checkpoint_path}")
-        self.model = PotentialModule.load_from_checkpoint(
-            checkpoint_path, strict=False, map_location=self.device
+        if project_root is None:
+            project_root = os.path.dirname(os.path.dirname(__file__))
+        config_path = os.path.join(project_root, "configs/equiformer_v2.yaml")
+        with open(config_path, "r") as file:
+            config = yaml.safe_load(file)
+        model_config = config["model"]
+        self.model = EquiformerV2_OC20(**model_config)
+        self.model.load_state_dict(
+            torch.load(checkpoint_path, weights_only=True, map_location=self.device)["state_dict"],
+            strict=False
         )
         self.model = self.model.to(self.device)
         self.model.eval()
@@ -136,8 +168,8 @@ class EquiformerCalculator(Calculator):
         
         # ocpmodels/common/relaxation/ase_utils.py
         self.a2g = AtomsToGraphs(
-            max_neigh=self.model.potential.max_neighbors,
-            radius=self.model.potential.cutoff,
+            max_neigh=self.model.max_neighbors,
+            radius=self.model.cutoff,
             r_energy=False,
             r_forces=False,
             r_distances=False,
@@ -189,7 +221,7 @@ class EquiformerCalculator(Calculator):
 
         # Run prediction
         with torch.enable_grad():
-            energy, forces, eigenoutputs = self.model.potential.forward(batch, eigen=True)
+            energy, forces, eigenoutputs = self.model.forward(batch, eigen=True)
 
         # Store results
         self.results = {}
@@ -396,15 +428,15 @@ if __name__ == "__main__":
     )
 
     # Initialize calculator with default checkpoint path
-    root_dir = find_project_root()
-    checkpoint_path = os.path.join(root_dir, "ckpt/eqv2.ckpt")
+    project_root = os.path.dirname(os.path.dirname(__file__))
+    checkpoint_path = os.path.join(project_root, "ckpt/eqv2.ckpt")
 
     if not os.path.exists(checkpoint_path):
         print(f"Checkpoint not found at {checkpoint_path}")
         print("Please provide a valid checkpoint path")
         exit()
 
-    calculator = EquiformerCalculator(checkpoint_path=checkpoint_path)
+    calculator = EquiformerCalculator(checkpoint_path=checkpoint_path, project_root=project_root)
 
     # Attach calculator to atoms
     # atoms.set_calculator(calculator)
