@@ -4,6 +4,7 @@ import os
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
 
+
 def draw_quad_tree_empty(n, draw_i=False):
     # Define grid parameters for an 8x8 quad-tree (thick every 2 cells)
     n = 8
@@ -33,6 +34,7 @@ def draw_quad_tree_empty(n, draw_i=False):
     plt.savefig(fname)
     print(f"Saved figure to {fname}")
     plt.close()
+
 
 if __name__ == "__main__":
     draw_quad_tree_empty(8, draw_i=False)

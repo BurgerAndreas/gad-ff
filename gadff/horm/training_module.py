@@ -122,15 +122,14 @@ class PotentialModule(LightningModule):
                 config_path = os.path.join(root_dir, "equiformer_v2.yaml")
             if not os.path.exists(config_path):
                 raise FileNotFoundError(f"Config file not found at {config_path}")
-            with open(
-                config_path, "r"
-            ) as file:
+            with open(config_path, "r") as file:
                 config = yaml.safe_load(file)
             model_config = config["model"]
             model_config.update(self.model_config)
             self.potential = EquiformerV2_OC20(**model_config)
         elif self.model_config["name"] == "AlphaNet":
             from alphanet.models.alphanet import AlphaNet
+
             self.potential = AlphaNet(AlphaConfig(model_config)).float()
         elif (
             self.model_config["name"] == "LEFTNet"

@@ -17,12 +17,12 @@ head_length = 0.15
 # head_width = 0.05
 # head_length = 0.08
 
-figsize = (6, 3 )
+figsize = (6, 3)
 
 # Define points, with one interior point moved slightly inside the circle
 center = (0, 0)
 interior_points = [
-    (0.54, 0.72),  
+    (0.54, 0.72),
     (-0.7, 0.3),
     (0.4, -0.5),
     (-0.2, -0.7),
@@ -31,11 +31,14 @@ interior_points = [
 ]
 external_point = (3.5, 0.4)
 
+
 def plot_multipole_expansion(interior_points, external_point):
     fig, ax = plt.subplots(figsize=figsize)
 
     # Draw circle
-    circle = plt.Circle(center, 1.0, fill=False, linewidth=1.5, color=internal_color, zorder=1)
+    circle = plt.Circle(
+        center, 1.0, fill=False, linewidth=1.5, color=internal_color, zorder=1
+    )
     ax.add_patch(circle)
 
     # Plot the center and points as dots
@@ -60,7 +63,9 @@ def plot_multipole_expansion(interior_points, external_point):
         )
 
     # Draw arrow from center to external point
-    dx_ext, dy_ext = (external_point[0] - center[0]) * 0.98, (external_point[1] - center[1]) * 0.98
+    dx_ext, dy_ext = (external_point[0] - center[0]) * 0.98, (
+        external_point[1] - center[1]
+    ) * 0.98
     ax.arrow(
         center[0],
         center[1],
@@ -83,11 +88,14 @@ def plot_multipole_expansion(interior_points, external_point):
     print(f"Saved figure to {fname}")
     plt.close()
 
+
 def plot_interior_to_external(interior_points, external_point):
     fig, ax = plt.subplots(figsize=figsize)
 
     # Draw circle
-    circle = plt.Circle(center, 1.0, fill=False, linewidth=1.5, color=internal_color, zorder=1)
+    circle = plt.Circle(
+        center, 1.0, fill=False, linewidth=1.5, color=internal_color, zorder=1
+    )
     ax.add_patch(circle)
 
     # Plot the center and points as dots
@@ -121,11 +129,14 @@ def plot_interior_to_external(interior_points, external_point):
     print(f"Saved figure to {fname}")
     plt.close()
 
+
 def local_expansion(interior_points, external_point):
     fig, ax = plt.subplots(figsize=figsize)
 
     # Draw circle
-    circle = plt.Circle(center, 1.0, fill=False, linewidth=1.5, color=internal_color, zorder=1)
+    circle = plt.Circle(
+        center, 1.0, fill=False, linewidth=1.5, color=internal_color, zorder=1
+    )
     ax.add_patch(circle)
 
     # Plot the center and points as dots
@@ -148,9 +159,12 @@ def local_expansion(interior_points, external_point):
             color=arrow_color,
             zorder=3,
         )
-    
+
     # Draw arrow from external point to center
-    dx_ext, dy_ext = -(external_point[0] - center[0]) * 0.98, -(external_point[1] - center[1]) * 0.98
+    dx_ext, dy_ext = (
+        -(external_point[0] - center[0]) * 0.98,
+        -(external_point[1] - center[1]) * 0.98,
+    )
     ax.arrow(
         external_point[0],
         external_point[1],
@@ -173,10 +187,13 @@ def local_expansion(interior_points, external_point):
     print(f"Saved figure to {fname}")
     plt.close()
 
+
 def external_to_internal(interior_points, external_point):
     fig, ax = plt.subplots(figsize=figsize)
     # Draw circle
-    circle = plt.Circle(center, 1.0, fill=False, linewidth=1.5, color=internal_color, zorder=1)
+    circle = plt.Circle(
+        center, 1.0, fill=False, linewidth=1.5, color=internal_color, zorder=1
+    )
     ax.add_patch(circle)
 
     # Plot the center and points as dots
@@ -210,8 +227,8 @@ def external_to_internal(interior_points, external_point):
     print(f"Saved figure to {fname}")
     plt.close()
 
+
 plot_multipole_expansion(interior_points, external_point)
 plot_interior_to_external(interior_points, external_point)
 local_expansion(interior_points, external_point)
 external_to_internal(interior_points, external_point)
-

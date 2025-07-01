@@ -61,11 +61,11 @@ def setup_training(cfg: DictConfig):
     else:
         print(f"Not loading model checkpoint from {cfg.ckpt_model_path}")
     print("EigenPotentialModule initialized")
-    
+
     # Add SLURM job ID to config if it exists in environment
     cfg.slurm_job_id = None
-    if 'SLURM_JOB_ID' in os.environ:
-        cfg.slurm_job_id = os.environ['SLURM_JOB_ID']
+    if "SLURM_JOB_ID" in os.environ:
+        cfg.slurm_job_id = os.environ["SLURM_JOB_ID"]
     print(f"SLURM job ID: {cfg.slurm_job_id}")
 
     wandb_kwargs = {}
@@ -76,9 +76,6 @@ def setup_training(cfg: DictConfig):
         log_model=False,
         name=run_name,
         **wandb_kwargs,
-    )
-    print(
-        f"WandbLogger initialized with experiment name: {wandb_logger.experiment.name}"
     )
 
     checkpoint_name = re.sub(r"[^a-zA-Z0-9]", "", run_name)

@@ -1,13 +1,14 @@
-
 import torch
 from nets.scatter_utils import scatter_mean
 
 GLOBAL_ATOM_NUMBERS = torch.tensor([1, 6, 7, 8])
 
+
 def remove_mean_batch(x, indices):
     mean = scatter_mean(x, indices, dim=0)
     x = x - mean[indices]
     return x
+
 
 def compute_extra_props(batch, pos_require_grad=True):
     """Adds device, z, and removes mean batch"""

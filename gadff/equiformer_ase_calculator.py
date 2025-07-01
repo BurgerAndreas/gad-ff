@@ -95,12 +95,15 @@ def ase_atoms_to_torch_geometric(atoms):
 
     return data
 
+
 GLOBAL_ATOM_NUMBERS = torch.tensor([1, 6, 7, 8])
+
 
 def remove_mean_batch(x, indices):
     mean = scatter_mean(x, indices, dim=0)
     x = x - mean[indices]
     return x
+
 
 def compute_extra_props(batch, pos_require_grad=True):
     """Adds device, z, and removes mean batch"""
@@ -115,10 +118,11 @@ def compute_extra_props(batch, pos_require_grad=True):
         batch.pos.requires_grad_(True)
     return batch
 
+
 class EquiformerCalculator(Calculator):
     """
     Equiformer ASE Calculator.
-    
+
     Might need to reimplement EquiformerCalculator based on:
     ocpmodels/common/relaxation/ase_utils.py
 
@@ -157,15 +161,17 @@ class EquiformerCalculator(Calculator):
         model_config = config["model"]
         self.model = EquiformerV2_OC20(**model_config)
         self.model.load_state_dict(
-            torch.load(checkpoint_path, weights_only=True, map_location=self.device)["state_dict"],
-            strict=False
+            torch.load(checkpoint_path, weights_only=True, map_location=self.device)[
+                "state_dict"
+            ],
+            strict=False,
         )
         self.model = self.model.to(self.device)
         self.model.eval()
 
         # Set implemented properties
         self.implemented_properties = ["energy", "forces", "hessian"]
-        
+
         # ocpmodels/common/relaxation/ase_utils.py
         self.a2g = AtomsToGraphs(
             max_neigh=self.model.max_neighbors,
@@ -176,7 +182,7 @@ class EquiformerCalculator(Calculator):
             r_edges=False,
             r_pbc=True,
         )
-    
+
     def forward(self, atoms, hessian=False):
         """
         Forward pass for the Equiformer calculator.
@@ -192,8 +198,8 @@ class EquiformerCalculator(Calculator):
     def calculate(self, atoms=None, properties=None, system_changes=all_changes):
         """
         Calculate properties for the given atoms.
-        
-        You can get the 
+
+        You can get the
 
         Args:
             atoms: ASE Atoms object
@@ -215,9 +221,7 @@ class EquiformerCalculator(Calculator):
             properties.append("hessian")
 
         # Prepare batch with extra properties
-        batch = compute_extra_props(
-            batch, pos_require_grad="hessian" in properties
-        )
+        batch = compute_extra_props(batch, pos_require_grad="hessian" in properties)
 
         # Run prediction
         with torch.enable_grad():
@@ -231,7 +235,7 @@ class EquiformerCalculator(Calculator):
 
         # Forces shape: [n_atoms, 3]
         self.results["forces"] = forces.detach().cpu().numpy()
-        
+
         # predicted eigenvalues and eigenvectors of the Hessian
         for key in ["eigval_1", "eigval_2", "eigvec_1", "eigvec_2"]:
             if key in eigenoutputs:
@@ -285,13 +289,15 @@ class EquiformerCalculator(Calculator):
         return self.results["eigenvalues"], self.results["eigenvectors"]
 
     # Andreas: really not sure if this is correct
-    def get_vibrational_analysis(self, atoms, filter_threshold=1.0, preserve_imaginary=True):
+    def get_vibrational_analysis(
+        self, atoms, filter_threshold=1.0, preserve_imaginary=True
+    ):
         """
         Compute vibrational modes using mass-weighted Hessian.
 
         Args:
             atoms: ASE Atoms object
-            filter_threshold: Threshold for filtering small frequencies (cm^-1). 
+            filter_threshold: Threshold for filtering small frequencies (cm^-1).
                             Set to 0.0 to keep all modes.
             preserve_imaginary: If True, preserves imaginary frequencies regardless of threshold.
                               Important for transition state analysis.
@@ -354,15 +360,19 @@ class EquiformerCalculator(Calculator):
         if filter_threshold > 0.0:
             if preserve_imaginary:
                 # Keep imaginary frequencies (negative) and real frequencies above threshold
-                vibrational_mask = (frequencies_cm < 0) | (frequencies_cm > filter_threshold)
+                vibrational_mask = (frequencies_cm < 0) | (
+                    frequencies_cm > filter_threshold
+                )
             else:
                 # Traditional filtering by absolute value
                 vibrational_mask = np.abs(frequencies_cm) > filter_threshold
         else:
             # Keep all modes
             vibrational_mask = np.ones(len(frequencies_cm), dtype=bool)
-            
-        print(f"Masked {np.sum(~vibrational_mask)} modes (filter_threshold={filter_threshold}, preserve_imaginary={preserve_imaginary})")
+
+        print(
+            f"Masked {np.sum(~vibrational_mask)} modes (filter_threshold={filter_threshold}, preserve_imaginary={preserve_imaginary})"
+        )
 
         return {
             "frequencies": frequencies_cm[vibrational_mask],
@@ -379,10 +389,10 @@ class EquiformerCalculator(Calculator):
     def analyze_stationary_point(self, atoms):
         """
         Analyze whether the structure is a minimum, transition state, or higher-order saddle point.
-        
+
         Args:
             atoms: ASE Atoms object
-            
+
         Returns:
             dict: Analysis results containing:
                 - point_type: str ("minimum", "transition_state", "higher_order_saddle")
@@ -390,25 +400,27 @@ class EquiformerCalculator(Calculator):
                 - frequencies: array of all frequencies
                 - imaginary_frequencies: array of imaginary frequencies only
         """
-        vib_results = self.get_vibrational_analysis(atoms, filter_threshold=1.0, preserve_imaginary=True)
+        vib_results = self.get_vibrational_analysis(
+            atoms, filter_threshold=1.0, preserve_imaginary=True
+        )
         frequencies = vib_results["frequencies"]
-        
+
         imaginary_freqs = frequencies[frequencies < 0]
         n_imaginary = len(imaginary_freqs)
-        
+
         if n_imaginary == 0:
             point_type = "minimum"
         elif n_imaginary == 1:
             point_type = "transition_state"
         else:
             point_type = "higher_order_saddle"
-            
+
         return {
             "point_type": point_type,
             "n_imaginary": n_imaginary,
             "frequencies": frequencies,
             "imaginary_frequencies": imaginary_freqs,
-            "all_results": vib_results
+            "all_results": vib_results,
         }
 
 
@@ -436,7 +448,9 @@ if __name__ == "__main__":
         print("Please provide a valid checkpoint path")
         exit()
 
-    calculator = EquiformerCalculator(checkpoint_path=checkpoint_path, project_root=project_root)
+    calculator = EquiformerCalculator(
+        checkpoint_path=checkpoint_path, project_root=project_root
+    )
 
     # Attach calculator to atoms
     # atoms.set_calculator(calculator)
@@ -472,7 +486,7 @@ if __name__ == "__main__":
             imaginary_count += 1
         else:
             print(f"  Mode {i+1}: {freq:.2f}")
-    
+
     print(f"\nNumber of imaginary frequencies: {imaginary_count}")
     if imaginary_count == 1:
         print("This appears to be a transition state (1 imaginary frequency)")
@@ -482,7 +496,7 @@ if __name__ == "__main__":
         print(f"This has {imaginary_count} imaginary frequencies")
 
     # Compare with ASE's Vibrations class
-    print("\n" + "="*40)
+    print("\n" + "=" * 40)
     print("Comparison with ASE's Vibrations class")
     vib = Vibrations(atoms)
     vib.run()
