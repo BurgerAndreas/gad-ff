@@ -99,6 +99,12 @@ eig_values: torch.Size([66])
 natoms: torch.Size([])
 ```
 
+Note on the elements / atomic numbers:
+the HORM dataset uses a weird convention:
+atom types are encoded as one-hot vectors of shape (N, 5)
+where the fifth is unused, likely a padding or None class.
+corresponds to H, C, N, O, None
+
 All models are trained on the HORM-Transition1x training set
 and evaluated on both the in-distribution (ID) Transition1x validation set and the out-of-distribution
 (OOD) HORM-RGD1 subset

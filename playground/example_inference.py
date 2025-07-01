@@ -104,9 +104,7 @@ if __name__ == "__main__":
     model.to("cuda")
 
     # Example 1: load a dataset file and predict the first batch
-    # from data.ff_lmdb import LmdbDataset
-    from data.ff_lmdb import LmdbDataset
-
+    from ocpmodels.ff_lmdb import LmdbDataset
     dataset_path = os.path.join(project_root, "data/sample_100.lmdb")
     dataset = LmdbDataset(dataset_path)
     # either use the dataset directly or use a dataloader
@@ -115,31 +113,33 @@ if __name__ == "__main__":
     # dataloader = TGDataLoader(dataset, batch_size=1, shuffle=False)
     # batch = next(iter(dataloader))
     energy, forces, eigenpred = predict(batch, model)
-    print(f"Energy: {energy.shape}")
-    print(f"Forces: {forces.shape}")
-    print(f"Eigenpred: {eigenpred.keys()}")
+    print("\nExample 1:")
+    print(f"  Energy: {energy.shape}")
+    print(f"  Forces: {forces.shape}")
+    print(f"  Eigenpred: {eigenpred.keys()}")
 
     # Example 2: create a random data object with random positions and predict
     n_atoms = 10
+    elements = torch.tensor([1, 6, 7, 8]) # H, C, N, O
     data = TGData(
         pos=torch.randn(n_atoms, 3),
         batch=torch.zeros(n_atoms),
-        one_hot=torch.randint(0, 4, (n_atoms, 4)),
+        z=elements[torch.randint(0, 4, (n_atoms,))],
         natoms=n_atoms,
-        # just needs be a placeholder that decides the output energy shape
-        energy=torch.randn(1),
     )
     data = Batch.from_data_list([data])
 
     energy, forces, eigenpred = predict(data, model)
-    print(f"Energy: {energy.shape}")
-    print(f"Forces: {forces.shape}")
-    print(f"Eigenpred: {eigenpred.keys()}")
+    print("\nExample 2:")
+    print(f"  Energy: {energy.shape}")
+    print(f"  Forces: {forces.shape}")
+    print(f"  Eigenpred: {eigenpred.keys()}")
 
     # Example 3: predict gad
     gad = predict_gad(data, model)
-    print(f"GAD: {gad.shape}")
+    print("\nExample 3:")
+    print(f"  GAD: {gad.shape}")
 
     # Example 4: predict gad with hessian
     gad = predict_gad_with_hessian(data, model)
-    print(f"GAD with Hessian: {gad.shape}")
+    print(f"  GAD with Hessian: {gad.shape}")

@@ -15,7 +15,7 @@ from gadff.horm.training_module import PotentialModule, compute_extra_props
 from gadff.horm.ff_lmdb import LmdbDataset
 import os
 import yaml
-from gadff.units import ev_angstrom_2_to_hartree_bohr_2
+from ocpmodels.units import ev_angstrom_2_to_hartree_bohr_2
 from gadff.path_config import find_project_root
 from gadff.horm.hessian_utils import (
     compute_hessian_batches,

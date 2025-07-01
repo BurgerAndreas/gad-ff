@@ -8,7 +8,8 @@ import yaml
 import os
 
 import torch
-from torch_geometric.data import Data
+from torch_geometric.data import Data as TGData
+from torch_geometric.data import Batch
 from ase import Atoms
 from ase.calculators.calculator import Calculator, all_changes
 from ase.data import atomic_numbers
@@ -18,112 +19,17 @@ from torch_scatter import scatter_mean
 
 from ocpmodels.datasets import data_list_collater
 from ocpmodels.preprocessing import AtomsToGraphs
+from ocpmodels.common.relaxation.ase_utils import batch_to_atoms, ase_atoms_to_torch_geometric
 
 from nets.equiformer_v2.equiformer_v2_oc20 import EquiformerV2_OC20
+from nets.prediction_utils import compute_extra_props
 
 
-# ocpmodels/common/relaxation/ase_utils.py
-def batch_to_atoms(batch):
-    n_systems = batch.natoms.shape[0]
-    natoms = batch.natoms.tolist()
-    numbers = torch.split(batch.atomic_numbers, natoms)
-    fixed = torch.split(batch.fixed, natoms)
-    forces = torch.split(batch.force, natoms)
-    positions = torch.split(batch.pos, natoms)
-    tags = torch.split(batch.tags, natoms)
-    cells = batch.cell
-    energies = batch.y.tolist()
-
-    atoms_objects = []
-    for idx in range(n_systems):
-        atoms = Atoms(
-            numbers=numbers[idx].tolist(),
-            positions=positions[idx].cpu().detach().numpy(),
-            tags=tags[idx].tolist(),
-            cell=cells[idx].cpu().detach().numpy(),
-            constraint=FixAtoms(mask=fixed[idx].tolist()),
-            pbc=[True, True, True],
-        )
-        calc = sp(
-            atoms=atoms,
-            energy=energies[idx],
-            forces=forces[idx].cpu().detach().numpy(),
-        )
-        atoms.set_calculator(calc)
-        atoms_objects.append(atoms)
-
-    return atoms_objects
-
-
-def ase_atoms_to_torch_geometric(atoms):
-    """
-    Convert ASE Atoms object to torch_geometric Data format expected by Equiformer.
-
-    Args:
-        atoms: ASE Atoms object
-
-    Returns:
-        Data: torch_geometric Data object with required attributes
-    """
-    positions = atoms.get_positions().astype(np.float32)
-    atomic_nums = atoms.get_atomic_numbers()
-
-    # Create one-hot encoding for supported elements (H, C, N, O)
-    # This matches the format used in the training data
-    element_mapping = {1: 0, 6: 1, 7: 2, 8: 3}  # H, C, N, O
-    one_hot_matrix = np.zeros((len(atomic_nums), 4), dtype=np.int64)
-
-    for i, atom_num in enumerate(atomic_nums):
-        if atom_num in element_mapping:
-            one_hot_matrix[i, element_mapping[atom_num]] = 1
-        else:
-            raise ValueError(f"Unsupported element with atomic number {atom_num}")
-
-    # Create batch indices (all atoms belong to the same molecule)
-    batch_indices = np.zeros(len(atomic_nums), dtype=np.int64)
-
-    # Convert to torch tensors
-    data = Data(
-        pos=torch.tensor(positions, dtype=torch.float32),
-        one_hot=torch.tensor(one_hot_matrix, dtype=torch.int64),
-        charges=torch.tensor(atomic_nums, dtype=torch.int64),
-        batch=torch.tensor(batch_indices, dtype=torch.int64),
-        natoms=torch.tensor([len(atomic_nums)], dtype=torch.int64),
-        # Add dummy energy for compatibility (will be overwritten by prediction)
-        energy=torch.tensor(0.0, dtype=torch.float32),
-    )
-
-    return data
-
-
-GLOBAL_ATOM_NUMBERS = torch.tensor([1, 6, 7, 8])
-
-
-def remove_mean_batch(x, indices):
-    mean = scatter_mean(x, indices, dim=0)
-    x = x - mean[indices]
-    return x
-
-
-def compute_extra_props(batch, pos_require_grad=True):
-    """Adds device, z, and removes mean batch"""
-    device = batch.pos.device
-    indices = batch.one_hot.long().argmax(dim=1)
-    batch.z = GLOBAL_ATOM_NUMBERS.to(device)[indices.to(device)]
-    batch.pos = remove_mean_batch(batch.pos, batch.batch)
-    # atomization energy. shape used by equiformerv2
-    if not hasattr(batch, "ae"):
-        batch.ae = torch.zeros_like(batch.energy)
-    if pos_require_grad:
-        batch.pos.requires_grad_(True)
-    return batch
-
-
-class EquiformerCalculator(Calculator):
+class EquiformerASECalculator(Calculator):
     """
     Equiformer ASE Calculator.
 
-    Might need to reimplement EquiformerCalculator based on:
+    Might need to reimplement EquiformerASECalculator based on:
     ocpmodels/common/relaxation/ase_utils.py
 
     Args:
@@ -208,6 +114,8 @@ class EquiformerCalculator(Calculator):
         """
         # Call base class to set atoms attribute
         Calculator.calculate(self, atoms)
+        
+        # ocpmodels/common/relaxation/ase_utils.py 
         # data_object = self.a2g.convert(atoms)
         # batch = data_list_collater([data_object], otf_graph=True)
 
@@ -425,7 +333,6 @@ class EquiformerCalculator(Calculator):
 
 
 if __name__ == "__main__":
-    from gadff.path_config import find_project_root
     import os
     from ase.vibrations import Vibrations
 
@@ -448,7 +355,7 @@ if __name__ == "__main__":
         print("Please provide a valid checkpoint path")
         exit()
 
-    calculator = EquiformerCalculator(
+    calculator = EquiformerASECalculator(
         checkpoint_path=checkpoint_path, project_root=project_root
     )
 

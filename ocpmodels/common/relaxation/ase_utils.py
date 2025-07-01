@@ -13,9 +13,13 @@ Environment (ASE)
 import copy
 import logging
 import os
-
-import torch
 import yaml
+
+import numpy as np
+import torch
+from torch_geometric.data import Data as TGData
+from torch_geometric.data import Batch
+
 from ase import Atoms
 from ase.calculators.calculator import Calculator
 from ase.calculators.singlepoint import SinglePointCalculator as sp
@@ -204,3 +208,28 @@ class OCPCalculator(Calculator):
 
         elif self.trainer.name == "is2re":
             self.results["energy"] = predictions["energy"].item()
+
+# by Andreas. We do not care about the graph, because connectivity is computed on the fly?
+def ase_atoms_to_torch_geometric(atoms):
+    """
+    Convert ASE Atoms object to torch_geometric Data format expected by Equiformer.
+
+    Args:
+        atoms: ASE Atoms object
+
+    Returns:
+        Data: torch_geometric Data object with required attributes
+    """
+    positions = atoms.get_positions().astype(np.float32)
+    atomic_nums = atoms.get_atomic_numbers()
+
+    # Convert to torch tensors
+    data = TGData(
+        pos=torch.tensor(positions, dtype=torch.float32),
+        z=torch.tensor(atomic_nums, dtype=torch.int64),
+        charges=torch.tensor(atomic_nums, dtype=torch.int64),
+        natoms=torch.tensor([len(atomic_nums)], dtype=torch.int64),
+    )
+    data = Batch.from_data_list([data])
+
+    return data

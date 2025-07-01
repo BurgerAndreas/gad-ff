@@ -18,7 +18,7 @@ angstrom_to_bohr = 1 / bohr_to_angstrom
 ev_angstrom_2_to_hartree_bohr_2 = (bohr_to_angstrom**2) / hartree_to_ev
 
 
-element_to_atomic_number = {
+ELEMENT_TO_ATOMIC_NUMBER = {
     "H": 1,
     "He": 2,
     "Li": 3,
@@ -138,3 +138,5 @@ element_to_atomic_number = {
     "Ts": 117,
     "Og": 118,
 }
+
+ATOMIC_NUMBER_TO_ELEMENT = {v: k for k, v in ELEMENT_TO_ATOMIC_NUMBER.items()}

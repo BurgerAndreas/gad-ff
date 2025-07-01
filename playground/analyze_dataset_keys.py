@@ -11,6 +11,8 @@ import torch
 
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.path_config import find_project_root, _fix_dataset_path
+from ocpmodels.units import ATOMIC_NUMBER_TO_ELEMENT
+from nets.prediction_utils import GLOBAL_ATOM_NUMBERS
 
 
 def analyze_sample_schema(sample, dataset_name):
@@ -81,6 +83,30 @@ def main():
                 sample = dataset[0]
                 for k, v in sample.items():
                     print(f"{k}: {type(v)} {v.shape} {v.dtype}")
+
+                # --- Print unique elements in the dataset ---
+                all_atomic_numbers = set()
+                max_samples = min(100, len(dataset))
+                for i in range(max_samples):
+                    s = dataset[i]
+                    z = getattr(s, "z", None)
+                    if z is not None:
+                        if isinstance(z, torch.Tensor):
+                            all_atomic_numbers.update(z.cpu().numpy().tolist())
+                        elif isinstance(z, (list, tuple)):
+                            all_atomic_numbers.update(z)
+                    elif hasattr(s, "one_hot"):
+                        one_hot = getattr(s, "one_hot")
+                        if isinstance(one_hot, torch.Tensor):
+                            indices = one_hot.long().argmax(dim=1)
+                            z_from_one_hot = GLOBAL_ATOM_NUMBERS[indices].cpu().numpy().tolist()
+                            all_atomic_numbers.update(z_from_one_hot)
+                # Remove zeros and non-integer values
+                all_atomic_numbers = {int(a) for a in all_atomic_numbers if int(a) > 0}
+                elements = sorted([ATOMIC_NUMBER_TO_ELEMENT.get(a, f"?{a}") for a in all_atomic_numbers])
+                print(f"Unique atomic numbers in {dataset_path}: {all_atomic_numbers}")
+                print(f"Unique elements in {dataset_path}: {elements}")
+                # --- End unique elements ---
             else:
                 print(f"Dataset {dataset_path} is empty!")
 
