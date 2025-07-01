@@ -84,7 +84,7 @@ def setup_training(cfg: DictConfig):
     checkpoint_name = re.sub(r"[^a-zA-Z0-9]", "", run_name)
     if len(checkpoint_name) <= 1:
         checkpoint_name = "base"
-    checkpoint_name = f"{checkpoint_name}-{cfg.slurm_job_id}-{wandb.run.id}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    checkpoint_name = f"{checkpoint_name}-{cfg.slurm_job_id}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
     ckpt_output_path = f"checkpoint/{cfg.project}/{checkpoint_name}"
     print(f"Checkpoint output path: {ckpt_output_path}")
 
