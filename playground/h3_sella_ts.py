@@ -27,7 +27,7 @@ def setup_h3_system():
         atoms = read("h3_transition_state.xyz")
         print("Loaded existing H₃ structure from h3_transition_state.xyz")
     except FileNotFoundError:
-        print("Creating initial H₃ structure manually...")
+        print("Creating initial H₃ structure manually")
         # Create linear H₃ structure as initial guess for TS
         positions = np.array(
             [
@@ -71,7 +71,7 @@ def run_sella_optimization(atoms):
     )
 
     # Run optimization with tight convergence
-    print("Running Sella optimization...")
+    print("Running Sella optimization")
     dyn.run(fmax=1e-4, steps=1000)  # Tight force convergence
 
     final_energy = atoms.get_potential_energy()
@@ -91,7 +91,7 @@ def verify_transition_state(atoms):
     print("VERIFYING TRANSITION STATE")
     print("=" * 60)
 
-    print("Performing frequency analysis...")
+    print("Performing frequency analysis")
 
     # Run vibrational analysis on all atoms
     vib = Vibrations(

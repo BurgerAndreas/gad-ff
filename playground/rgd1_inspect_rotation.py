@@ -109,7 +109,7 @@ num_missing_mols = 836  # len(missing_mols)
 #####################################################################################
 
 # Create list for single transition state reactions
-print("\nIdentifying reactions with single transition states...")
+print("\nIdentifying reactions with single transition states")
 # idea:
 # The reaction IDs follow a pattern like "MR_XXXXXX_Y" where Y is the transition state index.
 

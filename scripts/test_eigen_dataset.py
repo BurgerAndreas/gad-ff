@@ -62,7 +62,7 @@ def test_dataset_consistency(
         )
         return
 
-    print(f"\nComparing first {num_samples} samples...")
+    print(f"\nComparing first {num_samples} samples")
 
     # Expected new fields in eigen dataset
     eigen_fields = {
@@ -250,7 +250,7 @@ def test_eigen_dataset(dataset_name="ts1x-val-dft-hess-eigen.lmdb", max_batches=
         else:
             print(f"  {key}: {type(value)}")
 
-    print(f"\nTesting forward pass on {len(test_subset)} samples...")
+    print(f"\nTesting forward pass on {len(test_subset)} samples")
 
     with torch.no_grad():
         for batch_idx, batch in enumerate(tqdm(dataloader, desc="Testing batches")):

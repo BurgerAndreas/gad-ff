@@ -24,6 +24,7 @@ def get_model(config_path):
     with open(config_path, "r") as file:
         config = yaml.safe_load(file)
     model_config = config["model"]
+    print("model_config", model_config)
     return EquiformerV2_OC20(**model_config), model_config
 
 
@@ -44,9 +45,9 @@ class EquiformerCalculator:
 
         if checkpoint_path is None:
             checkpoint_path = os.path.join(project_root, "ckpt/eqv2.ckpt")
-        self.model.load_state_dict(
-            torch.load(checkpoint_path, weights_only=True)["state_dict"], strict=False
-        )
+        state_dict = torch.load(checkpoint_path, weights_only=True)["state_dict"]
+        state_dict = {k.replace("potential.", ""): v for k, v in state_dict.items()}
+        self.model.load_state_dict(state_dict, strict=False)
 
         self.model.eval()
         self.model.to(device)
@@ -116,7 +117,12 @@ class EquiformerCalculator:
         forces = forces.reshape(B, -1)
         # −∇V(x) + 2(∇V, v(x))v(x)
         gad = -forces + 2 * torch.einsum("bi,bi->b", forces, v) * v
-        return gad
+        out = {
+            "energy": energy,
+            "forces": forces,
+        }
+        out.update(eigenpred)
+        return gad, out
 
     def predict_gad_with_hessian(self, batch):
         energy, forces, hessian, eigenvalues, eigenvectors, eigenpred = (
@@ -126,7 +132,15 @@ class EquiformerCalculator:
         forces = forces.reshape(-1)  # N*3
         # −∇V(x) + 2(∇V, v(x))v(x)
         gad = -forces + 2 * torch.einsum("i,i->", forces, v) * v
-        return gad
+        out = {
+            "energy": energy,
+            "forces": forces,
+            "hessian": hessian,
+            "eigenvalues": eigenvalues,
+            "eigenvectors": eigenvectors,
+        }
+        out.update(eigenpred)
+        return gad, out
 
     def find_transitionstate_with_gad_from_hessian(self, batch):
         """Integrate the equations of motion of the GAD vector field."""

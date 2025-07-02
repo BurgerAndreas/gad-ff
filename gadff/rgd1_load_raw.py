@@ -251,10 +251,10 @@ if __name__ == "__main__":
         # Show CSV data if available
         if "atom_mapped_reactant_smiles" in sample:
             print(
-                f"  - Atom-mapped reactant SMILES: {sample['atom_mapped_reactant_smiles'][:80]}..."
+                f"  - Atom-mapped reactant SMILES: {sample['atom_mapped_reactant_smiles'][:80]}"
             )
             print(
-                f"  - Atom-mapped product SMILES: {sample['atom_mapped_product_smiles'][:80]}..."
+                f"  - Atom-mapped product SMILES: {sample['atom_mapped_product_smiles'][:80]}"
             )
             print(
                 f"  - Activation energy forward: {sample['activation_energy_forward']:.4f}"

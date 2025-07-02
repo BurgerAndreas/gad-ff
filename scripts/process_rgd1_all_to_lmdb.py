@@ -142,7 +142,7 @@ def create_rgd1_lmdb(
     print(f"Output LMDB path: {output_path}")
 
     # Process RGD1 reactions
-    print("\nProcessing RGD1 reactions...")
+    print("\nProcessing RGD1 reactions")
     processed_reactions = collect_raw_reaction_data(
         raw_data_dir=raw_data_dir, method=method
     )
@@ -167,7 +167,7 @@ def create_rgd1_lmdb(
     map_size = map_size_gb * 1024 * 1024 * 1024  # Convert GB to bytes
     env = lmdb.open(output_path, map_size=map_size, subdir=False)
 
-    print("\nConverting to PyTorch Geometric format and writing to LMDB...")
+    print("\nConverting to PyTorch Geometric format and writing to LMDB")
     num_samples_written = 0
 
     with env.begin(write=True) as txn:

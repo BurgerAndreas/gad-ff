@@ -96,9 +96,9 @@ if __name__ == "__main__":
     model, model_config = get_model(config_path)
 
     checkpoint_path = os.path.join(project_root, "ckpt/eqv2.ckpt")
-    model.load_state_dict(
-        torch.load(checkpoint_path, weights_only=True)["state_dict"], strict=False
-    )
+    state_dict = torch.load(checkpoint_path, weights_only=True)["state_dict"]
+    state_dict = {k.replace("potential.", ""): v for k, v in state_dict.items()}
+    model.load_state_dict(state_dict, strict=False)
 
     model.eval()
     model.to("cuda")
@@ -110,6 +110,8 @@ if __name__ == "__main__":
     dataset = LmdbDataset(dataset_path)
     # either use the dataset directly or use a dataloader
     batch = dataset[0]
+    for k, v in batch.items():
+        print(k, v.shape)
     batch = Batch.from_data_list([batch])
     # dataloader = TGDataLoader(dataset, batch_size=1, shuffle=False)
     # batch = next(iter(dataloader))

@@ -15,9 +15,6 @@ from torch_geometric.data import Data as TGDData
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.align_ordered_mols import find_rigid_alignment
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-
 """
 Preprocessing RGD1 dataset to to save as torch_geometric data format in an LMDB file.
 """
@@ -46,17 +43,17 @@ def download_url(url: str, filename: str) -> str:
     """Download if file does not exist already. Returns path to file."""
     try:
         if os.path.exists(filename):
-            logging.info(f"Using downloaded file: {filename}")
+            print(f"Using downloaded file: {filename}")
             return filename
 
-        logging.info(f"Downloading {url} to {filename}")
+        print(f"Downloading {url} to {filename}")
         urllib.request.urlretrieve(url, filename)
-        logging.info(f"Download completed: {filename}")
+        print(f"Download completed: {filename}")
         return filename
 
     except urllib.error.URLError as e:
         if os.path.exists(filename):
-            logging.info(f"No internet connection! Using existing file: {filename}")
+            print(f"No internet connection! Using existing file: {filename}")
             return filename
         raise ValueError(f"Could not download {url}: {e}")
 
@@ -65,7 +62,7 @@ def extract_zip_and_list_contents(zip_path: str, extract_dir: str = "rgd1_raw"):
     """Extract zip and list all contents to understand the data structure."""
     # if file RGD1_CHNO.h5 already exist, skip extraction
     if os.path.exists(f"{extract_dir}/RGD1_CHNO.h5"):
-        logging.info(
+        print(
             f"RGD1_CHNO.h5 already exists in {extract_dir}, skipping extraction"
         )
         return extract_dir
@@ -73,34 +70,34 @@ def extract_zip_and_list_contents(zip_path: str, extract_dir: str = "rgd1_raw"):
     if not os.path.exists(extract_dir):
         os.makedirs(extract_dir)
 
-    logging.info(f"Extracting {zip_path} to {extract_dir}...")
+    print(f"Extracting {zip_path} to {extract_dir}")
 
     with zipfile.ZipFile(zip_path, "r") as zip_ref:
         # List all files first
         file_list = zip_ref.namelist()
-        logging.info(f"Found {len(file_list)} files in archive:")
+        print(f"Found {len(file_list)} files in archive:")
 
         for i, filename in enumerate(file_list[:20]):  # Show first 20 files
-            logging.info(f"  {i+1}: {filename}")
+            print(f"  {i+1}: {filename}")
 
         if len(file_list) > 20:
-            logging.info(f"  ... and {len(file_list) - 20} more files")
+            print(f"  ... and {len(file_list) - 20} more files")
 
         # Extract all files
         zip_ref.extractall(extract_dir)
-        logging.info(f"Extraction completed to {extract_dir}")
+        print(f"Extraction completed to {extract_dir}")
 
     return extract_dir
 
 
 def load_rgd1_data(raw_data_dir="rgd1_raw", method="all_ts", val_frac=0.1):
     """Load RGD1 data and return first transition state per reaction"""
-    logging.info("Loading RGD1 data...")
+    print("Loading RGD1 data")
 
     # Load h5 files
     RXN_ind2geometry = h5py.File(f"{raw_data_dir}/RGD1_CHNO.h5", "r")
 
-    logging.info(f"Loaded {len(RXN_ind2geometry)} reactions")
+    print(f"Loaded {len(RXN_ind2geometry)} reactions")
 
     # Group reactions by their base ID to identify single vs multiple TS
     # Create list for single transition state reactions
@@ -193,6 +190,9 @@ def raw_reaction_data_to_torch_geometric_lmdb(
             os.remove(output_lmdb_path.replace(".lmdb", ".lmdb-lock"))
         os.makedirs(data_dir, exist_ok=True)
         
+        smallest_sample_idx = 0
+        smallest_sample_natoms = 1000000000
+        
         # map size in megabytes 
         # Maximum size database may grow to
         # used to size the memory mapping. 
@@ -201,7 +201,7 @@ def raw_reaction_data_to_torch_geometric_lmdb(
         map_size = 10 * 1024 * 1024 * 1024  # 10 GB
         out_env = lmdb.open(output_lmdb_path, map_size=map_size, subdir=False)
 
-        logging.info(f"\nProcessing RGD1 reactions for {split} split...")
+        print(f"\nProcessing RGD1 reactions for {split} split")
 
         num_samples_written = 0
         with out_env.begin(write=True) as txn:
@@ -226,6 +226,11 @@ def raw_reaction_data_to_torch_geometric_lmdb(
                     # Get elements and convert to atomic numbers
                     # e.g. [6 6 6 6 6 6 7 7 8 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
                     elements_nums = np.array(Rxn.get("elements"))
+                    
+                    natoms = len(elements_nums)
+                    if natoms < smallest_sample_natoms:
+                        smallest_sample_idx = sample_idx
+                        smallest_sample_natoms = natoms
 
                     # count the number of each element
                     # e.g. [ 0 16  0  0  0  0  6  2  1  0]
@@ -265,10 +270,10 @@ def raw_reaction_data_to_torch_geometric_lmdb(
 
                     data = TGDData(
                         z=torch.tensor(elements_nums, dtype=torch.long),
-                        n_atoms=torch.tensor(len(elements_nums), dtype=torch.long),
-                        pos_transition=torch.tensor(ts, dtype=torch.float).reshape(-1),
-                        pos_reactant=torch.tensor(reactant, dtype=torch.float).reshape(-1),
-                        pos_product=torch.tensor(product, dtype=torch.float).reshape(-1),
+                        natoms=torch.tensor(len(elements_nums), dtype=torch.long),
+                        pos_transition=torch.tensor(ts, dtype=torch.float), # (N, 3)
+                        pos_reactant=torch.tensor(reactant, dtype=torch.float), # (N, 3)
+                        pos_product=torch.tensor(product, dtype=torch.float), # (N, 3)
                         smiles_reactant=Rsmiles,
                         smiles_product=Psmiles,
                         element_counts_string=element_counts_string,
@@ -294,6 +299,7 @@ def raw_reaction_data_to_torch_geometric_lmdb(
             )
         out_env.close()
         print(f"Done. {num_samples_written} reactions written to {output_lmdb_path}")
+        print(f"Smallest sample: {smallest_sample_idx} with {smallest_sample_natoms} atoms")
 
 
 if __name__ == "__main__":
@@ -303,7 +309,7 @@ if __name__ == "__main__":
 
     # Download RGD1 dataset
     if not os.path.exists(zip_filename):
-        logging.info("Downloading RGD1 dataset...")
+        print("Downloading RGD1 dataset")
         download_url(RGD1_URL, zip_filename)
 
     # Extract the dataset
@@ -315,4 +321,4 @@ if __name__ == "__main__":
     # Process and save reactions
     raw_reaction_data_to_torch_geometric_lmdb(RXN_ind2geometry, reaction_ids_to_process, val_start_idx)
 
-    logging.info("RGD1 data processing completed successfully!")
+    print("RGD1 data processing completed successfully!")

@@ -21,6 +21,7 @@ plots_*/
 Data
 .csv
 rgd1_raw/
+*.html
 
 
 *.whl

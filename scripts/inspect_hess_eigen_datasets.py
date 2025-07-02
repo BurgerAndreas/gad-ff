@@ -42,7 +42,7 @@ def load_eigenvalues_from_dataset(dataset_path, max_samples=None, flip_sign=Fals
     num_samples = (
         len(dataset) if max_samples is None else min(max_samples, len(dataset))
     )
-    print(f"  Loading {num_samples} samples...")
+    print(f"  Loading {num_samples} samples")
 
     eigenvals_1 = []
     eigenvals_2 = []

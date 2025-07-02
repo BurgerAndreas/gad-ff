@@ -81,7 +81,7 @@ def run_neb_optimization(neb, images, fmax=0.05, steps=200):
     # Set up optimizer
     optimizer = BFGS(neb)
 
-    print(f"Starting NEB optimization...")
+    print(f"Starting NEB optimization")
     print(f"Target force convergence: {fmax} eV/Å")
     print(f"Maximum steps: {steps}")
 
@@ -179,7 +179,7 @@ def main():
     print("=" * 60)
 
     # Step 1: Create endpoint geometries
-    print("\n1. Creating reactant and product geometries...")
+    print("\n1. Creating reactant and product geometries")
     reactant, product = create_h3_endpoints()
 
     # Save endpoints
@@ -188,25 +188,25 @@ def main():
     # print("   Saved: h3_reactant.xyz, h3_product.xyz")
 
     # Step 2: Set up NEB calculation
-    print("\n2. Setting up NEB calculation...")
+    print("\n2. Setting up NEB calculation")
     nimages = 7
     neb, images = setup_neb_calculation(reactant, product, nimages)
     print(f"   Created NEB chain with {nimages} images")
 
     # Step 3: Run optimization
-    print("\n3. Running NEB optimization...")
+    print("\n3. Running NEB optimization")
     optimizer = run_neb_optimization(neb, images, fmax=0.05, steps=200)
 
     # Step 4: Analyze results
-    print("\n4. Analyzing results...")
+    print("\n4. Analyzing results")
     rel_energies, ts_index = analyze_results(images)
 
     # Step 5: Create plots
-    print("\n5. Creating energy profile plot...")
+    print("\n5. Creating energy profile plot")
     plot_energy_profile(rel_energies)
 
     # Step 6: Save geometries
-    # print("\n6. Saving geometries...")
+    # print("\n6. Saving geometries")
     # save_geometries(images)
 
     print("\n" + "=" * 60)

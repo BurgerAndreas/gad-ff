@@ -90,7 +90,7 @@ def main():
         for i, batch in enumerate(dataloader):
             if i >= 10:
                 break
-            print(f"Processing and writing sample {i+1}...")
+            print(f"Processing and writing sample {i+1}")
             data_object = copy.deepcopy(batch.to_data_list()[0])
 
             if i == 0:
@@ -160,7 +160,7 @@ def verify_lmdb_creation():
 
     all_good = True
     for i in range(10):
-        print(f"Comparing sample {i}...")
+        print(f"Comparing sample {i}")
         original_data = original_dataset[i]
         new_data = new_dataset[i]
 

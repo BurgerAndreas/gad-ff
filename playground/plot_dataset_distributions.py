@@ -60,7 +60,7 @@ def plot_dataset_distributions(
     print(f"Output directory: {output_dir}")
 
     print(
-        f"Processing {len(dataset_files)} datasets with {num_samples} random samples each..."
+        f"Processing {len(dataset_files)} datasets with {num_samples} random samples each"
     )
 
     # Storage for results
@@ -136,7 +136,7 @@ def plot_dataset_distributions(
     )
 
     # Create atom count histograms
-    print("\nCreating atom count histograms...")
+    print("\nCreating atom count histograms")
 
     # Dynamic subplot layout based on available datasets
     n_datasets = len(available_datasets)
@@ -184,7 +184,7 @@ def plot_dataset_distributions(
     plt.close()
 
     # Create atom type distributions
-    print("\nCreating atom type distribution plots...")
+    print("\nCreating atom type distribution plots")
 
     # Dynamic subplot layout
     if n_datasets == 1:
@@ -261,7 +261,7 @@ def plot_dataset_distributions(
     plt.close()
 
     # Create combined summary plot
-    print("\nCreating combined summary plot...")
+    print("\nCreating combined summary plot")
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
 
     # Plot 1: Combined atom count histograms

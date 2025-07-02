@@ -41,7 +41,7 @@ def analyze_sample_schema(sample, dataset_name):
             elif isinstance(value, str):
                 info = f"str: '{value}'"
             else:
-                info = f"{type(value).__name__}: {str(value)[:50]}..."
+                info = f"{type(value).__name__}: {str(value)[:50]}"
 
             attr_info[attr] = info
             print(f"  {attr:20} -> {info}")

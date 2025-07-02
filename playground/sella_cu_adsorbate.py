@@ -95,7 +95,7 @@ def run_vibrational_analysis(slab, adsorbate_indices):
     #     print("STATUS: ✓ VERIFIED TRANSITION STATE")
 
     #     # If we found a transition state, let's visualize the imaginary mode
-    #     print("\nWriting transition state mode visualization...")
+    #     print("\nWriting transition state mode visualization")
     #     vib.write_mode(0)  # Write the imaginary mode to the traj
     # else:
     #     print("STATUS: ✗ NOT A TRANSITION STATE")
@@ -112,7 +112,7 @@ def run_vibrational_analysis(slab, adsorbate_indices):
 
 def plot_structure(atoms, filename, title_prefix="Structure"):
     """Plot atomic structure with side and top views."""
-    print(f"\nPlotting {title_prefix.lower()}...")
+    print(f"\nPlotting {title_prefix.lower()}")
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
 
     # Set up colors and radii - adsorbate (last atom) is red and smaller
@@ -144,7 +144,7 @@ def plot_structure(atoms, filename, title_prefix="Structure"):
 def find_ts_with_sella(slab, cons):
     ts_slab = slab.copy()
     # Set up a Sella Dynamics object with improved parameters for TS search
-    print("\nStarting Sella optimization to find transition state...")
+    print("\nStarting Sella optimization to find transition state")
     dyn = Sella(
         ts_slab,
         constraints=cons,
@@ -166,7 +166,7 @@ def find_ts_with_sella(slab, cons):
 
 
 if __name__ == "__main__":
-    print("Setting up system for transition state search...")
+    print("Setting up system for transition state search")
 
     # Set up your system as an ASE atoms object
     slab = fcc111("Cu", (4, 4, 2), vacuum=7.5)  # Smaller slab for efficiency
@@ -175,7 +175,7 @@ if __name__ == "__main__":
     slab.calc = EMT()
 
     # First, let's find the minimum energy structure
-    print("Finding minimum energy structure first...")
+    print("Finding minimum energy structure first")
     cons_min = Constraints(slab)
     for atom in slab:
         cons_min.fix_translation(atom.index)
@@ -198,7 +198,7 @@ if __name__ == "__main__":
     original_pos = slab.positions[adsorbate_index].copy()
 
     # Perturb the adsorbate position more significantly to break symmetry
-    print("Creating initial guess for transition state...")
+    print("Creating initial guess for transition state")
     displacement = np.array(
         [0.8, 0.4, 0.3]
     )  # Larger displacement to escape minimum basin

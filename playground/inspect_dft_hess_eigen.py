@@ -36,7 +36,7 @@ def inspect_dft_hess_eigen(
             "Dataset does not contain 'hessian' field. Cannot compute DFT eigenvalues."
         )
 
-    print(f"Processing first {num_samples} samples...")
+    print(f"Processing first {num_samples} samples")
 
     # Storage for results
     eig_eigenvals_all = []

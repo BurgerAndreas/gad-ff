@@ -250,7 +250,7 @@ def combine_subsets(dataset_file, save_hessian=False):
     total_samples = 0
     all_processed_indices = set()
 
-    print("\nCombining temporary files...")
+    print("\nCombining temporary files")
     with out_env.begin(write=True) as out_txn:
         for temp_file in tqdm(sorted(temp_files)):
             temp_env = lmdb.open(temp_file, readonly=True)
@@ -320,7 +320,7 @@ def cleanup_temp_files(dataset_file):
     temp_pattern = input_lmdb_path.replace(".lmdb", "-eigen-temp-*.lmdb")
     temp_files = glob.glob(temp_pattern)
 
-    print(f"\nCleaning up {len(temp_files)} temporary files...")
+    print(f"\nCleaning up {len(temp_files)} temporary files")
     for temp_file in temp_files:
         try:
             remove_dir_recursively(temp_file)

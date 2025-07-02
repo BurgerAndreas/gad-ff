@@ -69,12 +69,9 @@ class EquiformerASECalculator(Calculator):
             config = yaml.safe_load(file)
         model_config = config["model"]
         self.model = EquiformerV2_OC20(**model_config)
-        self.model.load_state_dict(
-            torch.load(checkpoint_path, weights_only=True, map_location=self.device)[
-                "state_dict"
-            ],
-            strict=False,
-        )
+        state_dict = torch.load(checkpoint_path, weights_only=True)["state_dict"]
+        state_dict = {k.replace("potential.", ""): v for k, v in state_dict.items()}
+        self.model.load_state_dict(state_dict, strict=False)
         self.model = self.model.to(self.device)
         self.model.eval()
 

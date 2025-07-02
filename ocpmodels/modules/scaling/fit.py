@@ -197,7 +197,7 @@ def main(*, num_batches: int = 16):
                 logging.info(f"Skipping {name} (already fitted)")
                 continue
 
-            logging.info(f"Fitting {name}...")
+            logging.info(f"Fitting {name}")
             with module.fit_context_():
                 for batch in islice(val_loader, num_batches):
                     _train_batch(trainer, batch)

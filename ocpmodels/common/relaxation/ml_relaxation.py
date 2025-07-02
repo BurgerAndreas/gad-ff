@@ -80,7 +80,7 @@ def ml_relax(
             if len(data_list) == 1:
                 raise e
             logging.info(
-                f"Failed to relax batch with size: {len(data_list)}, splitting into two..."
+                f"Failed to relax batch with size: {len(data_list)}, splitting into two"
             )
             mid = len(data_list) // 2
             batches.appendleft(data_list_collater(data_list[:mid]))
