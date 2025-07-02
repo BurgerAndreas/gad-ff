@@ -209,6 +209,7 @@ class OCPCalculator(Calculator):
         elif self.trainer.name == "is2re":
             self.results["energy"] = predictions["energy"].item()
 
+
 # by Andreas. We do not care about the graph, because connectivity is computed on the fly?
 def ase_atoms_to_torch_geometric(atoms):
     """

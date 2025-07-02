@@ -108,7 +108,8 @@ def run_vibrational_analysis(slab, adsorbate_indices):
 
     # Clean up temporary vibration files
     vib.clean()
-    
+
+
 def plot_structure(atoms, filename, title_prefix="Structure"):
     """Plot atomic structure with side and top views."""
     print(f"\nPlotting {title_prefix.lower()}...")
@@ -139,6 +140,7 @@ def plot_structure(atoms, filename, title_prefix="Structure"):
     plt.show()
     print(f"{title_prefix} saved as '{filepath}'")
 
+
 def find_ts_with_sella(slab, cons):
     ts_slab = slab.copy()
     # Set up a Sella Dynamics object with improved parameters for TS search
@@ -161,6 +163,7 @@ def find_ts_with_sella(slab, cons):
     dyn.run(1e-5, 2000)  # Much stricter convergence criterion
     print("Sella optimization completed!")
     return ts_slab
+
 
 if __name__ == "__main__":
     print("Setting up system for transition state search...")
@@ -196,7 +199,9 @@ if __name__ == "__main__":
 
     # Perturb the adsorbate position more significantly to break symmetry
     print("Creating initial guess for transition state...")
-    displacement = np.array([0.8, 0.4, 0.3])  # Larger displacement to escape minimum basin
+    displacement = np.array(
+        [0.8, 0.4, 0.3]
+    )  # Larger displacement to escape minimum basin
     slab.positions[adsorbate_index] += displacement
 
     print(f"Adsorbate moved from {original_pos} to {slab.positions[adsorbate_index]}")
@@ -216,5 +221,3 @@ if __name__ == "__main__":
 
     adsorbate_indices = [adsorbate_index]
     run_vibrational_analysis(slab, adsorbate_indices)
-
-    

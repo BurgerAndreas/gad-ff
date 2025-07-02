@@ -105,6 +105,7 @@ if __name__ == "__main__":
 
     # Example 1: load a dataset file and predict the first batch
     from ocpmodels.ff_lmdb import LmdbDataset
+
     dataset_path = os.path.join(project_root, "data/sample_100.lmdb")
     dataset = LmdbDataset(dataset_path)
     # either use the dataset directly or use a dataloader
@@ -120,10 +121,9 @@ if __name__ == "__main__":
 
     # Example 2: create a random data object with random positions and predict
     n_atoms = 10
-    elements = torch.tensor([1, 6, 7, 8]) # H, C, N, O
+    elements = torch.tensor([1, 6, 7, 8])  # H, C, N, O
     data = TGData(
         pos=torch.randn(n_atoms, 3),
-        batch=torch.zeros(n_atoms),
         z=elements[torch.randint(0, 4, (n_atoms,))],
         natoms=n_atoms,
     )

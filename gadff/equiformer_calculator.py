@@ -9,18 +9,23 @@ from torch_geometric.loader import DataLoader as TGDataLoader
 
 from nets.equiformer_v2.equiformer_v2_oc20 import EquiformerV2_OC20
 from nets.prediction_utils import compute_extra_props
-from ocpmodels.common.relaxation.ase_utils import batch_to_atoms, ase_atoms_to_torch_geometric
+from ocpmodels.common.relaxation.ase_utils import (
+    batch_to_atoms,
+    ase_atoms_to_torch_geometric,
+)
 from ocpmodels.datasets import data_list_collater
 from ocpmodels.preprocessing import AtomsToGraphs
 
 from ase.calculators.calculator import Calculator
 from ase import Atoms
 
+
 def get_model(config_path):
     with open(config_path, "r") as file:
         config = yaml.safe_load(file)
     model_config = config["model"]
     return EquiformerV2_OC20(**model_config), model_config
+
 
 class EquiformerCalculator:
     def __init__(
@@ -45,7 +50,7 @@ class EquiformerCalculator:
 
         self.model.eval()
         self.model.to(device)
-        
+
         # ocpmodels/common/relaxation/ase_utils.py
         self.a2g = AtomsToGraphs(
             max_neigh=self.model.max_neighbors,
@@ -130,8 +135,8 @@ class EquiformerCalculator:
     def ase_to_batch(self, atoms: Atoms):
         # Call base class to set atoms attribute
         Calculator.calculate(self, atoms)
-        
-        # ocpmodels/common/relaxation/ase_utils.py 
+
+        # ocpmodels/common/relaxation/ase_utils.py
         # data_object = self.a2g.convert(atoms)
         # batch = data_list_collater([data_object], otf_graph=True)
 

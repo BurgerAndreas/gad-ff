@@ -99,11 +99,18 @@ def main():
                         one_hot = getattr(s, "one_hot")
                         if isinstance(one_hot, torch.Tensor):
                             indices = one_hot.long().argmax(dim=1)
-                            z_from_one_hot = GLOBAL_ATOM_NUMBERS[indices].cpu().numpy().tolist()
+                            z_from_one_hot = (
+                                GLOBAL_ATOM_NUMBERS[indices].cpu().numpy().tolist()
+                            )
                             all_atomic_numbers.update(z_from_one_hot)
                 # Remove zeros and non-integer values
                 all_atomic_numbers = {int(a) for a in all_atomic_numbers if int(a) > 0}
-                elements = sorted([ATOMIC_NUMBER_TO_ELEMENT.get(a, f"?{a}") for a in all_atomic_numbers])
+                elements = sorted(
+                    [
+                        ATOMIC_NUMBER_TO_ELEMENT.get(a, f"?{a}")
+                        for a in all_atomic_numbers
+                    ]
+                )
                 print(f"Unique atomic numbers in {dataset_path}: {all_atomic_numbers}")
                 print(f"Unique elements in {dataset_path}: {elements}")
                 # --- End unique elements ---

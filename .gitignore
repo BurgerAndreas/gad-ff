@@ -19,6 +19,9 @@ plots/
 plots_*/
 
 Data
+.csv
+rgd1_raw/
+
 
 *.whl
 *env
