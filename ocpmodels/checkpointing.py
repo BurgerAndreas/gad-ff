@@ -2,11 +2,12 @@ import torch
 import itertools
 import warnings
 from collections import OrderedDict
-from typing import Any, List, Mapping, namedtuple   
+from typing import Any, List, Mapping, namedtuple
 
 # from torch/nn/modules/module.py
 
 _EXTRA_STATE_KEY_SUFFIX = "_extra_state"
+
 
 class _IncompatibleKeys(
     namedtuple("IncompatibleKeys", ["missing_keys", "unexpected_keys"]),
@@ -17,6 +18,7 @@ class _IncompatibleKeys(
         return super().__repr__()
 
     __str__ = __repr__
+
 
 def _load_from_state_dict(
     self,
@@ -199,8 +201,10 @@ def _load_from_state_dict(
                 elif input_name[0] not in local_state:
                     unexpected_keys.append(key)
 
+
 def load_state_dict(
-    self, state_dict: Mapping[str, Any], 
+    self,
+    state_dict: Mapping[str, Any],
     assign: bool = False,
     strict_unexpected_keys: bool = False,
     strict_missing_keys: bool = False,
@@ -242,9 +246,7 @@ def load_state_dict(
         ``RuntimeError``.
     """
     if not isinstance(state_dict, Mapping):
-        raise TypeError(
-            f"Expected state_dict to be dict-like, got {type(state_dict)}."
-        )
+        raise TypeError(f"Expected state_dict to be dict-like, got {type(state_dict)}.")
 
     missing_keys: List[str] = []
     unexpected_keys: List[str] = []
@@ -307,7 +309,7 @@ def load_state_dict(
                     ", ".join(f'"{k}"' for k in unexpected_keys[:20])
                 ),
             )
-    
+
     if strict_missing_keys:
         if len(missing_keys) > 0:
             error_msgs.insert(

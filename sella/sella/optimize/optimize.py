@@ -64,6 +64,7 @@ class Sella(Optimizer):
         nsteps_per_diag: int = 3,
         diag_every_n: Optional[int] = None,
         hessian_function: Optional[Callable[[Atoms], np.ndarray]] = None,
+        log_every_n: int = 100,
         **kwargs
     ):
         if order == 0:
@@ -148,6 +149,7 @@ class Sella(Optimizer):
         self.constraints_tol = constraints_tol
         self.diagkwargs = dict(gamma=gamma, threepoint=threepoint)
         self.rho = 1.0
+        self.log_every_n = log_every_n
 
         if self.ord != 0 and not self.eig:
             warnings.warn(
@@ -310,10 +312,12 @@ class Sella(Optimizer):
                     "Step", "Time", "Energy", "fmax", "cmax", "rtrust", "rho"
                 )
             )
-        self.logfile.write(
-            "{} {:>3d} {:>8s} {:>15.6f} {:>12.4f} {:>12.4f} "
-            "{:>12.4f} {:>12.4f}\n".format(
-                name, self.nsteps, T, e, fmax, cmax, self.delta, self.rho
+        # Andreas
+        if self.nsteps % self.log_every_n == 0:
+            self.logfile.write(
+                "{} {:>3d} {:>8s} {:>15.6f} {:>12.4f} {:>12.4f} "
+                "{:>12.4f} {:>12.4f}\n".format(
+                    name, self.nsteps, T, e, fmax, cmax, self.delta, self.rho
+                )
             )
-        )
         self.logfile.flush()

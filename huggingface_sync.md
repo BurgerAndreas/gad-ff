@@ -16,17 +16,18 @@ find . -mindepth 1 ! -name 'ckpt' ! -path './ckpt/*' -exec rm -rf {} +
 
 # copy over files
 cp ../gad-ff/gadff/equiformer_ase_calculator.py ./
+cp ../gad-ff/gadff/equiformer_calculator.py ./
 cp ../gad-ff/playground/example_inference.py ./
 
 rsync -av --exclude='__pycache__' ../gad-ff/ocpmodels ./
 rsync -av --exclude='__pycache__' ../gad-ff/nets ./
 
-cp -r ../gad-ff/ckpt ./
+# cp -r ../gad-ff/ckpt ./
 
 # cp ../gad-ff/scripts/download_horm_data_kaggle.py ./
 
 cp -r ../gad-ff/docs ./
-cp ../gad-ff/readme.md ./
+cp ../gad-ff/README.md ./
 
 mkdir data
 cp ../gad-ff/data/ff_lmdb.py ./data/

@@ -42,7 +42,7 @@ class EquiformerASECalculator(Calculator):
 
     def __init__(
         self,
-        checkpoint_path: str,
+        checkpoint_path: Optional[str] = None,
         device: Optional[torch.device] = None,
         project_root: str = None,
         **kwargs,
@@ -69,6 +69,9 @@ class EquiformerASECalculator(Calculator):
             config = yaml.safe_load(file)
         model_config = config["model"]
         self.model = EquiformerV2_OC20(**model_config)
+
+        if checkpoint_path is None:
+            checkpoint_path = os.path.join(project_root, "ckpt/eqv2.ckpt")
         state_dict = torch.load(checkpoint_path, weights_only=True)["state_dict"]
         state_dict = {k.replace("potential.", ""): v for k, v in state_dict.items()}
         self.model.load_state_dict(state_dict, strict=False)

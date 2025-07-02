@@ -70,6 +70,20 @@ class EquiformerCalculator:
         energy, forces, eigenpred = self.model.forward(batch, eigen=True)
         return energy, forces, eigenpred
 
+    def get_forces(self, batch):
+        """Get forces from the model"""
+        batch = batch.to(self.model.device)
+        batch = compute_extra_props(batch, pos_require_grad=False)
+        _, forces, _ = self.model.forward(batch, eigen=False)
+        return forces
+
+    def get_energy(self, batch):
+        """Get energy from the model"""
+        batch = batch.to(self.model.device)
+        batch = compute_extra_props(batch, pos_require_grad=False)
+        energy, _, _ = self.model.forward(batch, eigen=False)
+        return energy
+
     def predict_with_hessian(self, batch):
         """Predict one batch with autodiff Hessian"""
         B = batch.batch.max() + 1
@@ -111,12 +125,21 @@ class EquiformerCalculator:
         return energy, forces, hessian, eigenvalues, eigenvectors, eigenpred
 
     def predict_gad(self, batch):
+        """
+        Gentlest Ascent Dynamics (GAD)
+        dx/dt = -∇V(x) + 2(∇V, v(x))v(x)
+        = F + 2(-F, v(x))v(x)
+        since F=-∇V(x)
+        where v(x) is the eigenvector of the Hessian with the smallest eigenvalue.
+        """
         B = batch.batch.max() + 1
         energy, forces, eigenpred = self.predict(batch)
         v = eigenpred["eigvec_1"].reshape(B, -1)
+        # normalize eigenvector
+        v = v / torch.norm(v, dim=1, keepdim=True)
         forces = forces.reshape(B, -1)
         # −∇V(x) + 2(∇V, v(x))v(x)
-        gad = -forces + 2 * torch.einsum("bi,bi->b", forces, v) * v
+        gad = forces + 2 * torch.einsum("bi,bi->b", -forces, v) * v
         out = {
             "energy": energy,
             "forces": forces,
@@ -129,9 +152,12 @@ class EquiformerCalculator:
             self.predict_with_hessian(batch)
         )
         v = eigenvectors[0].reshape(-1)  # N*3
+        v = v / torch.norm(v, dim=0, keepdim=True)
         forces = forces.reshape(-1)  # N*3
-        # −∇V(x) + 2(∇V, v(x))v(x)
-        gad = -forces + 2 * torch.einsum("i,i->", forces, v) * v
+        # Diagnostic prints
+        dot_product = torch.dot(-forces, v)
+        gad = forces + (2 * dot_product * v)
+
         out = {
             "energy": energy,
             "forces": forces,

@@ -62,9 +62,7 @@ def extract_zip_and_list_contents(zip_path: str, extract_dir: str = "rgd1_raw"):
     """Extract zip and list all contents to understand the data structure."""
     # if file RGD1_CHNO.h5 already exist, skip extraction
     if os.path.exists(f"{extract_dir}/RGD1_CHNO.h5"):
-        print(
-            f"RGD1_CHNO.h5 already exists in {extract_dir}, skipping extraction"
-        )
+        print(f"RGD1_CHNO.h5 already exists in {extract_dir}, skipping extraction")
         return extract_dir
 
     if not os.path.exists(extract_dir):
@@ -161,9 +159,11 @@ def load_rgd1_data(raw_data_dir="rgd1_raw", method="all_ts", val_frac=0.1):
         reaction_ids_to_process = all_ts_reaction_ids
     else:
         raise ValueError(f"Invalid method: {method}.")
-    
+
     val_start_idx = val_start_idx[method]
-    print(f"Validation start index: {val_start_idx} out of {len(reaction_ids_to_process)} ({val_start_idx/len(reaction_ids_to_process):.2%})")
+    print(
+        f"Validation start index: {val_start_idx} out of {len(reaction_ids_to_process)} ({val_start_idx/len(reaction_ids_to_process):.2%})"
+    )
 
     return RXN_ind2geometry, reaction_ids_to_process, val_start_idx
 
@@ -181,7 +181,7 @@ def raw_reaction_data_to_torch_geometric_lmdb(
             ids_this_split = reaction_ids_to_process[:val_start_idx]
         else:
             ids_this_split = reaction_ids_to_process[val_start_idx:]
-        
+
         output_lmdb_path = f"{data_dir}/rgd1_minimal_{split}.lmdb"
         # cleanup previous files
         if os.path.exists(output_lmdb_path):
@@ -189,14 +189,14 @@ def raw_reaction_data_to_torch_geometric_lmdb(
         if os.path.exists(output_lmdb_path.replace(".lmdb", ".lmdb-lock")):
             os.remove(output_lmdb_path.replace(".lmdb", ".lmdb-lock"))
         os.makedirs(data_dir, exist_ok=True)
-        
+
         smallest_sample_idx = 0
         smallest_sample_natoms = 1000000000
-        
-        # map size in megabytes 
+
+        # map size in megabytes
         # Maximum size database may grow to
-        # used to size the memory mapping. 
-        # If database grows larger than map_size, an exception will be raised and the user must close and reopen Environment. 
+        # used to size the memory mapping.
+        # If database grows larger than map_size, an exception will be raised and the user must close and reopen Environment.
         # On 64-bit there is no penalty for making this huge (say 1TB)
         map_size = 10 * 1024 * 1024 * 1024  # 10 GB
         out_env = lmdb.open(output_lmdb_path, map_size=map_size, subdir=False)
@@ -226,7 +226,7 @@ def raw_reaction_data_to_torch_geometric_lmdb(
                     # Get elements and convert to atomic numbers
                     # e.g. [6 6 6 6 6 6 7 7 8 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
                     elements_nums = np.array(Rxn.get("elements"))
-                    
+
                     natoms = len(elements_nums)
                     if natoms < smallest_sample_natoms:
                         smallest_sample_idx = sample_idx
@@ -271,9 +271,11 @@ def raw_reaction_data_to_torch_geometric_lmdb(
                     data = TGDData(
                         z=torch.tensor(elements_nums, dtype=torch.long),
                         natoms=torch.tensor(len(elements_nums), dtype=torch.long),
-                        pos_transition=torch.tensor(ts, dtype=torch.float), # (N, 3)
-                        pos_reactant=torch.tensor(reactant, dtype=torch.float), # (N, 3)
-                        pos_product=torch.tensor(product, dtype=torch.float), # (N, 3)
+                        pos_transition=torch.tensor(ts, dtype=torch.float),  # (N, 3)
+                        pos_reactant=torch.tensor(
+                            reactant, dtype=torch.float
+                        ),  # (N, 3)
+                        pos_product=torch.tensor(product, dtype=torch.float),  # (N, 3)
                         smiles_reactant=Rsmiles,
                         smiles_product=Psmiles,
                         element_counts_string=element_counts_string,
@@ -299,7 +301,9 @@ def raw_reaction_data_to_torch_geometric_lmdb(
             )
         out_env.close()
         print(f"Done. {num_samples_written} reactions written to {output_lmdb_path}")
-        print(f"Smallest sample: {smallest_sample_idx} with {smallest_sample_natoms} atoms")
+        print(
+            f"Smallest sample: {smallest_sample_idx} with {smallest_sample_natoms} atoms"
+        )
 
 
 if __name__ == "__main__":
@@ -316,9 +320,13 @@ if __name__ == "__main__":
     extract_dir = extract_zip_and_list_contents(zip_filename)
 
     # Load RGD1 data
-    RXN_ind2geometry, reaction_ids_to_process, val_start_idx = load_rgd1_data(extract_dir)
+    RXN_ind2geometry, reaction_ids_to_process, val_start_idx = load_rgd1_data(
+        extract_dir
+    )
 
     # Process and save reactions
-    raw_reaction_data_to_torch_geometric_lmdb(RXN_ind2geometry, reaction_ids_to_process, val_start_idx)
+    raw_reaction_data_to_torch_geometric_lmdb(
+        RXN_ind2geometry, reaction_ids_to_process, val_start_idx
+    )
 
     print("RGD1 data processing completed successfully!")

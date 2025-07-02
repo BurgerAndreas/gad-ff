@@ -11,6 +11,7 @@ from rdkit.Chem.rdMolAlign import AlignMol
 from rdkit.Chem.rdMolAlign import GetBestRMS
 from rdkit.Chem import rdDepictor
 from rdkit.Chem import rdDetermineBonds
+
 # from rdkit.Chem.Draw.IPythonConsole import drawMol3D  # draws a single molecule in 3D using py3Dmol
 from rdkit.Chem.rdmolops import GetFormalCharge
 
@@ -23,6 +24,7 @@ import py3Dmol
 import webbrowser
 import plotly.io as pio
 import seaborn as sns
+
 # pio.renderers.default = "browser"
 
 from gadff.horm.ff_lmdb import LmdbDataset
@@ -30,13 +32,32 @@ from gadff.equiformer_calculator import EquiformerCalculator
 from gadff.align_unordered_mols import rmsd
 from ocpmodels.units import ELEMENT_TO_ATOMIC_NUMBER, ATOMIC_NUMBER_TO_ELEMENT
 
-def plot_molecule_from_3d(pos, title, plot_dir, atomic_numbers, bonds=None):
+
+def to_numpy(x):
+    if x is None:
+        return None
+    if torch.is_tensor(x):
+        return x.detach().cpu().numpy()
+    return np.array(x)
+
+
+def plot_molecule_mpl(
+    coords,
+    atomic_numbers,
+    title,
+    plot_dir,
+    bonds=None,
+    forces=None,
+    save=False,
+    filename=None,
+    fig=None,
+):
     """
     Plot a 3D molecule from atomic coordinates.
-    
+
     Parameters:
     -----------
-    pos : torch.Tensor or np.ndarray
+    coords : torch.Tensor or np.ndarray
         Atomic positions with shape (n_atoms, 3)
     title : str
         Title for the plot and filename
@@ -46,136 +67,499 @@ def plot_molecule_from_3d(pos, title, plot_dir, atomic_numbers, bonds=None):
         Atomic numbers for each atom (for coloring)
     bonds : list of tuples, optional
         List of (i, j) tuples representing bonds between atoms
+    forces : torch.Tensor or np.ndarray, optional
+        Forces on each atom with shape (n_atoms, 3)
     """
     # Convert to numpy if torch tensor
-    if torch.is_tensor(pos):
-        pos_np = pos.detach().cpu().numpy()
-    else:
-        pos_np = np.array(pos)
-    
+    coords = to_numpy(coords)
+
     # Create 3D plot
-    fig = plt.figure(figsize=(10, 8))
-    ax = fig.add_subplot(111, projection='3d')
-    
+    if fig is None:
+        fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111, projection="3d")
+
     # Define atomic colors using seaborn pastel palette
     pastel_palette = sns.color_palette("pastel", 10)
     atomic_colors = {
-        1: pastel_palette[0],   # H - light blue
-        6: pastel_palette[1],   # C - light orange  
-        7: pastel_palette[2],   # N - light green
-        8: pastel_palette[3],   # O - light red
-        9: pastel_palette[4],   # F - light purple
+        1: pastel_palette[0],  # H - light blue
+        6: pastel_palette[1],  # C - light orange
+        7: pastel_palette[2],  # N - light green
+        8: pastel_palette[3],  # O - light red
+        9: pastel_palette[4],  # F - light purple
         15: pastel_palette[5],  # P - light brown
         16: pastel_palette[6],  # S - light pink
         17: pastel_palette[7],  # Cl - light gray
         35: pastel_palette[8],  # Br - light olive
-        53: pastel_palette[9]   # I - light cyan
+        53: pastel_palette[9],  # I - light cyan
     }
-    
+
     # Set colors and sizes based on atomic numbers
     if torch.is_tensor(atomic_numbers):
         atomic_numbers = atomic_numbers.detach().cpu().numpy()
     colors = [atomic_colors.get(int(z), pastel_palette[9]) for z in atomic_numbers]
     # Bigger circles - size based on atomic number (larger for heavier atoms)
     sizes = [max(300, int(z) * 30) for z in atomic_numbers]
-    
+
     # Plot atoms
-    ax.scatter(pos_np[:, 0], pos_np[:, 1], pos_np[:, 2], 
-               c=colors, s=sizes, alpha=0.8, edgecolors='black', linewidth=0.5)
-    
+    ax.scatter(
+        coords[:, 0],
+        coords[:, 1],
+        coords[:, 2],
+        c=colors,
+        s=sizes,
+        alpha=0.8,
+        edgecolors="black",
+        linewidth=0.5,
+        zorder=5,
+    )
+
     # Add bonds if provided
     if bonds is not None:
         for i, j in bonds:
-            ax.plot([pos_np[i, 0], pos_np[j, 0]], 
-                   [pos_np[i, 1], pos_np[j, 1]], 
-                   [pos_np[i, 2], pos_np[j, 2]], 
-                   'k-', alpha=0.6, linewidth=1.5)
+            ax.plot(
+                [coords[i, 0], coords[j, 0]],
+                [coords[i, 1], coords[j, 1]],
+                [coords[i, 2], coords[j, 2]],
+                "k-",
+                alpha=0.6,
+                linewidth=1.5,
+                zorder=1,
+            )
     else:
         # Infer bonds using RDKit if atomic numbers are provided
         try:
             # Create RDKit molecule from atomic coordinates and numbers
             mol = Chem.RWMol()
-            
+
             # Add atoms to molecule
             for i, atomic_num in enumerate(atomic_numbers):
                 atom = Chem.Atom(int(atomic_num))
                 mol.AddAtom(atom)
-            
+
             # Add conformer with 3D coordinates
-            conf = Chem.Conformer(len(pos_np))
-            for i, (x, y, z) in enumerate(pos_np):
+            conf = Chem.Conformer(len(coords))
+            for i, (x, y, z) in enumerate(coords):
                 conf.SetAtomPosition(i, (float(x), float(y), float(z)))
             mol.AddConformer(conf)
-            
+
             # Use RDKit's bond perception
             rdDetermineBonds.DetermineBonds(mol, charge=0)
-            
+
             # Extract bonds and plot them
             for bond in mol.GetBonds():
                 i = bond.GetBeginAtomIdx()
                 j = bond.GetEndAtomIdx()
-                ax.plot([pos_np[i, 0], pos_np[j, 0]], 
-                        [pos_np[i, 1], pos_np[j, 1]], 
-                        [pos_np[i, 2], pos_np[j, 2]], 
-                        'k-', alpha=0.6, linewidth=1.5)
-                        
+                ax.plot(
+                    [coords[i, 0], coords[j, 0]],
+                    [coords[i, 1], coords[j, 1]],
+                    [coords[i, 2], coords[j, 2]],
+                    "k-",
+                    alpha=0.6,
+                    linewidth=1.5,
+                    zorder=1,
+                )
+
         except Exception as e:
-            print(f"Warning: RDKit bond inference failed ({e}), falling back to distance-based method")
+            print(
+                f"Warning: RDKit bond inference failed ({e}), falling back to distance-based method"
+            )
             # Fallback to distance-based method
-            n_atoms = len(pos_np)
+            n_atoms = len(coords)
             bond_threshold = 2.0  # Angstroms
-            
+
             for i in range(n_atoms):
                 for j in range(i + 1, n_atoms):
-                    dist = np.linalg.norm(pos_np[i] - pos_np[j])
+                    dist = np.linalg.norm(coords[i] - coords[j])
                     if dist < bond_threshold:
-                        ax.plot([pos_np[i, 0], pos_np[j, 0]], 
-                                [pos_np[i, 1], pos_np[j, 1]], 
-                                [pos_np[i, 2], pos_np[j, 2]], 
-                                'k-', alpha=0.4, linewidth=1.0)
-    
+                        ax.plot(
+                            [coords[i, 0], coords[j, 0]],
+                            [coords[i, 1], coords[j, 1]],
+                            [coords[i, 2], coords[j, 2]],
+                            "k-",
+                            alpha=0.4,
+                            linewidth=1.0,
+                            zorder=1,
+                        )
+
     # Add atom labels
-    for i, (x, y, z) in enumerate(pos_np):
+    for i, (x, y, z) in enumerate(coords):
         if atomic_numbers is not None:
             element_symbol = ATOMIC_NUMBER_TO_ELEMENT[int(atomic_numbers[i])]
-            ax.text(x, y, z, f'{element_symbol}{i}', fontsize=8, 
-                   ha='center', va='center')
+            ax.text(
+                x,
+                y,
+                z,
+                f"{element_symbol}{i}",
+                fontsize=8,
+                ha="center",
+                va="center",
+                zorder=10,
+            )
         else:
-            ax.text(x, y, z, f'{i}', fontsize=8, 
-                   ha='center', va='center')
-    
+            ax.text(x, y, z, f"{i}", fontsize=8, ha="center", va="center", zorder=10)
+
+    # Add force vectors as arrows if provided
+    if forces is not None:
+        forces = to_numpy(forces)
+        for i, (coord, force) in enumerate(zip(coords, forces)):
+            start_pos = coord
+            end_pos = coord + force
+            ax.quiver(
+                start_pos[0],
+                start_pos[1],
+                start_pos[2],
+                end_pos[0],
+                end_pos[1],
+                end_pos[2],
+                length=0.1,
+                # normalize=True,
+                # arrow_length_ratio=0.1,
+                color="gray",
+                zorder=8,
+            )
+
     # Set labels and title
-    ax.set_xlabel('X (Å)', fontsize=12)
-    ax.set_ylabel('Y (Å)', fontsize=12)
-    ax.set_zlabel('Z (Å)', fontsize=12)
-    ax.set_title(f'{title} - 3D Structure', fontsize=14, fontweight='bold')
-    
+    fontsize = 9
+    ax.set_xlabel("X (Å)", fontsize=fontsize)
+    ax.set_ylabel("Y (Å)", fontsize=fontsize)
+    ax.set_zlabel("Z (Å)", fontsize=fontsize)
+    ax.set_title(f"{title}", fontsize=14, fontweight="bold")
+
     # Make axes equal
-    max_range = np.array([pos_np[:, 0].max() - pos_np[:, 0].min(),
-                         pos_np[:, 1].max() - pos_np[:, 1].min(),
-                         pos_np[:, 2].max() - pos_np[:, 2].min()]).max() / 2.0
-    
-    mid_x = (pos_np[:, 0].max() + pos_np[:, 0].min()) * 0.5
-    mid_y = (pos_np[:, 1].max() + pos_np[:, 1].min()) * 0.5
-    mid_z = (pos_np[:, 2].max() + pos_np[:, 2].min()) * 0.5
-    
+    max_range = (
+        np.array(
+            [
+                coords[:, 0].max() - coords[:, 0].min(),
+                coords[:, 1].max() - coords[:, 1].min(),
+                coords[:, 2].max() - coords[:, 2].min(),
+            ]
+        ).max()
+        / 2.0
+    )
+
+    mid_x = (coords[:, 0].max() + coords[:, 0].min()) * 0.5
+    mid_y = (coords[:, 1].max() + coords[:, 1].min()) * 0.5
+    mid_z = (coords[:, 2].max() + coords[:, 2].min()) * 0.5
+
     ax.set_xlim(mid_x - max_range, mid_x + max_range)
     ax.set_ylim(mid_y - max_range, mid_y + max_range)
     ax.set_zlim(mid_z - max_range, mid_z + max_range)
-    
+
     # Improve the view
     ax.view_init(elev=30, azim=45)
-    
+
     # Save the plot
-    filename = f"{title.lower().replace(' ', '_').replace('-', '_')}_3d.png"
-    filepath = os.path.join(plot_dir, filename)
-    plt.savefig(filepath, dpi=150, bbox_inches='tight')
-    plt.close()  # Close to free memory
-    
-    print(f"Saved 3D molecular structure to {filepath}")
+    if save:
+        plt.tight_layout(pad=0.0)
+        if filename is None:
+            filename = f"{title.lower().replace(' ', '_').replace('-', '_')}.png"
+            filepath = os.path.join(plot_dir, filename)
+        plt.savefig(filepath, dpi=150, bbox_inches="tight")
+        plt.close()  # Close to free memory
+
+        print(f"Saved 3D molecular structure to {filepath}")
+    else:
+        return fig
 
 
-def plot_molecule_py3dmol(coords, smiles: str, title: str = "Molecule", save_path: str = None, save_png: bool = False, save_html: bool = False, atomic_numbers=None):
+def plot_traj_mpl(
+    coords_traj,
+    title,
+    plot_dir,
+    atomic_numbers,
+    bonds_start=None,
+    bonds_end=None,
+    forces_traj=None,
+    save=False,
+    filename=None,
+    fig=None,
+    plot_forces_every=10,
+    plot_dots_every=1,
+    plot_atoms=True,
+):
+    """
+    Plot a 3D trajectory from atomic coordinates.
+    Plots the last frame of the trajectory.
+    Every frame is plotted with small dots and a line connecting them.
+    Every `plot_forces_every` frames the forces are plotted as arrows.
+
+    Parameters:
+    -----------
+    coords_traj : torch.Tensor or np.ndarray
+        Atomic positions with shape (T, n_atoms, 3)
+    title : str
+        Title for the plot and filename
+    plot_dir : str
+        Directory to save the plot
+    atomic_numbers : list or np.ndarray, optional
+        Atomic numbers for each atom (for coloring)
+    bonds : list of tuples, optional
+        List of (i, j) tuples representing bonds between atoms
+    forces_traj : torch.Tensor or np.ndarray, optional
+        Forces on each atom with shape (T, n_atoms, 3)
+    """
+    # Convert to numpy if torch tensor
+    coords = to_numpy(coords_traj[-1])
+
+    # Create 3D plot
+    if fig is None:
+        fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111, projection="3d")
+
+    # Define atomic colors using seaborn pastel palette
+    pastel_palette = sns.color_palette("pastel", 10)
+    atomic_colors = {
+        1: pastel_palette[0],  # H - light blue
+        6: pastel_palette[1],  # C - light orange
+        7: pastel_palette[2],  # N - light green
+        8: pastel_palette[3],  # O - light red
+        9: pastel_palette[4],  # F - light purple
+        15: pastel_palette[5],  # P - light brown
+        16: pastel_palette[6],  # S - light pink
+        17: pastel_palette[7],  # Cl - light gray
+        35: pastel_palette[8],  # Br - light olive
+        53: pastel_palette[9],  # I - light cyan
+    }
+
+    # Set colors and sizes based on atomic numbers
+    if torch.is_tensor(atomic_numbers):
+        atomic_numbers = atomic_numbers.detach().cpu().numpy()
+    colors = [atomic_colors.get(int(z), pastel_palette[9]) for z in atomic_numbers]
+    # Bigger circles - size based on atomic number (larger for heavier atoms)
+    sizes = [max(300, int(z) * 30) for z in atomic_numbers]
+
+    # Plot atoms
+    ax.scatter(
+        coords[:, 0],
+        coords[:, 1],
+        coords[:, 2],
+        c=colors,
+        s=sizes,
+        alpha=0.8,
+        edgecolors="black",
+        linewidth=0.5,
+        zorder=5,
+    )
+
+    # Add bonds if provided
+    bonds = bonds_end
+    if bonds is not None:
+        for i, j in bonds:
+            ax.plot(
+                [coords[i, 0], coords[j, 0]],
+                [coords[i, 1], coords[j, 1]],
+                [coords[i, 2], coords[j, 2]],
+                "k-",
+                alpha=0.6,
+                linewidth=1.5,
+                zorder=1,
+            )
+    else:
+        # Infer bonds using RDKit if atomic numbers are provided
+        try:
+            # Create RDKit molecule from atomic coordinates and numbers
+            mol = Chem.RWMol()
+
+            # Add atoms to molecule
+            for i, atomic_num in enumerate(atomic_numbers):
+                atom = Chem.Atom(int(atomic_num))
+                mol.AddAtom(atom)
+
+            # Add conformer with 3D coordinates
+            conf = Chem.Conformer(len(coords))
+            for i, (x, y, z) in enumerate(coords):
+                conf.SetAtomPosition(i, (float(x), float(y), float(z)))
+            mol.AddConformer(conf)
+
+            # Use RDKit's bond perception
+            rdDetermineBonds.DetermineBonds(mol, charge=0)
+
+            # Extract bonds and plot them
+            for bond in mol.GetBonds():
+                i = bond.GetBeginAtomIdx()
+                j = bond.GetEndAtomIdx()
+                ax.plot(
+                    [coords[i, 0], coords[j, 0]],
+                    [coords[i, 1], coords[j, 1]],
+                    [coords[i, 2], coords[j, 2]],
+                    "k-",
+                    alpha=0.6,
+                    linewidth=1.5,
+                    zorder=1,
+                )
+
+        except Exception as e:
+            print(
+                f"Warning: RDKit bond inference failed ({e}), falling back to distance-based method"
+            )
+            # Fallback to distance-based method
+            n_atoms = len(coords)
+            bond_threshold = 2.0  # Angstroms
+
+            for i in range(n_atoms):
+                for j in range(i + 1, n_atoms):
+                    dist = np.linalg.norm(coords[i] - coords[j])
+                    if dist < bond_threshold:
+                        ax.plot(
+                            [coords[i, 0], coords[j, 0]],
+                            [coords[i, 1], coords[j, 1]],
+                            [coords[i, 2], coords[j, 2]],
+                            "k-",
+                            alpha=0.4,
+                            linewidth=1.0,
+                            zorder=1,
+                        )
+
+    # Add atom labels
+    if plot_atoms:
+        for i, (x, y, z) in enumerate(coords):
+            if atomic_numbers is not None:
+                element_symbol = ATOMIC_NUMBER_TO_ELEMENT[int(atomic_numbers[i])]
+                ax.text(
+                    x,
+                    y,
+                    z,
+                    f"{element_symbol}{i}",
+                    fontsize=8,
+                    ha="center",
+                    va="center",
+                    zorder=10,
+                )
+            else:
+                ax.text(
+                    x, y, z, f"{i}", fontsize=8, ha="center", va="center", zorder=10
+                )
+
+    # color gradient over time
+    colors_traj = sns.color_palette("viridis", len(coords_traj))
+
+    # plot trajectories of atoms using small dots and lines
+    smalldot_size = 10
+    max_dots = 100
+    plot_dots_every = min(plot_dots_every, len(coords_traj) // max_dots)
+    plot_dots_every = max(plot_dots_every, 1)
+    for i in range(len(coords_traj)):
+        if (i % plot_dots_every) == 0 or (i == 0) or (i == len(coords_traj) - 1):
+            coords = to_numpy(coords_traj[i])
+            ax.scatter(
+                coords[:, 0],
+                coords[:, 1],
+                coords[:, 2],
+                c=colors_traj[i],
+                s=smalldot_size,
+                alpha=0.8,
+                # edgecolors='black',
+                linewidth=0.5,
+                zorder=2,
+            )
+            ax.plot(
+                coords[:, 0],
+                coords[:, 1],
+                coords[:, 2],
+                c=colors_traj[i],
+                alpha=0.6,
+                linewidth=1.5,
+                zorder=1,
+            )
+
+    # Add force vectors as arrows if provided
+    if forces_traj is not None:
+        max_forces = 5
+        plot_forces_every = min(plot_forces_every, len(forces_traj) // max_forces)
+        plot_forces_every = max(plot_forces_every, 1)
+        for i in range(len(forces_traj)):
+            if (i % plot_forces_every) == 0 or (i == 0) or (i == len(forces_traj) - 1):
+                forces = to_numpy(forces_traj[i])
+                coords = to_numpy(coords_traj[i])
+                for _, (coord, force) in enumerate(zip(coords, forces)):
+                    start_pos = coord
+                    end_pos = coord + force
+                    ax.quiver(
+                        start_pos[0],
+                        start_pos[1],
+                        start_pos[2],
+                        end_pos[0],
+                        end_pos[1],
+                        end_pos[2],
+                        length=0.1,
+                        # normalize=True,
+                        # arrow_length_ratio=0.1,
+                        color=colors_traj[i],
+                        zorder=8,
+                    )
+
+    # Set labels and title
+    fontsize = 9
+    ax.set_xlabel("X (Å)", fontsize=fontsize)
+    ax.set_ylabel("Y (Å)", fontsize=fontsize)
+    ax.set_zlabel("Z (Å)", fontsize=fontsize)
+    # ax.set_title(f'{title}', fontsize=fontsize)
+
+    # Make axes equal - calculate bounds over entire trajectory
+    coords_traj_np = to_numpy(coords_traj)  # Convert entire trajectory to numpy
+
+    # Get global min/max over all timesteps and atoms
+    global_x_min, global_x_max = (
+        coords_traj_np[:, :, 0].min(),
+        coords_traj_np[:, :, 0].max(),
+    )
+    global_y_min, global_y_max = (
+        coords_traj_np[:, :, 1].min(),
+        coords_traj_np[:, :, 1].max(),
+    )
+    global_z_min, global_z_max = (
+        coords_traj_np[:, :, 2].min(),
+        coords_traj_np[:, :, 2].max(),
+    )
+
+    max_range = (
+        np.array(
+            [
+                global_x_max - global_x_min,
+                global_y_max - global_y_min,
+                global_z_max - global_z_min,
+            ]
+        ).max()
+        / 2.0
+    )
+
+    max_range = max_range * 1.1  # add some padding
+
+    mid_x = (global_x_max + global_x_min) * 0.5
+    mid_y = (global_y_max + global_y_min) * 0.5
+    mid_z = (global_z_max + global_z_min) * 0.5
+
+    ax.set_xlim(mid_x - max_range, mid_x + max_range)
+    ax.set_ylim(mid_y - max_range, mid_y + max_range)
+    ax.set_zlim(mid_z - max_range, mid_z + max_range)
+
+    # Improve the view
+    ax.view_init(elev=30, azim=45)
+
+    # Save the plot
+    if save:
+        plt.tight_layout(pad=0.1)
+        if filename is None:
+            filename = f"{title.lower().replace(' ', '_').replace('-', '_')}_traj.png"
+            filepath = os.path.join(plot_dir, filename)
+        plt.savefig(filepath, dpi=150, bbox_inches="tight")
+        plt.close()  # Close to free memory
+
+        print(f"Saved 3D trajectory to {filepath}")
+    else:
+        return fig
+
+
+def plot_molecule_py3dmol(
+    coords,
+    atomic_numbers=None,
+    smiles: str = None,
+    title: str = "Molecule",
+    save_path: str = None,
+    save_png: bool = False,
+    save_html: bool = False,
+    forces=None,
+):
     """Render an interactive 3-D view of a molecule using py3Dmol.
 
     Parameters
@@ -201,30 +585,69 @@ def plot_molecule_py3dmol(coords, smiles: str, title: str = "Molecule", save_pat
     # Ensure NumPy array input
     if isinstance(coords, torch.Tensor):
         coords = coords.detach().cpu().numpy()
-    
+
     if atomic_numbers is not None and isinstance(atomic_numbers, torch.Tensor):
         atomic_numbers = atomic_numbers.detach().cpu().numpy()
 
     # Map atomic numbers to element symbols
-    atomic_number_to_symbol = {1: 'H', 6: 'C', 7: 'N', 8: 'O', 9: 'F', 15: 'P', 16: 'S', 17: 'Cl'}
-    
+    atomic_number_to_symbol = {
+        1: "H",
+        6: "C",
+        7: "N",
+        8: "O",
+        9: "F",
+        15: "P",
+        16: "S",
+        17: "Cl",
+    }
+
     # Create XYZ block
     xyz_lines = [str(len(coords)), title]
-    
+
     for i, (x, y, z) in enumerate(coords):
         atomic_num = int(atomic_numbers[i])
-        symbol = atomic_number_to_symbol.get(atomic_num, f'X{atomic_num}')
+        symbol = atomic_number_to_symbol.get(atomic_num, f"X{atomic_num}")
         xyz_lines.append(f"{symbol} {float(x):.6f} {float(y):.6f} {float(z):.6f}")
-    
-    xyz_block = '\n'.join(xyz_lines)
-    
+
+    xyz_block = "\n".join(xyz_lines)
+
     # Configure viewer with XYZ format
     view = py3Dmol.view(width=400, height=400)
     view.addModel(xyz_block, "xyz")
     view.setStyle({"stick": {}})
     view.setTitle(title)
     view.zoomTo()
-        
+
+    # Add force vectors as arrows if provided
+    if forces is not None:
+        if isinstance(forces, torch.Tensor):
+            forces = forces.detach().cpu().numpy()
+
+        # Scale factor for force visualization (adjust as needed)
+        force_scale = 1.0
+
+        for i, (coord, force) in enumerate(zip(coords, forces)):
+            start_pos = coord
+            end_pos = coord + force * force_scale
+
+            # Add arrow from atom position in direction of force
+            view.addArrow(
+                {
+                    "start": {
+                        "x": float(start_pos[0]),
+                        "y": float(start_pos[1]),
+                        "z": float(start_pos[2]),
+                    },
+                    "end": {
+                        "x": float(end_pos[0]),
+                        "y": float(end_pos[1]),
+                        "z": float(end_pos[2]),
+                    },
+                    "radius": 0.1,
+                    "color": "red",
+                }
+            )
+
     # # Build RDKit molecule (no additional hydrogens – assume coords already
     # # contain all atoms that appear in the SMILES string).
     # mol = Chem.MolFromSmiles(smiles)
@@ -255,11 +678,11 @@ def plot_molecule_py3dmol(coords, smiles: str, title: str = "Molecule", save_pat
             print(f"Saved interactive py3Dmol viewer to {save_path}")
             # Open the HTML file in the default browser
             # webbrowser.open(save_path)
-        
+
         if save_png:
             # save as png
             fname = save_path + ".png"
             view.saveImage(fname)
             print(f"Saved screenshot to {fname}")
-            
+
     return view
