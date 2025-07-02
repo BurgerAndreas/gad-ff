@@ -93,7 +93,7 @@ def extract_zip_and_list_contents(zip_path: str, extract_dir: str = "rgd1_raw"):
     return extract_dir
 
 
-def load_rgd1_data(raw_data_dir="rgd1_raw", method="all_ts"):
+def load_rgd1_data(raw_data_dir="rgd1_raw", method="all_ts", val_frac=0.1):
     """Load RGD1 data and return first transition state per reaction"""
     logging.info("Loading RGD1 data...")
 
@@ -124,6 +124,8 @@ def load_rgd1_data(raw_data_dir="rgd1_raw", method="all_ts"):
     multi_ts_reaction_ids = []
     first_ts_per_reaction_ids = []
     all_ts_reaction_ids = []
+    num_groups_visited = 0
+    val_start_idx = None
     for base_id, reaction_list in reaction_groups.items():
         if len(reaction_list) == 1:
             single_ts_reaction_ids.extend(reaction_list)
@@ -132,6 +134,13 @@ def load_rgd1_data(raw_data_dir="rgd1_raw", method="all_ts"):
         # Sort and take the first (lowest index)
         first_ts_per_reaction_ids.append(sorted(reaction_list)[0])
         all_ts_reaction_ids.extend(reaction_list)
+        if num_groups_visited == round(len(reaction_groups) * (1 - val_frac)):
+            val_start_idx = {
+                "unique_ts": len(single_ts_reaction_ids),
+                "first_ts": len(first_ts_per_reaction_ids),
+                "all_ts": len(all_ts_reaction_ids),
+            }
+        num_groups_visited += 1
 
     print(
         f"Found {len(single_ts_reaction_ids)} reactions with single transition states"
@@ -155,121 +164,136 @@ def load_rgd1_data(raw_data_dir="rgd1_raw", method="all_ts"):
         reaction_ids_to_process = all_ts_reaction_ids
     else:
         raise ValueError(f"Invalid method: {method}.")
+    
+    val_start_idx = val_start_idx[method]
+    print(f"Validation start index: {val_start_idx} out of {len(reaction_ids_to_process)} ({val_start_idx/len(reaction_ids_to_process):.2%})")
 
-    return RXN_ind2geometry, reaction_ids_to_process
+    return RXN_ind2geometry, reaction_ids_to_process, val_start_idx
 
 
 def raw_reaction_data_to_torch_geometric_lmdb(
-    RXN_ind2geometry, reaction_ids_to_process
+    RXN_ind2geometry, reaction_ids_to_process, val_start_idx
 ):
     """Process RGD1 reactions and return processed data.
     Only keep geometries, elements, and smiles.
     """
 
     # ---- Prepare output LMDB ----
-    map_size = 10 * 1024 * 1024 * 1024  # 10 GB
-    output_lmdb_path = f"{data_dir}/rgd1_minimal.lmdb"
-    # cleanup previous files
-    if os.path.exists(output_lmdb_path):
-        os.remove(output_lmdb_path)
-    if os.path.exists(output_lmdb_path.replace(".lmdb", ".lmdb-lock")):
-        os.remove(output_lmdb_path.replace(".lmdb", ".lmdb-lock"))
-    os.makedirs(data_dir, exist_ok=True)
-    out_env = lmdb.open(output_lmdb_path, map_size=map_size, subdir=False)
+    for split in ["train", "val"]:
+        if split == "train":
+            ids_this_split = reaction_ids_to_process[:val_start_idx]
+        else:
+            ids_this_split = reaction_ids_to_process[val_start_idx:]
+        
+        output_lmdb_path = f"{data_dir}/rgd1_minimal_{split}.lmdb"
+        # cleanup previous files
+        if os.path.exists(output_lmdb_path):
+            os.remove(output_lmdb_path)
+        if os.path.exists(output_lmdb_path.replace(".lmdb", ".lmdb-lock")):
+            os.remove(output_lmdb_path.replace(".lmdb", ".lmdb-lock"))
+        os.makedirs(data_dir, exist_ok=True)
+        
+        # map size in megabytes 
+        # Maximum size database may grow to
+        # used to size the memory mapping. 
+        # If database grows larger than map_size, an exception will be raised and the user must close and reopen Environment. 
+        # On 64-bit there is no penalty for making this huge (say 1TB)
+        map_size = 10 * 1024 * 1024 * 1024  # 10 GB
+        out_env = lmdb.open(output_lmdb_path, map_size=map_size, subdir=False)
 
-    logging.info("Processing RGD1 reactions...")
+        logging.info(f"\nProcessing RGD1 reactions for {split} split...")
 
-    num_samples_written = 0
-    with out_env.begin(write=True) as txn:
-        for sample_idx, Rind in tqdm(
-            enumerate(reaction_ids_to_process),
-            desc="Writing LMDB",
-            total=len(reaction_ids_to_process),
-        ):
-            try:
-                Rxn = RXN_ind2geometry[Rind]
+        num_samples_written = 0
+        with out_env.begin(write=True) as txn:
+            for sample_idx, Rind in tqdm(
+                enumerate(ids_this_split),
+                desc="Writing LMDB",
+                total=len(ids_this_split),
+            ):
+                try:
+                    Rxn = RXN_ind2geometry[Rind]
 
-                # Get geometries
-                reactant = np.array(Rxn.get("RG"))
-                ts = np.array(Rxn.get("TSG"))
-                product = np.array(Rxn.get("PG"))
+                    # Get geometries
+                    reactant = np.array(Rxn.get("RG"))
+                    ts = np.array(Rxn.get("TSG"))
+                    product = np.array(Rxn.get("PG"))
 
-                # parse smiles
-                # multiple molecules will be separated by '.'
-                Rsmiles = Rxn.get("Rsmiles")[()].decode("utf-8")
-                Psmiles = Rxn.get("Psmiles")[()].decode("utf-8")
+                    # parse smiles
+                    # multiple molecules will be separated by '.'
+                    Rsmiles = Rxn.get("Rsmiles")[()].decode("utf-8")
+                    Psmiles = Rxn.get("Psmiles")[()].decode("utf-8")
 
-                # Get elements and convert to atomic numbers
-                # e.g. [6 6 6 6 6 6 7 7 8 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
-                elements_nums = np.array(Rxn.get("elements"))
+                    # Get elements and convert to atomic numbers
+                    # e.g. [6 6 6 6 6 6 7 7 8 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+                    elements_nums = np.array(Rxn.get("elements"))
 
-                # count the number of each element
-                # e.g. [ 0 16  0  0  0  0  6  2  1  0]
-                element_counts_vector = np.bincount(
-                    elements_nums, minlength=max_element_num + 1
-                )
-                # also represent as a string (so we can use set later)
-                # e.g. H16-C6-N2-O1-F0
-                element_counts_string = ""
-                for _i in NUM2ELEMENT_RGD1.keys():
-                    element_counts_string += (
-                        f"-{NUM2ELEMENT_RGD1[_i]}{element_counts_vector[_i]}"
+                    # count the number of each element
+                    # e.g. [ 0 16  0  0  0  0  6  2  1  0]
+                    element_counts_vector = np.bincount(
+                        elements_nums, minlength=max_element_num + 1
                     )
-                element_counts_string = element_counts_string[1:]
+                    # also represent as a string (so we can use set later)
+                    # e.g. H16-C6-N2-O1-F0
+                    element_counts_string = ""
+                    for _i in NUM2ELEMENT_RGD1.keys():
+                        element_counts_string += (
+                            f"-{NUM2ELEMENT_RGD1[_i]}{element_counts_vector[_i]}"
+                        )
+                    element_counts_string = element_counts_string[1:]
 
-                # Align TS to reactant
-                R_TS, t_TS = find_rigid_alignment(ts, reactant)  # Align TS to R
-                ts = (R_TS.dot(ts.T)).T + t_TS
+                    # Align TS to reactant
+                    R_TS, t_TS = find_rigid_alignment(ts, reactant)  # Align TS to R
+                    ts = (R_TS.dot(ts.T)).T + t_TS
 
-                # reactant and product are already aligned in the dataset
-                # R_P, t_P = find_rigid_alignment(product, reactant)  # Align P to R
-                # product = (R_P.dot(product.T)).T + t_P
+                    # reactant and product are already aligned in the dataset
+                    # R_P, t_P = find_rigid_alignment(product, reactant)  # Align P to R
+                    # product = (R_P.dot(product.T)).T + t_P
 
-                # Center coordinates of TS, apply the same translation to reactant and product
-                translate = ts.mean(0)
-                ts = ts - translate
-                reactant = reactant - translate
-                product = product - translate
+                    # Center coordinates of TS, apply the same translation to reactant and product
+                    translate = ts.mean(0)
+                    ts = ts - translate
+                    reactant = reactant - translate
+                    product = product - translate
 
-                # Rotate coordinates using SVD
-                U, _, _ = np.linalg.svd(ts.T)
-                if np.linalg.det(U) < 0:
-                    U[:, -1] *= -1
-                ts = ts @ U
-                reactant = reactant @ U
-                product = product @ U
+                    # Rotate coordinates using SVD
+                    U, _, _ = np.linalg.svd(ts.T)
+                    if np.linalg.det(U) < 0:
+                        U[:, -1] *= -1
+                    ts = ts @ U
+                    reactant = reactant @ U
+                    product = product @ U
 
-                data = TGDData(
-                    z=torch.tensor(elements_nums, dtype=torch.long),
-                    n_atoms=torch.tensor(len(elements_nums), dtype=torch.long),
-                    pos_transition=torch.tensor(ts, dtype=torch.float).reshape(-1),
-                    pos_reactant=torch.tensor(reactant, dtype=torch.float).reshape(-1),
-                    pos_product=torch.tensor(product, dtype=torch.float).reshape(-1),
-                    smiles_reactant=Rsmiles,
-                    smiles_product=Psmiles,
-                    element_counts_string=element_counts_string,
-                    element_counts_vector=torch.tensor(
-                        element_counts_vector, dtype=torch.long
-                    ),
-                )
+                    data = TGDData(
+                        z=torch.tensor(elements_nums, dtype=torch.long),
+                        n_atoms=torch.tensor(len(elements_nums), dtype=torch.long),
+                        pos_transition=torch.tensor(ts, dtype=torch.float).reshape(-1),
+                        pos_reactant=torch.tensor(reactant, dtype=torch.float).reshape(-1),
+                        pos_product=torch.tensor(product, dtype=torch.float).reshape(-1),
+                        smiles_reactant=Rsmiles,
+                        smiles_product=Psmiles,
+                        element_counts_string=element_counts_string,
+                        element_counts_vector=torch.tensor(
+                            element_counts_vector, dtype=torch.long
+                        ),
+                    )
 
-                txn.put(
-                    f"{sample_idx}".encode("ascii"),
-                    pickle.dumps(data, protocol=pickle.HIGHEST_PROTOCOL),
-                )
-                num_samples_written += 1
+                    txn.put(
+                        f"{sample_idx}".encode("ascii"),
+                        pickle.dumps(data, protocol=pickle.HIGHEST_PROTOCOL),
+                    )
+                    num_samples_written += 1
 
-            except Exception as e:
-                logging.warning(f"Error processing reaction {Rind}: {e}")
-                continue
+                except Exception as e:
+                    logging.warning(f"Error processing reaction {Rind}: {e}")
+                    continue
 
-        # end of loop
-        txn.put(
-            "length".encode("ascii"),
-            pickle.dumps(num_samples_written, protocol=pickle.HIGHEST_PROTOCOL),
-        )
-    out_env.close()
-    print(f"Done. {num_samples_written} reactions written to {output_lmdb_path}")
+            # end of loop
+            txn.put(
+                "length".encode("ascii"),
+                pickle.dumps(num_samples_written, protocol=pickle.HIGHEST_PROTOCOL),
+            )
+        out_env.close()
+        print(f"Done. {num_samples_written} reactions written to {output_lmdb_path}")
 
 
 if __name__ == "__main__":
@@ -286,9 +310,9 @@ if __name__ == "__main__":
     extract_dir = extract_zip_and_list_contents(zip_filename)
 
     # Load RGD1 data
-    RXN_ind2geometry, reaction_ids_to_process = load_rgd1_data(extract_dir)
+    RXN_ind2geometry, reaction_ids_to_process, val_start_idx = load_rgd1_data(extract_dir)
 
     # Process and save reactions
-    raw_reaction_data_to_torch_geometric_lmdb(RXN_ind2geometry, reaction_ids_to_process)
+    raw_reaction_data_to_torch_geometric_lmdb(RXN_ind2geometry, reaction_ids_to_process, val_start_idx)
 
     logging.info("RGD1 data processing completed successfully!")
