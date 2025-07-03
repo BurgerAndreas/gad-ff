@@ -133,7 +133,7 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
 
         # Create SO(2) convolution blocks
         extra_m0_output_channels = None
-        if not self.use_s2_act_attn:
+        if not self.use_s2_act_attn: # False -> True
             extra_m0_output_channels = self.num_heads * self.attn_alpha_channels
             if self.use_gate_act:
                 extra_m0_output_channels = (
@@ -229,15 +229,26 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
             lmax=self.lmax_list[0],
         )
 
-    def forward(self, x, atomic_numbers, edge_distance, edge_index):
+    def forward(self, x, atomic_numbers, edge_distance, edge_index, return_attn_messages=False):
+        """
+        x: SO3_Embedding (N, L, C)
+        atomic_numbers: (N)
+        edge_distance: (E, num_edge_features)
+        edge_index: (2, E)
+        
+        L = num_l_features = (l + 1)^2
+        C = num_channels
+        E = num_edges
+        """
 
         # Compute edge scalar features (invariant to rotations)
         # Uses atomic numbers and edge distance as inputs
-        if self.use_atom_edge_embedding:
+        if self.use_atom_edge_embedding: # True
             source_element = atomic_numbers[edge_index[0]]  # Source atom atomic number
             target_element = atomic_numbers[edge_index[1]]  # Target atom atomic number
             source_embedding = self.source_embedding(source_element)
             target_embedding = self.target_embedding(target_element)
+            # (E, num_edge_features + 2 * num_atom_embedding_features)
             x_edge = torch.cat(
                 (edge_distance, source_embedding, target_embedding), dim=1
             )
@@ -246,10 +257,12 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
 
         x_source = x.clone()
         x_target = x.clone()
+        # (E, num_l_features, C)
         x_source._expand_edge(edge_index[0, :])
         x_target._expand_edge(edge_index[1, :])
 
-        x_message_data = torch.cat((x_source.embedding, x_target.embedding), dim=2)
+        # Message data is the embeddings of the nodes connected by the edge
+        x_message_data = torch.cat((x_source.embedding, x_target.embedding), dim=2) # (E, L, 2*C)
         x_message = SO3_Embedding(
             0,
             x_target.lmax_list.copy(),
@@ -261,7 +274,7 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
         x_message.set_lmax_mmax(self.lmax_list.copy(), self.mmax_list.copy())
 
         # radial function (scale all m components within a type-L vector of one channel with the same weight)
-        if self.use_m_share_rad:
+        if self.use_m_share_rad: # False
             x_edge_weight = self.rad_func(x_edge)
             x_edge_weight = x_edge_weight.reshape(
                 -1, (max(self.lmax_list) + 1), 2 * self.sphere_channels
@@ -272,17 +285,19 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
             x_message.embedding = x_message.embedding * x_edge_weight
 
         # Rotate the irreps to align with the edge
+        # So we can do SO(2) convolution instead of SO(3) 
         x_message._rotate(self.SO3_rotation, self.lmax_list, self.mmax_list)
 
         # First SO(2)-convolution
-        if self.use_s2_act_attn:
+        if self.use_s2_act_attn: # False
             x_message = self.so2_conv_1(x_message, x_edge)
         else:
+            # (E, L-6, H), (E, ?)
             x_message, x_0_extra = self.so2_conv_1(x_message, x_edge)
 
-        # Activation
+        # Activation between convolutions
         x_alpha_num_channels = self.num_heads * self.attn_alpha_channels
-        if self.use_gate_act:
+        if self.use_gate_act: # False
             # Gate activation
             x_0_gating = x_0_extra.narrow(
                 1, x_alpha_num_channels, x_0_extra.shape[1] - x_alpha_num_channels
@@ -304,38 +319,43 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
                 )
             else:
                 x_0_alpha = x_0_extra
+                # (E, L-6, attn_alpha_channels)
                 x_message.embedding = self.s2_act(x_message.embedding, self.SO3_grid)
             ##x_message._grid_act(self.SO3_grid, self.value_act, self.mappingReduced)
 
         # Second SO(2)-convolution
-        if self.use_s2_act_attn:
+        if self.use_s2_act_attn: # False
             x_message, x_0_extra = self.so2_conv_2(x_message, x_edge)
         else:
-            x_message = self.so2_conv_2(x_message, x_edge)
+            # HV = num_heads * attn_value_channels
+            x_message = self.so2_conv_2(x_message, x_edge) # (E, L-6, HV)
 
         # Attention weights
-        if self.use_s2_act_attn:
+        if self.use_s2_act_attn: # False
             alpha = x_0_extra
         else:
             x_0_alpha = x_0_alpha.reshape(-1, self.num_heads, self.attn_alpha_channels)
             x_0_alpha = self.alpha_norm(x_0_alpha)
-            x_0_alpha = self.alpha_act(x_0_alpha)
-            alpha = torch.einsum("bik, ik -> bi", x_0_alpha, self.alpha_dot)
+            x_0_alpha = self.alpha_act(x_0_alpha) # (E, num_heads, attn_alpha_channels)
+            alpha = torch.einsum("bik, ik -> bi", x_0_alpha, self.alpha_dot) # (E, num_heads)
         alpha = torch_geometric.utils.softmax(alpha, edge_index[1])
-        alpha = alpha.reshape(alpha.shape[0], 1, self.num_heads, 1)
+        alpha = alpha.reshape(alpha.shape[0], 1, self.num_heads, 1) # (E, 1, num_heads, 1)
         if self.alpha_dropout is not None:
             alpha = self.alpha_dropout(alpha)
 
         # Attention weights * non-linear messages
-        attn = x_message.embedding
+        attn = x_message.embedding # (E, L-6, HV)
         attn = attn.reshape(
             attn.shape[0], attn.shape[1], self.num_heads, self.attn_value_channels
-        )
+        ) # (E, L-6, num_heads, attn_value_channels)
         attn = attn * alpha
         attn = attn.reshape(
             attn.shape[0], attn.shape[1], self.num_heads * self.attn_value_channels
         )
-        x_message.embedding = attn
+        x_message.embedding = attn # (E, L-6, HV)
+        
+        if return_attn_messages:
+            return x_message
 
         # Rotate back the irreps
         x_message._rotate_inv(self.SO3_rotation, self.mappingReduced)

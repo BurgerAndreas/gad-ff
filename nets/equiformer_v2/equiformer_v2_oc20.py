@@ -161,6 +161,7 @@ class EquiformerV2_OC20(BaseModel):
         do_eigval_1=False,
         do_eigval_2=False,
         do_hessian=False,
+        hessian_alpha_drop=0.0,
         **kwargs,
     ):
         super().__init__()
@@ -212,6 +213,7 @@ class EquiformerV2_OC20(BaseModel):
         self.alpha_drop = alpha_drop
         self.drop_path_rate = drop_path_rate
         self.proj_drop = proj_drop
+        self.hessian_alpha_drop = hessian_alpha_drop
 
         self.weight_init = weight_init
         assert self.weight_init in ["normal", "uniform"]
@@ -467,7 +469,57 @@ class EquiformerV2_OC20(BaseModel):
             self.eigval_2_head = None
 
         if do_hessian:
-            raise NotImplementedError("Hessian prediction not implemented")
+            # copied from force prediction head
+            self.hessian_block = SO2EquivariantGraphAttention(
+                sphere_channels=self.sphere_channels,
+                hidden_channels=self.attn_hidden_channels,
+                num_heads=self.num_heads,
+                attn_alpha_channels=self.attn_alpha_channels,
+                attn_value_channels=self.attn_value_channels,
+                # different output_channels affects the linear projection after aggregating the messages
+                output_channels=1, 
+                lmax_list=self.lmax_list,
+                mmax_list=self.mmax_list,
+                SO3_rotation=self.SO3_rotation,
+                mappingReduced=self.mappingReduced,
+                SO3_grid=self.SO3_grid,
+                max_num_elements=self.max_num_elements,
+                edge_channels_list=self.edge_channels_list,
+                use_atom_edge_embedding=self.block_use_atom_edge_embedding, # different
+                use_m_share_rad=self.use_m_share_rad,
+                activation=self.attn_activation,
+                use_s2_act_attn=self.use_s2_act_attn,
+                use_attn_renorm=self.use_attn_renorm,
+                use_gate_act=self.use_gate_act,
+                use_sep_s2_act=self.use_sep_s2_act,
+                alpha_drop=self.hessian_alpha_drop, 
+            )
+            # # copied from transformer block
+            # self.hessian_block = SO2EquivariantGraphAttention(
+            #     sphere_channels=self.sphere_channels,
+            #     hidden_channels=self.attn_hidden_channels,
+            #     num_heads=self.num_heads,
+            #     attn_alpha_channels=self.attn_alpha_channels,
+            #     attn_value_channels=self.attn_value_channels,
+            #     output_channels=self.sphere_channels,
+            #     lmax_list=self.lmax_list,
+            #     mmax_list=self.mmax_list,
+            #     SO3_rotation=self.SO3_rotation,
+            #     mappingReduced=self.mappingReduced,
+            #     SO3_grid=self.SO3_grid,
+            #     max_num_elements=self.max_num_elements,
+            #     edge_channels_list=self.edge_channels_list,
+            #     use_atom_edge_embedding=self.use_atom_edge_embedding,
+            #     use_m_share_rad=self.use_m_share_rad,
+            #     activation=self.attn_activation,
+            #     use_s2_act_attn=self.use_s2_act_attn,
+            #     use_attn_renorm=self.use_attn_renorm,
+            #     use_gate_act=self.use_gate_act,
+            #     use_sep_s2_act=self.use_sep_s2_act,
+            #     alpha_drop=self.hessian_alpha_drop,
+            # )
+        else:
+            self.hessian_block = None
 
         self.apply(self._init_weights)
         self.apply(self._uniform_init_rad_func_linear_weights)
@@ -649,14 +701,30 @@ class EquiformerV2_OC20(BaseModel):
         # Hessian estimation
         ###############################################################
         if hessian:
-            raise NotImplementedError("Hessian prediction not implemented")
-        
-            # node embeddings 
-            # x.embedding
-            
             # SO2EquivariantGraphAttention: Perform MLP attention + non-linear message passing
             # SO(2) Convolution with radial function -> S2 Activation -> SO(2) Convolution -> attention weights and non-linear messages
             # attention weights * non-linear messages -> Linear
+            
+            # messages: SO3_Embedding (N, L-6, num_heads * attn_value_channels)
+            x_message = self.hessian_block(
+                x, atomic_numbers, edge_distance, edge_index
+            )
+            
+            # Rotate back the irreps
+            x_message._rotate_inv(self.hessian_block.SO3_rotation, self.hessian_block.mappingReduced)
+
+            # Compute the sum of the incoming neighboring messages for each target node
+            x_message._reduce_edge(edge_index[1], len(x.embedding))
+
+            # Project
+            out_embedding = self.hessian_block.proj(x_message)
+            
+            # node embeddings 
+            # x.embedding
+            
+            raise NotImplementedError("Hessian prediction not implemented")
+        
+            
 
         return energy.reshape(data.ae.shape), forces, outputs
 

@@ -97,6 +97,9 @@ def plot_molecule_mpl(
     if torch.is_tensor(atomic_numbers):
         atomic_numbers = atomic_numbers.detach().cpu().numpy()
     colors = [atomic_colors.get(int(z), pastel_palette[9]) for z in atomic_numbers]
+    # Ensure colors is always a 2D array/list, even for a single atom
+    if len(colors) == 1:
+        colors = [colors[0]]
     # Bigger circles - size based on atomic number (larger for heavier atoms)
     sizes = [max(300, int(z) * 30) for z in atomic_numbers]
 
@@ -160,9 +163,9 @@ def plot_molecule_mpl(
                 )
 
         except Exception as e:
-            print(
-                f"Warning: RDKit bond inference failed ({e}), falling back to distance-based method"
-            )
+            # print(
+            #     f"Warning: RDKit bond inference failed ({e}), falling back to distance-based method"
+            # )
             # Fallback to distance-based method
             n_atoms = len(coords)
             bond_threshold = 2.0  # Angstroms
@@ -257,7 +260,7 @@ def plot_molecule_mpl(
         plt.savefig(filepath, dpi=150, bbox_inches="tight")
         plt.close()  # Close to free memory
 
-        print(f"Saved 3D molecular structure to {filepath}")
+        print(f"Saved structure to\n {filepath}")
     else:
         return fig
 
@@ -276,6 +279,8 @@ def plot_traj_mpl(
     plot_forces_every=10,
     plot_dots_every=1,
     plot_atoms=True,
+    plot_bond_traj=False,
+    plot_atom_traj=True,
 ):
     """
     Plot a 3D trajectory from atomic coordinates.
@@ -298,6 +303,9 @@ def plot_traj_mpl(
     forces_traj : torch.Tensor or np.ndarray, optional
         Forces on each atom with shape (T, n_atoms, 3)
     """
+    #######################################3
+    # plot final frame
+    
     # Convert to numpy if torch tensor
     coords = to_numpy(coords_traj[-1])
 
@@ -325,6 +333,9 @@ def plot_traj_mpl(
     if torch.is_tensor(atomic_numbers):
         atomic_numbers = atomic_numbers.detach().cpu().numpy()
     colors = [atomic_colors.get(int(z), pastel_palette[9]) for z in atomic_numbers]
+    # Ensure colors is always a 2D array/list, even for a single atom
+    if len(colors) == 1:
+        colors = [colors[0]]
     # Bigger circles - size based on atomic number (larger for heavier atoms)
     sizes = [max(300, int(z) * 30) for z in atomic_numbers]
 
@@ -373,9 +384,9 @@ def plot_traj_mpl(
 
             # Use RDKit's bond perception
             rdDetermineBonds.DetermineBonds(mol, charge=0)
-
-            # Extract bonds and plot them
-            for bond in mol.GetBonds():
+            
+            bonds = mol.GetBonds()
+            for bond in bonds:
                 i = bond.GetBeginAtomIdx()
                 j = bond.GetEndAtomIdx()
                 ax.plot(
@@ -389,9 +400,9 @@ def plot_traj_mpl(
                 )
 
         except Exception as e:
-            print(
-                f"Warning: RDKit bond inference failed ({e}), falling back to distance-based method"
-            )
+            # print(
+            #     f"Warning: RDKit bond inference failed ({e}), falling back to distance-based method"
+            # )
             # Fallback to distance-based method
             n_atoms = len(coords)
             bond_threshold = 2.0  # Angstroms
@@ -441,26 +452,46 @@ def plot_traj_mpl(
     for i in range(len(coords_traj)):
         if (i % plot_dots_every) == 0 or (i == 0) or (i == len(coords_traj) - 1):
             coords = to_numpy(coords_traj[i])
+            # Patch: ensure colors_traj[i] is a list, not a tuple
+            color = colors_traj[i]
+            if not isinstance(color, (list, tuple)) or (isinstance(color, tuple) and len(color) == 3):
+                color = [color]
             ax.scatter(
                 coords[:, 0],
                 coords[:, 1],
                 coords[:, 2],
-                c=colors_traj[i],
+                c=[colors_traj[i]] * coords.shape[0],
                 s=smalldot_size,
                 alpha=0.8,
                 # edgecolors='black',
                 linewidth=0.5,
                 zorder=2,
             )
-            ax.plot(
-                coords[:, 0],
-                coords[:, 1],
-                coords[:, 2],
-                c=colors_traj[i],
-                alpha=0.6,
-                linewidth=1.5,
-                zorder=1,
-            )
+            if plot_bond_traj:
+                # plots lines between atoms = bonds
+                ax.plot(
+                    coords[:, 0],
+                    coords[:, 1],
+                    coords[:, 2],
+                    c=colors_traj[i],
+                    alpha=0.6,
+                    linewidth=1.5,
+                    zorder=1,
+                )
+            if plot_atom_traj:
+                if i > 0:
+                    # plots lines between atoms across timesteps
+                    coord_prev = to_numpy(coords_traj[i-1])
+                    for _atom in range(len(coords)):
+                        ax.plot(
+                            [coord_prev[_atom, 0], coords[_atom, 0]],
+                            [coord_prev[_atom, 1], coords[_atom, 1]],
+                            [coord_prev[_atom, 2], coords[_atom, 2]],
+                            c=colors_traj[i],
+                            alpha=0.6,
+                            linewidth=1.5,
+                            zorder=1,
+                        )
 
     # Add force vectors as arrows if provided
     if forces_traj is not None:
@@ -542,10 +573,13 @@ def plot_traj_mpl(
         if filename is None:
             filename = f"{title.lower().replace(' ', '_').replace('-', '_')}_traj.png"
             filepath = os.path.join(plot_dir, filename)
+        filename = filename.replace(" ", "_")
+        for _ in range(3):
+            filename = filename.replace("__", "_")
         plt.savefig(filepath, dpi=150, bbox_inches="tight")
         plt.close()  # Close to free memory
 
-        print(f"Saved 3D trajectory to {filepath}")
+        print(f"Saved trajectory to\n {filepath}")
     else:
         return fig
 

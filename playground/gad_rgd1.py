@@ -17,6 +17,7 @@ from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.equiformer_calculator import EquiformerCalculator
 from gadff.align_unordered_mols import rmsd
 from gadff.plot_molecules import plot_molecule_mpl, plot_traj_mpl
+from gadff.align_ordered_mols import find_rigid_alignment
 
 from ase import Atoms
 from ase.io import read
@@ -58,17 +59,22 @@ def integrate_dynamics(
     convergence_threshold=1e-4,
     dt=0.01,
     print_every=100,
+    n_patience_steps=50,
+    patience_threshold=2.0,
+    center_around_com=False,
+    align_rotation=False,
 ):
     assert force_field in ["gad", "forces"], f"Unknown force field: {force_field}"
 
     device = calc.model.device
 
+    print("")
+    print("-" * 6)
+    print(f"Following {force_field} vector field: {title}")
+    
     # Compute RMSD between initial guess and transition state
     rmsd_initial = rmsd(initial_pos.numpy(), true_pos.numpy())
-    print(f"RMSD between initial guess and true state: {rmsd_initial:.6f} Å")
-
-    # Follow the vector field using autograd Hessian
-    print(f"\nFollowing {force_field} vector field")
+    print(f"RMSD start: {rmsd_initial:.6f} Å")
 
     # Create initial batch from interpolated guess
     current_pos = initial_pos.clone().requires_grad_(True).to(device)
@@ -80,7 +86,6 @@ def integrate_dynamics(
     trajectory_forces_norm = []
     trajectory_forces = []
 
-    print(f"Starting {force_field} integration")
     for step in range(max_steps):
         # Create batch for current position
         batch_current = Batch.from_data_list(
@@ -117,12 +122,21 @@ def integrate_dynamics(
             break
 
         # terminate if force norm was small for 50 steps
-        if np.all(np.array(trajectory_forces_norm[-50:]) < 2.0):
-            print("Force norm was small for 50 steps, terminating")
+        if np.all(np.array(trajectory_forces_norm[-n_patience_steps:]) < patience_threshold):
+            print(f"Force norm was small for {n_patience_steps} steps, terminating")
             break
 
         # Euler integration step
-        current_pos = current_pos.detach() + dt * forces
+        current_pos = current_pos.detach() + dt * forces # [N, 3]
+        
+        # center around center of mass
+        if center_around_com:
+            current_pos = current_pos - current_pos.mean(dim=0, keepdim=True)
+        
+        if align_rotation:
+            # align rotation of current_pos to initial_pos
+            _rot, _trans = find_rigid_alignment(current_pos, initial_pos)
+            current_pos = (current_pos @ _rot.T) + _trans
 
         if step % print_every == 0:
             print(
@@ -130,8 +144,6 @@ def integrate_dynamics(
             )
 
     # After convergence, compute final RMSD and eigenvalues
-    print("\nFinal analysis")
-
     # Plot trajectory
     plot_traj_mpl(
         trajectory_pos,
@@ -150,7 +162,7 @@ def integrate_dynamics(
     # Compute RMSD between converged structure and true transition state
     rmsd_final = rmsd(final_pos.numpy(), true_pos.numpy())
     print(
-        f"RMSD between converged structure and true transition state: {rmsd_final:.6f} Å"
+        f"RMSD end: {rmsd_final:.6f} Å"
     )
     print(f"Improvement: {rmsd_initial - rmsd_final:.6f} Å")
 
@@ -159,12 +171,11 @@ def integrate_dynamics(
         [TGData(z=z, pos=final_pos.requires_grad_(True), natoms=natoms)]
     )
 
-    print("Computing Hessian eigenvalues at converged structure")
+    # Computing Hessian eigenvalues at converged structure
     energy_final, forces_final, hessian, eigenvalues, eigenvectors, eigenpred = (
         calc.predict_with_hessian(batch_final)
     )
 
-    print(f"Final energy: {energy_final.item():.6f}")
     print(
         f"Two lowest Hessian eigenvalues: {eigenvalues[0].item():.6f}, {eigenvalues[1].item():.6f}"
     )
@@ -209,7 +220,10 @@ def run_sella(pos_initial_guess, z, natoms, true_pos, calc=None):
     else:
         mol_ase.calc = calc
         calcname = calc.__class__.__name__
-    print(f"\nStarting Sella {calcname} optimization to find transition state")
+        
+    print("")
+    print("-" * 6)
+    print(f"Starting Sella {calcname} optimization to find transition state")
 
     rmsd_initial = rmsd(
         positions_np,
@@ -219,7 +233,7 @@ def run_sella(pos_initial_guess, z, natoms, true_pos, calc=None):
             else true_pos.numpy()
         ),
     )
-    print(f"RMSD between initial guess and true transition state: {rmsd_initial:.6f} Å")
+    print(f"RMSD start: {rmsd_initial:.6f} Å")
 
     # Set up a Sella Dynamics object with improved parameters for TS search
     dyn = Sella(
@@ -252,7 +266,7 @@ def run_sella(pos_initial_guess, z, natoms, true_pos, calc=None):
     )
     rmsd_sella = rmsd(final_positions_sella, true_ts_positions)
     print(
-        f"RMSD between Sella-optimized structure and true transition state: {rmsd_sella:.6f} Å"
+        f"RMSD end: {rmsd_sella:.6f} Å"
     )
     print(f"Improvement: {rmsd_initial - rmsd_sella:.6f} Å")
     return mol_ase
@@ -287,15 +301,13 @@ def main():
     print(f"Batch shape - pos: {batch.pos.shape}, z: {batch.z.shape}")
 
     # Initialize equiformer calculator
-    print("\nInitializing EquiformerCalculator")
+    print("\n" + "-" * 6)
+    print("Initializing EquiformerCalculator")
     calc = EquiformerCalculator(device=device)
 
     # Run prediction
-    print("\nRunning prediction")
+    print("\n" + "-" * 6)
     energy, forces, eigenpred = calc.predict(batch)
-
-    # Print results
-    print("\nPrediction Results:")
     print(f"Energy: {energy.item():.6f}")
     print(f"Forces shape: {forces.shape}")
     print(f"Forces norm: {torch.norm(forces).item():.6f}")
@@ -357,7 +369,8 @@ def main():
 
     ###################################################################################
     # Follow the GAD vector field to find the transition state
-    print("=" * 60)
+    # Start from reactant
+    print("\n" + "=" * 60)
     print("Following GAD vector field to find transition state")
     traj, _, _, _ = integrate_dynamics(
         pos_reactant,
@@ -369,6 +382,9 @@ def main():
         max_steps=1_000,
         dt=0.01,
         title="TS from R",
+        n_patience_steps=1000,
+        # patience_threshold=1.0,
+        # center_around_com=True,
     )
     plot_molecule_mpl(
         traj[-1],
@@ -377,8 +393,30 @@ def main():
         plot_dir=plot_dir,
         save=True,
     )
+    
+    traj, _, _, _ = integrate_dynamics(
+        pos_reactant,
+        sample.z,
+        sample.natoms,
+        calc,
+        sample.pos_transition,
+        force_field="gad",
+        max_steps=100,
+        dt=0.1,
+        title="TS from R (dt 0.1)",
+        n_patience_steps=1000,
+        # patience_threshold=1.0,
+        # center_around_com=True,
+    )
+    plot_molecule_mpl(
+        traj[-1],
+        atomic_numbers=sample.z,
+        title="GAD Optimized TS from R (dt 0.1)",
+        plot_dir=plot_dir,
+        save=True,
+    )
 
-    # Follow the GAD vector field to find the transition state
+    # Follow the GAD vector field from R-P interpolation
     traj, _, _, _ = integrate_dynamics(
         pos_initial_guess_rp,
         sample.z,
@@ -389,6 +427,8 @@ def main():
         max_steps=1_000,
         dt=0.01,
         title="TS from R-P interpolation",
+        n_patience_steps=500,
+        # patience_threshold=1.0,
     )
     plot_molecule_mpl(
         traj[-1],
@@ -397,6 +437,28 @@ def main():
         plot_dir=plot_dir,
         save=True,
     )
+    
+    # Follow the GAD vector field from transition state
+    traj, _, _, _ = integrate_dynamics(
+        sample.pos_transition,
+        sample.z,
+        sample.natoms,
+        calc,
+        sample.pos_transition,
+        force_field="gad",
+        max_steps=100,
+        dt=0.01,
+        title="TS from TS",
+    )
+    plot_molecule_mpl(
+        traj[-1],
+        atomic_numbers=sample.z,
+        title="GAD starting from TS",
+        plot_dir=plot_dir,
+        save=True,
+    )
+    
+    exit()
 
     ###################################################################################
     print("=" * 60)
