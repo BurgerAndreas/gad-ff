@@ -266,7 +266,7 @@ def test_eigen_dataset(dataset_name="ts1x-val-dft-hess-eigen.lmdb", max_batches=
             batch = compute_extra_props(batch)
 
             # Forward pass
-            pred_energy, pred_forces = model.potential.forward(batch)
+            pred_energy, pred_forces, out = model.potential.forward(batch)
 
             # Get stored forces and first eigenvector
             stored_forces = batch.forces.cpu()  # Shape: [total_atoms, 3]

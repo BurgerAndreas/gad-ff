@@ -142,7 +142,7 @@ def create_eigen_dataset(save_hessian=False, dataset_file="ts1x-val.lmdb"):
             batch = compute_extra_props(batch)
 
             # Forward pass
-            energy, forces = model.potential.forward(batch)
+            energy, forces, out = model.potential.forward(batch)
 
             # Compute Hessian and eigenpairs
             # smallest_eigenvals, smallest_eigenvecs = predict_eigen_from_batch(batch=batch, model=model)

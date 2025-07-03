@@ -27,6 +27,29 @@ def get_model(config_path):
     print("model_config", model_config)
     return EquiformerV2_OC20(**model_config), model_config
 
+# https://github.com/deepprinciple/HORM/blob/eval/eval.py
+def _get_derivatives(x, y, retain_graph=None, create_graph=False):
+    """Helper function to compute derivatives"""
+    grad = torch.autograd.grad([y.sum()], [x], retain_graph=retain_graph, create_graph=create_graph)[0]
+    return grad
+
+
+def compute_hessian(coords, forces, retain_graph=True):
+    """Compute Hessian matrix using autograd."""
+    
+    # Get number of components (n_atoms * 3)
+    n_comp = forces.reshape(-1).shape[0]
+    
+    # Initialize hessian
+    hess = []
+    for f in forces.reshape(-1):
+        # Compute second-order derivative for each element
+        hess_row = _get_derivatives(coords, -f, retain_graph=retain_graph)
+        hess.append(hess_row)
+        
+    # Stack hessian
+    hessian = torch.stack(hess)
+    return hessian.reshape(n_comp, -1)
 
 class EquiformerCalculator:
     def __init__(
@@ -88,10 +111,10 @@ class EquiformerCalculator:
         """Predict one batch with autodiff Hessian"""
         B = batch.batch.max() + 1
         assert B == 1, "Only one batch is supported for Hessian prediction"
-
-        batch = batch.to(self.model.device)
+        N = batch.natoms
 
         # Prepare batch with extra properties
+        batch = batch.to(self.model.device)
         batch = compute_extra_props(batch, pos_require_grad=True)
 
         # Run prediction
@@ -99,27 +122,14 @@ class EquiformerCalculator:
             energy, forces, eigenpred = self.model.forward(batch, eigen=True)
 
         # 3D coordinates -> 3N^2 Hessian elements
-        N = batch.pos.shape[0]
-        forces = forces.reshape(-1)
-        num_elements = forces.shape[0]
-
-        def get_vjp(v):
-            return torch.autograd.grad(
-                outputs=-1 * forces,
-                inputs=batch.pos,
-                grad_outputs=v,
-                retain_graph=True,
-                create_graph=False,
-                allow_unused=False,
-            )
-
-        I_N = torch.eye(num_elements, device=forces.device)
-        hessian = torch.vmap(get_vjp, in_dims=0, out_dims=0, chunk_size=None)(I_N)[0]
-        hessian = hessian.view(N * 3, N * 3)
-
+        hessian = compute_hessian(batch.pos, forces, retain_graph=True)
+        
+        # A named tuple (eigenvalues, eigenvectors) which corresponds to Λ and Q in: M = Qdiag(Λ)Q^T
+        # eigenvalues will always be real-valued. It will also be ordered in ascending order.
+        # eigenvectors contain the eigenvectors as its columns.
         eigenvalues, eigenvectors = torch.linalg.eigh(hessian)
         smallest_eigenvals = eigenvalues[:2]
-        smallest_eigenvecs = eigenvectors[:, :2]
+        smallest_eigenvecs = eigenvectors[:, :2] # [N*3, 2]
         eigenvalues = smallest_eigenvals
         eigenvectors = smallest_eigenvecs.T.view(2, N, 3)
         return energy, forces, hessian, eigenvalues, eigenvectors, eigenpred
@@ -154,10 +164,8 @@ class EquiformerCalculator:
         v = eigenvectors[0].reshape(-1)  # N*3
         v = v / torch.norm(v, dim=0, keepdim=True)
         forces = forces.reshape(-1)  # N*3
-        # Diagnostic prints
         dot_product = torch.dot(-forces, v)
         gad = forces + (2 * dot_product * v)
-
         out = {
             "energy": energy,
             "forces": forces,

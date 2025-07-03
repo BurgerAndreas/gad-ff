@@ -78,7 +78,7 @@ def predict_batch(model, batch, device, get_hessian=False):
     if model_name == "LEFTNet":
         energy, forces = model.potential.forward_autograd(batch)
     else:
-        energy, forces = model.potential.forward(batch)
+        energy, forces, out = model.potential.forward(batch)
 
     return energy, forces
 

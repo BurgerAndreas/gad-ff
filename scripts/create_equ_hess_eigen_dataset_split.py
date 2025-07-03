@@ -163,7 +163,7 @@ def process_subset(dataset_file, start_idx, end_idx, job_id, save_hessian=False)
             batch = compute_extra_props(batch)
 
             # Forward pass
-            energy, forces = model.potential.forward(batch)
+            energy, forces, out = model.potential.forward(batch)
 
             # Compute Hessian and eigenpairs
             hessians = compute_hessian_batches(batch, batch.pos, None, forces)

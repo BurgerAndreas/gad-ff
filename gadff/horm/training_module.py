@@ -524,7 +524,7 @@ class PotentialModule(LightningModule):
                 batch.to(self.device),
             )
         else:
-            hat_ae, hat_forces = self.potential.forward(
+            hat_ae, hat_forces, out = self.potential.forward(
                 batch.to(self.device),
             )
         hat_ae = hat_ae.squeeze().to(self.device)

@@ -49,7 +49,7 @@ def predict_forces(model, batch, device):
     if model_name == "LEFTNet":
         _, forces = model.potential.forward_autograd(batch)
     else:
-        _, forces = model.potential.forward(batch)
+        _, forces, out = model.potential.forward(batch)
     return forces
 
 

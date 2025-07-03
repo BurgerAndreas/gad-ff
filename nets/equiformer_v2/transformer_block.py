@@ -497,7 +497,23 @@ class FeedForwardNetwork(torch.nn.Module):
 
 
 class TransBlockV2(torch.nn.Module):
-    """
+    """Transformer block for EquiformerV2.
+      |
+    -----
+    |   |
+    |   norm
+    |   |
+    |   attention
+    |   |
+    --+--
+    |   |
+    |   norm
+    |   |
+    |   feed forward
+    |   |
+    --+--
+      |
+
 
     Args:
         sphere_channels (int):      Number of spherical channels

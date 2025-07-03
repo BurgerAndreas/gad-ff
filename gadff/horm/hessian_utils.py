@@ -264,7 +264,7 @@ def predict_eigen_from_batch(
     """Predict eigenvalues and eigenvectors from a batch.
     Same as model.potential.forward, compute_hessian_single_batch, get_smallest_eigen_from_batched_hessians.
     """
-    energy, forces = model.potential.forward(batch)
+    energy, forces, out = model.potential.forward(batch)
 
     forces = forces.reshape(-1)
     num_elements = forces.shape[0]
@@ -387,7 +387,7 @@ def test_hessian_utils():
         if model_name == "LEFTNet":
             energy, forces = model.potential.forward_autograd(batch)
         else:
-            energy, forces = model.potential.forward(batch)
+            energy, forces, out = model.potential.forward(batch)
 
         full_hessian = compute_full_hessian(
             coords=batch.pos, energy=energy, forces=forces
@@ -454,7 +454,7 @@ def test_hessian_utils():
         if model_name == "LEFTNet":
             energy, forces = model.potential.forward_autograd(batch)
         else:
-            energy, forces = model.potential.forward(batch)
+            energy, forces, out = model.potential.forward(batch)
 
         full_hessian = compute_full_hessian(
             coords=batch.pos, energy=energy, forces=forces
@@ -515,7 +515,7 @@ def test_hessian_utils():
         batch = batch.to(device)
         batch = compute_extra_props(batch)
         # batch.pos.requires_grad_(True)
-        energy, forces = model.potential.forward(batch)
+        energy, forces, out = model.potential.forward(batch)
     t1 = time.time()
     print(f"Time taken for just energy/force prediction: {t1 - t0:.2f} seconds")
 
@@ -526,7 +526,7 @@ def test_hessian_utils():
         batch = batch.to(device)
         batch = compute_extra_props(batch)
         # batch.pos.requires_grad_(True)
-        energy, forces = model.potential.forward(batch)
+        energy, forces, out = model.potential.forward(batch)
         # compute Hessian in postselect way
         full_hessian = compute_full_hessian(
             coords=batch.pos, energy=energy, forces=forces
@@ -544,7 +544,7 @@ def test_hessian_utils():
         batch = batch.to(device)
         batch = compute_extra_props(batch)
         # batch.pos.requires_grad_(True)
-        energy, forces = model.potential.forward(batch)
+        energy, forces, out = model.potential.forward(batch)
         # compute Hessian in batchwise way
         hessians = compute_hessian_batches(batch, batch.pos, energy, forces)
         seigvals, seigvecs = get_smallest_eigen_from_batched_hessians(
@@ -560,7 +560,7 @@ def test_hessian_utils():
         batch = batch.to(device)
         batch = compute_extra_props(batch)
         # batch.pos.requires_grad_(True)
-        energy, forces = model.potential.forward(batch)
+        energy, forces, out = model.potential.forward(batch)
         # compute Hessian in parallel
         hessian_single = compute_hessian_single_batch(batch, batch.pos, energy, forces)
         seigvals, seigvecs = get_smallest_eigen_from_batched_hessians(
@@ -583,7 +583,7 @@ def test_hessian_utils():
     batch = batch.to(device)
     batch = compute_extra_props(batch)
     # batch.pos.requires_grad_(True)
-    energy, forces = model.potential.forward(batch)
+    energy, forces, out = model.potential.forward(batch)
     # compute Hessian in parallel
     hessian_single = compute_hessian_single_batch(batch, batch.pos, energy, forces)
     t0 = time.time()
@@ -610,7 +610,7 @@ def test_hessian_utils():
                 batch = batch.to(device)
                 batch = compute_extra_props(batch)
                 # batch.pos.requires_grad_(True)
-                energy, forces = model.potential.forward(batch)
+                energy, forces, out = model.potential.forward(batch)
                 # Try to compute Hessian in the batchwise way
                 hessians = compute_hessian_batches(batch, batch.pos, energy, forces)
                 break  # Only need to test one batch per batch_size
@@ -636,7 +636,7 @@ def test_hessian_utils():
             for i, batch in enumerate(dataloader):
                 batch = batch.to(device)
                 batch = compute_extra_props(batch)
-                energy, forces = model.potential.forward(batch)
+                energy, forces, out = model.potential.forward(batch)
                 # Try to compute Hessian in the postselect way
                 full_hessian = compute_full_hessian(
                     coords=batch.pos, energy=energy, forces=forces

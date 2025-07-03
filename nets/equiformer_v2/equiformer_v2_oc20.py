@@ -21,6 +21,7 @@ from torch_geometric.nn import radius_graph
 try:
     from e3nn import o3
 except ImportError:
+    print("e3nn not found in nets/equiformer_v2/equiformer_v2_oc20.py")
     pass
 
 from .gaussian_rbf import GaussianRadialBasisLayer
@@ -159,6 +160,7 @@ class EquiformerV2_OC20(BaseModel):
         do_eigvec_2=False,
         do_eigval_1=False,
         do_eigval_2=False,
+        do_hessian=False,
         **kwargs,
     ):
         super().__init__()
@@ -464,6 +466,9 @@ class EquiformerV2_OC20(BaseModel):
         else:
             self.eigval_2_head = None
 
+        if do_hessian:
+            raise NotImplementedError("Hessian prediction not implemented")
+
         self.apply(self._init_weights)
         self.apply(self._uniform_init_rad_func_linear_weights)
 
@@ -482,7 +487,7 @@ class EquiformerV2_OC20(BaseModel):
         return Hji
 
     @conditional_grad(torch.enable_grad())
-    def forward(self, data, eigen=False):
+    def forward(self, data, eigen=False, hessian=False):
         """
         If eigen=True, return predictions for eigenvalues and eigenvectors of the Hessian in outputs dict.
 
@@ -615,8 +620,8 @@ class EquiformerV2_OC20(BaseModel):
         ###############################################################
         # Eigenvalue/eigenvector estimation
         ###############################################################
+        outputs = {}
         if eigen:
-            outputs = {}
             if self.eigval_1_head is not None:
                 node_eigval_1 = self.eigval_1_head(x)
                 eigval_1 = get_scalar_from_embedding(node_eigval_1, data)
@@ -640,9 +645,20 @@ class EquiformerV2_OC20(BaseModel):
                 eigvec_2 = eigvec_2.view(-1, 3)
                 outputs["eigvec_2"] = eigvec_2
 
-            return energy.reshape(data.ae.shape), forces, outputs
+        ###############################################################
+        # Hessian estimation
+        ###############################################################
+        if hessian:
+            raise NotImplementedError("Hessian prediction not implemented")
+        
+            # node embeddings 
+            # x.embedding
+            
+            # SO2EquivariantGraphAttention: Perform MLP attention + non-linear message passing
+            # SO(2) Convolution with radial function -> S2 Activation -> SO(2) Convolution -> attention weights and non-linear messages
+            # attention weights * non-linear messages -> Linear
 
-        return energy.reshape(data.ae.shape), forces
+        return energy.reshape(data.ae.shape), forces, outputs
 
     # Initialize the edge rotation matrics
     def _init_edge_rot_mat(self, data, edge_index, edge_distance_vec):
