@@ -58,8 +58,8 @@ def remove_dir_recursively(path):
     return not os.path.exists(path)
 
 
-def _fix_dataset_path(_path):
-    def _fix_dataset_path_single(_path):
+def fix_horm_dataset_path(_path):
+    def _fix_horm_dataset_path_single(_path):
         if os.path.exists(_path):
             # set absolute path
             return os.path.abspath(_path)
@@ -75,9 +75,9 @@ def _fix_dataset_path(_path):
         or isinstance(_path, tuple)
         or isinstance(_path, ListConfig)
     ):
-        return [_fix_dataset_path_single(p) for p in _path]
+        return [_fix_horm_dataset_path_single(p) for p in _path]
     else:
-        return _fix_dataset_path_single(_path)
+        return _fix_horm_dataset_path_single(_path)
 
 
 if __name__ == "__main__":

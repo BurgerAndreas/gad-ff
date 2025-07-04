@@ -11,7 +11,7 @@ import time
 import torch
 from tqdm import tqdm
 from gadff.horm.ff_lmdb import LmdbDataset
-from gadff.path_config import _fix_dataset_path
+from gadff.path_config import fix_horm_dataset_path
 
 
 def inspect_dft_hess_eigen(
@@ -25,7 +25,7 @@ def inspect_dft_hess_eigen(
         num_samples (int): Number of samples to analyze (default: 100)
     """
     # ---- Load dataset ----
-    input_lmdb_path = _fix_dataset_path(dataset_file)
+    input_lmdb_path = fix_horm_dataset_path(dataset_file)
     dataset = LmdbDataset(input_lmdb_path)
     print(f"Loaded dataset with {len(dataset)} samples from {input_lmdb_path}")
 

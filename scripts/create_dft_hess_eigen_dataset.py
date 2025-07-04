@@ -29,10 +29,11 @@ import torch
 import copy
 from tqdm import tqdm
 from gadff.horm.ff_lmdb import LmdbDataset
+from gadff.hessian_eigen import projector_vibrational_modes
 from gadff.horm.hessian_utils import get_smallest_eigen_from_full_hessian
 from gadff.path_config import (
     DATASET_DIR_HORM_EIGEN,
-    _fix_dataset_path,
+    fix_horm_dataset_path,
     remove_dir_recursively,
 )
 
@@ -56,7 +57,7 @@ def create_dfteigen_dataset(
 
     summary = []
 
-    input_lmdb_path = _fix_dataset_path(dataset_file)
+    input_lmdb_path = fix_horm_dataset_path(dataset_file)
     if debug:
         output_lmdb_path = input_lmdb_path.replace(
             ".lmdb", "-dft-hess-eigen-DEBUG.lmdb"
@@ -117,28 +118,25 @@ def create_dfteigen_dataset(
                 )  # [N*3, N*3]
 
                 # [N*3], [N*3, N*3]
-                eigenvalues, eigenvectors = torch.linalg.eigh(dft_hessian)
+                # eigenvalues, eigenvectors = torch.linalg.eigh(dft_hessian)
+                eigenvalues, eigenvectors = projector_vibrational_modes(
+                    pos=original_sample.pos,
+                    atom_types=original_sample.atom_types,
+                    H=dft_hessian,
+                )
 
                 # Sort eigenvalues and eigenvectors so that eigenvalues are in ascending order
                 sorted_eigenvals, sort_indices = torch.sort(eigenvalues)
-                print(f"eigenvalues shape: {eigenvalues.shape}")
-                print(f"eigenvectors shape: {eigenvectors.shape}")
-                print(f"sort_indices shape: {sort_indices.shape}")
                 sorted_eigenvecs = eigenvectors[:, sort_indices]
-                print(f"eigenvectors shape: {eigenvectors.shape}")
-                assert sorted_eigenvals[0] <= sorted_eigenvals[1]
                 eigenvalues = sorted_eigenvals
                 eigenvectors = sorted_eigenvecs
-
-                exit()
 
                 smallest_eigenvals = eigenvalues[:2].cpu()  # [2]
                 smallest_eigenvecs = eigenvectors[:, :2].cpu()  # [3*N, 2]
 
-                # Reshape eigenvectors to [2, N, 3] format
-                eigvecs_reshaped = smallest_eigenvecs.T.reshape(
-                    2, n_atoms, 3
-                )  # [2, N, 3]
+                # Reshape eigenvectors
+                eigvec1 = smallest_eigenvecs[:, 0].reshape(n_atoms, 3)  # [N, 3]
+                eigvec2 = smallest_eigenvecs[:, 1].reshape(n_atoms, 3)  # [N, 3]
 
                 # Add new fields to the original data object
                 data_copy.hessian_eigenvalue_1 = smallest_eigenvals[
@@ -147,8 +145,8 @@ def create_dfteigen_dataset(
                 data_copy.hessian_eigenvalue_2 = smallest_eigenvals[
                     1:2
                 ]  # Keep as [1] tensor
-                data_copy.hessian_eigenvector_1 = eigvecs_reshaped[0]  # [N, 3]
-                data_copy.hessian_eigenvector_2 = eigvecs_reshaped[1]  # [N, 3]
+                data_copy.hessian_eigenvector_1 = eigvec1  # [N, 3]
+                data_copy.hessian_eigenvector_2 = eigvec2  # [N, 3]
 
                 # Optionally remove the hessian to save space
                 if not save_hessian:

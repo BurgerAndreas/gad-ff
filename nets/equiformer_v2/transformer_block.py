@@ -133,7 +133,7 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
 
         # Create SO(2) convolution blocks
         extra_m0_output_channels = None
-        if not self.use_s2_act_attn: # False -> True
+        if not self.use_s2_act_attn:  # False -> True
             extra_m0_output_channels = self.num_heads * self.attn_alpha_channels
             if self.use_gate_act:
                 extra_m0_output_channels = (
@@ -168,7 +168,8 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
             edge_channels_list=(
                 self.edge_channels_list if not self.use_m_share_rad else None
             ),
-            extra_m0_output_channels=extra_m0_output_channels,  # for attention weights and/or gate activation
+            # for attention weights and/or gate activation
+            extra_m0_output_channels=extra_m0_output_channels,  
         )
 
         if self.use_s2_act_attn:
@@ -229,13 +230,19 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
             lmax=self.lmax_list[0],
         )
 
-    def forward(self, x, atomic_numbers, edge_distance, edge_index, return_attn_messages=False):
+    def forward(
+        self, x, atomic_numbers, edge_distance, edge_index, 
+        # added for direct Hessian prediction
+        return_attn_messages=False,
+        # message node_i->node_j = message node_j->node_i
+        symmetric_messages=False,
+    ):
         """
         x: SO3_Embedding (N, L, C)
         atomic_numbers: (N)
         edge_distance: (E, num_edge_features)
         edge_index: (2, E)
-        
+
         L = num_l_features = (l + 1)^2
         C = num_channels
         E = num_edges
@@ -243,7 +250,7 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
 
         # Compute edge scalar features (invariant to rotations)
         # Uses atomic numbers and edge distance as inputs
-        if self.use_atom_edge_embedding: # True
+        if self.use_atom_edge_embedding:  # True
             source_element = atomic_numbers[edge_index[0]]  # Source atom atomic number
             target_element = atomic_numbers[edge_index[1]]  # Target atom atomic number
             source_embedding = self.source_embedding(source_element)
@@ -262,7 +269,20 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
         x_target._expand_edge(edge_index[1, :])
 
         # Message data is the embeddings of the nodes connected by the edge
-        x_message_data = torch.cat((x_source.embedding, x_target.embedding), dim=2) # (E, L, 2*C)
+        if symmetric_messages:
+            avg_embedding = (x_source.embedding + x_target.embedding) / 2
+            x_message_data = torch.cat(
+                (avg_embedding, avg_embedding), dim=2
+            )  # (E, L, 2*C)
+            # # symmetric aggregation
+            # x_message_data = torch.cat([
+            #     x_source.embedding + x_target.embedding,  # symmetric sum
+            #     x_source.embedding * x_target.embedding,  # symmetric product
+            # ], dim=2)
+        else:
+            x_message_data = torch.cat(
+                (x_source.embedding, x_target.embedding), dim=2
+            )  # (E, L, 2*C)
         x_message = SO3_Embedding(
             0,
             x_target.lmax_list.copy(),
@@ -274,7 +294,7 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
         x_message.set_lmax_mmax(self.lmax_list.copy(), self.mmax_list.copy())
 
         # radial function (scale all m components within a type-L vector of one channel with the same weight)
-        if self.use_m_share_rad: # False
+        if self.use_m_share_rad:  # False
             x_edge_weight = self.rad_func(x_edge)
             x_edge_weight = x_edge_weight.reshape(
                 -1, (max(self.lmax_list) + 1), 2 * self.sphere_channels
@@ -285,11 +305,11 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
             x_message.embedding = x_message.embedding * x_edge_weight
 
         # Rotate the irreps to align with the edge
-        # So we can do SO(2) convolution instead of SO(3) 
+        # So we can do SO(2) convolution instead of SO(3)
         x_message._rotate(self.SO3_rotation, self.lmax_list, self.mmax_list)
 
         # First SO(2)-convolution
-        if self.use_s2_act_attn: # False
+        if self.use_s2_act_attn:  # False
             x_message = self.so2_conv_1(x_message, x_edge)
         else:
             # (E, L-6, H), (E, ?)
@@ -297,7 +317,7 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
 
         # Activation between convolutions
         x_alpha_num_channels = self.num_heads * self.attn_alpha_channels
-        if self.use_gate_act: # False
+        if self.use_gate_act:  # False
             # Gate activation
             x_0_gating = x_0_extra.narrow(
                 1, x_alpha_num_channels, x_0_extra.shape[1] - x_alpha_num_channels
@@ -324,41 +344,45 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
             ##x_message._grid_act(self.SO3_grid, self.value_act, self.mappingReduced)
 
         # Second SO(2)-convolution
-        if self.use_s2_act_attn: # False
+        if self.use_s2_act_attn:  # False
             x_message, x_0_extra = self.so2_conv_2(x_message, x_edge)
         else:
             # HV = num_heads * attn_value_channels
-            x_message = self.so2_conv_2(x_message, x_edge) # (E, L-6, HV)
+            x_message = self.so2_conv_2(x_message, x_edge)  # (E, L-6, HV)
 
         # Attention weights
-        if self.use_s2_act_attn: # False
+        if self.use_s2_act_attn:  # False
             alpha = x_0_extra
         else:
             x_0_alpha = x_0_alpha.reshape(-1, self.num_heads, self.attn_alpha_channels)
             x_0_alpha = self.alpha_norm(x_0_alpha)
-            x_0_alpha = self.alpha_act(x_0_alpha) # (E, num_heads, attn_alpha_channels)
-            alpha = torch.einsum("bik, ik -> bi", x_0_alpha, self.alpha_dot) # (E, num_heads)
+            x_0_alpha = self.alpha_act(x_0_alpha)  # (E, num_heads, attn_alpha_channels)
+            alpha = torch.einsum(
+                "bik, ik -> bi", x_0_alpha, self.alpha_dot
+            )  # (E, num_heads)
         alpha = torch_geometric.utils.softmax(alpha, edge_index[1])
-        alpha = alpha.reshape(alpha.shape[0], 1, self.num_heads, 1) # (E, 1, num_heads, 1)
+        alpha = alpha.reshape(
+            alpha.shape[0], 1, self.num_heads, 1
+        )  # (E, 1, num_heads, 1)
         if self.alpha_dropout is not None:
             alpha = self.alpha_dropout(alpha)
 
         # Attention weights * non-linear messages
-        attn = x_message.embedding # (E, L-6, HV)
+        attn = x_message.embedding  # (E, L-6, HV)
         attn = attn.reshape(
             attn.shape[0], attn.shape[1], self.num_heads, self.attn_value_channels
-        ) # (E, L-6, num_heads, attn_value_channels)
+        )  # (E, L-6, num_heads, attn_value_channels)
         attn = attn * alpha
         attn = attn.reshape(
             attn.shape[0], attn.shape[1], self.num_heads * self.attn_value_channels
         )
-        x_message.embedding = attn # (E, L-6, HV)
+        x_message.embedding = attn  # (E, L-6, HV)
+
+        # Rotate back the irreps # [E, L, C]
+        x_message._rotate_inv(self.SO3_rotation, self.mappingReduced)
         
         if return_attn_messages:
             return x_message
-
-        # Rotate back the irreps
-        x_message._rotate_inv(self.SO3_rotation, self.mappingReduced)
 
         # Compute the sum of the incoming neighboring messages for each target node
         x_message._reduce_edge(edge_index[1], len(x.embedding))

@@ -40,6 +40,50 @@ from nets.equiformer_v2.transformer_block import (
 )
 from e3nn import o3
 
+def equivariance_test(model, batch_base):
+    N = batch_base.natoms.item()
+    
+    # regular forward pass
+    batch = batch_base.clone()
+    batch = batch.to(model.device)
+    batch = compute_extra_props(batch, pos_require_grad=True)
+    energy, forces, out = model.forward(batch, eigen=True, hessian=True)
+    pred_hessian = out["hessian"]
+    
+    # R = o3.wigner_D(
+    #     1, torch.tensor([0.3]), torch.tensor([1.8]), torch.tensor([-2.8])
+    # )[0]
+    # R = R.to(model.device)
+    R = torch.tensor(o3.rand_matrix()).to(model.device) # det(R) = +1
+    
+    # rotated batch
+    print(f"Rotation matrix: {R.shape}")
+    batch = batch_base.clone()
+    batch = batch.to(model.device)
+    batch.pos = batch.pos @ R
+    assert torch.allclose(batch.pos @ R, torch.matmul(batch.pos, R))
+    batch = compute_extra_props(batch, pos_require_grad=True)
+    energy2, forces2, rotated_out = model.forward(batch, eigen=True, hessian=True)
+    hessian2 = rotated_out["hessian"]
+
+    # energy should be invariant
+    diffe = energy - energy2
+    print(f"Energy abs diff: {diffe.abs().item():.2e}")
+    print(f"Energy rel diff: {(diffe.abs() / energy.abs()).item():.2e}")
+    
+    # forces should be equivariant
+    difff = forces - (forces2 @ R.T)
+    print(f"Forces abs diff: {difff.abs().mean().item():.2e}")
+    print(f"Forces rel diff: {(difff.abs() / forces.abs()).mean().item():.2e}")
+    
+    # hessian should be equivariant
+    R_hessian = torch.kron(torch.eye(N, device=model.device, dtype=model.dtype), R)
+    diffh = pred_hessian - (R_hessian @ hessian2 @ R_hessian.T)
+    print(f"Hessian abs diff: {diffh.abs().mean().item():.2e}")
+    _pred_hessian = torch.where(pred_hessian == 0, 1, pred_hessian)
+    print(f"Hessian rel diff: {(diffh.abs() / _pred_hessian.abs()).mean().item():.2e}")
+    
+    
 
 if __name__ == "__main__":
 
@@ -57,10 +101,9 @@ if __name__ == "__main__":
     state_dict = {k.replace("potential.", ""): v for k, v in state_dict.items()}
     model.load_state_dict(state_dict, strict=False)
 
-    model.train()
+    model.eval()
     model.to("cuda")
 
-    # Example 1: load a dataset file and predict the first batch
     from ocpmodels.ff_lmdb import LmdbDataset
 
     dataset_path = os.path.join(project_root, "data/sample_100.lmdb")
@@ -78,37 +121,7 @@ if __name__ == "__main__":
         energy, forces, out = model.forward(batch, eigen=True, hessian=True)
         pred_hessian = out["hessian"]
         
-        # rotation matrix
-        D1 = o3.wigner_D(
-            1, torch.tensor([0.3]), torch.tensor([1.8]), torch.tensor([-2.8])
-        )[0]
-        D1 = D1.to(model.device)
-        
-        batch = batch_base.clone()
-        batch = batch.to(model.device)
-        batch.pos = batch.pos @ D1
-        batch = compute_extra_props(batch, pos_require_grad=True)
-        energy_rot, forces_rot, out_rot = model.forward(batch, eigen=True, hessian=True)
-        pred_hessian_rot = out_rot["hessian"]
-        
-        hessian_rotation_matrix = torch.kron(torch.eye(N, device=model.device, dtype=model.dtype), D1)
-        
-        true_rot_hessian = hessian_rotation_matrix @ pred_hessian @ hessian_rotation_matrix.T
-        
-        diff = true_rot_hessian - pred_hessian_rot
-        print(f"max diff: {diff.abs().max():.2e}")
-        print(f"mean diff: {diff.abs().mean():.2e}")
-        print(f"mean diff: {(diff.abs() / pred_hessian_rot.abs()).mean():.2e}")
-        print(f"norm diff: {torch.norm(diff)/torch.norm(true_rot_hessian):.2e}")
-        
-        print("")
-        true_rot_forces = hessian_rotation_matrix @ forces.reshape(-1)
-        pred_rot_forces = forces_rot.reshape(-1)
-        diff_forces = true_rot_forces - pred_rot_forces
-        print(f"max diff forces: {diff_forces.abs().max():.2e}")
-        print(f"mean diff forces: {diff_forces.abs().mean():.2e}")
-        print(f"mean diff forces: {(diff_forces.abs() / pred_rot_forces.abs()).mean():.2e}")
-        print(f"norm diff forces: {torch.norm(diff_forces)/torch.norm(true_rot_forces):.2e}")
+        equivariance_test(model, batch)
 
         # print(batch.keys())
         # true_hessian = batch.hessian

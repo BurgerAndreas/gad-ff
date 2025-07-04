@@ -18,6 +18,7 @@ from ocpmodels.preprocessing import AtomsToGraphs
 
 from ase.calculators.calculator import Calculator
 from ase import Atoms
+from gadff.hessian_eigen import projector_vibrational_modes, get_modes_geometric, compute_cartesian_modes
 
 
 def get_model(config_path):
@@ -27,29 +28,33 @@ def get_model(config_path):
     print("model_config", model_config)
     return EquiformerV2_OC20(**model_config), model_config
 
+
 # https://github.com/deepprinciple/HORM/blob/eval/eval.py
 def _get_derivatives(x, y, retain_graph=None, create_graph=False):
     """Helper function to compute derivatives"""
-    grad = torch.autograd.grad([y.sum()], [x], retain_graph=retain_graph, create_graph=create_graph)[0]
+    grad = torch.autograd.grad(
+        [y.sum()], [x], retain_graph=retain_graph, create_graph=create_graph
+    )[0]
     return grad
 
 
 def compute_hessian(coords, forces, retain_graph=True):
     """Compute Hessian matrix using autograd."""
-    
+
     # Get number of components (n_atoms * 3)
     n_comp = forces.reshape(-1).shape[0]
-    
+
     # Initialize hessian
     hess = []
     for f in forces.reshape(-1):
         # Compute second-order derivative for each element
         hess_row = _get_derivatives(coords, -f, retain_graph=retain_graph)
         hess.append(hess_row)
-        
+
     # Stack hessian
     hessian = torch.stack(hess)
     return hessian.reshape(n_comp, -1)
+
 
 class EquiformerCalculator:
     def __init__(
@@ -123,13 +128,19 @@ class EquiformerCalculator:
 
         # 3D coordinates -> 3N^2 Hessian elements
         hessian = compute_hessian(batch.pos, forces, retain_graph=True)
-        
+
         # A named tuple (eigenvalues, eigenvectors) which corresponds to Λ and Q in: M = Qdiag(Λ)Q^T
         # eigenvalues will always be real-valued. It will also be ordered in ascending order.
         # eigenvectors contain the eigenvectors as its columns.
-        eigenvalues, eigenvectors = torch.linalg.eigh(hessian)
+        # eigenvalues, eigenvectors = torch.linalg.eigh(hessian)
+        # eigenvalues, eigenvectors = projector_vibrational_modes(
+        #     pos=batch.pos,
+        #     atom_types=batch.z,
+        #     H=hessian,
+        # )
+        eigenvalues, eigenvectors = get_modes_geometric(hessian, batch.pos, batch.z, True, True)
         smallest_eigenvals = eigenvalues[:2]
-        smallest_eigenvecs = eigenvectors[:, :2] # [N*3, 2]
+        smallest_eigenvecs = eigenvectors[:, :2]  # [N*3, 2]
         eigenvalues = smallest_eigenvals
         eigenvectors = smallest_eigenvecs.T.view(2, N, 3)
         return energy, forces, hessian, eigenvalues, eigenvectors, eigenpred
@@ -158,12 +169,42 @@ class EquiformerCalculator:
         return gad, out
 
     def predict_gad_with_hessian(self, batch):
-        energy, forces, hessian, eigenvalues, eigenvectors, eigenpred = (
-            self.predict_with_hessian(batch)
-        )
-        v = eigenvectors[0].reshape(-1)  # N*3
-        v = v / torch.norm(v, dim=0, keepdim=True)
-        forces = forces.reshape(-1)  # N*3
+        B = batch.batch.max() + 1
+        assert B == 1, "Only one batch is supported for Hessian prediction"
+        N = batch.natoms
+
+        # Prepare batch with extra properties
+        batch = batch.to(self.model.device)
+        batch = compute_extra_props(batch, pos_require_grad=True)
+
+        # Run prediction
+        with torch.enable_grad():
+            energy, forces, eigenpred = self.model.forward(batch, eigen=False)
+
+        hessian = compute_hessian(batch.pos, forces, retain_graph=True)
+
+        # A named tuple (eigenvalues, eigenvectors) which corresponds to Λ and Q in: M = Qdiag(Λ)Q^T
+        # eigenvalues will always be real-valued. It will also be ordered in ascending order.
+        # eigenvectors contain the eigenvectors as its columns.
+        # eigenvalues, eigenvectors = torch.linalg.eigh(hessian)
+        # eigenvalues, eigenvectors = projector_vibrational_modes(
+        #     pos=batch.pos,
+        #     atom_types=batch.z,
+        #     H=hessian,
+        # )
+        eigenvalues, eigenvectors = get_modes_geometric(hessian, batch.pos, batch.z, True, True)
+        eigenvalues = eigenvalues[:2]
+        eigenvectors = eigenvectors[:, :2]
+        v = eigenvectors[:, 0].reshape(-1)  # [N*3]
+
+        # eigenvector should be normalized anyway
+        v = v / torch.norm(v)
+
+        forces = forces.reshape(-1)  # [N*3]
+
+        # dx/dt = -∇V(x) + 2(∇V, v(x))v(x)
+        # = F + 2(-F, v(x))v(x)
+        # since F = -∇V(x)
         dot_product = torch.dot(-forces, v)
         gad = forces + (2 * dot_product * v)
         out = {

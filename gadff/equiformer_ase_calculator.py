@@ -26,6 +26,34 @@ from ocpmodels.common.relaxation.ase_utils import (
 
 from nets.equiformer_v2.equiformer_v2_oc20 import EquiformerV2_OC20
 from nets.prediction_utils import compute_extra_props
+from gadff.hessian_eigen import projector_vibrational_modes
+
+
+# https://github.com/deepprinciple/HORM/blob/eval/eval.py
+def _get_derivatives(x, y, retain_graph=None, create_graph=False):
+    """Helper function to compute derivatives"""
+    grad = torch.autograd.grad(
+        [y.sum()], [x], retain_graph=retain_graph, create_graph=create_graph
+    )[0]
+    return grad
+
+
+def compute_hessian(coords, forces, retain_graph=True):
+    """Compute Hessian matrix using autograd."""
+
+    # Get number of components (n_atoms * 3)
+    n_comp = forces.reshape(-1).shape[0]
+
+    # Initialize hessian
+    hess = []
+    for f in forces.reshape(-1):
+        # Compute second-order derivative for each element
+        hess_row = _get_derivatives(coords, -f, retain_graph=retain_graph)
+        hess.append(hess_row)
+
+    # Stack hessian
+    hessian = torch.stack(hess)
+    return hessian.reshape(n_comp, -1)
 
 
 class EquiformerASECalculator(Calculator):
@@ -159,25 +187,16 @@ class EquiformerASECalculator(Calculator):
             forces = forces.reshape(-1)
             num_elements = forces.shape[0]
 
-            def get_vjp(v):
-                return torch.autograd.grad(
-                    outputs=-1 * forces,
-                    inputs=batch.pos,
-                    grad_outputs=v,
-                    retain_graph=True,
-                    create_graph=False,
-                    allow_unused=False,
-                )
-
-            I_N = torch.eye(num_elements, device=forces.device)
-            hessian = torch.vmap(get_vjp, in_dims=0, out_dims=0, chunk_size=None)(I_N)[
-                0
-            ]
-            hessian = hessian.view(N * 3, N * 3)
+            hessian = compute_hessian(batch.pos, forces, retain_graph=True)
             self.results["hessian"] = hessian.detach().cpu().numpy()
 
         if "eigen" in properties:
-            eigenvalues, eigenvectors = torch.linalg.eigh(hessian)
+            # eigenvalues, eigenvectors = torch.linalg.eigh(hessian)
+            eigenvalues, eigenvectors = projector_vibrational_modes(
+                pos=batch.pos,
+                atom_types=batch.z,
+                H=hessian,
+            )
             smallest_eigenvals = eigenvalues[:2]
             smallest_eigenvecs = eigenvectors[:, :2]
             self.results["eigenvalues"] = smallest_eigenvals.detach().cpu().numpy()

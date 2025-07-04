@@ -841,6 +841,11 @@ class EquiformerV2_OC20(BaseModel):
             l012_features = self.hessian_proj(l012_features).embedding[:, :, 0]
             l012_features = irreps_to_cartesian_matrix(l012_features) # (E, 3, 3)
             
+            # for every message between nodes i->j
+            # there is a corresponding message j->i
+            # but how to find the corresponding message?
+            # there is a permutation matrix P that maps edge_index[0, :] to edge_index[1, :]
+            
             # same message but the edge direction reversed
             edge_distance_rev = torch.zeros_like(edge_distance)
             edge_distance_rev[0] = edge_distance[1]

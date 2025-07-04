@@ -255,7 +255,12 @@ def plot_molecule_mpl(
     if save:
         plt.tight_layout(pad=0.0)
         if filename is None:
-            filename = f"{title.lower().replace(' ', '_').replace('-', '_')}.png"
+            filename = "".join(
+                [c if c.isalnum() or c == "_" else "_" for c in title.lower()]
+            )
+            filename = f"mol_{filename}.png"
+            for _ in range(3):
+                filename = filename.replace("__", "_")
             filepath = os.path.join(plot_dir, filename)
         plt.savefig(filepath, dpi=150, bbox_inches="tight")
         plt.close()  # Close to free memory
@@ -305,7 +310,7 @@ def plot_traj_mpl(
     """
     #######################################3
     # plot final frame
-    
+
     # Convert to numpy if torch tensor
     coords = to_numpy(coords_traj[-1])
 
@@ -384,7 +389,7 @@ def plot_traj_mpl(
 
             # Use RDKit's bond perception
             rdDetermineBonds.DetermineBonds(mol, charge=0)
-            
+
             bonds = mol.GetBonds()
             for bond in bonds:
                 i = bond.GetBeginAtomIdx()
@@ -454,7 +459,9 @@ def plot_traj_mpl(
             coords = to_numpy(coords_traj[i])
             # Patch: ensure colors_traj[i] is a list, not a tuple
             color = colors_traj[i]
-            if not isinstance(color, (list, tuple)) or (isinstance(color, tuple) and len(color) == 3):
+            if not isinstance(color, (list, tuple)) or (
+                isinstance(color, tuple) and len(color) == 3
+            ):
                 color = [color]
             ax.scatter(
                 coords[:, 0],
@@ -481,7 +488,7 @@ def plot_traj_mpl(
             if plot_atom_traj:
                 if i > 0:
                     # plots lines between atoms across timesteps
-                    coord_prev = to_numpy(coords_traj[i-1])
+                    coord_prev = to_numpy(coords_traj[i - 1])
                     for _atom in range(len(coords)):
                         ax.plot(
                             [coord_prev[_atom, 0], coords[_atom, 0]],
@@ -571,11 +578,13 @@ def plot_traj_mpl(
     if save:
         plt.tight_layout(pad=0.1)
         if filename is None:
-            filename = f"{title.lower().replace(' ', '_').replace('-', '_')}_traj.png"
+            filename = "".join(
+                [c if c.isalnum() or c == "_" else "_" for c in title.lower()]
+            )
+            filename = f"traj_{filename}.png"
+            for _ in range(3):
+                filename = filename.replace("__", "_")
             filepath = os.path.join(plot_dir, filename)
-        filename = filename.replace(" ", "_")
-        for _ in range(3):
-            filename = filename.replace("__", "_")
         plt.savefig(filepath, dpi=150, bbox_inches="tight")
         plt.close()  # Close to free memory
 

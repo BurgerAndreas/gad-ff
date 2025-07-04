@@ -71,14 +71,13 @@ def integrate_dynamics(
     print("")
     print("-" * 6)
     print(f"Following {force_field} vector field: {title}")
-    
+
     # Compute RMSD between initial guess and transition state
     rmsd_initial = rmsd(initial_pos.numpy(), true_pos.numpy())
     print(f"RMSD start: {rmsd_initial:.6f} Å")
 
     # Create initial batch from interpolated guess
     current_pos = initial_pos.clone().requires_grad_(True).to(device)
-    tg_data_current = TGData(z=z, pos=current_pos, natoms=natoms)
 
     # Storage for trajectory
     trajectory_pos = []
@@ -107,6 +106,8 @@ def integrate_dynamics(
             # Compute forces
             energy, forces, eigenpred = calc.predict(batch_current)
             forces = forces.reshape(-1, 3)
+        else:
+            raise ValueError(f"Unknown force field: {force_field}")
 
         # Store trajectory
         trajectory_pos.append(current_pos.detach().cpu().clone())
@@ -122,17 +123,19 @@ def integrate_dynamics(
             break
 
         # terminate if force norm was small for 50 steps
-        if np.all(np.array(trajectory_forces_norm[-n_patience_steps:]) < patience_threshold):
+        if np.all(
+            np.array(trajectory_forces_norm[-n_patience_steps:]) < patience_threshold
+        ):
             print(f"Force norm was small for {n_patience_steps} steps, terminating")
             break
 
         # Euler integration step
-        current_pos = current_pos.detach() + dt * forces # [N, 3]
-        
+        current_pos = current_pos.detach() + dt * forces  # [N, 3]
+
         # center around center of mass
         if center_around_com:
             current_pos = current_pos - current_pos.mean(dim=0, keepdim=True)
-        
+
         if align_rotation:
             # align rotation of current_pos to initial_pos
             _rot, _trans = find_rigid_alignment(current_pos, initial_pos)
@@ -161,9 +164,7 @@ def integrate_dynamics(
 
     # Compute RMSD between converged structure and true transition state
     rmsd_final = rmsd(final_pos.numpy(), true_pos.numpy())
-    print(
-        f"RMSD end: {rmsd_final:.6f} Å"
-    )
+    print(f"RMSD end: {rmsd_final:.6f} Å")
     print(f"Improvement: {rmsd_initial - rmsd_final:.6f} Å")
 
     # Compute Hessian eigenvalues at final structure
@@ -220,7 +221,7 @@ def run_sella(pos_initial_guess, z, natoms, true_pos, calc=None):
     else:
         mol_ase.calc = calc
         calcname = calc.__class__.__name__
-        
+
     print("")
     print("-" * 6)
     print(f"Starting Sella {calcname} optimization to find transition state")
@@ -265,9 +266,7 @@ def run_sella(pos_initial_guess, z, natoms, true_pos, calc=None):
         else true_pos.numpy()
     )
     rmsd_sella = rmsd(final_positions_sella, true_ts_positions)
-    print(
-        f"RMSD end: {rmsd_sella:.6f} Å"
-    )
+    print(f"RMSD end: {rmsd_sella:.6f} Å")
     print(f"Improvement: {rmsd_initial - rmsd_sella:.6f} Å")
     return mol_ase
 
@@ -369,52 +368,40 @@ def main():
 
     ###################################################################################
     # Follow the GAD vector field to find the transition state
-    # Start from reactant
     print("\n" + "=" * 60)
     print("Following GAD vector field to find transition state")
-    traj, _, _, _ = integrate_dynamics(
-        pos_reactant,
-        sample.z,
-        sample.natoms,
-        calc,
-        sample.pos_transition,
-        force_field="gad",
-        max_steps=1_000,
-        dt=0.01,
-        title="TS from R",
-        n_patience_steps=1000,
-        # patience_threshold=1.0,
-        # center_around_com=True,
-    )
-    plot_molecule_mpl(
-        traj[-1],
-        atomic_numbers=sample.z,
-        title="GAD Optimized TS from R",
-        plot_dir=plot_dir,
-        save=True,
-    )
-    
-    traj, _, _, _ = integrate_dynamics(
-        pos_reactant,
-        sample.z,
-        sample.natoms,
-        calc,
-        sample.pos_transition,
-        force_field="gad",
-        max_steps=100,
-        dt=0.1,
-        title="TS from R (dt 0.1)",
-        n_patience_steps=1000,
-        # patience_threshold=1.0,
-        # center_around_com=True,
-    )
-    plot_molecule_mpl(
-        traj[-1],
-        atomic_numbers=sample.z,
-        title="GAD Optimized TS from R (dt 0.1)",
-        plot_dir=plot_dir,
-        save=True,
-    )
+
+    # # Start from reactant
+    # traj, _, _, _ = integrate_dynamics(
+    #     pos_reactant,
+    #     sample.z,
+    #     sample.natoms,
+    #     calc,
+    #     sample.pos_transition,
+    #     force_field="gad",
+    #     max_steps=1_000,
+    #     dt=0.01,
+    #     title="TS from R",
+    #     n_patience_steps=1000,
+    #     # patience_threshold=1.0,
+    #     # center_around_com=True,
+    # )
+
+    # # very long
+    # traj, _, _, _ = integrate_dynamics(
+    #     pos_reactant,
+    #     sample.z,
+    #     sample.natoms,
+    #     calc,
+    #     sample.pos_transition,
+    #     force_field="gad",
+    #     max_steps=10_000,
+    #     dt=0.01,
+    #     title="TS from R (10k steps)",
+    #     n_patience_steps=10000,
+    #     # patience_threshold=1.0,
+    #     # center_around_com=True,
+    # )
 
     # Follow the GAD vector field from R-P interpolation
     traj, _, _, _ = integrate_dynamics(
@@ -426,38 +413,49 @@ def main():
         force_field="gad",
         max_steps=1_000,
         dt=0.01,
-        title="TS from R-P interpolation",
+        title="R-P interpolation",
         n_patience_steps=500,
         # patience_threshold=1.0,
     )
-    plot_molecule_mpl(
-        traj[-1],
-        atomic_numbers=sample.z,
-        title="GAD Optimized TS from R-P interpolation",
-        plot_dir=plot_dir,
-        save=True,
-    )
-    
-    # Follow the GAD vector field from transition state
+
+    # # Follow the GAD vector field from transition state
+    # traj, _, _, _ = integrate_dynamics(
+    #     sample.pos_transition,
+    #     sample.z,
+    #     sample.natoms,
+    #     calc,
+    #     sample.pos_transition,
+    #     force_field="gad",
+    #     max_steps=100,
+    #     dt=0.01,
+    #     title="TS from TS",
+    #     n_patience_steps=1000,
+    #     patience_threshold=1.0,
+    # )
+
+    # Follow the GAD vector field from perturbed transition state
+    _pos = torch.randn_like(sample.pos_transition) + sample.pos_transition
     traj, _, _, _ = integrate_dynamics(
-        sample.pos_transition,
+        _pos,
         sample.z,
         sample.natoms,
         calc,
         sample.pos_transition,
         force_field="gad",
-        max_steps=100,
+        max_steps=1000,
         dt=0.01,
-        title="TS from TS",
+        title="TS from perturbed TS",
+        n_patience_steps=1000,
+        patience_threshold=1.0,
     )
     plot_molecule_mpl(
         traj[-1],
         atomic_numbers=sample.z,
-        title="GAD starting from TS",
+        title="GAD starting from perturbed TS",
         plot_dir=plot_dir,
         save=True,
     )
-    
+
     exit()
 
     ###################################################################################

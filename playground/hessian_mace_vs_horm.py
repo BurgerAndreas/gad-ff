@@ -11,7 +11,7 @@ import torch.nn
 import torch.utils.data
 
 from torch_geometric.loader import DataLoader as TGDataLoader
-from torch_geometric.data import Batch 
+from torch_geometric.data import Batch
 from torch_geometric.data import Data as TGData
 
 from nets.equiformer_v2.equiformer_v2_oc20 import EquiformerV2_OC20
@@ -19,6 +19,7 @@ from nets.prediction_utils import compute_extra_props
 
 ###################################################################################
 # MACE
+
 
 # https://github.com/ACEsuit/mace/blob/1d5b6a0bdfdc7258e0bb711eda1c998a4aa77976/mace/modules/utils.py#L112
 @torch.jit.unused
@@ -84,7 +85,9 @@ def compute_hessians_loop(
 
 def _get_derivatives(x, y, retain_graph=None, create_graph=False):
     """Helper function to compute derivatives"""
-    grad = torch.autograd.grad([y.sum()], [x], retain_graph=retain_graph, create_graph=create_graph)[0]
+    grad = torch.autograd.grad(
+        [y.sum()], [x], retain_graph=retain_graph, create_graph=create_graph
+    )[0]
     return grad
 
 
@@ -93,17 +96,17 @@ def compute_hessian(coords, energy, forces=None):
     # Compute forces if not given
     if forces is None:
         forces = -_get_derivatives(coords, energy, create_graph=True)
-    
+
     # Get number of components (n_atoms * 3)
     n_comp = forces.reshape(-1).shape[0]
-    
+
     # Initialize hessian
     hess = []
     for f in forces.reshape(-1):
         # Compute second-order derivative for each element
         hess_row = _get_derivatives(coords, -f, retain_graph=True)
         hess.append(hess_row)
-        
+
     # Stack hessian
     hessian = torch.stack(hess)
     return hessian.reshape(n_comp, -1)
@@ -114,11 +117,10 @@ def hess2eigenvalues(hess):
     hartree_to_ev = 27.2114
     bohr_to_angstrom = 0.529177
     ev_angstrom_2_to_hartree_bohr_2 = (bohr_to_angstrom**2) / hartree_to_ev
-    
+
     hess = hess * ev_angstrom_2_to_hartree_bohr_2
     eigen_values, _ = torch.linalg.eigh(hess)
     return eigen_values
-
 
 
 if __name__ == "__main__":
@@ -148,12 +150,11 @@ if __name__ == "__main__":
 
     dataloader = TGDataLoader(dataset, batch_size=1, shuffle=False)
 
-
     print("\n")
-    for batch_base in tqdm(dataloader, desc='Evaluating', total=len(dataloader)):
+    for batch_base in tqdm(dataloader, desc="Evaluating", total=len(dataloader)):
 
         N = batch_base.natoms
-        
+
         # MACE
         batch = batch_base.clone()
         batch = batch.to(model.device)
@@ -162,12 +163,11 @@ if __name__ == "__main__":
         forces = forces.reshape(-1)
         print("Forces", forces.shape)
         print("Pos", batch.pos.shape)
-        hessian_mace = compute_hessians_vmap(forces, batch.pos) # [N*3, N, 3]
-        hessian_mace = hessian_mace.reshape(N*3, N*3)
+        hessian_mace = compute_hessians_vmap(forces, batch.pos)  # [N*3, N, 3]
+        hessian_mace = hessian_mace.reshape(N * 3, N * 3)
         print("Hessian MACE", hessian_mace.shape)
         mace_eigval, mace_eigvec = torch.linalg.eigh(hessian_mace)
         forces1 = forces.clone().detach()
-
 
         # HORM
         # batch = batch_base.clone()
@@ -177,52 +177,52 @@ if __name__ == "__main__":
         hessian_horm = compute_hessian(batch.pos, energy, forces)
         print("Horm Hessian", hessian_horm.shape)
         horm_eigval, horm_eigvec = torch.linalg.eigh(hessian_horm)
-        
+
         print("")
         forces2 = forces.clone().detach()
         dff = forces1 - forces2.reshape(-1)
         print("Forces Max diff", dff.abs().max())
         print("Forces Mean diff", dff.abs().mean())
-        
+
         dff = hessian_mace - hessian_horm
         print("Hessian Max diff", dff.abs().max())
         print("Hessian Mean diff", dff.abs().mean())
-        
+
         # print("")
         # print(hessian_mace[0][:20])
         # print(hessian_horm[0][:20])
-        
+
         print("")
         diff = horm_eigvec[:, 0] - mace_eigvec[:, 0]
         print("Eigenvector Max diff", diff.abs().max())
         print("Eigenvector Mean diff", diff.abs().mean())
-        
+
         print("")
         diff = mace_eigval - horm_eigval
         print("Eigenvalue Max diff", diff.abs().max())
         print("Eigenvalue Mean diff", diff.abs().mean())
-        
+
         break
-    
+
     # Time the difference
     print("")
     start_time = time.time()
-    for batch in tqdm(dataloader, desc='Evaluating', total=len(dataloader)):
+    for batch in tqdm(dataloader, desc="Evaluating", total=len(dataloader)):
         batch = batch.to(model.device)
         batch = compute_extra_props(batch, pos_require_grad=True)
         N = batch.natoms
         energy, forces, eigenpred = model.forward(batch, eigen=True)
         forces = forces.reshape(-1)
-        hessian_mace = compute_hessians_vmap(forces, batch.pos) # [N*3, N, 3]
-        hessian_mace = hessian_mace.reshape(N*3, N*3)
+        hessian_mace = compute_hessians_vmap(forces, batch.pos)  # [N*3, N, 3]
+        hessian_mace = hessian_mace.reshape(N * 3, N * 3)
     end_time = time.time()
     print(f"MACE time taken: {end_time - start_time:.1f} seconds")
-    
+
     start_time = time.time()
-    for batch in tqdm(dataloader, desc='Evaluating', total=len(dataloader)):
+    for batch in tqdm(dataloader, desc="Evaluating", total=len(dataloader)):
         batch = batch.to(model.device)
         batch = compute_extra_props(batch, pos_require_grad=True)
         energy, forces, eigenpred = model.forward(batch, eigen=True)
-        hessian_horm = compute_hessian(batch.pos, energy, forces) # [N*3, N, 3]
+        hessian_horm = compute_hessian(batch.pos, energy, forces)  # [N*3, N, 3]
     end_time = time.time()
     print(f"Horm time taken: {end_time - start_time:.1f} seconds")
