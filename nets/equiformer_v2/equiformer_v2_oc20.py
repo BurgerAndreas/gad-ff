@@ -16,6 +16,12 @@ from ocpmodels.models.scn.smearing import (
     SigmoidSmearing,
     SiLUSmearing,
 )
+from ocpmodels.common.utils import (
+    compute_neighbors,
+    conditional_grad,
+    get_pbc_distances,
+    radius_graph_pbc,
+)
 from torch_geometric.nn import radius_graph
 
 try:
@@ -51,12 +57,15 @@ from .transformer_block import (
 )
 from .input_block import EdgeDegreeEmbedding
 from torch import tensor, float32
+import einops
 
 # Statistics of IS2RE 100K
 _AVG_NUM_NODES = 77.81317
 _AVG_DEGREE = 23.395238876342773  # IS2RE: 100k, max_radius = 5, max_neighbors = 100
 
-
+# l0_features = x_message.embedding.narrow(dimension=1, start=0, length=1)
+# l1_features = x_message.embedding.narrow(dimension=1, start=1, length=3)
+# l2_features = x_message.embedding.narrow(dim=1, start=4, length=5) # length=2l+1
 def get_scalar_from_embedding(embedding, data):
     embedding = embedding.embedding.narrow(1, 0, 1)
     scalars = torch.zeros(
@@ -65,6 +74,23 @@ def get_scalar_from_embedding(embedding, data):
     scalars.index_add_(0, data.batch, embedding.view(-1))
     return scalars / _AVG_NUM_NODES
 
+def irreps_to_cartesian_matrix(irrpes):
+
+    assert irrpes.shape[-1] == 9, "Irreps must be of shape (..., 9)"
+    M = torch.zeros((irrpes.shape[0], 3, 3), device=irrpes.device, dtype=irrpes.dtype)
+    for l3 in range(3):
+        ClGo = o3.wigner_3j(1, 1, l3, dtype=irrpes.dtype, device=irrpes.device)
+        if l3 == 0:
+            features_l3 = irrpes[...,:1]
+        elif l3 == 1:
+            features_l3 = irrpes[...,1:4]
+        elif l3 == 2:
+            features_l3 = irrpes[...,4:9]
+
+        M += einops.einsum(ClGo, features_l3, 'm1 m2 m3, b m3 -> b m1 m2')
+                
+
+    return M
 
 @registry.register_model("equiformer_v2")
 class EquiformerV2_OC20(BaseModel):
@@ -477,7 +503,7 @@ class EquiformerV2_OC20(BaseModel):
                 attn_alpha_channels=self.attn_alpha_channels,
                 attn_value_channels=self.attn_value_channels,
                 # different output_channels affects the linear projection after aggregating the messages
-                output_channels=1, 
+                output_channels=1,
                 lmax_list=self.lmax_list,
                 mmax_list=self.mmax_list,
                 SO3_rotation=self.SO3_rotation,
@@ -485,14 +511,14 @@ class EquiformerV2_OC20(BaseModel):
                 SO3_grid=self.SO3_grid,
                 max_num_elements=self.max_num_elements,
                 edge_channels_list=self.edge_channels_list,
-                use_atom_edge_embedding=self.block_use_atom_edge_embedding, # different
+                use_atom_edge_embedding=self.block_use_atom_edge_embedding,  # different
                 use_m_share_rad=self.use_m_share_rad,
                 activation=self.attn_activation,
                 use_s2_act_attn=self.use_s2_act_attn,
                 use_attn_renorm=self.use_attn_renorm,
                 use_gate_act=self.use_gate_act,
                 use_sep_s2_act=self.use_sep_s2_act,
-                alpha_drop=self.hessian_alpha_drop, 
+                alpha_drop=self.hessian_alpha_drop,
             )
             # # copied from transformer block
             # self.hessian_block = SO2EquivariantGraphAttention(
@@ -518,6 +544,16 @@ class EquiformerV2_OC20(BaseModel):
             #     use_sep_s2_act=self.use_sep_s2_act,
             #     alpha_drop=self.hessian_alpha_drop,
             # )
+            self.hessian_proj = SO3_LinearV2(
+                self.num_heads * self.attn_value_channels,
+                1,
+                lmax=2,
+            )
+            self.hessian_node_proj = SO3_LinearV2(
+                self.sphere_channels,
+                1,
+                lmax=2,
+            )
         else:
             self.hessian_block = None
 
@@ -539,6 +575,93 @@ class EquiformerV2_OC20(BaseModel):
         return Hji
 
     @conditional_grad(torch.enable_grad())
+    def generate_graph(
+        self,
+        data,
+        cutoff=None,
+        max_neighbors=None,
+        use_pbc=None,
+        otf_graph=None,
+    ):
+        cutoff = cutoff or self.cutoff
+        max_neighbors = max_neighbors or self.max_neighbors
+        use_pbc = use_pbc or self.use_pbc
+        otf_graph = otf_graph or self.otf_graph
+
+        if not otf_graph:
+            try:
+                edge_index = data.edge_index
+
+                if use_pbc:
+                    cell_offsets = data.cell_offsets
+                    neighbors = data.neighbors
+
+            except AttributeError:
+                logging.warning(
+                    "Turning otf_graph=True as required attributes not present in data object"
+                )
+                otf_graph = True
+
+        if use_pbc:
+            if otf_graph:
+                edge_index, cell_offsets, neighbors = radius_graph_pbc(
+                    data, cutoff, max_neighbors
+                )
+
+            out = get_pbc_distances(
+                data.pos,
+                edge_index,
+                data.cell,
+                cell_offsets,
+                neighbors,
+                return_offsets=True,
+                return_distance_vec=True,
+            )
+
+            edge_index = out["edge_index"]
+            edge_dist = out["distances"]
+            cell_offset_distances = out["offsets"]
+            distance_vec = out["distance_vec"]
+        else:
+            if otf_graph:
+                edge_index = radius_graph(
+                    data.pos,
+                    r=cutoff,
+                    batch=data.batch,
+                    max_num_neighbors=max_neighbors,
+                )
+
+            j, i = edge_index
+            distance_vec = data.pos[j] - data.pos[i]
+
+            edge_dist = distance_vec.norm(dim=-1)
+            cell_offsets = torch.zeros(edge_index.shape[1], 3, device=data.pos.device)
+            cell_offset_distances = torch.zeros_like(
+                cell_offsets, device=data.pos.device
+            )
+            neighbors = compute_neighbors(data, edge_index)
+
+        return (
+            edge_index,
+            edge_dist,
+            distance_vec,
+            cell_offsets,
+            cell_offset_distances,
+            neighbors,
+        )
+
+    def generate_fullyconnected_graph_nopbc(self, data):
+        # used by HORM
+        pos = data.pos
+        edge_index = radius_graph(pos, r=self.cutoff, batch=data.batch)
+        j, i = edge_index
+        posj = pos[j]
+        posi = pos[i]
+        vecs = posj - posi
+        edge_distance_vec = vecs
+        edge_distance = (vecs).norm(dim=-1)
+        return edge_index, edge_distance, edge_distance_vec
+
     def forward(self, data, eigen=False, hessian=False):
         """
         If eigen=True, return predictions for eigenvalues and eigenvectors of the Hessian in outputs dict.
@@ -558,24 +681,25 @@ class EquiformerV2_OC20(BaseModel):
 
         atomic_numbers = data.z.long()
         num_atoms = len(atomic_numbers)
-        pos = data.pos
+        # pos = data.pos
+
+        # TODO
+        # cell_offsets, cell_offset_distances, neighbors are not used in EquiformerV2
+        (
+            edge_index,
+            edge_distance,
+            edge_distance_vec,
+            _,  # cell_offsets,
+            _,  # cell offset distances
+            _,  # neighbors,
+        ) = self.generate_graph(data)
 
         # (
         #     edge_index,
         #     edge_distance,
         #     edge_distance_vec,
-        #     cell_offsets,
-        #     _,  # cell offset distances
-        #     neighbors,
-        # ) = self.generate_graph(data)
+        # ) = self.generate_fullyconnected_graph_nopbc(data)
 
-        edge_index = radius_graph(pos, r=self.cutoff, batch=data.batch)
-        j, i = edge_index
-        posj = pos[j]
-        posi = pos[i]
-        vecs = posj - posi
-        edge_distance_vec = vecs
-        edge_distance = (vecs).norm(dim=-1)
         ###############################################################
         # Initialize data structures
         ###############################################################
@@ -701,30 +825,68 @@ class EquiformerV2_OC20(BaseModel):
         # Hessian estimation
         ###############################################################
         if hessian:
-            # SO2EquivariantGraphAttention: Perform MLP attention + non-linear message passing
-            # SO(2) Convolution with radial function -> S2 Activation -> SO(2) Convolution -> attention weights and non-linear messages
-            # attention weights * non-linear messages -> Linear
-            
-            # messages: SO3_Embedding (N, L-6, num_heads * attn_value_channels)
-            x_message = self.hessian_block(
-                x, atomic_numbers, edge_distance, edge_index
+            # messages: SO3_Embedding (E, L, num_heads * attn_value_channels)
+            x_message = self.hessian_block(x, atomic_numbers, edge_distance, edge_index, return_attn_messages=True)
+            # select l0, l1, l2 features
+            l012_tensor = x_message.embedding.narrow(dim=1, start=0, length=9) # length=2l+1
+            l012_features = SO3_Embedding(
+                length=l012_tensor.shape[0],
+                lmax_list=[2],
+                num_channels=l012_tensor.shape[2],
+                device=self.device,
+                dtype=self.dtype,
             )
+            l012_features.set_embedding(l012_tensor) # (E, 9, num_heads * attn_value_channels)
+            # project channel dimension to 1
+            l012_features = self.hessian_proj(l012_features).embedding[:, :, 0]
+            l012_features = irreps_to_cartesian_matrix(l012_features) # (E, 3, 3)
             
-            # Rotate back the irreps
-            x_message._rotate_inv(self.hessian_block.SO3_rotation, self.hessian_block.mappingReduced)
-
-            # Compute the sum of the incoming neighboring messages for each target node
-            x_message._reduce_edge(edge_index[1], len(x.embedding))
-
-            # Project
-            out_embedding = self.hessian_block.proj(x_message)
+            # same message but the edge direction reversed
+            edge_distance_rev = torch.zeros_like(edge_distance)
+            edge_distance_rev[0] = edge_distance[1]
+            edge_distance_rev[1] = edge_distance[0]
+            x_message_rev = self.hessian_block(x, atomic_numbers, edge_distance_rev, edge_index, return_attn_messages=True)
+            l012_tensor_rev = x_message_rev.embedding.narrow(dim=1, start=0, length=9) # length=2l+1
+            l012_features_rev = SO3_Embedding(
+                length=l012_tensor_rev.shape[0],
+                lmax_list=[2],
+                num_channels=l012_tensor_rev.shape[2],
+                device=self.device,
+                dtype=self.dtype,
+            )
+            l012_features_rev.set_embedding(l012_tensor_rev) # (E, 9, num_heads * attn_value_channels)
+            l012_features_rev = self.hessian_proj(l012_features_rev).embedding[:, :, 0]
+            l012_features_rev = irreps_to_cartesian_matrix(l012_features_rev) # (E, 3, 3)
+            # symmetrize the message
+            sym_message = (l012_features + l012_features_rev) / 2 # (E, 3, 3)
             
-            # node embeddings 
-            # x.embedding
+            hessian = torch.zeros((num_atoms, 3, num_atoms, 3), device=self.device, dtype=self.dtype)
+            for ij in range(edge_index.shape[1]):
+                i, j = edge_index[0, ij], edge_index[1, ij]
+                hessian[i, :, j, :] = sym_message[ij]
+                hessian[j, :, i, :] = sym_message[ij].T
+            hessian = hessian.view(num_atoms*3, num_atoms*3)
             
-            raise NotImplementedError("Hessian prediction not implemented")
-        
+            # combine message with node embeddings (self-connection)
+            # node embeddings -> (N, 3, 3)
+            l012_node_tensor = x.embedding.narrow(dim=1, start=0, length=9)
+            l012_node_features = SO3_Embedding(
+                length=l012_node_tensor.shape[0],
+                lmax_list=[2],
+                num_channels=l012_node_tensor.shape[2],
+                device=self.device,
+                dtype=self.dtype,
+            ) # (N, 9, C)
+            l012_node_features.set_embedding(l012_node_tensor)
+            l012_node_features = self.hessian_node_proj(l012_node_features).embedding[:, :, 0]
+            l012_node_features = irreps_to_cartesian_matrix(l012_node_features) # (N, 3, 3)
+            # add node embeddings to diagonal of hessian
+            # hessian = hessian + torch.eye(num_atoms*3, device=self.device, dtype=self.dtype).view(num_atoms*3, num_atoms*3) * l012_node_features
             
+            outputs["hessian"] = hessian
+            # import plotly.express as px
+            # fig = px.imshow(hessian.detach().cpu().numpy())
+            # fig.write_image("hessian.png")
 
         return energy.reshape(data.ae.shape), forces, outputs
 

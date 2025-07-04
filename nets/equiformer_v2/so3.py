@@ -201,7 +201,7 @@ class SO3_Embedding:
 
         # num_l_features = (l + 1)^2
         self.num_coefficients = 0
-        for i in range(self.num_resolutions): # usually 1
+        for i in range(self.num_resolutions):  # usually 1
             self.num_coefficients = self.num_coefficients + int((lmax_list[i] + 1) ** 2)
 
         embedding = torch.zeros(
