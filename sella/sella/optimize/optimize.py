@@ -42,6 +42,7 @@ class Sella(Optimizer):
         atoms: Atoms,
         restart: bool = None,
         logfile: str = "-",
+        # The name of the file. Traditionally ends in .traj
         trajectory: Union[str, Trajectory] = None,
         master: bool = None,
         delta0: float = None,
@@ -76,7 +77,7 @@ class Sella(Optimizer):
             if isinstance(trajectory, basestring):
                 mode = "a" if append_trajectory else "w"
                 trajectory = Trajectory(
-                    trajectory, mode=mode, atoms=atoms, master=master
+                    filename=trajectory, mode=mode, atoms=atoms, master=master
                 )
 
         asetraj = None

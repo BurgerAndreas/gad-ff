@@ -16,7 +16,13 @@ import os
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.equiformer_calculator import EquiformerCalculator
 from gadff.align_unordered_mols import rmsd
-from gadff.plot_molecules import plot_molecule_mpl, plot_traj_mpl
+from gadff.plot_molecules import (
+    plot_molecule_mpl,
+    plot_traj_mpl,
+    clean_filename,
+    save_to_xyz,
+    save_trajectory_to_xyz,
+)
 from gadff.align_ordered_mols import find_rigid_alignment
 
 from ase import Atoms
@@ -47,6 +53,14 @@ def convert_rgd1_to_tg_format(rgd1_data, state="transition"):
     return TGData(z=rgd1_data.z, pos=pos, natoms=rgd1_data.natoms)
 
 
+def to_numpy(x):
+    if x is None:
+        return None
+    if torch.is_tensor(x):
+        return x.detach().cpu().numpy()
+    return x
+
+
 def integrate_dynamics(
     initial_pos,
     z,
@@ -67,6 +81,8 @@ def integrate_dynamics(
     assert force_field in ["gad", "forces"], f"Unknown force field: {force_field}"
 
     device = calc.model.device
+
+    title += f" dt{dt}"
 
     print("")
     print("-" * 6)
@@ -146,21 +162,36 @@ def integrate_dynamics(
                 f"Step {step}: VF norm = {forces_norm:.6f}, Energy = {energy.item():.6f}"
             )
 
+    # Final position
+    final_pos = trajectory_pos[-1]
+
+    steps = len(trajectory_pos)
+    title += f" s{steps}"
+    title = f"{force_field} - {title}"
+
     # After convergence, compute final RMSD and eigenvalues
     # Plot trajectory
     plot_traj_mpl(
-        trajectory_pos,
-        title=f"{force_field} Integration - {title}",
+        coords_traj=trajectory_pos,
+        title=title,
         plot_dir=plot_dir,
         atomic_numbers=z,
         save=True,
         # forces_traj=trajectory_gad,
     )
 
-    # optionally save xyz to visualize with Mol* / Protein Viewer
+    # plot final position
+    plot_molecule_mpl(
+        final_pos,
+        atomic_numbers=z,
+        title=title,
+        plot_dir=plot_dir,
+        save=True,
+    )
 
-    # Final position
-    final_pos = trajectory_pos[-1]
+    # save xyz to visualize with Mol* / Protein Viewer
+    save_to_xyz(trajectory_pos[-1], z, plotfolder=plot_dir, filename=title)
+    save_trajectory_to_xyz(trajectory_pos, z, plotfolder=plot_dir, filename=title)
 
     # Compute RMSD between converged structure and true transition state
     rmsd_final = rmsd(final_pos.numpy(), true_pos.numpy())
@@ -199,7 +230,7 @@ def integrate_dynamics(
     plt.grid(True)
 
     plt.tight_layout(pad=0.1)
-    fig_name = f"{force_field}_convergence.png"
+    fig_name = clean_filename(title, "convergence")
     plt.savefig(os.path.join(plot_dir, fig_name), dpi=150, bbox_inches="tight")
     print(f"Saved convergence plot to {os.path.join(plot_dir, fig_name)}")
     return trajectory_pos, trajectory_energy, trajectory_forces_norm, trajectory_forces
@@ -226,14 +257,8 @@ def run_sella(pos_initial_guess, z, natoms, true_pos, calc=None):
     print("-" * 6)
     print(f"Starting Sella {calcname} optimization to find transition state")
 
-    rmsd_initial = rmsd(
-        positions_np,
-        (
-            true_pos.detach().cpu().numpy()
-            if torch.is_tensor(true_pos)
-            else true_pos.numpy()
-        ),
-    )
+    true_pos = to_numpy(true_pos)
+    rmsd_initial = rmsd(positions_np, true_pos)
     print(f"RMSD start: {rmsd_initial:.6f} Å")
 
     # Set up a Sella Dynamics object with improved parameters for TS search
@@ -260,14 +285,17 @@ def run_sella(pos_initial_guess, z, natoms, true_pos, calc=None):
     final_positions_sella = mol_ase.get_positions()
 
     # Compute RMSD between Sella-optimized structure and true transition state
-    true_ts_positions = (
-        true_pos.detach().cpu().numpy()
-        if torch.is_tensor(true_pos)
-        else true_pos.numpy()
-    )
-    rmsd_sella = rmsd(final_positions_sella, true_ts_positions)
+    rmsd_sella = rmsd(final_positions_sella, true_pos)
     print(f"RMSD end: {rmsd_sella:.6f} Å")
     print(f"Improvement: {rmsd_initial - rmsd_sella:.6f} Å")
+
+    traj = dyn.trajectory
+    plot_traj_mpl(
+        coords_traj=traj,
+        title=f"Sella {calcname}",
+        plot_dir=plot_dir,
+        atomic_numbers=z,
+    )
     return mol_ase
 
 
@@ -371,37 +399,69 @@ def main():
     print("\n" + "=" * 60)
     print("Following GAD vector field to find transition state")
 
-    # # Start from reactant
-    # traj, _, _, _ = integrate_dynamics(
-    #     pos_reactant,
-    #     sample.z,
-    #     sample.natoms,
-    #     calc,
-    #     sample.pos_transition,
-    #     force_field="gad",
-    #     max_steps=1_000,
-    #     dt=0.01,
-    #     title="TS from R",
-    #     n_patience_steps=1000,
-    #     # patience_threshold=1.0,
-    #     # center_around_com=True,
-    # )
+    # Test run - start from reactant
+    traj, _, _, _ = integrate_dynamics(
+        pos_reactant,
+        sample.z,
+        sample.natoms,
+        calc,
+        sample.pos_transition,
+        force_field="gad",
+        max_steps=100,
+        dt=0.1,
+        title="TS from R",
+        n_patience_steps=100,
+        # patience_threshold=1.0,
+        # center_around_com=True,
+    )
+    
+    # Start from reactant
+    traj, _, _, _ = integrate_dynamics(
+        pos_reactant,
+        sample.z,
+        sample.natoms,
+        calc,
+        sample.pos_transition,
+        force_field="gad",
+        max_steps=1_000,
+        dt=0.01,
+        title="TS from R",
+        n_patience_steps=1000,
+        # patience_threshold=1.0,
+        # center_around_com=True,
+    )
 
-    # # very long
-    # traj, _, _, _ = integrate_dynamics(
-    #     pos_reactant,
-    #     sample.z,
-    #     sample.natoms,
-    #     calc,
-    #     sample.pos_transition,
-    #     force_field="gad",
-    #     max_steps=10_000,
-    #     dt=0.01,
-    #     title="TS from R (10k steps)",
-    #     n_patience_steps=10000,
-    #     # patience_threshold=1.0,
-    #     # center_around_com=True,
-    # )
+    # large steps
+    traj, _, _, _ = integrate_dynamics(
+        pos_reactant,
+        sample.z,
+        sample.natoms,
+        calc,
+        sample.pos_transition,
+        force_field="gad",
+        max_steps=1_000,
+        dt=0.1,
+        title="TS from R",
+        n_patience_steps=1000,
+        # patience_threshold=1.0,
+        # center_around_com=True,
+    )
+
+    # very long
+    traj, _, _, _ = integrate_dynamics(
+        pos_reactant,
+        sample.z,
+        sample.natoms,
+        calc,
+        sample.pos_transition,
+        force_field="gad",
+        max_steps=10_000,
+        dt=0.01,
+        title="TS from R (10k steps)",
+        n_patience_steps=10000,
+        # patience_threshold=1.0,
+        # center_around_com=True,
+    )
 
     # Follow the GAD vector field from R-P interpolation
     traj, _, _, _ = integrate_dynamics(
@@ -447,13 +507,6 @@ def main():
         title="TS from perturbed TS",
         n_patience_steps=1000,
         patience_threshold=1.0,
-    )
-    plot_molecule_mpl(
-        traj[-1],
-        atomic_numbers=sample.z,
-        title="GAD starting from perturbed TS",
-        plot_dir=plot_dir,
-        save=True,
     )
 
     exit()

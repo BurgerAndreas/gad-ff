@@ -169,7 +169,7 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
                 self.edge_channels_list if not self.use_m_share_rad else None
             ),
             # for attention weights and/or gate activation
-            extra_m0_output_channels=extra_m0_output_channels,  
+            extra_m0_output_channels=extra_m0_output_channels,
         )
 
         if self.use_s2_act_attn:
@@ -231,7 +231,11 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
         )
 
     def forward(
-        self, x, atomic_numbers, edge_distance, edge_index, 
+        self,
+        x,
+        atomic_numbers,
+        edge_distance,
+        edge_index,
         # added for direct Hessian prediction
         return_attn_messages=False,
         # message node_i->node_j = message node_j->node_i
@@ -380,7 +384,7 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
 
         # Rotate back the irreps # [E, L, C]
         x_message._rotate_inv(self.SO3_rotation, self.mappingReduced)
-        
+
         if return_attn_messages:
             return x_message
 

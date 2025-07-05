@@ -63,6 +63,7 @@ import einops
 _AVG_NUM_NODES = 77.81317
 _AVG_DEGREE = 23.395238876342773  # IS2RE: 100k, max_radius = 5, max_neighbors = 100
 
+
 # l0_features = x_message.embedding.narrow(dimension=1, start=0, length=1)
 # l1_features = x_message.embedding.narrow(dimension=1, start=1, length=3)
 # l2_features = x_message.embedding.narrow(dim=1, start=4, length=5) # length=2l+1
@@ -74,6 +75,7 @@ def get_scalar_from_embedding(embedding, data):
     scalars.index_add_(0, data.batch, embedding.view(-1))
     return scalars / _AVG_NUM_NODES
 
+
 def irreps_to_cartesian_matrix(irrpes):
 
     assert irrpes.shape[-1] == 9, "Irreps must be of shape (..., 9)"
@@ -81,16 +83,16 @@ def irreps_to_cartesian_matrix(irrpes):
     for l3 in range(3):
         ClGo = o3.wigner_3j(1, 1, l3, dtype=irrpes.dtype, device=irrpes.device)
         if l3 == 0:
-            features_l3 = irrpes[...,:1]
+            features_l3 = irrpes[..., :1]
         elif l3 == 1:
-            features_l3 = irrpes[...,1:4]
+            features_l3 = irrpes[..., 1:4]
         elif l3 == 2:
-            features_l3 = irrpes[...,4:9]
+            features_l3 = irrpes[..., 4:9]
 
-        M += einops.einsum(ClGo, features_l3, 'm1 m2 m3, b m3 -> b m1 m2')
-                
+        M += einops.einsum(ClGo, features_l3, "m1 m2 m3, b m3 -> b m1 m2")
 
     return M
+
 
 @registry.register_model("equiformer_v2")
 class EquiformerV2_OC20(BaseModel):
@@ -826,9 +828,13 @@ class EquiformerV2_OC20(BaseModel):
         ###############################################################
         if hessian:
             # messages: SO3_Embedding (E, L, num_heads * attn_value_channels)
-            x_message = self.hessian_block(x, atomic_numbers, edge_distance, edge_index, return_attn_messages=True)
+            x_message = self.hessian_block(
+                x, atomic_numbers, edge_distance, edge_index, return_attn_messages=True
+            )
             # select l0, l1, l2 features
-            l012_tensor = x_message.embedding.narrow(dim=1, start=0, length=9) # length=2l+1
+            l012_tensor = x_message.embedding.narrow(
+                dim=1, start=0, length=9
+            )  # length=2l+1
             l012_features = SO3_Embedding(
                 length=l012_tensor.shape[0],
                 lmax_list=[2],
@@ -836,22 +842,39 @@ class EquiformerV2_OC20(BaseModel):
                 device=self.device,
                 dtype=self.dtype,
             )
-            l012_features.set_embedding(l012_tensor) # (E, 9, num_heads * attn_value_channels)
+            l012_features.set_embedding(
+                l012_tensor
+            )  # (E, 9, num_heads * attn_value_channels)
             # project channel dimension to 1
             l012_features = self.hessian_proj(l012_features).embedding[:, :, 0]
-            l012_features = irreps_to_cartesian_matrix(l012_features) # (E, 3, 3)
-            
-            # for every message between nodes i->j
-            # there is a corresponding message j->i
-            # but how to find the corresponding message?
-            # there is a permutation matrix P that maps edge_index[0, :] to edge_index[1, :]
-            
+            l012_features = irreps_to_cartesian_matrix(l012_features)  # (E, 3, 3)
+
+            # # for every message between nodes i->j
+            # # there is a corresponding message j->i
+            # # but how to find the corresponding message?
+            # # there is a permutation matrix P that maps edge_index[0, :] to edge_index[1, :]
+            # # l012_features_sym = torch.zeros_like(l012_features)
+            # edge_index_rev = torch.stack([edge_index[1], edge_index[0]], dim=0)
+            # idx_to_rev_message = torch.zeros(edge_index[0].shape[0], device=self.device, dtype=torch.long)
+            # for i in range(edge_index[0].shape[0]):
+            #     idx_to_rev_message[i] = torch.where(edge_index_rev[0] == edge_index[0][i])[0]
+            # l012_features_sym = torch.zeros_like(l012_features)
+            # l012_features_sym.index_add_(dim=0, index=idx_to_rev_message, source=l012_features)
+
             # same message but the edge direction reversed
             edge_distance_rev = torch.zeros_like(edge_distance)
             edge_distance_rev[0] = edge_distance[1]
             edge_distance_rev[1] = edge_distance[0]
-            x_message_rev = self.hessian_block(x, atomic_numbers, edge_distance_rev, edge_index, return_attn_messages=True)
-            l012_tensor_rev = x_message_rev.embedding.narrow(dim=1, start=0, length=9) # length=2l+1
+            x_message_rev = self.hessian_block(
+                x,
+                atomic_numbers,
+                edge_distance_rev,
+                edge_index,
+                return_attn_messages=True,
+            )
+            l012_tensor_rev = x_message_rev.embedding.narrow(
+                dim=1, start=0, length=9
+            )  # length=2l+1
             l012_features_rev = SO3_Embedding(
                 length=l012_tensor_rev.shape[0],
                 lmax_list=[2],
@@ -859,19 +882,24 @@ class EquiformerV2_OC20(BaseModel):
                 device=self.device,
                 dtype=self.dtype,
             )
-            l012_features_rev.set_embedding(l012_tensor_rev) # (E, 9, num_heads * attn_value_channels)
+            l012_features_rev.set_embedding(
+                l012_tensor_rev
+            )  # (E, 9, num_heads * attn_value_channels)
             l012_features_rev = self.hessian_proj(l012_features_rev).embedding[:, :, 0]
-            l012_features_rev = irreps_to_cartesian_matrix(l012_features_rev) # (E, 3, 3)
+            l012_features_rev = irreps_to_cartesian_matrix(
+                l012_features_rev
+            )  # (E, 3, 3)
             # symmetrize the message
-            sym_message = (l012_features + l012_features_rev) / 2 # (E, 3, 3)
-            
-            hessian = torch.zeros((num_atoms, 3, num_atoms, 3), device=self.device, dtype=self.dtype)
+            sym_message = (l012_features + l012_features_rev) / 2  # (E, 3, 3)
+
+            hessian = torch.zeros(
+                (num_atoms, 3, num_atoms, 3), device=self.device, dtype=self.dtype
+            )
             for ij in range(edge_index.shape[1]):
                 i, j = edge_index[0, ij], edge_index[1, ij]
                 hessian[i, :, j, :] = sym_message[ij]
                 hessian[j, :, i, :] = sym_message[ij].T
-            hessian = hessian.view(num_atoms*3, num_atoms*3)
-            
+
             # combine message with node embeddings (self-connection)
             # node embeddings -> (N, 3, 3)
             l012_node_tensor = x.embedding.narrow(dim=1, start=0, length=9)
@@ -881,13 +909,20 @@ class EquiformerV2_OC20(BaseModel):
                 num_channels=l012_node_tensor.shape[2],
                 device=self.device,
                 dtype=self.dtype,
-            ) # (N, 9, C)
+            )  # (N, 9, C)
             l012_node_features.set_embedding(l012_node_tensor)
-            l012_node_features = self.hessian_node_proj(l012_node_features).embedding[:, :, 0]
-            l012_node_features = irreps_to_cartesian_matrix(l012_node_features) # (N, 3, 3)
+            l012_node_features = self.hessian_node_proj(l012_node_features).embedding[
+                :, :, 0
+            ]
+            l012_node_features = irreps_to_cartesian_matrix(
+                l012_node_features
+            )  # (N, 3, 3)
             # add node embeddings to diagonal of hessian
             # hessian = hessian + torch.eye(num_atoms*3, device=self.device, dtype=self.dtype).view(num_atoms*3, num_atoms*3) * l012_node_features
-            
+            for ii in range(num_atoms):
+                hessian[ii, :, ii, :] = l012_node_features[ii]
+
+            hessian = hessian.view(num_atoms * 3, num_atoms * 3)
             outputs["hessian"] = hessian
             # import plotly.express as px
             # fig = px.imshow(hessian.detach().cpu().numpy())

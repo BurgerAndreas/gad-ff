@@ -18,7 +18,12 @@ from ocpmodels.preprocessing import AtomsToGraphs
 
 from ase.calculators.calculator import Calculator
 from ase import Atoms
-from gadff.hessian_eigen import projector_vibrational_modes, get_modes_geometric, compute_cartesian_modes
+from gadff.hessian_eigen import (
+    projector_vibrational_modes,
+    get_modes_geometric,
+    compute_cartesian_modes,
+    compute_vibrational_modes,
+)
 
 
 def get_model(config_path):
@@ -133,12 +138,14 @@ class EquiformerCalculator:
         # eigenvalues will always be real-valued. It will also be ordered in ascending order.
         # eigenvectors contain the eigenvectors as its columns.
         # eigenvalues, eigenvectors = torch.linalg.eigh(hessian)
-        # eigenvalues, eigenvectors = projector_vibrational_modes(
-        #     pos=batch.pos,
-        #     atom_types=batch.z,
-        #     H=hessian,
-        # )
-        eigenvalues, eigenvectors = get_modes_geometric(hessian, batch.pos, batch.z, True, True)
+        eigenvalues, eigenvectors = compute_vibrational_modes(
+            hessian,
+            batch.z,
+            batch.pos,
+            forces=forces,
+            include_force=True,
+            method="svd_projector", # geometric_library
+        )
         smallest_eigenvals = eigenvalues[:2]
         smallest_eigenvecs = eigenvectors[:, :2]  # [N*3, 2]
         eigenvalues = smallest_eigenvals
@@ -192,12 +199,24 @@ class EquiformerCalculator:
         #     atom_types=batch.z,
         #     H=hessian,
         # )
-        eigenvalues, eigenvectors = get_modes_geometric(hessian, batch.pos, batch.z, True, True)
+        # eigenvalues, eigenvectors = get_modes_geometric(
+        #     hessian, batch.z, batch.pos, True, True
+        # )
+        eigenvalues, eigenvectors = compute_vibrational_modes(
+            hessian,
+            batch.z,
+            batch.pos,
+            forces=forces,
+            include_force=True,
+            method="svd_projector",
+        )
+
         eigenvalues = eigenvalues[:2]
         eigenvectors = eigenvectors[:, :2]
         v = eigenvectors[:, 0].reshape(-1)  # [N*3]
 
         # eigenvector should be normalized anyway
+        v = v.to(dtype=forces.dtype)
         v = v / torch.norm(v)
 
         forces = forces.reshape(-1)  # [N*3]

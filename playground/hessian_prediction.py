@@ -40,22 +40,23 @@ from nets.equiformer_v2.transformer_block import (
 )
 from e3nn import o3
 
+
 def equivariance_test(model, batch_base):
     N = batch_base.natoms.item()
-    
+
     # regular forward pass
     batch = batch_base.clone()
     batch = batch.to(model.device)
     batch = compute_extra_props(batch, pos_require_grad=True)
     energy, forces, out = model.forward(batch, eigen=True, hessian=True)
     pred_hessian = out["hessian"]
-    
+
     # R = o3.wigner_D(
     #     1, torch.tensor([0.3]), torch.tensor([1.8]), torch.tensor([-2.8])
     # )[0]
     # R = R.to(model.device)
-    R = torch.tensor(o3.rand_matrix()).to(model.device) # det(R) = +1
-    
+    R = torch.tensor(o3.rand_matrix()).to(model.device)  # det(R) = +1
+
     # rotated batch
     print(f"Rotation matrix: {R.shape}")
     batch = batch_base.clone()
@@ -70,20 +71,19 @@ def equivariance_test(model, batch_base):
     diffe = energy - energy2
     print(f"Energy abs diff: {diffe.abs().item():.2e}")
     print(f"Energy rel diff: {(diffe.abs() / energy.abs()).item():.2e}")
-    
+
     # forces should be equivariant
     difff = forces - (forces2 @ R.T)
     print(f"Forces abs diff: {difff.abs().mean().item():.2e}")
     print(f"Forces rel diff: {(difff.abs() / forces.abs()).mean().item():.2e}")
-    
+
     # hessian should be equivariant
     R_hessian = torch.kron(torch.eye(N, device=model.device, dtype=model.dtype), R)
     diffh = pred_hessian - (R_hessian @ hessian2 @ R_hessian.T)
     print(f"Hessian abs diff: {diffh.abs().mean().item():.2e}")
     _pred_hessian = torch.where(pred_hessian == 0, 1, pred_hessian)
     print(f"Hessian rel diff: {(diffh.abs() / _pred_hessian.abs()).mean().item():.2e}")
-    
-    
+
 
 if __name__ == "__main__":
 
@@ -114,13 +114,13 @@ if __name__ == "__main__":
     print("\n")
     for batch_base in tqdm(dataloader, desc="Evaluating", total=len(dataloader)):
         N = batch_base.natoms.item()
-        
+
         batch = batch_base.clone()
         batch = batch.to(model.device)
         batch = compute_extra_props(batch, pos_require_grad=True)
         energy, forces, out = model.forward(batch, eigen=True, hessian=True)
         pred_hessian = out["hessian"]
-        
+
         equivariance_test(model, batch)
 
         # print(batch.keys())

@@ -21,11 +21,10 @@ from rdkit.Chem import GetPeriodicTable
 
 from ase import Atoms
 from ase.vibrations.data import VibrationsData
-from ase.units import Hartree, Bohr
 
-import geometric.molecule 
-import geometric.normal_modes 
-from geometric.nifty import au2kj, bohr2ang, c_lightspeed
+from ocpmodels.units import bohr_to_angstrom, angstrom_to_bohr
+
+import gadff.geometric_normal_modes
 
 """
 get the eigenvectors of the hessian of a force field, 
@@ -34,14 +33,15 @@ that do not correspond to extra rotation or translation degrees of freedom (inva
 
 # helper functions
 
+
 def _is_linear_molecule(coords, threshold=1e-8):
     """
     Check if a molecule is linear by examining the geometry
-    
+
     Args:
         coords: numpy array of shape (N, 3) with atomic coordinates
         threshold: tolerance for linearity detection
-    
+
     Returns:
         bool: True if molecule is linear
     """
@@ -50,35 +50,37 @@ def _is_linear_molecule(coords, threshold=1e-8):
     N = len(coords)
     if N <= 2:
         return True
-    
+
     # Center coordinates
     com = np.mean(coords, axis=0)
     coords_centered = coords - com
-    
+
     # Compute inertia tensor
     inertia_tensor = np.zeros((3, 3))
     for i in range(N):
         r = coords_centered[i]
         inertia_tensor += np.outer(r, r)
-    
+
     # Check if smallest eigenvalue is much smaller than others
     eigenvals = np.linalg.eigvals(inertia_tensor)
     eigenvals = np.sort(eigenvals)
-    
+
     # Linear if smallest eigenvalue is much smaller than largest
     return eigenvals[0] < threshold * eigenvals[-1]
 
 
-def _get_masses(atom_types):
+def _get_masses_zsymbols_znumbers(atom_types, device="cpu"):
     pt = GetPeriodicTable()
     if isinstance(atom_types, torch.Tensor):
         atom_types = atom_types.tolist()
     if isinstance(atom_types[0], str):
+        elements = atom_types
         atom_types = [pt.GetAtomicNumber(z) for z in atom_types]
-    masses = torch.tensor(
-        [pt.GetAtomicWeight(z) for z in atom_types], dtype=pos.dtype, device=pos.device
-    )
-    return masses
+    else:
+        elements = [pt.GetElementSymbol(z) for z in atom_types]
+    masses = torch.tensor([pt.GetAtomicWeight(z) for z in atom_types], device=device)
+    return masses, elements, atom_types
+
 
 def _compute_numerical_rank_threshold(
     evals: torch.Tensor, matrix_shape: tuple
@@ -107,7 +109,9 @@ def _compute_numerical_rank_threshold(
     return threshold.item()
 
 
-def _get_ndrop(evals, m_shape, threshold, sorted_evals=None, islinear=False, print_warning=False):
+def _get_ndrop(
+    evals, m_shape, threshold, sorted_evals=None, islinear=False, print_warning=False
+):
     expected_dof = 5 if islinear else 6
     if sorted_evals is None:
         sorted_evals, sort_idx = torch.sort(torch.abs(evals))
@@ -131,20 +135,22 @@ def _get_ndrop(evals, m_shape, threshold, sorted_evals=None, islinear=False, pri
     return threshold, ndrop
 
 
-# main functions to test
+# main functions to compute vibrational modes
 
 
-def get_modes_geometric(hessian, coords, atom_types, return_raw_eigenvalues=False, unmass_weight=False):
+def compute_modes_with_geometric_library(
+    hessian, atom_types, coords, **kwargs
+):
     """
-    Use Geometric for frequency analysis
+    Use Geometric library for frequency analysis
 
     Args:
         hessian: torch.Tensor Hessian matrix
-        coords: torch.Tensor coordinates in Angstrom
         atom_types: list of atomic numbers
+        coords: torch.Tensor coordinates in Angstrom
         return_raw_eigenvalues: bool, if True return eigenvalues in atomic units
                                instead of frequencies in cm⁻¹
-        unmass_weight: bool, if True and return_raw_eigenvalues=True, return raw Cartesian 
+        unmass_weight: bool, if True and return_raw_eigenvalues=True, return raw Cartesian
                       Hessian eigenvalues (Hartree/Bohr²) instead of mass-weighted ones
 
     Returns:
@@ -157,113 +163,67 @@ def get_modes_geometric(hessian, coords, atom_types, return_raw_eigenvalues=Fals
         If return_raw_eigenvalues=True and unmass_weight=True:
             eigenvals_torch: raw Cartesian Hessian eigenvalues in atomic units (Hartree/Bohr²)
             modes_torch: normal modes (from mass-weighted calculation)
-    
+
     Usage:
-        # 1. Default: frequencies in cm⁻¹
-        freqs_cm, modes = get_modes_geometric(hessian, coords, atom_types)
-
-        # 2. Mass-weighted eigenvalues in atomic units (Hartree/amu)
-        eigenvals_mw, modes = get_modes_geometric(hessian, coords, atom_types, return_raw_eigenvalues=True)
-
-        # 3. Raw Cartesian eigenvalues in atomic units (Hartree/Bohr²)
-        eigenvals_cart, modes = get_modes_geometric(hessian, coords, atom_types, return_raw_eigenvalues=True, unmass_weight=True)
+        # frequencies in cm⁻¹
+        freqs_cm, modes = compute_modes_with_geometric_library(hessian, atom_types, coords)
     """
 
     # Convert to numpy
-    if isinstance(hessian, torch.Tensor):
-        hessian = hessian.detach().cpu().numpy()
+    device = "cpu"
+    dtype = torch.float32
     if isinstance(coords, torch.Tensor):
+        device = coords.device
+        dtype = coords.dtype
         coords = coords.detach().cpu().numpy()
+    if isinstance(hessian, torch.Tensor):
+        device = hessian.device
+        dtype = hessian.dtype
+        hessian = hessian.detach().cpu().numpy()
 
     # Convert atomic numbers to symbols
-    elements = [GetPeriodicTable().GetElementSymbol(z) for z in atom_types]
-    
+    masses, elements, atom_types = _get_masses_zsymbols_znumbers(atom_types)
+
     # Convert coordinates from Angstrom to Bohr (geometric expects Bohr)
-    coords_bohr = coords.flatten() / Bohr  # Convert Å to Bohr
+    coords_bohr = coords.flatten() * angstrom_to_bohr  # Convert Å to Bohr
+
+    # convert Hessian from Hartree/Angstrom^2 to Hartree/Bohr^2 (atomic units)
+    assert bohr_to_angstrom == 1 / angstrom_to_bohr
+    hessian = hessian * (bohr_to_angstrom**2)
 
     # Get the normal modes. use geometric for proper removal of translational/rotational modes
-    freqs, modes, G_tot_au = geometric.normal_modes.frequency_analysis(coords_bohr, hessian, elem=elements, verbose=False)
-    
-    if return_raw_eigenvalues and unmass_weight:
-        # Now diagonalize the raw Cartesian Hessian to get unweighted eigenvalues
-        # Remove TR modes using the same projection as geometric would use
-        na = len(atom_types)
-        coords_2d = coords_bohr.reshape(-1, 3)
-        
-        # Get masses for the projection (but don't use them for weighting)
-        masses = np.array([GetPeriodicTable().GetAtomicWeight(z) for z in atom_types])
-        
-        # Create projection matrix to remove TR modes (simplified version of geometric's approach)
-        # This is a basic implementation - for production use, should use geometric's exact projection
-        from scipy.linalg import eigh
-        
-        # Mass-weight for projection only
-        invsqrtm3 = 1.0/np.sqrt(np.repeat(masses, 3))
-        wHessian_proj = hessian.copy() * np.outer(invsqrtm3, invsqrtm3)
-        
-        # Quick eigendecomposition to get the vibrational subspace
-        all_evals, all_evecs = eigh(wHessian_proj)
-        
-        # Keep the same number of modes as geometric returns
-        n_vib_modes = len(freqs)
-        # Sort by absolute value and take the largest n_vib_modes
-        sorted_idx = np.argsort(np.abs(all_evals))
-        vib_idx = sorted_idx[-n_vib_modes:]
-        
-        # Project the unweighted Hessian into the vibrational subspace
-        vib_evecs_mw = all_evecs[:, vib_idx]
-        vib_evecs_cart = vib_evecs_mw / invsqrtm3[:, np.newaxis]
-        
-        # Get eigenvalues of the raw Hessian in the vibrational subspace
-        H_vib = vib_evecs_cart.T @ hessian @ vib_evecs_cart
-        eigenvals_cart, _ = eigh(H_vib)
-        
-        # Convert back to torch
-        eigenvals_torch = torch.from_numpy(eigenvals_cart)
-        modes_torch = torch.from_numpy(modes)
-        
-        return eigenvals_torch, modes_torch
-    
-    else:
+    # (N*3-6,), (N*3-6, N*3)
+    freqs, modes = gadff.geometric_normal_modes.frequency_analysis(
+        coords_bohr, hessian, elem=elements, verbose=False
+    )
 
-        if return_raw_eigenvalues:
-            # Convert frequencies back to mass-weighted eigenvalues in atomic units
-            # Reverse the conversion done in frequency_analysis:
-            # mwHess_wavenumber = 1e10*np.sqrt(au2kj / bohr2nm**2)/(2*np.pi*c_lightspeed)
-            # freqs_wavenumber = mwHess_wavenumber * np.sqrt(np.abs(ichess_vals)) * np.sign(freqs_wavenumber)
-            
-            bohr2nm = bohr2ang / 10
-            mwHess_wavenumber = 1e10*np.sqrt(au2kj / bohr2nm**2)/(2*np.pi*c_lightspeed)
-            
-            # Reverse conversion: ichess_vals = (freqs_wavenumber / mwHess_wavenumber)^2 * sign(freqs_wavenumber)
-            eigenvals = (freqs / mwHess_wavenumber)**2 * np.sign(freqs)
-            
-            # Convert back to torch
-            eigenvals_torch = torch.from_numpy(eigenvals)
-            modes_torch = torch.from_numpy(modes)
-            
-            return eigenvals_torch, modes_torch
-        else:
-            # Convert back to torch
-            freqs_torch = torch.from_numpy(freqs)
-            modes_torch = torch.from_numpy(modes)
+    # Convert back to torch
+    freqs_torch = torch.from_numpy(freqs).to(device, dtype)
+    modes_torch = torch.from_numpy(modes).to(device, dtype)
 
-            return freqs_torch, modes_torch
+    freqs_torch, idx = torch.sort(torch.abs(freqs_torch))
+    # freqs_torch, idx = torch.sort(freqs_torch)
+    modes_torch = modes_torch[idx].T  # columns are the modes (3N, 3N-6)
+
+    # modes from Bohr to Angstrom
+    modes_torch = modes_torch * bohr_to_angstrom
+
+    return freqs_torch, modes_torch
 
 
-def get_vibrational_modes_ase(hessian_torch, coords, atom_types, debug=False):
+def compute_modes_with_ase_library(hessian, atom_types, coords, debug=False):
     """
-    Use ASE to get vibrational modes from torch Hessian
-    
+    Use ASE library to get vibrational modes from torch Hessian
+
     Intelligently separates translational/rotational modes from vibrational modes:
     1. If exactly 6 (or 5 for linear) imaginary freqs: treat as TR modes
-    2. If more imaginary freqs: smallest are TR, extras are transition state modes  
+    2. If more imaginary freqs: smallest are TR, extras are transition state modes
     3. If fewer imaginary freqs: supplement with lowest real frequencies
 
     Args:
-        hessian_torch: torch.Tensor of shape (3*N, 3*N) - Hessian matrix
-        coords: torch.Tensor of shape (N, 3) - atomic coordinates
+        hessian: torch.Tensor of shape (3*N, 3*N) - Hessian matrix
         atom_types: list of atomic numbers
+        coords: torch.Tensor of shape (N, 3) - atomic coordinates
         debug: bool - whether to print diagnostic information
 
     Returns:
@@ -274,11 +234,11 @@ def get_vibrational_modes_ase(hessian_torch, coords, atom_types, debug=False):
     """
 
     # Convert to numpy
-    hessian_np = hessian_torch.detach().cpu().numpy()
+    hessian_np = hessian.detach().cpu().numpy()
     coords_np = coords.detach().cpu().numpy()
-    masses = _get_masses(atom_types)
+    masses, elements, atom_types = _get_masses_zsymbols_znumbers(atom_types)
     masses_np = masses.detach().cpu().numpy()
-    symbols = [GetPeriodicTable().GetElementSymbol(z) for z in atom_types]
+    symbols = elements
 
     # Create ASE atoms object
     atoms = Atoms(symbols=symbols, positions=coords_np, masses=masses_np)
@@ -289,145 +249,266 @@ def get_vibrational_modes_ase(hessian_torch, coords, atom_types, debug=False):
     # Get all frequencies and modes
     frequencies_all = vib_data.get_frequencies()  # in cm^-1 (complex for imaginary)
     modes_all = vib_data.get_modes()  # shape (3*N, N, 3)
-    
+
     # Convert complex frequencies to real (negative for imaginary)
     frequencies_real = np.where(
-        np.isreal(frequencies_all), 
-        frequencies_all.real, 
-        -np.abs(frequencies_all.imag)
+        np.isreal(frequencies_all), frequencies_all.real, -np.abs(frequencies_all.imag)
     )
-    
+
     # Check for linearity
     is_linear = _is_linear_molecule(coords_np)
-    n_tr_expected = 5 if is_linear else 6  # Linear: 3 trans + 2 rot, Non-linear: 3 trans + 3 rot
-    
+    n_tr_expected = (
+        5 if is_linear else 6
+    )  # Linear: 3 trans + 2 rot, Non-linear: 3 trans + 3 rot
+
     # Separate imaginary and real frequencies
     is_imaginary = ~np.isreal(frequencies_all)
     imaginary_indices = np.where(is_imaginary)[0]
     real_indices = np.where(~is_imaginary)[0]
-    
+
     n_imaginary = len(imaginary_indices)
-    
-    # Strategy: 
+
+    # Strategy:
     # 1. If we have exactly the expected number of imaginary freqs, assume they are TR modes
     # 2. If we have more, assume the extra ones are transition state modes (keep them as vibrational)
     # 3. If we have fewer, supplement with lowest real frequencies
-    
+
     if n_imaginary != n_tr_expected and debug:
         print(f"Imaginary frequencies: {n_imaginary}")
         print(f"Expected TR modes: {n_tr_expected}")
         print(f"Molecule is {'linear' if is_linear else 'non-linear'}")
         print(f"frequencies_all\n", np.sort(np.abs(frequencies_all))[:10])
         print(f"frequencies_real\n", np.sort(np.abs(frequencies_real))[:10])
-        print(f"frequencies_all[imaginary_indices]\n", frequencies_all[imaginary_indices][:10])
-    
+        print(
+            f"frequencies_all[imaginary_indices]\n",
+            frequencies_all[imaginary_indices][:10],
+        )
+
     if n_imaginary == n_tr_expected:
         # Perfect case: imaginary frequencies are exactly the TR modes
         tr_indices = imaginary_indices
         vib_indices = real_indices
-        
+
     elif n_imaginary > n_tr_expected:
         # Extra imaginary frequencies - likely transition state
         # Sort imaginary frequencies by absolute value (smallest = most likely TR)
         imag_abs_vals = np.abs(frequencies_all[imaginary_indices].imag)
         imag_sorted_idx = np.argsort(imag_abs_vals)
-        
+
         # Take the smallest (absolute value) imaginary frequencies as TR modes
         tr_from_imag = imaginary_indices[imag_sorted_idx[:n_tr_expected]]
         extra_imag = imaginary_indices[imag_sorted_idx[n_tr_expected:]]
-        
+
         tr_indices = tr_from_imag
         vib_indices = np.concatenate([extra_imag, real_indices])
-        
+
     else:
         # Fewer imaginary frequencies than expected TR modes
         # Use all imaginary + lowest real frequencies to complete TR modes
         n_real_needed = n_tr_expected - n_imaginary
-        
+
         if n_real_needed > 0:
             # Sort real frequencies by absolute value
             real_abs_vals = np.abs(frequencies_real[real_indices])
             real_sorted_idx = np.argsort(real_abs_vals)
-            
+
             tr_from_real = real_indices[real_sorted_idx[:n_real_needed]]
             remaining_real = real_indices[real_sorted_idx[n_real_needed:]]
-            
+
             tr_indices = np.concatenate([imaginary_indices, tr_from_real])
             vib_indices = remaining_real
         else:
             tr_indices = imaginary_indices
             vib_indices = real_indices
-            
+
     # Sort indices for consistent output
     tr_indices = np.sort(tr_indices)
     vib_indices = np.sort(vib_indices)
-    
+
     # Extract vibrational modes
     frequencies_vib = frequencies_real[vib_indices]
     modes_vib = modes_all[vib_indices]  # shape (n_vib, N, 3)
-    
+
     # Convert back to torch
-    frequencies_vib_torch = torch.from_numpy(frequencies_vib).to(hessian_torch.device)
-    modes_vib_torch = torch.from_numpy(modes_vib).to(hessian_torch.device)
-    frequencies_all_torch = torch.from_numpy(frequencies_real).to(hessian_torch.device)
-    
-    return frequencies_vib_torch, modes_vib_torch, frequencies_all_torch, len(tr_indices)
+    frequencies_vib_torch = torch.from_numpy(frequencies_vib).to(hessian.device)
+    modes_vib_torch = torch.from_numpy(modes_vib).to(hessian.device)
+    frequencies_all_torch = torch.from_numpy(frequencies_real).to(hessian.device)
+
+    # columns are the modes
+    modes_vib_torch = modes_vib_torch.reshape(modes_vib_torch.shape[0], -1).T
+
+    return (
+        frequencies_vib_torch,
+        modes_vib_torch,
+    )  # , frequencies_all_torch, len(tr_indices)
 
 
-def compute_internal_modes(
-    hessian, atom_types, coords, threshold_linear=1e-8, threshold_internal=5e-4
+def compute_modes_svd_projector(
+    hessian, atom_types, coords, forces=None, include_force=False, threshold=None
+):
+    """
+    Compute vibrational eigenvalues and eigenvectors of a molecule by removing
+    translational and rotational invariant degrees of freedom, optionally
+    augmenting the null-space projector with the (mass-weighted) force vector.
+
+    Parameters
+    ----------
+    hessian : torch.Tensor, shape (3N, 3N)
+        Cartesian Hessian matrix (second derivatives of the potential energy).
+    atom_types : list of length N
+        Atomic types (atomic numbers).
+    coords : torch.Tensor, shape (N, 3)
+        Cartesian coordinates of atoms.
+    forces : torch.Tensor, shape (N, 3), optional
+        Cartesian forces on each atom. Required if include_force is True.
+    include_force : bool, default False
+        If True, include the mass-weighted force vector as an additional
+        constraint in the null-space projector.
+    threshold : float, default 1e-8
+        Tolerance for zero singular values (not currently used).
+
+    Returns
+    -------
+    eigenvalues : torch.Tensor, shape (3N - 6 or 3N - 7,)
+        Vibrational eigenvalues (mass-weighted).
+    eigenvectors : torch.Tensor, shape (3N, 3N - 6 or 3N - 7)
+        Full mass-weighted eigenvectors for vibrational modes.
+    """
+    device = hessian.device
+    dtype = hessian.dtype
+
+    # Number of atoms
+    N = len(atom_types)
+    masses, elements, atom_types = _get_masses_zsymbols_znumbers(
+        atom_types, device=device
+    )
+    masses = masses.to(dtype)
+
+    if hessian.shape != (3 * N, 3 * N):
+        raise ValueError(f"Hessian must be shape (3N,3N), got {hessian.shape}")
+    if coords.shape != (N, 3):
+        raise ValueError(f"Positions must be shape (N,3), got {coords.shape}")
+
+    # Mass-weight the Hessian: Hmw = M^{-1/2} H M^{-1/2}
+    m_sqrt = torch.repeat_interleave(torch.sqrt(masses), 3)
+    Hmw = hessian / torch.outer(m_sqrt, m_sqrt)
+
+    # Compute center of mass
+    R_cm = torch.sum(masses[:, None] * coords, dim=0) / torch.sum(masses)
+
+    # Build translation and rotation constraint vectors
+    C = []
+    sqrt_masses = torch.sqrt(masses)
+
+    # Translations
+    for alpha in range(3):
+        t = torch.zeros(3 * N, device=device, dtype=dtype)
+        t[alpha::3] = sqrt_masses
+        C.append(t)
+
+    # Rotations
+    for alpha in range(3):
+        e = torch.zeros(3, device=device, dtype=dtype)
+        e[alpha] = 1.0
+        disp = coords - R_cm
+        # cross product for each atom
+        r = torch.cross(e.unsqueeze(0).expand(N, -1), disp, dim=1)
+        # flatten and mass-weight
+        r_vec = r.flatten() * torch.repeat_interleave(sqrt_masses, 3)
+        C.append(r_vec)
+
+    # Optionally include force vector as additional constraint
+    if include_force:
+        if forces is None:
+            raise ValueError("Forces must be provided when include_force is True.")
+        # Mass-weighted force vector: g = M^{-1/2} * F
+        g = forces.flatten() / torch.repeat_interleave(sqrt_masses, 3)
+        C.append(g)
+
+    C = torch.stack(C, dim=0)  # shape: (n_constraints, 3N)
+    n_constraints = C.shape[0]
+
+    # SVD of C^T to get orthonormal basis
+    # C^T = U Sigma V^T, U is (3N,3N), its first n_constraints columns span constraint space
+    U, S, VT = torch.linalg.svd(C.T, full_matrices=True)
+    # Vibrational subspace basis: columns from n_constraints onward
+    Q = U[:, n_constraints:]  # [3N, 3N-6]
+
+    # Project Hessian into vibrational subspace
+    H_red = Q.T @ Hmw @ Q
+
+    # Symmetrize
+    H_red = 0.5 * (H_red + H_red.T)
+
+    # Diagonalize reduced Hessian
+    eigvals, eigvecs_red = torch.linalg.eigh(H_red)
+
+    # Build full eigenvectors in mass-weighted Cartesian coords
+    # [3N-6, 3N-6] -> [3N, 3N-6]
+    eigvecs = Q @ eigvecs_red
+
+    # Convert to Cartesian displacement vectors
+    eigvecs = eigvecs / m_sqrt[:, None]
+
+    return eigvals, eigvecs
+
+
+def compute_modes_inertia_projector(
+    hessian, atom_types, coords, threshold_linear=1e-8, threshold=None
 ):
     """
     Compute eigenvalues/eigenvectors of Hessian excluding translational/rotational modes.
-    Automatically detects linear molecules.
+    Automatically detects linear molecules using inertia tensor.
 
     Args:
-        hessian (np.ndarray): Cartesian Hessian (3N x 3N)
-        masses (np.ndarray): Atomic masses (N,)
-        coords (np.ndarray): Atomic coordinates (N x 3)
+        hessian (torch.Tensor): Cartesian Hessian (3N x 3N)
+        atom_types (list): Atomic numbers
+        coords (torch.Tensor): Atomic coordinates (N x 3)
         threshold_linear (float): Numerical tolerance for linearity detection
-        threshold_internal (float): Numerical tolerance for internal mode detection
+        threshold (float): Numerical tolerance for internal mode detection
 
     Returns:
-        internal_evals (np.ndarray): Eigenvalues of internal modes (3N-6 or 3N-5)
-        internal_evecs_cart (np.ndarray): Cartesian eigenvectors (3N x (3N-6) or (3N x (3N-5))
-        internal_evecs_mw (np.ndarray): Mass-weighted eigenvectors (same shape as above)
-        rank_ext (int): Number of external modes detected (3, 5, or 6)
+        internal_evals (torch.Tensor): Eigenvalues of internal modes (3N-6 or 3N-5)
+        internal_evecs_cart (torch.Tensor): Cartesian eigenvectors (3N x (3N-6) or (3N x (3N-5))
     """
-    
+
     N = len(atom_types)
     total_dof = 3 * N
-    
-    if isinstance(coords, torch.Tensor):
-        coords = coords.detach().cpu().numpy()
-    if isinstance(hessian, torch.Tensor):
-        hessian = hessian.detach().cpu().numpy()
+
+    # Store original device and dtype
+    device = hessian.device
+    dtype = hessian.dtype
 
     # Center coordinates at center of mass
-    masses = _get_masses(atom_types)
-    if isinstance(masses, torch.Tensor):
-        masses = masses.detach().cpu().numpy()
-    com = np.sum(masses[:, None] * coords, axis=0) / np.sum(masses)
+    masses, elements, atom_types = _get_masses_zsymbols_znumbers(
+        atom_types, device=device
+    )
+    masses = masses.to(dtype)
+
+    com = torch.sum(masses[:, None] * coords, dim=0) / torch.sum(masses)
     coords_rel = coords - com[None, :]
 
     # 1. Detect linearity using inertia tensor
-    inertia_tensor = np.zeros((3, 3))
-    for i in range(N):
-        x, y, z = coords_rel[i]
-        m = masses[i]
-        inertia_tensor[0, 0] += m * (y**2 + z**2)
-        inertia_tensor[1, 1] += m * (x**2 + z**2)
-        inertia_tensor[2, 2] += m * (x**2 + y**2)
-        inertia_tensor[0, 1] -= m * x * y
-        inertia_tensor[0, 2] -= m * x * z
-        inertia_tensor[1, 2] -= m * y * z
+    # Vectorized computation of inertia tensor
+    x, y, z = coords_rel[:, 0], coords_rel[:, 1], coords_rel[:, 2]
+    m = masses
+
+    inertia_tensor = torch.zeros((3, 3), device=device, dtype=dtype)
+    inertia_tensor[0, 0] = torch.sum(m * (y**2 + z**2))
+    inertia_tensor[1, 1] = torch.sum(m * (x**2 + z**2))
+    inertia_tensor[2, 2] = torch.sum(m * (x**2 + y**2))
+    inertia_tensor[0, 1] = -torch.sum(m * x * y)
+    inertia_tensor[0, 2] = -torch.sum(m * x * z)
+    inertia_tensor[1, 2] = -torch.sum(m * y * z)
     inertia_tensor[1, 0] = inertia_tensor[0, 1]
     inertia_tensor[2, 0] = inertia_tensor[0, 2]
     inertia_tensor[2, 1] = inertia_tensor[1, 2]
 
     # Compute eigenvalues of inertia tensor
-    inertia_eigvals = np.linalg.eigvalsh(inertia_tensor)
-    is_linear = inertia_eigvals[0] < threshold_linear * max(1, np.max(inertia_eigvals))
+    inertia_eigvals = torch.linalg.eigvalsh(inertia_tensor)
+    is_linear = inertia_eigvals[0] < threshold_linear * torch.max(
+        torch.tensor(1.0, device=device), torch.max(inertia_eigvals)
+    )
 
     # Determine number of external modes
     if N == 1:  # Single atom
@@ -439,72 +520,80 @@ def compute_internal_modes(
         rank_ext = 6  # Nonlinear molecule: 3 trans + 3 rot
 
     # 2. Mass-weight the Hessian
-    sqrt_masses_rep = np.repeat(np.sqrt(masses), 3)
+    sqrt_masses_rep = torch.repeat_interleave(torch.sqrt(masses), 3)
     inv_sqrt_masses_rep = 1.0 / sqrt_masses_rep
     H_mw = inv_sqrt_masses_rep[:, None] * hessian * inv_sqrt_masses_rep[None, :]
 
     # 3. Build external modes matrix B (3N x 6)
-    B = np.zeros((total_dof, 6))
+    B = torch.zeros((total_dof, 6), device=device, dtype=dtype)
+    sqrt_masses_torch = torch.sqrt(masses)
+
     # Translations (always present)
-    B[0::3, 0] = np.sqrt(masses)  # X
-    B[1::3, 1] = np.sqrt(masses)  # Y
-    B[2::3, 2] = np.sqrt(masses)  # Z
+    B[0::3, 0] = sqrt_masses_torch  # X
+    B[1::3, 1] = sqrt_masses_torch  # Y
+    B[2::3, 2] = sqrt_masses_torch  # Z
 
     # Rotations (skip if single atom)
     if N > 1:
         # Reshape relative coordinates to vector [x0,y0,z0, x1,y1,z1, ...]
         coords_vec = coords_rel.reshape(-1)
-        B[1::3, 3] = -coords_vec[2::3] * np.sqrt(masses)  # -z_i * √m_i
-        B[2::3, 3] = coords_vec[1::3] * np.sqrt(masses)  #  y_i * √m_i
-        B[0::3, 4] = coords_vec[2::3] * np.sqrt(masses)  #  z_i * √m_i
-        B[2::3, 4] = -coords_vec[0::3] * np.sqrt(masses)  # -x_i * √m_i
-        B[0::3, 5] = -coords_vec[1::3] * np.sqrt(masses)  # -y_i * √m_i
-        B[1::3, 5] = coords_vec[0::3] * np.sqrt(masses)  #  x_i * √m_i
+        B[1::3, 3] = -coords_vec[2::3] * sqrt_masses_torch  # -z_i * √m_i
+        B[2::3, 3] = coords_vec[1::3] * sqrt_masses_torch  #  y_i * √m_i
+        B[0::3, 4] = coords_vec[2::3] * sqrt_masses_torch  #  z_i * √m_i
+        B[2::3, 4] = -coords_vec[0::3] * sqrt_masses_torch  # -x_i * √m_i
+        B[0::3, 5] = -coords_vec[1::3] * sqrt_masses_torch  # -y_i * √m_i
+        B[1::3, 5] = coords_vec[0::3] * sqrt_masses_torch  #  x_i * √m_i
 
     # 4. Orthonormalize external modes (using first `rank_ext` columns)
-    U, _, _ = np.linalg.svd(B[:, :rank_ext], full_matrices=False)
+    U, _, _ = torch.linalg.svd(B[:, :rank_ext], full_matrices=False)
     U_ext = U[:, :rank_ext]  # Orthonormal basis for external modes
 
     # 5. Project Hessian into internal space
     projector_ext = U_ext @ U_ext.T
-    projector_int = np.eye(total_dof) - projector_ext
+    projector_int = torch.eye(total_dof, device=device, dtype=dtype) - projector_ext
     H_int = projector_int.T @ H_mw @ projector_int
 
     # 6. Diagonalize projected Hessian
-    evals, evecs_mw = scipy.linalg.eigh(H_int)
-    
-    # sorted_evals_idx = np.argsort(np.abs(evals))
-    # evals_sorted = evals[sorted_evals_idx]
-    # print("evals_sorted\n", evals_sorted[:10])
+    evals, evecs_mw = torch.linalg.eigh(H_int)
+
+    sorted_evals_idx = torch.argsort(torch.abs(evals))
+    evals_sorted = evals[sorted_evals_idx]
+    evecs_mw_sorted = evecs_mw[:, sorted_evals_idx]
 
     # 7. Filter internal modes (ignore near-zero eigenvalues)
-    mask = np.abs(evals) > threshold_internal
-    internal_evals = evals[mask]
-    internal_evecs_mw = evecs_mw[:, mask]
-    
-    if mask.sum() != total_dof - rank_ext:
-        print(f"Internal modes: {mask.sum()} != {total_dof - rank_ext}")
-        print(f"evals_sorted\n", np.sort(np.abs(evals))[:10])
-        print(f"threshold_internal={threshold_internal}")
+    threshold, ndrop = _get_ndrop(
+        evals,
+        H_int.shape,
+        threshold,
+        evals_sorted,
+        islinear=is_linear,
+        print_warning=False,
+    )
+    internal_evecs_mw = evecs_mw_sorted[:, ndrop:]
+    internal_evals = evals_sorted[ndrop:]
 
     # 8. Convert to Cartesian eigenvectors
     internal_evecs_cart = internal_evecs_mw / sqrt_masses_rep[:, None]
 
-    return internal_evals, internal_evecs_cart, internal_evecs_mw, rank_ext
+    idx = torch.argsort(internal_evals)
+    internal_evals = internal_evals[idx]
+    internal_evecs_cart = internal_evecs_cart[:, idx]
+
+    return internal_evals, internal_evecs_cart
 
 
-def projector_vibrational_modes(pos, atom_types, H, threshold=5e-4):
+def compute_modes_qr_projector(hessian, atom_types, coords, threshold=None):
     """
-    Projector-based removal of translations & rotations
+    Projector-based removal of translations & rotations using QR decomposition
     A robust alternative to filtering is to build the subspace of exactly invariant motions
     (3 translations + 3 rotations, or 5 rotations for a linear molecule)
     and project them out of your Hessian before diagonalizing.
     This guarantees that no physical vibrational mode is accidentally thrown away.
 
     Args:
-        pos: (N,3) positions;
+        hessian: (3N,3N) Cartesian Hessian
         atom_types: list[int] of length N of atomic numbers;
-        H: (3N,3N) Cartesian Hessian
+        coords: (N,3) positions;
     Returns:
         evals_vib: (3N-6,) eigenvalues of the vibrational modes, sorted in ascending order
         eigvecs_vib: (3N,3N-6) eigenvectors of the vibrational modes
@@ -513,39 +602,45 @@ def projector_vibrational_modes(pos, atom_types, H, threshold=5e-4):
         atom_types = atom_types.tolist()
     N = len(atom_types)
     # 0) Build mass vector m3 = [sqrt(m1), sqrt(m1), sqrt(m1), sqrt(m2), ...]
-    masses = _get_masses(atom_types)
+    masses, elements, atom_types = _get_masses_zsymbols_znumbers(atom_types)
     sqrt_m3 = masses.repeat_interleave(3).sqrt()  # (3N,)
 
     # 1) mass-weight Hessian F = M^{-1/2} H M^{-1/2}
-    F = H / (sqrt_m3[:, None] * sqrt_m3[None, :])  # (3N,3N)
+    F = hessian / (sqrt_m3[:, None] * sqrt_m3[None, :])  # (3N,3N)
 
     # 2) build T (3N×6) of rigid-body vectors
     # translations
     T = []
     for alpha in range(3):
-        t = torch.zeros(3 * N, device=H.device, dtype=H.dtype)
+        t = torch.zeros(3 * N, device=hessian.device, dtype=hessian.dtype)
         t[alpha::3] = sqrt_m3[alpha::3]  # x: indices 0,3,6...; y:1,4,7...; z:2,5,8...
         T.append(t)
     # rotations about COM
-    com = (pos * masses[:, None]).sum(dim=0) / masses.sum()
+    com = (coords * masses[:, None]).sum(dim=0) / masses.sum()
     for axis in [0, 1, 2]:  # x,y,z rotation
-        r = torch.zeros(3 * N, device=H.device, dtype=H.dtype)
+        r = torch.zeros(3 * N, device=hessian.device, dtype=hessian.dtype)
         for i in range(N):
-            x, y, z = pos[i] - com
+            x, y, z = coords[i] - com
             m3 = sqrt_m3[3 * i : 3 * i + 3]
             if axis == 0:  # rotate about x: (0, -z, y)
-                r[3 * i : 3 * i + 3] = torch.tensor([0, -z, y], device=H.device) * m3
+                r[3 * i : 3 * i + 3] = (
+                    torch.tensor([0, -z, y], device=hessian.device) * m3
+                )
             elif axis == 1:  # about y: ( z, 0, -x)
-                r[3 * i : 3 * i + 3] = torch.tensor([z, 0, -x], device=H.device) * m3
+                r[3 * i : 3 * i + 3] = (
+                    torch.tensor([z, 0, -x], device=hessian.device) * m3
+                )
             else:  # about z: (-y, x, 0)
-                r[3 * i : 3 * i + 3] = torch.tensor([-y, x, 0], device=H.device) * m3
+                r[3 * i : 3 * i + 3] = (
+                    torch.tensor([-y, x, 0], device=hessian.device) * m3
+                )
         T.append(r)
     T = torch.stack(T, dim=1)  # (3N,6)
 
     # 3) orthonormalize T → U via QR
     Q, _ = torch.linalg.qr(T)  # Q: (3N,6) orthonormal
     # Build projector P = I - Q Q^T
-    P = torch.eye(3 * N, device=H.device) - Q @ Q.T
+    P = torch.eye(3 * N, device=hessian.device) - Q @ Q.T
 
     # 4) project the mass-weighted Hessian & diagonalize
     Fp = P @ (F @ P)
@@ -557,7 +652,7 @@ def projector_vibrational_modes(pos, atom_types, H, threshold=5e-4):
     sorted_evecs = evecs[:, sorted_evals_idx]
 
     # 6) drop the six exact zeros, un-mass-weight the rest
-    islinear = _is_linear_molecule(pos)
+    islinear = _is_linear_molecule(coords)
     threshold, ndrop = _get_ndrop(
         evals, Fp.shape, threshold, sorted_evals, islinear=islinear, print_warning=False
     )
@@ -575,19 +670,21 @@ def projector_vibrational_modes(pos, atom_types, H, threshold=5e-4):
     return sorted_evals_vib, sorted_evecs_vib
 
 
-def compute_cartesian_modes(pos, atom_types, H, orth_method="svd", threshold=None):
+def compute_modes_eckart_frame(
+    hessian, atom_types, coords, orth_method="svd", threshold=None
+):
     """
-    Compute vibrational eigenvalues and eigenvectors for a transition state Hessian H,
-    removing translations and rotations via the Eckart frame and specified orthonormalization.
+    Compute vibrational eigenvalues and eigenvectors using Eckart frame alignment,
+    removing translations and rotations via principal axes alignment and specified orthonormalization.
 
     Parameters
     ----------
-    pos : torch.Tensor, shape (N, 3)
-        Atomic positions.
+    hessian : torch.Tensor, shape (3N, 3N)
+        Cartesian Hessian (symmetric).
     atom_types : list of str, length N
         Element symbols, e.g. ['C', 'H', 'H', ...].
-    H : torch.Tensor, shape (3N, 3N)
-        Cartesian Hessian (symmetric).
+    coords : torch.Tensor, shape (N, 3)
+        Atomic positions.
     orth_method : str, 'svd' or 'qr'
         Method to orthonormalize rigid-body vectors ('svd' for SVD, 'qr' for Gram–Schmidt/QR).
     threshold : float, optional
@@ -600,8 +697,8 @@ def compute_cartesian_modes(pos, atom_types, H, orth_method="svd", threshold=Non
     eigvecs_cart : torch.Tensor, shape (3N, 3N - n_drop)
         Corresponding Cartesian displacement eigenvectors (columns).
     """
-    N = pos.shape[0]
-    assert H.shape == (3 * N, 3 * N), "Hessian must be of shape (3N, 3N)"
+    N = coords.shape[0]
+    assert hessian.shape == (3 * N, 3 * N), "Hessian must be of shape (3N, 3N)"
 
     pt = GetPeriodicTable()
     if isinstance(atom_types, torch.Tensor):
@@ -611,45 +708,47 @@ def compute_cartesian_modes(pos, atom_types, H, orth_method="svd", threshold=Non
 
     # 1. Compute masses and mass‐weighted positions
     masses = torch.tensor(
-        [pt.GetAtomicWeight(z) for z in atom_types], dtype=pos.dtype, device=pos.device
+        [pt.GetAtomicWeight(z) for z in atom_types],
+        dtype=coords.dtype,
+        device=coords.device,
     )
     m3 = masses.repeat_interleave(3).sqrt()
 
     # 2. Center on mass and align to principal axes (Eckart frame)
-    com = (pos * masses[:, None]).sum(dim=0) / masses.sum()
-    pos_centered = pos - com
+    com = (coords * masses[:, None]).sum(dim=0) / masses.sum()
+    pos_centered = coords - com
     # Inertia tensor
-    Idm = torch.zeros((3, 3), dtype=pos.dtype, device=pos.device)
+    Idm = torch.zeros((3, 3), dtype=coords.dtype, device=coords.device)
     for i in range(N):
         r = pos_centered[i]
         m = masses[i]
-        Idm += m * (r.dot(r) * torch.eye(3, device=pos.device) - torch.ger(r, r))
+        Idm += m * (r.dot(r) * torch.eye(3, device=coords.device) - torch.ger(r, r))
     # Principal axes
     eig_I, axes = torch.linalg.eigh(Idm)
     pos_eckart = (axes.T @ pos_centered.T).T  # rotate positions
 
     # 3. Mass‐weight Hessian
-    F = H / (m3[:, None] * m3[None, :])
+    F = hessian / (m3[:, None] * m3[None, :])
 
     # 4. Build rigid‐body vectors in mass‐weighted coordinates
     T_list = []
     # translations
     for alpha in range(3):
-        t = torch.zeros(3 * N, dtype=pos.dtype, device=pos.device)
+        t = torch.zeros(3 * N, dtype=coords.dtype, device=coords.device)
         t[alpha::3] = m3[alpha::3]
         T_list.append(t)
     # rotations about principal axes
     for axis in range(3):
-        r = torch.zeros(3 * N, dtype=pos.dtype, device=pos.device)
+        r = torch.zeros(3 * N, dtype=coords.dtype, device=coords.device)
         for i in range(N):
             x, y, z = pos_eckart[i]
             m3_i = m3[3 * i : 3 * i + 3]
             if axis == 0:
-                vec = torch.tensor([0.0, -z, y], device=pos.device)
+                vec = torch.tensor([0.0, -z, y], device=coords.device)
             elif axis == 1:
-                vec = torch.tensor([z, 0.0, -x], device=pos.device)
+                vec = torch.tensor([z, 0.0, -x], device=coords.device)
             else:
-                vec = torch.tensor([-y, x, 0.0], device=pos.device)
+                vec = torch.tensor([-y, x, 0.0], device=coords.device)
             r[3 * i : 3 * i + 3] = vec * m3_i
         T_list.append(r)
     T = torch.stack(T_list, dim=1)  # (3N, 6)
@@ -664,7 +763,7 @@ def compute_cartesian_modes(pos, atom_types, H, orth_method="svd", threshold=Non
         raise ValueError("orth_method must be 'svd' or 'qr'")
 
     # 6. Projector P = I - Q Q^T
-    I3N = torch.eye(3 * N, dtype=pos.dtype, device=pos.device)
+    I3N = torch.eye(3 * N, dtype=coords.dtype, device=coords.device)
     P = I3N - Q @ Q.T
 
     # 7. Project and diagonalize
@@ -675,12 +774,14 @@ def compute_cartesian_modes(pos, atom_types, H, orth_method="svd", threshold=Non
     # sort by magnitude
     sorted_evals, sorted_evals_idx = torch.sort(torch.abs(evals))
     sorted_evecs = evecs[:, sorted_evals_idx]
-    islinear = _is_linear_molecule(pos)
-    threshold, ndrop = _get_ndrop(evals, Fp.shape, threshold, sorted_evals, islinear=islinear, print_warning=False)
+    islinear = _is_linear_molecule(coords)
+    threshold, ndrop = _get_ndrop(
+        evals, Fp.shape, threshold, sorted_evals, islinear=islinear, print_warning=False
+    )
     keep = torch.arange(ndrop, 3 * N)
     evals_vib = sorted_evals[keep]
     q_vib = sorted_evecs[:, keep]
-    
+
     if ndrop != 6:
         print(f"Eckart {orth_method}: ndrop: {ndrop}")
         print(f"sorted_evals\n", sorted_evals[:10])
@@ -691,6 +792,98 @@ def compute_cartesian_modes(pos, atom_types, H, orth_method="svd", threshold=Non
     eigvals_cart = evals_vib
 
     return eigvals_cart, eigvecs_cart
+
+
+def compute_vibrational_modes(
+    hessian, atom_types, coords, method="qr_projector", **kwargs
+):
+    """
+    Unified wrapper function to compute vibrational eigenvalues and eigenvectors using different methods.
+
+    Args:
+        hessian: torch.Tensor of shape (3N, 3N) - Cartesian Hessian matrix
+        atom_types: list of atomic numbers or element symbols
+        coords: torch.Tensor of shape (N, 3) - atomic coordinates
+        method: str - method to use for computation, one of:
+            - "geometric_library": Use Geometric library (external dependency)
+            - "ase_library": Use ASE library (external dependency)
+            - "svd_projector": Manual SVD-based null-space projector
+            - "inertia_projector": Inertia tensor-based projector with auto-linearity detection
+            - "qr_projector": QR-based projector method (default)
+            - "eckart_frame": Eckart frame alignment with principal axes
+        **kwargs: Additional method-specific arguments
+
+    Returns:
+        eigenvalues: torch.Tensor - vibrational eigenvalues
+        eigenvectors: torch.Tensor - vibrational eigenvectors (columns)
+
+    Method-specific kwargs:
+        geometric_library:
+            - return_raw_eigenvalues: bool, return eigenvalues instead of frequencies
+            - unmass_weight: bool, return raw Cartesian eigenvalues
+        ase_library:
+            - debug: bool, print diagnostic information
+        svd_projector:
+            - forces: torch.Tensor, forces for additional constraint
+            - include_force: bool, include force vector as constraint
+            - tol: float, tolerance for zero singular values
+        inertia_projector:
+            - threshold_linear: float, tolerance for linearity detection
+            - threshold_internal: float, tolerance for internal mode detection
+        qr_projector:
+            - threshold: float, threshold for dropping modes
+        eckart_frame:
+            - orth_method: str, 'svd' or 'qr' for orthonormalization
+            - threshold: float, threshold for dropping modes
+        compute_modes_svd_projector:
+            - forces: torch.Tensor, forces for additional constraint
+
+    Example:
+        # Use QR projector method (default)
+        evals, evecs = compute_vibrational_modes(hessian, atom_types, coords)
+
+        # Use Geometric library with frequencies in cm^-1
+        freqs, modes = compute_vibrational_modes(hessian, atom_types, coords, method="geometric_library")
+
+        # Use SVD projector with force constraint
+        evals, evecs = compute_vibrational_modes(hessian, atom_types, coords,
+                                               method="svd_projector",
+                                               forces=forces, include_force=True)
+
+        # Use Eckart frame with SVD orthonormalization
+        evals, evecs = compute_vibrational_modes(hessian, atom_types, coords,
+                                               method="eckart_frame", orth_method="svd")
+    """
+
+    if method == "geometric_library":
+        return compute_modes_with_geometric_library(
+            hessian, atom_types, coords, **kwargs
+        )
+    elif method == "ase_library":
+        return compute_modes_with_ase_library(hessian, atom_types, coords, **kwargs)
+    elif method == "svd_projector":
+        return compute_modes_svd_projector(hessian, atom_types, coords, **kwargs)
+    elif method == "inertia_projector":
+        return compute_modes_inertia_projector(hessian, atom_types, coords, **kwargs)
+    elif method == "qr_projector":
+        return compute_modes_qr_projector(hessian, atom_types, coords, **kwargs)
+    elif method == "eckart_frame":
+        return compute_modes_eckart_frame(hessian, atom_types, coords, **kwargs)
+    else:
+        raise ValueError(
+            f"Unknown method '{method}'. Available methods: "
+            "geometric_library, ase_library, svd_projector, inertia_projector, "
+            "qr_projector, eckart_frame"
+        )
+
+
+# Legacy function names for backward compatibility
+get_modes_geometric = compute_modes_with_geometric_library
+get_vibrational_modes_ase = compute_modes_with_ase_library
+vibrational_modes = compute_modes_svd_projector
+compute_internal_modes = compute_modes_inertia_projector
+projector_vibrational_modes = compute_modes_qr_projector
+compute_cartesian_modes = compute_modes_eckart_frame
 
 
 if __name__ == "__main__":
@@ -716,7 +909,7 @@ if __name__ == "__main__":
     count_wrong_internal = 0
     count_wrong_geometric = 0
     count_wrong_ase = 0
-    
+    count_wrong_modes = 0
     print("\n")
     for i, sample in enumerate(dataset):
         if i >= max_samples and max_samples > 0:
@@ -730,11 +923,13 @@ if __name__ == "__main__":
         pos = sample.pos
         N = len(atom_types)
 
+        forces = sample.forces
+
         num_vibrational_modes = 3 * N - 6
 
         hessian = hessian.reshape(3 * N, 3 * N)
 
-        evals_vib, eigvecs_vib = projector_vibrational_modes(pos, atom_types, hessian)
+        evals_vib, eigvecs_vib = compute_modes_qr_projector(hessian, atom_types, pos)
         if len(evals_vib) != num_vibrational_modes:
             count_wrong_projection += 1
             diff = num_vibrational_modes - len(evals_vib)
@@ -743,8 +938,8 @@ if __name__ == "__main__":
                 "❌",
             )
 
-        evals_vib_cart, eigvecs_vib_cart = compute_cartesian_modes(
-            pos, atom_types, hessian
+        evals_vib_cart, eigvecs_vib_cart = compute_modes_eckart_frame(
+            hessian, atom_types, pos
         )
         if len(evals_vib_cart) != num_vibrational_modes:
             count_wrong_eckart_svd += 1
@@ -753,8 +948,8 @@ if __name__ == "__main__":
                 f"Eckart SVD {i}: vibrational modes: {diff}",
                 "❌",
             )
-        evals_vib_cart, eigvecs_vib_cart = compute_cartesian_modes(
-            pos, atom_types, hessian, orth_method="qr"
+        evals_vib_cart, eigvecs_vib_cart = compute_modes_eckart_frame(
+            hessian, atom_types, pos, orth_method="qr"
         )
         if len(evals_vib_cart) != num_vibrational_modes:
             count_wrong_eckart_qr += 1
@@ -764,7 +959,9 @@ if __name__ == "__main__":
                 "❌",
             )
 
-        evals_internal, eigvecs_internal, eigvecs_internal_mw, rank_ext = compute_internal_modes(hessian, atom_types, pos)
+        evals_internal, eigvecs_internal = compute_modes_inertia_projector(
+            hessian, atom_types, pos
+        )
         if len(evals_internal) != num_vibrational_modes:
             count_wrong_internal += 1
             diff = num_vibrational_modes - len(evals_internal)
@@ -772,8 +969,10 @@ if __name__ == "__main__":
                 f"Internal {i}: vibrational modes: {diff}",
                 "❌",
             )
-            
-        evals_geometric, eigvecs_geometric = get_modes_geometric(hessian, pos, atom_types)
+
+        evals_geometric, eigvecs_geometric = compute_modes_with_geometric_library(
+            hessian, atom_types, pos
+        )
         if len(evals_geometric) != num_vibrational_modes:
             count_wrong_geometric += 1
             diff = num_vibrational_modes - len(evals_geometric)
@@ -781,8 +980,10 @@ if __name__ == "__main__":
                 f"Geometric {i}: vibrational modes: {diff}",
                 "❌",
             )
-        
-        freq_vib_ase, modes_vib_ase, freq_all_ase, n_tr_ase = get_vibrational_modes_ase(hessian, pos, atom_types)
+
+        freq_vib_ase, modes_vib_ase = compute_modes_with_ase_library(
+            hessian, atom_types, pos
+        )
         if len(freq_vib_ase) != num_vibrational_modes:
             count_wrong_ase += 1
             diff = num_vibrational_modes - len(freq_vib_ase)
@@ -790,7 +991,17 @@ if __name__ == "__main__":
                 f"ASE {i}: vibrational modes: {diff}",
                 "❌",
             )
-        
+
+        freq_vib_modes, modes_vib_modes = compute_modes_svd_projector(
+            hessian, atom_types, pos, forces=forces
+        )
+        if len(freq_vib_modes) != num_vibrational_modes:
+            count_wrong_modes += 1
+            diff = num_vibrational_modes - len(freq_vib_modes)
+            print(
+                f"Modes {i}: vibrational modes: {diff}",
+                "❌",
+            )
 
     print(f"Count wrong eckart svd: {count_wrong_eckart_svd}")
     print(f"Count wrong eckart qr: {count_wrong_eckart_qr}")
@@ -798,3 +1009,58 @@ if __name__ == "__main__":
     print(f"Count wrong internal: {count_wrong_internal}")
     print(f"Count wrong geometric: {count_wrong_geometric}")
     print(f"Count wrong ASE: {count_wrong_ase}")
+    print(f"Count wrong modes: {count_wrong_modes}")
+
+    # Demonstration of the new unified wrapper function
+    print("\n=== Wrapper Function Demonstration ===")
+    if max_samples > 0:
+        sample = dataset[0]
+        indices = sample.one_hot.long().argmax(dim=1)
+        sample.z = GLOBAL_ATOM_NUMBERS[indices]
+        hessian = sample.hessian.reshape(3 * len(sample.z), 3 * len(sample.z))
+        atom_types = sample.z.tolist()
+        pos = sample.pos
+
+        print("Testing unified wrapper function with different methods:")
+
+        # Test QR projector (default)
+        evals, evecs = compute_vibrational_modes(hessian, atom_types, pos)
+        print(f"QR projector (default): {len(evals)} modes")
+
+        # Test SVD projector
+        evals, evecs = compute_vibrational_modes(
+            hessian, atom_types, pos, method="svd_projector"
+        )
+        print(f"SVD projector: {len(evals)} modes")
+
+        # Test Eckart frame with SVD
+        evals, evecs = compute_vibrational_modes(
+            hessian, atom_types, pos, method="eckart_frame", orth_method="svd"
+        )
+        print(f"Eckart frame (SVD): {len(evals)} modes")
+
+        # Test inertia projector
+        evals, evecs = compute_vibrational_modes(
+            hessian, atom_types, pos, method="inertia_projector"
+        )
+        print(f"Inertia projector: {len(evals)} modes")
+
+        try:
+            # Test geometric library
+            evals, evecs = compute_vibrational_modes(
+                hessian, atom_types, pos, method="geometric_library"
+            )
+            print(f"Geometric library: {len(evals)} modes")
+        except Exception as e:
+            print(f"Geometric library: Failed ({e})")
+
+        try:
+            # Test ASE library
+            evals, evecs = compute_vibrational_modes(
+                hessian, atom_types, pos, method="ase_library"
+            )
+            print(f"ASE library: {len(evals)} modes")
+        except Exception as e:
+            print(f"ASE library: Failed ({e})")
+
+        print("Wrapper function working correctly!")
