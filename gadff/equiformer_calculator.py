@@ -66,7 +66,7 @@ class EquiformerCalculator:
         self,
         checkpoint_path: Optional[str] = None,
         device: Optional[torch.device] = None,
-        **kwargs,
+        eigen_dof_method: str = "qr",
     ):
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -85,6 +85,15 @@ class EquiformerCalculator:
         self.model.eval()
         self.model.to(device)
 
+        # Method to compute the eigenvectors of the Hessian
+        # qr: QR-based projector method (default)
+        # svd: SVD-based projector method
+        # inertia: Inertia tensor-based projector with auto-linearity detection
+        # geo: Use Geometric library (external dependency)
+        # ase: Use ASE library (external dependency)
+        # eckart: Eckart frame alignment with principal axes
+        self.eigen_dof_method = eigen_dof_method
+        
         # ocpmodels/common/relaxation/ase_utils.py
         self.a2g = AtomsToGraphs(
             max_neigh=self.model.max_neighbors,
@@ -143,8 +152,7 @@ class EquiformerCalculator:
             batch.z,
             batch.pos,
             forces=forces,
-            include_force=True,
-            method="svd_projector", # geometric_library
+            method=self.eigen_dof_method,
         )
         smallest_eigenvals = eigenvalues[:2]
         smallest_eigenvecs = eigenvectors[:, :2]  # [N*3, 2]
@@ -207,8 +215,7 @@ class EquiformerCalculator:
             batch.z,
             batch.pos,
             forces=forces,
-            include_force=True,
-            method="svd_projector",
+            method=self.eigen_dof_method,
         )
 
         eigenvalues = eigenvalues[:2]

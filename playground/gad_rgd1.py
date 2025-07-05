@@ -1,3 +1,30 @@
+"""
+GAD-RGD1: Gentlest Ascent Dynamics for Transition State Finding
+
+This script implements Gentlest Ascent Dynamics (GAD) to find transition states
+using different eigenvalue calculation methods for the Hessian matrix.
+
+Available eigen methods:
+- "qr": QR-based projector method (default)
+- "svd": SVD-based projector method  
+- "inertia": Inertia tensor-based projector with auto-linearity detection
+- "geo": Use Geometric library (external dependency)
+- "ase": Use ASE library (external dependency)
+- "eckart": Eckart frame alignment with principal axes
+
+Example commands:
+
+# Test all eigen methods
+python playground/gad_rgd1.py --eigen-method qr
+python playground/gad_rgd1.py --eigen-method svd
+python playground/gad_rgd1.py --eigen-method svdforce
+python playground/gad_rgd1.py --eigen-method inertia
+python playground/gad_rgd1.py --eigen-method geo
+python playground/gad_rgd1.py --eigen-method ase
+python playground/gad_rgd1.py --eigen-method eckartsvd
+python playground/gad_rgd1.py --eigen-method eckartqr
+"""
+
 import torch
 from torch_geometric.data import Batch
 from torch_geometric.data import Data as TGData
@@ -12,10 +39,13 @@ import io
 import base64
 from IPython.display import Image
 import os
+import argparse
+import json
 
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.equiformer_calculator import EquiformerCalculator
-from gadff.align_unordered_mols import rmsd
+# from gadff.align_unordered_mols import rmsd
+from gadff.align_ordered_mols import align_and_get_rmsd
 from gadff.plot_molecules import (
     plot_molecule_mpl,
     plot_traj_mpl,
@@ -34,6 +64,9 @@ from gadff.equiformer_ase_calculator import EquiformerASECalculator
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
 plot_dir = os.path.join(this_dir, "plots_gad")
+log_dir = os.path.join(this_dir, "logs_gad")
+os.makedirs(plot_dir, exist_ok=True)
+os.makedirs(log_dir, exist_ok=True)
 
 
 def convert_rgd1_to_tg_format(rgd1_data, state="transition"):
@@ -89,7 +122,7 @@ def integrate_dynamics(
     print(f"Following {force_field} vector field: {title}")
 
     # Compute RMSD between initial guess and transition state
-    rmsd_initial = rmsd(initial_pos.numpy(), true_pos.numpy())
+    rmsd_initial = align_and_get_rmsd(initial_pos.numpy(), true_pos.numpy())
     print(f"RMSD start: {rmsd_initial:.6f} Å")
 
     # Create initial batch from interpolated guess
@@ -124,10 +157,12 @@ def integrate_dynamics(
             forces = forces.reshape(-1, 3)
         else:
             raise ValueError(f"Unknown force field: {force_field}")
+        forces = forces.detach()
+        energy = energy.detach()
 
         # Store trajectory
         trajectory_pos.append(current_pos.detach().cpu().clone())
-        trajectory_forces.append(forces.detach().cpu())
+        trajectory_forces.append(forces.cpu())
         trajectory_energy.append(energy.item())
 
         # Check for convergence (small vector magnitude)
@@ -194,7 +229,7 @@ def integrate_dynamics(
     save_trajectory_to_xyz(trajectory_pos, z, plotfolder=plot_dir, filename=title)
 
     # Compute RMSD between converged structure and true transition state
-    rmsd_final = rmsd(final_pos.numpy(), true_pos.numpy())
+    rmsd_final = align_and_get_rmsd(final_pos.numpy(), true_pos.numpy())
     print(f"RMSD end: {rmsd_final:.6f} Å")
     print(f"Improvement: {rmsd_initial - rmsd_final:.6f} Å")
 
@@ -258,7 +293,7 @@ def run_sella(pos_initial_guess, z, natoms, true_pos, calc=None):
     print(f"Starting Sella {calcname} optimization to find transition state")
 
     true_pos = to_numpy(true_pos)
-    rmsd_initial = rmsd(positions_np, true_pos)
+    rmsd_initial = align_and_get_rmsd(positions_np, true_pos)
     print(f"RMSD start: {rmsd_initial:.6f} Å")
 
     # Set up a Sella Dynamics object with improved parameters for TS search
@@ -285,7 +320,7 @@ def run_sella(pos_initial_guess, z, natoms, true_pos, calc=None):
     final_positions_sella = mol_ase.get_positions()
 
     # Compute RMSD between Sella-optimized structure and true transition state
-    rmsd_sella = rmsd(final_positions_sella, true_pos)
+    rmsd_sella = align_and_get_rmsd(final_positions_sella, true_pos)
     print(f"RMSD end: {rmsd_sella:.6f} Å")
     print(f"Improvement: {rmsd_initial - rmsd_sella:.6f} Å")
 
@@ -299,7 +334,9 @@ def run_sella(pos_initial_guess, z, natoms, true_pos, calc=None):
     return mol_ase
 
 
-def main():
+def example(
+    eigen_method="qr",
+):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     os.makedirs(plot_dir, exist_ok=True)
 
@@ -319,26 +356,22 @@ def main():
     print(f"Reactant SMILES: {sample.smiles_reactant}")
     print(f"Product SMILES: {sample.smiles_product}")
 
-    # Convert to torch_geometric format for transition state
-    print("\nConverting to torch_geometric format")
-    tg_data = convert_rgd1_to_tg_format(sample, state="transition")
-
-    # Create batch (equiformer expects batch format)
-    batch = Batch.from_data_list([tg_data])
-    print(f"Batch shape - pos: {batch.pos.shape}, z: {batch.z.shape}")
-
     # Initialize equiformer calculator
     print("\n" + "-" * 6)
-    print("Initializing EquiformerCalculator")
-    calc = EquiformerCalculator(device=device)
-
-    # Run prediction
-    print("\n" + "-" * 6)
-    energy, forces, eigenpred = calc.predict(batch)
-    print(f"Energy: {energy.item():.6f}")
-    print(f"Forces shape: {forces.shape}")
-    print(f"Forces norm: {torch.norm(forces).item():.6f}")
-    print(f"Eigenprediction keys: {list(eigenpred.keys())}")
+    print(f"Initializing EquiformerCalculator with eigen_method={eigen_method}")
+    calc = EquiformerCalculator(device=device, eigen_dof_method=eigen_method)
+    
+    # # Create batch (equiformer expects batch format)
+    # tg_data = convert_rgd1_to_tg_format(sample, state="transition")
+    # batch = Batch.from_data_list([tg_data])
+    # print(f"Batch shape - pos: {batch.pos.shape}, z: {batch.z.shape}")
+    # # Run prediction
+    # print("\n" + "-" * 6)
+    # energy, forces, eigenpred = calc.predict(batch)
+    # print(f"Energy: {energy.item():.6f}")
+    # print(f"Forces shape: {forces.shape}")
+    # print(f"Forces norm: {torch.norm(forces).item():.6f}")
+    # print(f"Eigenprediction keys: {list(eigenpred.keys())}")
 
     # Plot the reactant and transition state
     print("\nPlotting molecular structures")
@@ -398,6 +431,44 @@ def main():
     # Follow the GAD vector field to find the transition state
     print("\n" + "=" * 60)
     print("Following GAD vector field to find transition state")
+    
+    results = {}
+    
+    # Test 1: is the transition state a fixed point of our GAD vector field?
+    # Follow the GAD vector field from transition state
+    traj, _, _, _ = integrate_dynamics(
+        sample.pos_transition,
+        sample.z,
+        sample.natoms,
+        calc,
+        sample.pos_transition,
+        force_field="gad",
+        max_steps=100,
+        dt=0.01,
+        title=f"TS from TS {eigen_method}",
+        n_patience_steps=1000,
+        patience_threshold=1.0,
+    )
+    _rmsd_ts = align_and_get_rmsd(traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy())
+    results["ts_from_ts"] = _rmsd_ts
+
+    # Follow the GAD vector field from perturbed transition state
+    _pos = torch.randn_like(sample.pos_transition) + sample.pos_transition # RMSD ~ 1.2 Å
+    traj, _, _, _ = integrate_dynamics(
+        _pos,
+        sample.z,
+        sample.natoms,
+        calc,
+        sample.pos_transition,
+        force_field="gad",
+        max_steps=1000,
+        dt=0.01,
+        title=f"TS from perturbed TS {eigen_method}",
+        n_patience_steps=1000,
+        patience_threshold=1.0,
+    )
+    _rmsd_ts = align_and_get_rmsd(traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy())
+    results["ts_from_perturbed_ts"] = _rmsd_ts
 
     # Test run - start from reactant
     traj, _, _, _ = integrate_dynamics(
@@ -409,11 +480,13 @@ def main():
         force_field="gad",
         max_steps=100,
         dt=0.1,
-        title="TS from R",
+        title=f"TS from R {eigen_method}",
         n_patience_steps=100,
         # patience_threshold=1.0,
         # center_around_com=True,
     )
+    _rmsd_ts = align_and_get_rmsd(traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy())
+    results["ts_from_r_dt0.1_s100"] = _rmsd_ts
     
     # Start from reactant
     traj, _, _, _ = integrate_dynamics(
@@ -425,11 +498,13 @@ def main():
         force_field="gad",
         max_steps=1_000,
         dt=0.01,
-        title="TS from R",
+        title=f"TS from R {eigen_method}",
         n_patience_steps=1000,
         # patience_threshold=1.0,
         # center_around_com=True,
     )
+    _rmsd_ts = align_and_get_rmsd(traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy())
+    results["ts_from_r_dt0.01_s1000"] = _rmsd_ts
 
     # large steps
     traj, _, _, _ = integrate_dynamics(
@@ -441,12 +516,14 @@ def main():
         force_field="gad",
         max_steps=1_000,
         dt=0.1,
-        title="TS from R",
+        title=f"TS from R {eigen_method}",
         n_patience_steps=1000,
         # patience_threshold=1.0,
         # center_around_com=True,
     )
-
+    _rmsd_ts = align_and_get_rmsd(traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy())
+    results["ts_from_r_dt0.1_s1000"] = _rmsd_ts
+    
     # very long
     traj, _, _, _ = integrate_dynamics(
         pos_reactant,
@@ -457,12 +534,14 @@ def main():
         force_field="gad",
         max_steps=10_000,
         dt=0.01,
-        title="TS from R (10k steps)",
+        title=f"TS from R (10k steps) {eigen_method}",
         n_patience_steps=10000,
         # patience_threshold=1.0,
         # center_around_com=True,
     )
-
+    _rmsd_ts = align_and_get_rmsd(traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy())
+    results["ts_from_r_dt0.1_s10000"] = _rmsd_ts
+    
     # Follow the GAD vector field from R-P interpolation
     traj, _, _, _ = integrate_dynamics(
         pos_initial_guess_rp,
@@ -473,43 +552,18 @@ def main():
         force_field="gad",
         max_steps=1_000,
         dt=0.01,
-        title="R-P interpolation",
+        title=f"R-P interpolation {eigen_method}",
         n_patience_steps=500,
         # patience_threshold=1.0,
     )
-
-    # # Follow the GAD vector field from transition state
-    # traj, _, _, _ = integrate_dynamics(
-    #     sample.pos_transition,
-    #     sample.z,
-    #     sample.natoms,
-    #     calc,
-    #     sample.pos_transition,
-    #     force_field="gad",
-    #     max_steps=100,
-    #     dt=0.01,
-    #     title="TS from TS",
-    #     n_patience_steps=1000,
-    #     patience_threshold=1.0,
-    # )
-
-    # Follow the GAD vector field from perturbed transition state
-    _pos = torch.randn_like(sample.pos_transition) + sample.pos_transition
-    traj, _, _, _ = integrate_dynamics(
-        _pos,
-        sample.z,
-        sample.natoms,
-        calc,
-        sample.pos_transition,
-        force_field="gad",
-        max_steps=1000,
-        dt=0.01,
-        title="TS from perturbed TS",
-        n_patience_steps=1000,
-        patience_threshold=1.0,
-    )
-
-    exit()
+    _rmsd_ts = align_and_get_rmsd(traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy())
+    results["ts_from_r_p_dt0.01_s1000"] = _rmsd_ts
+    
+    # Save results to JSON
+    with open(os.path.join(log_dir, f"results_{eigen_method}.json"), "w") as f:
+        json.dump(results, f, indent=4)
+    
+    return results
 
     ###################################################################################
     print("=" * 60)
@@ -601,4 +655,35 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Run GAD-RGD1 example.")
+    parser.add_argument("--eigen-method", type=str, default="qr", 
+                       help="Eigenvalue method for GAD (qr, svd, svdforce, inertia, geo, ase, eckartsvd, eckartqr)")
+
+    args, unknown = parser.parse_known_args()
+    
+    # eigen_kwargs = {}
+    # # Parse any additional arguments in format --key=value and add to eigen_kwargs
+    # for arg in unknown:
+    #     if arg.startswith('--') and '=' in arg:
+    #         key, value = arg[2:].split('=', 1)
+    #         # Try to convert to appropriate type
+    #         try:
+    #             # Try float first
+    #             value = float(value)
+    #         except ValueError:
+    #             try:
+    #                 # Try int
+    #                 value = int(value)
+    #             except ValueError:
+    #                 # Keep as string
+    #                 pass
+    #         eigen_kwargs[key] = value
+    #     elif arg.startswith('--'):
+    #         # Boolean flag
+    #         key = arg[2:]
+    #         eigen_kwargs[key] = True
+    
+    results = example(eigen_method=args.eigen_method)
+    print("Results:")
+    for k, v in results.items():
+        print(f"  {k}: {v:.6f}")

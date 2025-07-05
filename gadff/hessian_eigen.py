@@ -72,6 +72,7 @@ def _is_linear_molecule(coords, threshold=1e-8):
 def _get_masses_zsymbols_znumbers(atom_types, device="cpu"):
     pt = GetPeriodicTable()
     if isinstance(atom_types, torch.Tensor):
+        device = atom_types.device
         atom_types = atom_types.tolist()
     if isinstance(atom_types[0], str):
         elements = atom_types
@@ -182,7 +183,7 @@ def compute_modes_with_geometric_library(
         hessian = hessian.detach().cpu().numpy()
 
     # Convert atomic numbers to symbols
-    masses, elements, atom_types = _get_masses_zsymbols_znumbers(atom_types)
+    masses, elements, atom_types = _get_masses_zsymbols_znumbers(atom_types, device=device)
 
     # Convert coordinates from Angstrom to Bohr (geometric expects Bohr)
     coords_bohr = coords.flatten() * angstrom_to_bohr  # Convert Å to Bohr
@@ -211,7 +212,7 @@ def compute_modes_with_geometric_library(
     return freqs_torch, modes_torch
 
 
-def compute_modes_with_ase_library(hessian, atom_types, coords, debug=False):
+def compute_modes_with_ase_library(hessian, atom_types, coords, debug=False, **kwargs):
     """
     Use ASE library to get vibrational modes from torch Hessian
 
@@ -236,7 +237,7 @@ def compute_modes_with_ase_library(hessian, atom_types, coords, debug=False):
     # Convert to numpy
     hessian_np = hessian.detach().cpu().numpy()
     coords_np = coords.detach().cpu().numpy()
-    masses, elements, atom_types = _get_masses_zsymbols_znumbers(atom_types)
+    masses, elements, atom_types = _get_masses_zsymbols_znumbers(atom_types, device=hessian.device)
     masses_np = masses.detach().cpu().numpy()
     symbols = elements
 
@@ -344,7 +345,7 @@ def compute_modes_with_ase_library(hessian, atom_types, coords, debug=False):
 
 
 def compute_modes_svd_projector(
-    hessian, atom_types, coords, forces=None, include_force=False, threshold=None
+    hessian, atom_types, coords, forces=None, include_force=False, threshold=None, **kwargs
 ):
     """
     Compute vibrational eigenvalues and eigenvectors of a molecule by removing
@@ -454,7 +455,7 @@ def compute_modes_svd_projector(
 
 
 def compute_modes_inertia_projector(
-    hessian, atom_types, coords, threshold_linear=1e-8, threshold=None
+    hessian, atom_types, coords, threshold_linear=1e-8, threshold=None, **kwargs
 ):
     """
     Compute eigenvalues/eigenvectors of Hessian excluding translational/rotational modes.
@@ -582,7 +583,7 @@ def compute_modes_inertia_projector(
     return internal_evals, internal_evecs_cart
 
 
-def compute_modes_qr_projector(hessian, atom_types, coords, threshold=None):
+def compute_modes_qr_projector(hessian, atom_types, coords, threshold=None, **kwargs):
     """
     Projector-based removal of translations & rotations using QR decomposition
     A robust alternative to filtering is to build the subspace of exactly invariant motions
@@ -602,7 +603,7 @@ def compute_modes_qr_projector(hessian, atom_types, coords, threshold=None):
         atom_types = atom_types.tolist()
     N = len(atom_types)
     # 0) Build mass vector m3 = [sqrt(m1), sqrt(m1), sqrt(m1), sqrt(m2), ...]
-    masses, elements, atom_types = _get_masses_zsymbols_znumbers(atom_types)
+    masses, elements, atom_types = _get_masses_zsymbols_znumbers(atom_types, device=hessian.device)
     sqrt_m3 = masses.repeat_interleave(3).sqrt()  # (3N,)
 
     # 1) mass-weight Hessian F = M^{-1/2} H M^{-1/2}
@@ -671,7 +672,7 @@ def compute_modes_qr_projector(hessian, atom_types, coords, threshold=None):
 
 
 def compute_modes_eckart_frame(
-    hessian, atom_types, coords, orth_method="svd", threshold=None
+    hessian, atom_types, coords, orth_method="svd", threshold=None, **kwargs
 ):
     """
     Compute vibrational eigenvalues and eigenvectors using Eckart frame alignment,
@@ -795,7 +796,7 @@ def compute_modes_eckart_frame(
 
 
 def compute_vibrational_modes(
-    hessian, atom_types, coords, method="qr_projector", **kwargs
+    hessian, atom_types, coords, method="geo", forces=None, **kwargs
 ):
     """
     Unified wrapper function to compute vibrational eigenvalues and eigenvectors using different methods.
@@ -805,75 +806,62 @@ def compute_vibrational_modes(
         atom_types: list of atomic numbers or element symbols
         coords: torch.Tensor of shape (N, 3) - atomic coordinates
         method: str - method to use for computation, one of:
-            - "geometric_library": Use Geometric library (external dependency)
-            - "ase_library": Use ASE library (external dependency)
-            - "svd_projector": Manual SVD-based null-space projector
-            - "inertia_projector": Inertia tensor-based projector with auto-linearity detection
-            - "qr_projector": QR-based projector method (default)
-            - "eckart_frame": Eckart frame alignment with principal axes
+            - "geo": Use Geometric library (external dependency)
+            - "ase": Use ASE library (external dependency)
+            - "svd": Manual SVD-based null-space projector
+            - "svdforce": Manual SVD-based null-space projector with force constraint
+            - "inertia": Inertia tensor-based projector with auto-linearity detection
+            - "qr": QR-based projector method (default)
+            - "eckartsvd": Eckart frame alignment with principal axes with SVD orthonormalization
+            - "eckartqr": Eckart frame alignment with principal axes with QR orthonormalization
         **kwargs: Additional method-specific arguments
 
     Returns:
         eigenvalues: torch.Tensor - vibrational eigenvalues
         eigenvectors: torch.Tensor - vibrational eigenvectors (columns)
 
-    Method-specific kwargs:
-        geometric_library:
-            - return_raw_eigenvalues: bool, return eigenvalues instead of frequencies
-            - unmass_weight: bool, return raw Cartesian eigenvalues
-        ase_library:
-            - debug: bool, print diagnostic information
-        svd_projector:
-            - forces: torch.Tensor, forces for additional constraint
-            - include_force: bool, include force vector as constraint
-            - tol: float, tolerance for zero singular values
-        inertia_projector:
-            - threshold_linear: float, tolerance for linearity detection
-            - threshold_internal: float, tolerance for internal mode detection
-        qr_projector:
-            - threshold: float, threshold for dropping modes
-        eckart_frame:
-            - orth_method: str, 'svd' or 'qr' for orthonormalization
-            - threshold: float, threshold for dropping modes
-        compute_modes_svd_projector:
-            - forces: torch.Tensor, forces for additional constraint
-
     Example:
         # Use QR projector method (default)
         evals, evecs = compute_vibrational_modes(hessian, atom_types, coords)
 
         # Use Geometric library with frequencies in cm^-1
-        freqs, modes = compute_vibrational_modes(hessian, atom_types, coords, method="geometric_library")
+        freqs, modes = compute_vibrational_modes(hessian, atom_types, coords, method="geo")
 
         # Use SVD projector with force constraint
         evals, evecs = compute_vibrational_modes(hessian, atom_types, coords,
-                                               method="svd_projector",
+                                               method="svd",
                                                forces=forces, include_force=True)
 
         # Use Eckart frame with SVD orthonormalization
         evals, evecs = compute_vibrational_modes(hessian, atom_types, coords,
-                                               method="eckart_frame", orth_method="svd")
+                                               method="eckart", orth_method="svd")
     """
 
-    if method == "geometric_library":
+    if method == "geo":
         return compute_modes_with_geometric_library(
             hessian, atom_types, coords, **kwargs
         )
-    elif method == "ase_library":
+    elif method == "ase":
         return compute_modes_with_ase_library(hessian, atom_types, coords, **kwargs)
-    elif method == "svd_projector":
-        return compute_modes_svd_projector(hessian, atom_types, coords, **kwargs)
-    elif method == "inertia_projector":
+    elif method == "svd":
+        return compute_modes_svd_projector(hessian, atom_types, coords, forces=forces, **kwargs)
+    elif method == "svdforce":
+        return compute_modes_svd_projector(hessian, atom_types, coords, forces=forces, include_force=True, **kwargs)
+    elif method == "inertia":
         return compute_modes_inertia_projector(hessian, atom_types, coords, **kwargs)
-    elif method == "qr_projector":
+    elif method == "qr":
         return compute_modes_qr_projector(hessian, atom_types, coords, **kwargs)
-    elif method == "eckart_frame":
-        return compute_modes_eckart_frame(hessian, atom_types, coords, **kwargs)
+    elif method == "eckartsvd":
+        return compute_modes_eckart_frame(hessian, atom_types, coords, orth_method="svd", **kwargs)
+    elif method == "eckartqr":
+        return compute_modes_eckart_frame(hessian, atom_types, coords, orth_method="qr", **kwargs)
+    elif method is None:
+        evals, evecs = torch.linalg.eigh(hessian)
+        return evals, evecs
     else:
         raise ValueError(
             f"Unknown method '{method}'. Available methods: "
-            "geometric_library, ase_library, svd_projector, inertia_projector, "
-            "qr_projector, eckart_frame"
+            "geo, ase, svd, inertia, qr, eckart"
         )
 
 
@@ -1029,26 +1017,26 @@ if __name__ == "__main__":
 
         # Test SVD projector
         evals, evecs = compute_vibrational_modes(
-            hessian, atom_types, pos, method="svd_projector"
+            hessian, atom_types, pos, method="svd"
         )
         print(f"SVD projector: {len(evals)} modes")
 
         # Test Eckart frame with SVD
         evals, evecs = compute_vibrational_modes(
-            hessian, atom_types, pos, method="eckart_frame", orth_method="svd"
+            hessian, atom_types, pos, method="eckart", orth_method="svd"
         )
         print(f"Eckart frame (SVD): {len(evals)} modes")
 
         # Test inertia projector
         evals, evecs = compute_vibrational_modes(
-            hessian, atom_types, pos, method="inertia_projector"
+            hessian, atom_types, pos, method="inertia"
         )
         print(f"Inertia projector: {len(evals)} modes")
 
         try:
             # Test geometric library
             evals, evecs = compute_vibrational_modes(
-                hessian, atom_types, pos, method="geometric_library"
+                hessian, atom_types, pos, method="geo"
             )
             print(f"Geometric library: {len(evals)} modes")
         except Exception as e:
@@ -1057,7 +1045,7 @@ if __name__ == "__main__":
         try:
             # Test ASE library
             evals, evecs = compute_vibrational_modes(
-                hessian, atom_types, pos, method="ase_library"
+                hessian, atom_types, pos, method="ase"
             )
             print(f"ASE library: {len(evals)} modes")
         except Exception as e:
