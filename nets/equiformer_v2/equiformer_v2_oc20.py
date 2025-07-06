@@ -31,7 +31,6 @@ except ImportError:
     pass
 
 from .gaussian_rbf import GaussianRadialBasisLayer
-from torch.nn import Linear
 from .edge_rot_mat import init_edge_rot_mat
 from .so3 import (
     CoefficientMappingModule,
@@ -56,7 +55,6 @@ from .transformer_block import (
     TransBlockV2,
 )
 from .input_block import EdgeDegreeEmbedding
-from torch import tensor, float32
 import einops
 
 # Statistics of IS2RE 100K
@@ -77,6 +75,7 @@ def get_scalar_from_embedding(embedding, data):
 
 
 def irreps_to_cartesian_matrix(irrpes):
+    """Luca's creation"""
 
     assert irrpes.shape[-1] == 9, "Irreps must be of shape (..., 9)"
     M = torch.zeros((irrpes.shape[0], 3, 3), device=irrpes.device, dtype=irrpes.dtype)
@@ -92,6 +91,276 @@ def irreps_to_cartesian_matrix(irrpes):
         M += einops.einsum(ClGo, features_l3, "m1 m2 m3, b m3 -> b m1 m2")
 
     return M
+
+
+def check_symmetry(hessian, N, nsamples=100):
+    hessian = hessian.view(N * 3, N * 3)
+    # test symmetry
+    errors_abs = []
+    errors_rel = []
+    for _ in range(nsamples):
+        i = torch.randint(0, hessian.shape[0], (1,)).item()
+        j = torch.randint(0, hessian.shape[1], (1,)).item()
+        hij = hessian[i, j]
+        hji = hessian[j, i]
+        abs_error = torch.abs(hij - hji).item()
+        rel_error = abs_error / (torch.abs(hij).item() + 1e-8)
+        errors_abs.append(abs_error)
+        errors_rel.append(rel_error)
+    print(
+        f"Hessian symmetry check - Abs error: mean={sum(errors_abs)/len(errors_abs):.2e}, max={max(errors_abs):.2e}"
+    )
+    print(
+        f"Hessian symmetry check - Rel error: mean={sum(errors_rel)/len(errors_rel):.2e}, max={max(errors_rel):.2e}"
+    )
+
+
+# These are all the same
+def _blockdiagonal_N_3_N_3_loop(N, edge_index, sym_message):
+    device = sym_message.device
+    dtype = sym_message.dtype
+    hessian = torch.zeros(
+        (N, 3, N, 3), device=device, dtype=dtype
+    )
+    for ij in range(edge_index.shape[1]):
+        i, j = edge_index[0, ij], edge_index[1, ij]
+        hessian[i, :, j, :] += sym_message[ij]
+        hessian[j, :, i, :] += sym_message[ij].T
+    return hessian
+
+def _blockdiagonal_N3_N3_loop(N, edge_index, sym_message):
+    device = sym_message.device
+    dtype = sym_message.dtype
+    hessian2 = torch.zeros(N*3, N*3, device=device, dtype=dtype)
+    for ij in range(edge_index.shape[1]):
+        i, j = edge_index[0, ij], edge_index[1, ij]
+        hessian2[i*3:(i+1)*3, j*3:(j+1)*3] += sym_message[ij]
+        hessian2[j*3:(j+1)*3, i*3:(i+1)*3] += sym_message[ij].T
+    return hessian2
+
+def _blockdiagonal_N3_N3_loop_explicit(N, edge_index, sym_message):
+    # again but maximally explicit
+    device = sym_message.device
+    dtype = sym_message.dtype
+    hessian3 = torch.zeros(N*3, N*3, device=device, dtype=dtype)
+    for ij in range(edge_index.shape[1]):
+        # atom indices
+        i, j = edge_index[0, ij], edge_index[1, ij]
+        # atom indices * 3 = coordinate indices
+        _i = i*3
+        _j = j*3
+        # x
+        hessian3[_i, _j] += sym_message[ij][0, 0]
+        hessian3[_i, _j+1] += sym_message[ij][0, 1]
+        hessian3[_i, _j+2] += sym_message[ij][0, 2]
+        # y
+        hessian3[_i+1, _j] += sym_message[ij][1, 0]
+        hessian3[_i+1, _j+1] += sym_message[ij][1, 1]
+        hessian3[_i+1, _j+2] += sym_message[ij][1, 2]
+        # z
+        hessian3[_i+2, _j] += sym_message[ij][2, 0]
+        hessian3[_i+2, _j+1] += sym_message[ij][2, 1]
+        hessian3[_i+2, _j+2] += sym_message[ij][2, 2]
+        
+        hessian3[_j, _i] += sym_message[ij][0, 0]
+        hessian3[_j, _i+1] += sym_message[ij][1, 0]
+        hessian3[_j, _i+2] += sym_message[ij][2, 0]
+        # y
+        hessian3[_j+1, _i] += sym_message[ij][0, 1]
+        hessian3[_j+1, _i+1] += sym_message[ij][1, 1]
+        hessian3[_j+1, _i+2] += sym_message[ij][2, 1]
+        # z
+        hessian3[_j+2, _i] += sym_message[ij][0, 2]
+        hessian3[_j+2, _i+1] += sym_message[ij][1, 2]
+        hessian3[_j+2, _i+2] += sym_message[ij][2, 2]
+    return hessian3
+
+def _blockdiagonal_flat_explicit_indexadd(N, edge_index, sym_message):
+    # do the same thing but in 1d
+    device = sym_message.device
+    dtype = sym_message.dtype
+    E = edge_index.shape[1]
+    hessianflat = torch.zeros(N*3*N*3, device=device, dtype=dtype)
+    messageflat = sym_message.reshape(-1)
+    # Build indices for both i->j and j->i contributions
+    indices = []
+    values = []
+    for ij in range(E): # loop over messages
+        # message from node i to node j
+        i, j = edge_index[0, ij], edge_index[1, ij]
+        # Add i->j contribution
+        for coord_i in range(3):
+            for coord_j in range(3):
+                # 1D index in hessian: (i*3 + coord_i) * (N*3) + (j*3 + coord_j)
+                idx_hessian = (i * 3 + coord_i) * (N * 3) + (j * 3 + coord_j)
+                # 1D index in message: ij * 9 + coord_i * 3 + coord_j
+                idx_message = ij * 9 + coord_i * 3 + coord_j
+                indices.append(idx_hessian)
+                values.append(messageflat[idx_message])
+        # Add j->i contribution (transpose)
+        for coord_i in range(3):
+            for coord_j in range(3):
+                # 1D index in hessian: (j*3 + coord_i) * (N*3) + (i*3 + coord_j)
+                idx_hessian = (j * 3 + coord_i) * (N * 3) + (i * 3 + coord_j)
+                # 1D index in message: ij * 9 + coord_j * 3 + coord_i (transpose)
+                idx_message = ij * 9 + coord_j * 3 + coord_i
+                indices.append(idx_hessian)
+                values.append(messageflat[idx_message])
+    # Convert to tensors
+    indices = torch.tensor(indices, device=device, dtype=torch.long)
+    values = torch.tensor(values, device=device, dtype=dtype)
+    # Use index_add to efficiently add all values
+    hessianflat.index_add_(0, indices, values)
+    return hessianflat
+
+
+def _blockdiagonal_flat_indexadd(N, edge_index, sym_message):
+    # do the same thing in 1d, but indexing messageflat without storing it in values
+    device = sym_message.device
+    dtype = sym_message.dtype
+    E = edge_index.shape[1]
+    messageflat = sym_message.reshape(-1)
+    hessianflat2 = torch.zeros(N*3*N*3, device=device, dtype=dtype)
+    # We need 2 * E * 3 * 3 indices (for both i->j and j->i contributions)
+    indices_ij = torch.zeros(E*3*3, device=device, dtype=torch.long)
+    indices_ji = torch.zeros(E*3*3, device=device, dtype=torch.long)
+    # Build indices for i->j contributions
+    idx = 0
+    for ij in range(E):
+        i, j = edge_index[0, ij], edge_index[1, ij]
+        for coord_i in range(3):
+            for coord_j in range(3):
+                # 1D index in hessian: (i*3 + coord_i) * (N*3) + (j*3 + coord_j)
+                hess_idx = (i * 3 + coord_i) * (N * 3) + (j * 3 + coord_j)
+                indices_ij[idx] = hess_idx
+                idx += 1
+    # Build indices for j->i contributions (transpose)
+    idx = 0
+    for ij in range(E):
+        i, j = edge_index[0, ij], edge_index[1, ij]
+        for coord_i in range(3):
+            for coord_j in range(3):
+                # 1D index in hessian: (j*3 + coord_i) * (N*3) + (i*3 + coord_j)
+                hess_idx = (j * 3 + coord_i) * (N * 3) + (i * 3 + coord_j)
+                indices_ji[idx] = hess_idx
+                idx += 1
+    # Reshape messageflat to (E, 3, 3) and transpose each 3x3 matrix
+    messages_3x3 = messageflat.view(E, 3, 3)
+    messages_3x3_T = messages_3x3.transpose(-2, -1)  # Transpose last two dimensions
+    messageflat_transposed = messages_3x3_T.reshape(-1)  # Flatten back
+    # Add both contributions
+    hessianflat2.index_add_(0, indices_ij, messageflat)           # i->j direct
+    hessianflat2.index_add_(0, indices_ji, messageflat_transposed) # j->i transposed
+    return hessianflat2
+
+def _add_node_diagonal_2d_loop(hessian, l012_node_features, N):
+    """Add node embeddings to diagonal using 2D indexing with loops"""
+    hessian_with_diag = hessian.clone()
+    for ii in range(N):
+        hessian_with_diag[ii*3:(ii+1)*3, ii*3:(ii+1)*3] += l012_node_features[ii]
+        # Add transpose for symmetry
+        hessian_with_diag[ii*3:(ii+1)*3, ii*3:(ii+1)*3] += l012_node_features[ii].T
+    return hessian_with_diag
+
+
+def _add_node_diagonal_1d_loop(hessianflat, l012_node_features, N):
+    """Add node embeddings to diagonal using 1D indexing with loops"""
+    hessianflat_with_diag = hessianflat.clone()
+    l012_node_features_flat = l012_node_features.reshape(-1)  # (N*3*3,)
+    # Add diagonal elements: for each atom ii, add its 3x3 matrix to diagonal
+    for ii in range(N):
+        for coord_i in range(3):
+            for coord_j in range(3):
+                # 1D index for diagonal element (ii*3 + coord_i, ii*3 + coord_j)
+                diag_idx = (ii * 3 + coord_i) * (N * 3) + (ii * 3 + coord_j)
+                # 1D index in node features: ii * 9 + coord_i * 3 + coord_j
+                node_idx = ii * 9 + coord_i * 3 + coord_j
+                hessianflat_with_diag[diag_idx] += l012_node_features_flat[node_idx]
+                # Add transpose for symmetry
+                hessianflat_with_diag[diag_idx] += l012_node_features_flat[ii * 9 + coord_j * 3 + coord_i]
+    return hessianflat_with_diag
+
+
+def _add_node_diagonal_1d_indexadd(hessianflat, l012_node_features, N, device, dtype):
+    """Add node embeddings to diagonal using 1D indexing with index_add"""
+    hessianflat_with_diag = hessianflat.clone()
+    # Build diagonal indices for direct and transpose contributions
+    diag_indices_direct = torch.zeros(N*3*3, device=device, dtype=torch.long)
+    diag_indices_transpose = torch.zeros(N*3*3, device=device, dtype=torch.long)
+    idx = 0
+    for ii in range(N):
+        for coord_i in range(3):
+            for coord_j in range(3):
+                # 1D index for diagonal element (ii*3 + coord_i, ii*3 + coord_j)
+                diag_idx = (ii * 3 + coord_i) * (N * 3) + (ii * 3 + coord_j)
+                diag_indices_direct[idx] = diag_idx
+                diag_indices_transpose[idx] = diag_idx
+                idx += 1
+    
+    # Flatten node features for direct indexing
+    l012_node_features_flat = l012_node_features.reshape(-1)  # (N*3*3,)
+    # Create transpose indices for node features
+    node_transpose_indices = torch.zeros(N*3*3, device=device, dtype=torch.long)
+    idx = 0
+    for ii in range(N):
+        for coord_i in range(3):
+            for coord_j in range(3):
+                # Transpose: swap coord_i and coord_j
+                node_idx_T = ii * 9 + coord_j * 3 + coord_i
+                node_transpose_indices[idx] = node_idx_T
+                idx += 1
+    
+    # Use two index_add calls: one for direct, one for transpose
+    hessianflat_with_diag.index_add_(0, diag_indices_direct, l012_node_features_flat)
+    hessianflat_with_diag.index_add_(0, diag_indices_transpose, l012_node_features_flat[node_transpose_indices])
+    return hessianflat_with_diag
+
+
+def build_block_diagonal_hessian(
+    edge_index, sym_message, l012_node_features, data
+):
+    """Wasteful but simple B*N*3*B*N*3 Hessian.
+    Ends up being block diagonal (only B*N*3*N*3 non-zero entries).
+    sym_message: edge features (E, 3, 3)
+    l012_node_features: node features (N, 9)
+    """
+    N = data.natoms.sum().item()
+    E = edge_index.shape[1]
+    device = sym_message.device
+    dtype = sym_message.dtype
+    
+    hessian = _blockdiagonal_N_3_N_3_loop(N, edge_index, sym_message)
+    
+    hessian2 = _blockdiagonal_N3_N3_loop(N, edge_index, sym_message)
+    assert torch.allclose(hessian.reshape(N*3, N*3), hessian2)
+    
+    hessian3 = _blockdiagonal_N3_N3_loop_explicit(N, edge_index, sym_message)
+    assert torch.allclose(hessian.reshape(N*3, N*3), hessian3)
+    
+    hessianflat = _blockdiagonal_flat_explicit_indexadd(N, edge_index, sym_message)
+    assert torch.allclose(hessian.reshape(N*3*N*3), hessianflat)
+    
+    hessianflat2 = _blockdiagonal_flat_indexadd(N, edge_index, sym_message)
+    assert torch.allclose(hessian.reshape(N*3*N*3), hessianflat2)
+    
+    # Test all three ways to add node embeddings to diagonal
+    hessian = hessian.reshape(N*3, N*3)
+    
+    # Method 1: 2D indexing with loops
+    hessian_with_diag_2d = _add_node_diagonal_2d_loop(hessian, l012_node_features, N)
+    
+    # Method 2: 1D indexing with loops
+    hessianflat2_with_diag_1d = _add_node_diagonal_1d_loop(hessianflat2, l012_node_features, N)
+    assert torch.allclose(hessian_with_diag_2d.reshape(N*3*N*3), hessianflat2_with_diag_1d)
+    
+    # Method 3: 1D indexing with index_add
+    hessianflat2_with_diag_indexadd = _add_node_diagonal_1d_indexadd(hessianflat2, l012_node_features, N, device, dtype)
+    assert torch.allclose(hessianflat2_with_diag_1d, hessianflat2_with_diag_indexadd)
+    
+    # Use the 2D version as the final result
+    hessian = hessian_with_diag_2d
+
+    return hessian
 
 
 @registry.register_model("equiformer_v2")
@@ -846,21 +1115,13 @@ class EquiformerV2_OC20(BaseModel):
 
             sym_message = l012_features
 
-            hessian = torch.zeros(
-                (num_atoms, 3, num_atoms, 3), device=self.device, dtype=self.dtype
-            )
-            for ij in range(edge_index.shape[1]):
-                i, j = edge_index[0, ij], edge_index[1, ij]
-                hessian[i, :, j, :] += sym_message[ij]
-                hessian[j, :, i, :] += sym_message[ij].T
-
-            # # This is exactly the same
-            # hessian = hessian.reshape(num_atoms*3, num_atoms*3)
-            # hessian2 = torch.zeros(num_atoms*3, num_atoms*3, device=self.device, dtype=self.dtype)
-            # for ij in range(edge_index.shape[1]):
-            #     i, j = edge_index[0, ij], edge_index[1, ij]
-            #     hessian2[i*3:(i+1)*3, j*3:(j+1)*3] += sym_message[ij]
-            #     hessian2[j*3:(j+1)*3, i*3:(i+1)*3] += sym_message[ij].T
+            # do this in a smarter way
+            # total entries: B*(N*3*N*3)
+            # number of batches
+            B = data.batch.max() + 1
+            # number of atoms per batch
+            print(data.batch)
+            print(data.ptr)
 
             # combine message with node embeddings (self-connection)
             # node embeddings -> (N, 3, 3)
@@ -879,12 +1140,10 @@ class EquiformerV2_OC20(BaseModel):
             l012_node_features = irreps_to_cartesian_matrix(
                 l012_node_features
             )  # (N, 3, 3)
-            # add node embeddings to diagonal of hessian
-            # hessian = hessian + torch.eye(num_atoms*3, device=self.device, dtype=self.dtype).view(num_atoms*3, num_atoms*3) * l012_node_features
-            for ii in range(num_atoms):
-                hessian[ii, :, ii, :] = l012_node_features[ii]
 
+            hessian = build_block_diagonal_hessian(edge_index, sym_message, l012_node_features, data)
             hessian = hessian.view(num_atoms * 3, num_atoms * 3)
+
             outputs["hessian"] = hessian
             # import plotly.express as px
             # fig = px.imshow(hessian.detach().cpu().numpy())
