@@ -29,7 +29,7 @@ from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.horm.utils import average_over_batch_metrics, pretty_print
 import gadff.horm.utils as diff_utils
 import yaml
-from gadff.path_config import find_project_root, fix_horm_dataset_path
+from gadff.path_config import find_project_root, fix_dataset_path
 
 
 LR_SCHEDULER = {
@@ -197,12 +197,8 @@ class PotentialModule(LightningModule):
         Fix paths in the training config to be relative to the project root.
         """
         try:
-            training_config["trn_path"] = fix_horm_dataset_path(
-                training_config["trn_path"]
-            )
-            training_config["val_path"] = fix_horm_dataset_path(
-                training_config["val_path"]
-            )
+            training_config["trn_path"] = fix_dataset_path(training_config["trn_path"])
+            training_config["val_path"] = fix_dataset_path(training_config["val_path"])
         except Exception as e:
             pass
         return training_config

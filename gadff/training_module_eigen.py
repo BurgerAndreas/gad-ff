@@ -137,7 +137,8 @@ class EigenPotentialModule(PotentialModule):
     def configure_optimizers(self):
         print("Configuring optimizer")
         # Only optimize parameters that require gradients (unfrozen heads)
-        self._freeze_except_heads(self.heads_to_train)
+        if self.training_config["train_heads_only"]:
+            self._freeze_except_heads(self.heads_to_train)
         trainable_params = [p for p in self.potential.parameters() if p.requires_grad]
         optimizer = torch.optim.AdamW(trainable_params, **self.optimizer_config)
 

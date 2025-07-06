@@ -221,10 +221,11 @@ class EquiformerV2_OC20(BaseModel):
         self.edge_channels = edge_channels
         self.use_atom_edge_embedding = use_atom_edge_embedding
         self.share_atom_edge_embedding = share_atom_edge_embedding
-        if self.share_atom_edge_embedding:
+        if self.share_atom_edge_embedding:  # True in HORM
             assert self.use_atom_edge_embedding
             self.block_use_atom_edge_embedding = False
         else:
+            # both False
             self.block_use_atom_edge_embedding = self.use_atom_edge_embedding
         self.use_m_share_rad = use_m_share_rad
         self.distance_function = distance_function
@@ -496,16 +497,25 @@ class EquiformerV2_OC20(BaseModel):
         else:
             self.eigval_2_head = None
 
-        if do_hessian:
+        if (
+            do_hessian
+        ):  # ["hessian_layers", "hessian_head", "hessian_edge_message_proj", "hessian_node_proj"]
+            # Initialize the blocks for each layer of EquiformerV2
+            self.hessian_layers = nn.ModuleList()
+            # for i in range(self.num_layers_hessian):
+            #     hessian_block = TransBlockV2(
+            #     )
+            #     self.hessian_layers.append(hessian_block)
             # copied from force prediction head
-            self.hessian_block = SO2EquivariantGraphAttention(
+            self.hessian_head = SO2EquivariantGraphAttention(
                 sphere_channels=self.sphere_channels,
                 hidden_channels=self.attn_hidden_channels,
                 num_heads=self.num_heads,
                 attn_alpha_channels=self.attn_alpha_channels,
                 attn_value_channels=self.attn_value_channels,
                 # different output_channels affects the linear projection after aggregating the messages
-                output_channels=1,
+                # not relevant for us
+                output_channels=1,  # self.sphere_channels
                 lmax_list=self.lmax_list,
                 mmax_list=self.mmax_list,
                 SO3_rotation=self.SO3_rotation,
@@ -513,7 +523,9 @@ class EquiformerV2_OC20(BaseModel):
                 SO3_grid=self.SO3_grid,
                 max_num_elements=self.max_num_elements,
                 edge_channels_list=self.edge_channels_list,
-                use_atom_edge_embedding=self.block_use_atom_edge_embedding,  # different
+                # Whether to use atomic embedding along with relative distance for edge scalar features
+                # different: use_atom_edge_embedding vs block_use_atom_edge_embedding
+                use_atom_edge_embedding=self.block_use_atom_edge_embedding,
                 use_m_share_rad=self.use_m_share_rad,
                 activation=self.attn_activation,
                 use_s2_act_attn=self.use_s2_act_attn,
@@ -522,31 +534,7 @@ class EquiformerV2_OC20(BaseModel):
                 use_sep_s2_act=self.use_sep_s2_act,
                 alpha_drop=self.hessian_alpha_drop,
             )
-            # # copied from transformer block
-            # self.hessian_block = SO2EquivariantGraphAttention(
-            #     sphere_channels=self.sphere_channels,
-            #     hidden_channels=self.attn_hidden_channels,
-            #     num_heads=self.num_heads,
-            #     attn_alpha_channels=self.attn_alpha_channels,
-            #     attn_value_channels=self.attn_value_channels,
-            #     output_channels=self.sphere_channels,
-            #     lmax_list=self.lmax_list,
-            #     mmax_list=self.mmax_list,
-            #     SO3_rotation=self.SO3_rotation,
-            #     mappingReduced=self.mappingReduced,
-            #     SO3_grid=self.SO3_grid,
-            #     max_num_elements=self.max_num_elements,
-            #     edge_channels_list=self.edge_channels_list,
-            #     use_atom_edge_embedding=self.use_atom_edge_embedding,
-            #     use_m_share_rad=self.use_m_share_rad,
-            #     activation=self.attn_activation,
-            #     use_s2_act_attn=self.use_s2_act_attn,
-            #     use_attn_renorm=self.use_attn_renorm,
-            #     use_gate_act=self.use_gate_act,
-            #     use_sep_s2_act=self.use_sep_s2_act,
-            #     alpha_drop=self.hessian_alpha_drop,
-            # )
-            self.hessian_proj = SO3_LinearV2(
+            self.hessian_edge_message_proj = SO3_LinearV2(
                 self.num_heads * self.attn_value_channels,
                 1,
                 lmax=2,
@@ -557,7 +545,7 @@ class EquiformerV2_OC20(BaseModel):
                 lmax=2,
             )
         else:
-            self.hessian_block = None
+            self.hessian_head = None
 
         self.apply(self._init_weights)
         self.apply(self._uniform_init_rad_func_linear_weights)
@@ -828,8 +816,13 @@ class EquiformerV2_OC20(BaseModel):
         ###############################################################
         if hessian:
             # messages: SO3_Embedding (E, L, num_heads * attn_value_channels)
-            x_message = self.hessian_block(
-                x, atomic_numbers, edge_distance, edge_index, return_attn_messages=True
+            x_message = self.hessian_head(
+                x,
+                atomic_numbers,
+                edge_distance,
+                edge_index,
+                return_attn_messages=True,
+                symmetric_messages=True,
             )
             # select l0, l1, l2 features
             l012_tensor = x_message.embedding.narrow(
@@ -846,59 +839,28 @@ class EquiformerV2_OC20(BaseModel):
                 l012_tensor
             )  # (E, 9, num_heads * attn_value_channels)
             # project channel dimension to 1
-            l012_features = self.hessian_proj(l012_features).embedding[:, :, 0]
+            l012_features = self.hessian_edge_message_proj(l012_features).embedding[
+                :, :, 0
+            ]
             l012_features = irreps_to_cartesian_matrix(l012_features)  # (E, 3, 3)
 
-            # # for every message between nodes i->j
-            # # there is a corresponding message j->i
-            # # but how to find the corresponding message?
-            # # there is a permutation matrix P that maps edge_index[0, :] to edge_index[1, :]
-            # # l012_features_sym = torch.zeros_like(l012_features)
-            # edge_index_rev = torch.stack([edge_index[1], edge_index[0]], dim=0)
-            # idx_to_rev_message = torch.zeros(edge_index[0].shape[0], device=self.device, dtype=torch.long)
-            # for i in range(edge_index[0].shape[0]):
-            #     idx_to_rev_message[i] = torch.where(edge_index_rev[0] == edge_index[0][i])[0]
-            # l012_features_sym = torch.zeros_like(l012_features)
-            # l012_features_sym.index_add_(dim=0, index=idx_to_rev_message, source=l012_features)
-
-            # same message but the edge direction reversed
-            edge_distance_rev = torch.zeros_like(edge_distance)
-            edge_distance_rev[0] = edge_distance[1]
-            edge_distance_rev[1] = edge_distance[0]
-            x_message_rev = self.hessian_block(
-                x,
-                atomic_numbers,
-                edge_distance_rev,
-                edge_index,
-                return_attn_messages=True,
-            )
-            l012_tensor_rev = x_message_rev.embedding.narrow(
-                dim=1, start=0, length=9
-            )  # length=2l+1
-            l012_features_rev = SO3_Embedding(
-                length=l012_tensor_rev.shape[0],
-                lmax_list=[2],
-                num_channels=l012_tensor_rev.shape[2],
-                device=self.device,
-                dtype=self.dtype,
-            )
-            l012_features_rev.set_embedding(
-                l012_tensor_rev
-            )  # (E, 9, num_heads * attn_value_channels)
-            l012_features_rev = self.hessian_proj(l012_features_rev).embedding[:, :, 0]
-            l012_features_rev = irreps_to_cartesian_matrix(
-                l012_features_rev
-            )  # (E, 3, 3)
-            # symmetrize the message
-            sym_message = (l012_features + l012_features_rev) / 2  # (E, 3, 3)
+            sym_message = l012_features
 
             hessian = torch.zeros(
                 (num_atoms, 3, num_atoms, 3), device=self.device, dtype=self.dtype
             )
             for ij in range(edge_index.shape[1]):
                 i, j = edge_index[0, ij], edge_index[1, ij]
-                hessian[i, :, j, :] = sym_message[ij]
-                hessian[j, :, i, :] = sym_message[ij].T
+                hessian[i, :, j, :] += sym_message[ij]
+                hessian[j, :, i, :] += sym_message[ij].T
+
+            # # This is exactly the same
+            # hessian = hessian.reshape(num_atoms*3, num_atoms*3)
+            # hessian2 = torch.zeros(num_atoms*3, num_atoms*3, device=self.device, dtype=self.dtype)
+            # for ij in range(edge_index.shape[1]):
+            #     i, j = edge_index[0, ij], edge_index[1, ij]
+            #     hessian2[i*3:(i+1)*3, j*3:(j+1)*3] += sym_message[ij]
+            #     hessian2[j*3:(j+1)*3, i*3:(i+1)*3] += sym_message[ij].T
 
             # combine message with node embeddings (self-connection)
             # node embeddings -> (N, 3, 3)

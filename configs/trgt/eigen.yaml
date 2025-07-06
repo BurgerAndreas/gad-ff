@@ -1,0 +1,13 @@
+# @package _global_
+
+potential_module_class: "EigenPotentialModule"
+
+model:
+  # Added for eigenvalue/eigenvector prediction
+  do_eigvec_1: true
+  do_eigvec_2: false  
+  do_eigval_1: true
+  do_eigval_2: true
+
+  do_hessian: false
+  hessian_alpha_drop: 0.0

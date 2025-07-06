@@ -22,7 +22,7 @@ Data
 .csv
 rgd1_raw/
 *.html
-
+*.json
 
 *.whl
 *env

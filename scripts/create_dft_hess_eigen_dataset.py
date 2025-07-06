@@ -33,7 +33,7 @@ from gadff.hessian_eigen import projector_vibrational_modes
 from gadff.horm.hessian_utils import get_smallest_eigen_from_full_hessian
 from gadff.path_config import (
     DATASET_DIR_HORM_EIGEN,
-    fix_horm_dataset_path,
+    fix_dataset_path,
     remove_dir_recursively,
 )
 
@@ -57,7 +57,7 @@ def create_dfteigen_dataset(
 
     summary = []
 
-    input_lmdb_path = fix_horm_dataset_path(dataset_file)
+    input_lmdb_path = fix_dataset_path(dataset_file)
     if debug:
         output_lmdb_path = input_lmdb_path.replace(
             ".lmdb", "-dft-hess-eigen-DEBUG.lmdb"

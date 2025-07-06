@@ -55,10 +55,12 @@ def find_rigid_alignment(A, B):
 def get_rmsd(A, B):
     return np.sqrt((((A - B) ** 2).sum(axis=1)).mean())
 
+
 def align_and_get_rmsd(A, B):
     R, t = find_rigid_alignment(A, B)
     A_aligned = (R.dot(A.T)).T + t
     return get_rmsd(A_aligned, B)
+
 
 if __name__ == "__main__":
     import doctest

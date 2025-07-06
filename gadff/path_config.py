@@ -31,7 +31,10 @@ DATASET_FILES_HORM = [
 
 DATA_PATH_HORM_SAMPLE = os.path.join(ROOT_DIR, "data/sample_100.lmdb")
 
+# RGD1 dataset
+DATASET_DIR_RGD1 = os.path.join(ROOT_DIR, "data/rgd1")
 
+# Checkpoint directory
 CHECKPOINT_DIR = os.path.join(ROOT_DIR, "ckpt")
 CHECKPOINT_PATH_EQUIFORMER_HORM = os.path.join(CHECKPOINT_DIR, "eqv2.ckpt")
 
@@ -58,26 +61,28 @@ def remove_dir_recursively(path):
     return not os.path.exists(path)
 
 
-def fix_horm_dataset_path(_path):
-    def _fix_horm_dataset_path_single(_path):
+def fix_dataset_path(_path):
+    def _fix_dataset_path_single(_path):
+        horm_path = os.path.join(DATASET_DIR_HORM_EIGEN, _path)
+        rgd1_path = os.path.join(DATASET_DIR_RGD1, _path)
         if os.path.exists(_path):
             # set absolute path
             return os.path.abspath(_path)
+        elif os.path.exists(horm_path):
+            return horm_path
+        elif os.path.exists(rgd1_path):
+            return rgd1_path
         else:
-            new_path = os.path.join(DATASET_DIR_HORM_EIGEN, _path)
-            if os.path.exists(new_path):
-                return new_path
-            else:
-                raise FileNotFoundError(f"Dataset path {_path} not found")
+            raise FileNotFoundError(f"Dataset path {_path} not found")
 
     if (
         isinstance(_path, list)
         or isinstance(_path, tuple)
         or isinstance(_path, ListConfig)
     ):
-        return [_fix_horm_dataset_path_single(p) for p in _path]
+        return [_fix_dataset_path_single(p) for p in _path]
     else:
-        return _fix_horm_dataset_path_single(_path)
+        return _fix_dataset_path_single(_path)
 
 
 if __name__ == "__main__":

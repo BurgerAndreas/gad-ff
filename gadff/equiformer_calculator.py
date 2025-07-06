@@ -93,7 +93,7 @@ class EquiformerCalculator:
         # ase: Use ASE library (external dependency)
         # eckart: Eckart frame alignment with principal axes
         self.eigen_dof_method = eigen_dof_method
-        
+
         # ocpmodels/common/relaxation/ase_utils.py
         self.a2g = AtomsToGraphs(
             max_neigh=self.model.max_neighbors,

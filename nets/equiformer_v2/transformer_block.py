@@ -122,6 +122,8 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
                 self.edge_channels_list[0] + 2 * self.edge_channels_list[-1]
             )
         else:
+            # do not use atomic embedding for edge scalar features
+            # only relative distance
             self.source_embedding, self.target_embedding = None, None
 
         self.use_s2_act_attn = use_s2_act_attn
@@ -264,6 +266,8 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
                 (edge_distance, source_embedding, target_embedding), dim=1
             )
         else:
+            # Do not use atomic embedding for edge scalar features
+            # just use relative distance
             x_edge = edge_distance
 
         x_source = x.clone()

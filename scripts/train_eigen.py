@@ -21,7 +21,8 @@ from pytorch_lightning.callbacks import (
 )
 from pytorch_lightning.loggers import WandbLogger
 
-from gadff.eigen_training_module import EigenPotentialModule, MyPLTrainer
+from gadff.training_module_eigen import EigenPotentialModule, MyPLTrainer
+from gadff.training_module_hessian import HessianPotentialModule, MyPLTrainer
 from gadff.path_config import CHECKPOINT_PATH_EQUIFORMER_HORM
 from gadff.logging_utils import name_from_config
 
@@ -42,7 +43,11 @@ def setup_training(cfg: DictConfig):
 
     training_config = dict(cfg.training)
 
-    pm = EigenPotentialModule(model_config, optimizer_config, training_config)
+    # pm = EigenPotentialModule(model_config, optimizer_config, training_config)
+    # pm = hydra.utils.instantiate(cfg.potential_module_class, model_config, optimizer_config, training_config)
+    pm = eval(cfg.potential_module_class)(
+        model_config, optimizer_config, training_config
+    )
     if cfg.ckpt_model_path == "horm":
         ckpt = torch.load(
             CHECKPOINT_PATH_EQUIFORMER_HORM, map_location="cuda", weights_only=True
@@ -55,12 +60,13 @@ def setup_training(cfg: DictConfig):
         }
         pm.potential.load_state_dict(state_dict, strict=False)
     elif os.path.exists(cfg.ckpt_model_path):
-        pm = EigenPotentialModule.load_from_checkpoint(
+        # pm = hydra.utils.instantiate(cfg.potential_module_class).load_from_checkpoint(
+        pm = eval(cfg.potential_module_class).load_from_checkpoint(
             cfg.ckpt_model_path, strict=False
         )
     else:
         print(f"Not loading model checkpoint from {cfg.ckpt_model_path}")
-    print("EigenPotentialModule initialized")
+    print(f"{cfg.potential_module_class} initialized")
 
     # Add SLURM job ID to config if it exists in environment
     cfg.slurm_job_id = None

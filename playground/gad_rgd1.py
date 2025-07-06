@@ -6,7 +6,7 @@ using different eigenvalue calculation methods for the Hessian matrix.
 
 Available eigen methods:
 - "qr": QR-based projector method (default)
-- "svd": SVD-based projector method  
+- "svd": SVD-based projector method
 - "inertia": Inertia tensor-based projector with auto-linearity detection
 - "geo": Use Geometric library (external dependency)
 - "ase": Use ASE library (external dependency)
@@ -44,6 +44,7 @@ import json
 
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.equiformer_calculator import EquiformerCalculator
+
 # from gadff.align_unordered_mols import rmsd
 from gadff.align_ordered_mols import align_and_get_rmsd
 from gadff.plot_molecules import (
@@ -360,7 +361,7 @@ def example(
     print("\n" + "-" * 6)
     print(f"Initializing EquiformerCalculator with eigen_method={eigen_method}")
     calc = EquiformerCalculator(device=device, eigen_dof_method=eigen_method)
-    
+
     # # Create batch (equiformer expects batch format)
     # tg_data = convert_rgd1_to_tg_format(sample, state="transition")
     # batch = Batch.from_data_list([tg_data])
@@ -431,9 +432,9 @@ def example(
     # Follow the GAD vector field to find the transition state
     print("\n" + "=" * 60)
     print("Following GAD vector field to find transition state")
-    
+
     results = {}
-    
+
     # Test 1: is the transition state a fixed point of our GAD vector field?
     # Follow the GAD vector field from transition state
     traj, _, _, _ = integrate_dynamics(
@@ -449,11 +450,15 @@ def example(
         n_patience_steps=1000,
         patience_threshold=1.0,
     )
-    _rmsd_ts = align_and_get_rmsd(traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy())
+    _rmsd_ts = align_and_get_rmsd(
+        traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
+    )
     results["ts_from_ts"] = _rmsd_ts
 
     # Follow the GAD vector field from perturbed transition state
-    _pos = torch.randn_like(sample.pos_transition) + sample.pos_transition # RMSD ~ 1.2 Å
+    _pos = (
+        torch.randn_like(sample.pos_transition) + sample.pos_transition
+    )  # RMSD ~ 1.2 Å
     traj, _, _, _ = integrate_dynamics(
         _pos,
         sample.z,
@@ -467,7 +472,9 @@ def example(
         n_patience_steps=1000,
         patience_threshold=1.0,
     )
-    _rmsd_ts = align_and_get_rmsd(traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy())
+    _rmsd_ts = align_and_get_rmsd(
+        traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
+    )
     results["ts_from_perturbed_ts"] = _rmsd_ts
 
     # Test run - start from reactant
@@ -485,9 +492,11 @@ def example(
         # patience_threshold=1.0,
         # center_around_com=True,
     )
-    _rmsd_ts = align_and_get_rmsd(traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy())
+    _rmsd_ts = align_and_get_rmsd(
+        traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
+    )
     results["ts_from_r_dt0.1_s100"] = _rmsd_ts
-    
+
     # Start from reactant
     traj, _, _, _ = integrate_dynamics(
         pos_reactant,
@@ -503,7 +512,9 @@ def example(
         # patience_threshold=1.0,
         # center_around_com=True,
     )
-    _rmsd_ts = align_and_get_rmsd(traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy())
+    _rmsd_ts = align_and_get_rmsd(
+        traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
+    )
     results["ts_from_r_dt0.01_s1000"] = _rmsd_ts
 
     # large steps
@@ -521,9 +532,11 @@ def example(
         # patience_threshold=1.0,
         # center_around_com=True,
     )
-    _rmsd_ts = align_and_get_rmsd(traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy())
+    _rmsd_ts = align_and_get_rmsd(
+        traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
+    )
     results["ts_from_r_dt0.1_s1000"] = _rmsd_ts
-    
+
     # very long
     traj, _, _, _ = integrate_dynamics(
         pos_reactant,
@@ -539,9 +552,11 @@ def example(
         # patience_threshold=1.0,
         # center_around_com=True,
     )
-    _rmsd_ts = align_and_get_rmsd(traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy())
+    _rmsd_ts = align_and_get_rmsd(
+        traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
+    )
     results["ts_from_r_dt0.1_s10000"] = _rmsd_ts
-    
+
     # Follow the GAD vector field from R-P interpolation
     traj, _, _, _ = integrate_dynamics(
         pos_initial_guess_rp,
@@ -556,13 +571,19 @@ def example(
         n_patience_steps=500,
         # patience_threshold=1.0,
     )
-    _rmsd_ts = align_and_get_rmsd(traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy())
+    _rmsd_ts = align_and_get_rmsd(
+        traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
+    )
     results["ts_from_r_p_dt0.01_s1000"] = _rmsd_ts
-    
+
     # Save results to JSON
     with open(os.path.join(log_dir, f"results_{eigen_method}.json"), "w") as f:
-        json.dump(results, f, indent=4)
-    
+        json.dump(results, f)
+
+    with open(os.path.join(log_dir, f"results_{eigen_method}.txt"), "w") as f:
+        for k, v in results.items():
+            f.write(f"{k}: {v:.6f}\n")
+
     return results
 
     ###################################################################################
@@ -656,11 +677,15 @@ def example(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run GAD-RGD1 example.")
-    parser.add_argument("--eigen-method", type=str, default="qr", 
-                       help="Eigenvalue method for GAD (qr, svd, svdforce, inertia, geo, ase, eckartsvd, eckartqr)")
+    parser.add_argument(
+        "--eigen-method",
+        type=str,
+        default="qr",
+        help="Eigenvalue method for GAD (qr, svd, svdforce, inertia, geo, ase, eckartsvd, eckartqr)",
+    )
 
     args, unknown = parser.parse_known_args()
-    
+
     # eigen_kwargs = {}
     # # Parse any additional arguments in format --key=value and add to eigen_kwargs
     # for arg in unknown:
@@ -682,7 +707,7 @@ if __name__ == "__main__":
     #         # Boolean flag
     #         key = arg[2:]
     #         eigen_kwargs[key] = True
-    
+
     results = example(eigen_method=args.eigen_method)
     print("Results:")
     for k, v in results.items():

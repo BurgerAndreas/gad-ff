@@ -42,6 +42,10 @@ from e3nn import o3
 
 
 def equivariance_test(model, batch_base):
+
+    state_before = model.training
+    model.eval()
+
     N = batch_base.natoms.item()
 
     # regular forward pass
@@ -58,7 +62,6 @@ def equivariance_test(model, batch_base):
     R = torch.tensor(o3.rand_matrix()).to(model.device)  # det(R) = +1
 
     # rotated batch
-    print(f"Rotation matrix: {R.shape}")
     batch = batch_base.clone()
     batch = batch.to(model.device)
     batch.pos = batch.pos @ R
@@ -67,6 +70,7 @@ def equivariance_test(model, batch_base):
     energy2, forces2, rotated_out = model.forward(batch, eigen=True, hessian=True)
     hessian2 = rotated_out["hessian"]
 
+    print()
     # energy should be invariant
     diffe = energy - energy2
     print(f"Energy abs diff: {diffe.abs().item():.2e}")
@@ -83,6 +87,8 @@ def equivariance_test(model, batch_base):
     print(f"Hessian abs diff: {diffh.abs().mean().item():.2e}")
     _pred_hessian = torch.where(pred_hessian == 0, 1, pred_hessian)
     print(f"Hessian rel diff: {(diffh.abs() / _pred_hessian.abs()).mean().item():.2e}")
+
+    model.train(state_before)
 
 
 if __name__ == "__main__":
@@ -101,7 +107,7 @@ if __name__ == "__main__":
     state_dict = {k.replace("potential.", ""): v for k, v in state_dict.items()}
     model.load_state_dict(state_dict, strict=False)
 
-    model.eval()
+    model.train()
     model.to("cuda")
 
     from ocpmodels.ff_lmdb import LmdbDataset
@@ -117,19 +123,37 @@ if __name__ == "__main__":
 
         batch = batch_base.clone()
         batch = batch.to(model.device)
-        batch = compute_extra_props(batch, pos_require_grad=True)
+        batch = compute_extra_props(batch, pos_require_grad=False)
         energy, forces, out = model.forward(batch, eigen=True, hessian=True)
         pred_hessian = out["hessian"]
 
         equivariance_test(model, batch)
 
-        # print(batch.keys())
-        # true_hessian = batch.hessian
+        print("symmetry:")
+        diff = pred_hessian - pred_hessian.T
+        print(f"Symmetry abs diff: {diff.abs().mean().item():.2e}")
+        print(
+            f"Symmetry rel diff: {(diff.abs() / pred_hessian.abs()).mean().item():.2e}"
+        )
 
-        # # compute loss
-        # loss = torch.nn.functional.mse_loss(pred_hessian, true_hessian)
+        true_hessian = batch.hessian.reshape(pred_hessian.shape)
 
-        # # backprop
-        # loss.backward()
+        # compute loss
+        loss = torch.nn.functional.mse_loss(pred_hessian, true_hessian)
+
+        # backprop
+        loss.backward()
+
+        grad = []
+        none_grad = 0
+        for name, param in model.named_parameters():
+            if param.requires_grad:
+                if param.grad is not None:
+                    grad.append(param.grad.norm().item())
+                else:
+                    none_grad += 1
+        print(f"num grad entries: {len(grad)} (none: {none_grad})")
+        grad = torch.tensor(grad)
+        print(f"Grad norm: {grad.mean().item():.2e}")
 
         break

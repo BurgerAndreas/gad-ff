@@ -15,7 +15,7 @@ from torch_geometric.data import Batch
 from torch_geometric.data import Data as TGData
 from ocpmodels.ff_lmdb import LmdbDataset
 from nets.prediction_utils import compute_extra_props, GLOBAL_ATOM_NUMBERS
-from gadff.path_config import DATASET_FILES_HORM, fix_horm_dataset_path
+from gadff.path_config import DATASET_FILES_HORM, fix_dataset_path
 
 from rdkit.Chem import GetPeriodicTable
 
@@ -139,9 +139,7 @@ def _get_ndrop(
 # main functions to compute vibrational modes
 
 
-def compute_modes_with_geometric_library(
-    hessian, atom_types, coords, **kwargs
-):
+def compute_modes_with_geometric_library(hessian, atom_types, coords, **kwargs):
     """
     Use Geometric library for frequency analysis
 
@@ -183,7 +181,9 @@ def compute_modes_with_geometric_library(
         hessian = hessian.detach().cpu().numpy()
 
     # Convert atomic numbers to symbols
-    masses, elements, atom_types = _get_masses_zsymbols_znumbers(atom_types, device=device)
+    masses, elements, atom_types = _get_masses_zsymbols_znumbers(
+        atom_types, device=device
+    )
 
     # Convert coordinates from Angstrom to Bohr (geometric expects Bohr)
     coords_bohr = coords.flatten() * angstrom_to_bohr  # Convert Å to Bohr
@@ -237,7 +237,9 @@ def compute_modes_with_ase_library(hessian, atom_types, coords, debug=False, **k
     # Convert to numpy
     hessian_np = hessian.detach().cpu().numpy()
     coords_np = coords.detach().cpu().numpy()
-    masses, elements, atom_types = _get_masses_zsymbols_znumbers(atom_types, device=hessian.device)
+    masses, elements, atom_types = _get_masses_zsymbols_znumbers(
+        atom_types, device=hessian.device
+    )
     masses_np = masses.detach().cpu().numpy()
     symbols = elements
 
@@ -345,7 +347,13 @@ def compute_modes_with_ase_library(hessian, atom_types, coords, debug=False, **k
 
 
 def compute_modes_svd_projector(
-    hessian, atom_types, coords, forces=None, include_force=False, threshold=None, **kwargs
+    hessian,
+    atom_types,
+    coords,
+    forces=None,
+    include_force=False,
+    threshold=None,
+    **kwargs,
 ):
     """
     Compute vibrational eigenvalues and eigenvectors of a molecule by removing
@@ -603,7 +611,9 @@ def compute_modes_qr_projector(hessian, atom_types, coords, threshold=None, **kw
         atom_types = atom_types.tolist()
     N = len(atom_types)
     # 0) Build mass vector m3 = [sqrt(m1), sqrt(m1), sqrt(m1), sqrt(m2), ...]
-    masses, elements, atom_types = _get_masses_zsymbols_znumbers(atom_types, device=hessian.device)
+    masses, elements, atom_types = _get_masses_zsymbols_znumbers(
+        atom_types, device=hessian.device
+    )
     sqrt_m3 = masses.repeat_interleave(3).sqrt()  # (3N,)
 
     # 1) mass-weight Hessian F = M^{-1/2} H M^{-1/2}
@@ -844,17 +854,25 @@ def compute_vibrational_modes(
     elif method == "ase":
         return compute_modes_with_ase_library(hessian, atom_types, coords, **kwargs)
     elif method == "svd":
-        return compute_modes_svd_projector(hessian, atom_types, coords, forces=forces, **kwargs)
+        return compute_modes_svd_projector(
+            hessian, atom_types, coords, forces=forces, **kwargs
+        )
     elif method == "svdforce":
-        return compute_modes_svd_projector(hessian, atom_types, coords, forces=forces, include_force=True, **kwargs)
+        return compute_modes_svd_projector(
+            hessian, atom_types, coords, forces=forces, include_force=True, **kwargs
+        )
     elif method == "inertia":
         return compute_modes_inertia_projector(hessian, atom_types, coords, **kwargs)
     elif method == "qr":
         return compute_modes_qr_projector(hessian, atom_types, coords, **kwargs)
     elif method == "eckartsvd":
-        return compute_modes_eckart_frame(hessian, atom_types, coords, orth_method="svd", **kwargs)
+        return compute_modes_eckart_frame(
+            hessian, atom_types, coords, orth_method="svd", **kwargs
+        )
     elif method == "eckartqr":
-        return compute_modes_eckart_frame(hessian, atom_types, coords, orth_method="qr", **kwargs)
+        return compute_modes_eckart_frame(
+            hessian, atom_types, coords, orth_method="qr", **kwargs
+        )
     elif method is None:
         evals, evecs = torch.linalg.eigh(hessian)
         return evals, evecs
@@ -886,7 +904,7 @@ if __name__ == "__main__":
         "ts1x_hess_train_big.lmdb",  # 1725362 samples
         "RGD1.lmdb",  # 60000 samples
     ]
-    dataset_path = fix_horm_dataset_path("RGD1.lmdb")
+    dataset_path = fix_dataset_path("RGD1.lmdb")
     dataset = LmdbDataset(dataset_path)
 
     max_samples = 100
@@ -1016,9 +1034,7 @@ if __name__ == "__main__":
         print(f"QR projector (default): {len(evals)} modes")
 
         # Test SVD projector
-        evals, evecs = compute_vibrational_modes(
-            hessian, atom_types, pos, method="svd"
-        )
+        evals, evecs = compute_vibrational_modes(hessian, atom_types, pos, method="svd")
         print(f"SVD projector: {len(evals)} modes")
 
         # Test Eckart frame with SVD

@@ -10,7 +10,7 @@ from pathlib import Path
 import torch
 
 from gadff.horm.ff_lmdb import LmdbDataset
-from gadff.path_config import find_project_root, fix_horm_dataset_path
+from gadff.path_config import find_project_root, fix_dataset_path
 from ocpmodels.units import ATOMIC_NUMBER_TO_ELEMENT
 from nets.prediction_utils import GLOBAL_ATOM_NUMBERS
 
@@ -71,7 +71,7 @@ def main():
             print(f"\nLoading dataset: {dataset_path}")
 
             # Fix the path using the same method as training
-            fixed_path = fix_horm_dataset_path(dataset_path)
+            fixed_path = fix_dataset_path(dataset_path)
             print(f"Fixed path: {fixed_path}")
 
             # Load the dataset

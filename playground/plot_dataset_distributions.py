@@ -14,7 +14,7 @@ import os
 from collections import Counter
 from tqdm import tqdm
 from gadff.horm.ff_lmdb import LmdbDataset
-from gadff.path_config import fix_horm_dataset_path
+from gadff.path_config import fix_dataset_path
 
 
 # Atomic number to element symbol mapping (based on one_hot encoding indices)
@@ -74,7 +74,7 @@ def plot_dataset_distributions(
 
         try:
             # Load dataset
-            input_lmdb_path = fix_horm_dataset_path(dataset_file)
+            input_lmdb_path = fix_dataset_path(dataset_file)
             dataset = LmdbDataset(input_lmdb_path)
             print(f"Loaded dataset with {len(dataset)} samples from {input_lmdb_path}")
             available_datasets.append(dataset_file)
