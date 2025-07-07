@@ -46,7 +46,7 @@ from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.equiformer_calculator import EquiformerCalculator
 
 # from gadff.align_unordered_mols import rmsd
-from gadff.align_ordered_mols import align_and_get_rmsd
+from gadff.align_ordered_mols import align_ordered_and_get_rmsd
 from gadff.plot_molecules import (
     plot_molecule_mpl,
     plot_traj_mpl,
@@ -123,7 +123,7 @@ def integrate_dynamics(
     print(f"Following {force_field} vector field: {title}")
 
     # Compute RMSD between initial guess and transition state
-    rmsd_initial = align_and_get_rmsd(initial_pos.numpy(), true_pos.numpy())
+    rmsd_initial = align_ordered_and_get_rmsd(initial_pos.numpy(), true_pos.numpy())
     print(f"RMSD start: {rmsd_initial:.6f} Å")
 
     # Create initial batch from interpolated guess
@@ -205,12 +205,15 @@ def integrate_dynamics(
     title += f" s{steps}"
     title = f"{force_field} - {title}"
 
+    _this_plot_dir = os.path.join(plot_dir, clean_filename(title, None, None))
+    os.makedirs(_this_plot_dir, exist_ok=True)
+
     # After convergence, compute final RMSD and eigenvalues
     # Plot trajectory
     plot_traj_mpl(
         coords_traj=trajectory_pos,
         title=title,
-        plot_dir=plot_dir,
+        plot_dir=_this_plot_dir,
         atomic_numbers=z,
         save=True,
         # forces_traj=trajectory_gad,
@@ -221,16 +224,16 @@ def integrate_dynamics(
         final_pos,
         atomic_numbers=z,
         title=title,
-        plot_dir=plot_dir,
+        plot_dir=_this_plot_dir,
         save=True,
     )
 
     # save xyz to visualize with Mol* / Protein Viewer
-    save_to_xyz(trajectory_pos[-1], z, plotfolder=plot_dir, filename=title)
-    save_trajectory_to_xyz(trajectory_pos, z, plotfolder=plot_dir, filename=title)
+    save_to_xyz(trajectory_pos[-1], z, plotfolder=_this_plot_dir, filename=title)
+    save_trajectory_to_xyz(trajectory_pos, z, plotfolder=_this_plot_dir, filename=title)
 
     # Compute RMSD between converged structure and true transition state
-    rmsd_final = align_and_get_rmsd(final_pos.numpy(), true_pos.numpy())
+    rmsd_final = align_ordered_and_get_rmsd(final_pos.numpy(), true_pos.numpy())
     print(f"RMSD end: {rmsd_final:.6f} Å")
     print(f"Improvement: {rmsd_initial - rmsd_final:.6f} Å")
 
@@ -267,8 +270,8 @@ def integrate_dynamics(
 
     plt.tight_layout(pad=0.1)
     fig_name = clean_filename(title, "convergence")
-    plt.savefig(os.path.join(plot_dir, fig_name), dpi=150, bbox_inches="tight")
-    print(f"Saved convergence plot to {os.path.join(plot_dir, fig_name)}")
+    plt.savefig(os.path.join(_this_plot_dir, fig_name), dpi=150, bbox_inches="tight")
+    print(f"Saved convergence plot to {os.path.join(_this_plot_dir, fig_name)}")
     return trajectory_pos, trajectory_energy, trajectory_forces_norm, trajectory_forces
 
 
@@ -294,7 +297,7 @@ def run_sella(pos_initial_guess, z, natoms, true_pos, calc=None):
     print(f"Starting Sella {calcname} optimization to find transition state")
 
     true_pos = to_numpy(true_pos)
-    rmsd_initial = align_and_get_rmsd(positions_np, true_pos)
+    rmsd_initial = align_ordered_and_get_rmsd(positions_np, true_pos)
     print(f"RMSD start: {rmsd_initial:.6f} Å")
 
     # Set up a Sella Dynamics object with improved parameters for TS search
@@ -321,7 +324,7 @@ def run_sella(pos_initial_guess, z, natoms, true_pos, calc=None):
     final_positions_sella = mol_ase.get_positions()
 
     # Compute RMSD between Sella-optimized structure and true transition state
-    rmsd_sella = align_and_get_rmsd(final_positions_sella, true_pos)
+    rmsd_sella = align_ordered_and_get_rmsd(final_positions_sella, true_pos)
     print(f"RMSD end: {rmsd_sella:.6f} Å")
     print(f"Improvement: {rmsd_initial - rmsd_sella:.6f} Å")
 
@@ -450,7 +453,7 @@ def example(
         n_patience_steps=1000,
         patience_threshold=1.0,
     )
-    _rmsd_ts = align_and_get_rmsd(
+    _rmsd_ts = align_ordered_and_get_rmsd(
         traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
     )
     results["ts_from_ts"] = _rmsd_ts
@@ -472,7 +475,7 @@ def example(
         n_patience_steps=1000,
         patience_threshold=1.0,
     )
-    _rmsd_ts = align_and_get_rmsd(
+    _rmsd_ts = align_ordered_and_get_rmsd(
         traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
     )
     results["ts_from_perturbed_ts"] = _rmsd_ts
@@ -492,7 +495,7 @@ def example(
         # patience_threshold=1.0,
         # center_around_com=True,
     )
-    _rmsd_ts = align_and_get_rmsd(
+    _rmsd_ts = align_ordered_and_get_rmsd(
         traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
     )
     results["ts_from_r_dt0.1_s100"] = _rmsd_ts
@@ -512,7 +515,7 @@ def example(
         # patience_threshold=1.0,
         # center_around_com=True,
     )
-    _rmsd_ts = align_and_get_rmsd(
+    _rmsd_ts = align_ordered_and_get_rmsd(
         traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
     )
     results["ts_from_r_dt0.01_s1000"] = _rmsd_ts
@@ -532,7 +535,7 @@ def example(
         # patience_threshold=1.0,
         # center_around_com=True,
     )
-    _rmsd_ts = align_and_get_rmsd(
+    _rmsd_ts = align_ordered_and_get_rmsd(
         traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
     )
     results["ts_from_r_dt0.1_s1000"] = _rmsd_ts
@@ -552,7 +555,7 @@ def example(
         # patience_threshold=1.0,
         # center_around_com=True,
     )
-    _rmsd_ts = align_and_get_rmsd(
+    _rmsd_ts = align_ordered_and_get_rmsd(
         traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
     )
     results["ts_from_r_dt0.1_s10000"] = _rmsd_ts
@@ -571,7 +574,7 @@ def example(
         n_patience_steps=500,
         # patience_threshold=1.0,
     )
-    _rmsd_ts = align_and_get_rmsd(
+    _rmsd_ts = align_ordered_and_get_rmsd(
         traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
     )
     results["ts_from_r_p_dt0.01_s1000"] = _rmsd_ts
@@ -581,6 +584,7 @@ def example(
         json.dump(results, f)
 
     with open(os.path.join(log_dir, f"results_{eigen_method}.txt"), "w") as f:
+        f.write(f"# eigen_method: {eigen_method}\n")
         for k, v in results.items():
             f.write(f"{k}: {v:.6f}\n")
 

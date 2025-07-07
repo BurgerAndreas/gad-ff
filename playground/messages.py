@@ -15,7 +15,7 @@ atom_xyz_labels = np.array(
 print("atom_xyz_labels", atom_xyz_labels)
 
 # Create Hessian matrix (N, 3, N, 3) of strings for pairwise interactions
-coord_names = ['x', 'y', 'z']
+coord_names = ["x", "y", "z"]
 hessian_strings = np.empty((num_atoms, 3, num_atoms, 3), dtype=object)
 
 for i in range(num_atoms):
@@ -24,16 +24,20 @@ for i in range(num_atoms):
             for coord_j in range(3):
                 atom_i = i + 1  # atoms numbered 1 to 5
                 atom_j = j + 1
-                hessian_strings[i, coord_i, j, coord_j] = f"{atom_i}{coord_names[coord_i]}_{atom_j}{coord_names[coord_j]}"
+                hessian_strings[i, coord_i, j, coord_j] = (
+                    f"{atom_i}{coord_names[coord_i]}_{atom_j}{coord_names[coord_j]}"
+                )
 
 print("Hessian shape:", hessian_strings.shape)
 # i = 0 # atom1
 # j = 1 # atom2
-i = 2 # atom3
-j = 1 # atom2
-coord_i = 0 # x
-coord_j = 2 # z
-print(f"hessian atom{i+1}_x to atom{j+1}_z = {hessian_strings[i, coord_i, j, coord_j]}")  # atom1_x to atom2_z
+i = 2  # atom3
+j = 1  # atom2
+coord_i = 0  # x
+coord_j = 2  # z
+print(
+    f"hessian atom{i+1}_x to atom{j+1}_z = {hessian_strings[i, coord_i, j, coord_j]}"
+)  # atom1_x to atom2_z
 
 # reshape to N*3, N*3
 # '1x_1x' '1x_1y' '1x_1z' '1x_2x' '1x_2y', ...
@@ -41,7 +45,7 @@ print(f"hessian atom{i+1}_x to atom{j+1}_z = {hessian_strings[i, coord_i, j, coo
 # '1z_1x' '1z_1y' '1z_1z' '1z_2x' '1z_2y', ...
 # '2x_1x' '2x_1y' '2x_1z' '2x_2x' '2x_2y', ...
 print("\n3N, 3N")
-hessian_strings = hessian_strings.reshape(num_atoms*3, num_atoms*3)
+hessian_strings = hessian_strings.reshape(num_atoms * 3, num_atoms * 3)
 print("hessian_strings 3N, 3N\n", hessian_strings[:4, :5])
 index = (i * 3 + coord_i, j * 3 + coord_j)
 print(f"hessian atom1_x to atom2_z = {hessian_strings[index]}")  # atom1_x to atom2_z
@@ -63,13 +67,12 @@ E = 10
 D = 5
 messsages = torch.randn(E)
 hessian = torch.zeros(D)
-indices = torch.randint(0, D, (E,)) # random indices from src -> dst
+indices = torch.randint(0, D, (E,))  # random indices from src -> dst
 hessian.index_add_(0, indices, messsages)
 hessian_loop = torch.zeros(D)
 for i in range(E):
     hessian_loop[indices[i]] += messsages[i]
 assert torch.allclose(hessian, hessian_loop)
-
 
 
 # edge_index = torch.tensor(

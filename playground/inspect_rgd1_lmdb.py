@@ -17,7 +17,7 @@ import webbrowser
 
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.equiformer_calculator import EquiformerCalculator
-from gadff.align_unordered_mols import rmsd
+from gadff.align_unordered_mols import compute_rmsd
 from gadff.plot_molecules import plot_molecule_mpl, plot_molecule_py3dmol
 
 this_dir = os.path.dirname(os.path.abspath(__file__))

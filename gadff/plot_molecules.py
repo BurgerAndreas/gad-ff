@@ -29,7 +29,7 @@ import seaborn as sns
 
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.equiformer_calculator import EquiformerCalculator
-from gadff.align_unordered_mols import rmsd
+from gadff.align_unordered_mols import compute_rmsd
 from ocpmodels.units import ELEMENT_TO_ATOMIC_NUMBER, ATOMIC_NUMBER_TO_ELEMENT
 
 
@@ -41,12 +41,15 @@ def to_numpy(x):
     return np.array(x)
 
 
-def clean_filename(filename, prefix, suffix="png"):
+def clean_filename(filename, prefix=None, suffix=None):
     filename = "".join(
         [c if c.isalnum() or c == "_" else "_" for c in filename.lower()]
     )
-    filename = f"{prefix}_{filename}.{suffix}"
-    for _ in range(3):
+    if prefix is not None:
+        filename = f"{prefix}_{filename}"
+    if suffix is not None:
+        filename = f"{filename}.{suffix}"
+    for _ in range(5):
         filename = filename.replace("__", "_")
     return filename
 
@@ -370,7 +373,7 @@ def plot_molecule_mpl(
         plt.subplots_adjust(wspace=0.0, hspace=0.0)  # Reduce space between subplots
         plt.tight_layout(pad=0.0)  # Adjust for title
         if filename is None:
-            filename = clean_filename(title, "mol")
+            filename = clean_filename(title, "mol", "png")
             filepath = os.path.join(plot_dir, filename)
         plt.savefig(filepath, dpi=150, bbox_inches="tight")
         plt.close()  # Close to free memory
@@ -690,7 +693,7 @@ def plot_traj_mpl(
     if save:
         plt.tight_layout(pad=0.1)
         if filename is None:
-            filename = clean_filename(title, "traj")
+            filename = clean_filename(title, "traj", "png")
             filepath = os.path.join(plot_dir, filename)
         plt.savefig(filepath, dpi=150, bbox_inches="tight")
         plt.close()  # Close to free memory
@@ -822,7 +825,7 @@ def plot_molecule_py3dmol(
     if save_path is not None:
         if save_html:
             # Write an HTML file so it can be opened in any browser
-            save_path = save_path + ".html"
+            save_path = clean_filename(save_path, "py3dmol", "html")
             with open(save_path, "w") as fh:
                 fh.write(view._make_html())
             print(f"Saved interactive py3Dmol viewer to {save_path}")
@@ -831,7 +834,7 @@ def plot_molecule_py3dmol(
 
         if save_png:
             # save as png
-            fname = save_path + ".png"
+            fname = clean_filename(save_path, "py3dmol", "png")
             view.saveImage(fname)
             print(f"Saved screenshot to {fname}")
 

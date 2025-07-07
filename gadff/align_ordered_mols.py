@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 
 def find_rigid_alignment(A, B):
@@ -53,13 +54,25 @@ def find_rigid_alignment(A, B):
 
 
 def get_rmsd(A, B):
+    # A: (N, 3)
+    # B: (N, 3)
     return np.sqrt((((A - B) ** 2).sum(axis=1)).mean())
 
 
-def align_and_get_rmsd(A, B):
+def align_ordered_and_get_rmsd(A, B):
+    """Get Root Mean Square Distance (RMSD) between two sets of coordinates.
+    Only works if A and B have the atoms in the same order.
+    Alignment is NOT mass weighted.
+    A: (N, 3)
+    B: (N, 3)
+    """
+    if isinstance(A, torch.Tensor):
+        A = A.detach().cpu().numpy()
+    if isinstance(B, torch.Tensor):
+        B = B.detach().cpu().numpy()
     R, t = find_rigid_alignment(A, B)
     A_aligned = (R.dot(A.T)).T + t
-    return get_rmsd(A_aligned, B)
+    return float(get_rmsd(A_aligned, B))
 
 
 if __name__ == "__main__":

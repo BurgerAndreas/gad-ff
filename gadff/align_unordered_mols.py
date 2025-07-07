@@ -448,7 +448,7 @@ def rotate_coord(angle, coord, axis=[0, 1]):
     return _coord
 
 
-def rmsd(P: ndarray, Q: ndarray, **kwargs) -> float:
+def compute_rmsd(P: ndarray, Q: ndarray, **kwargs) -> float:
     """
     Calculate Root-mean-square deviation from two sets of vectors V and W.
 
@@ -504,7 +504,7 @@ def kabsch_rmsd(
         return kabsch_weighted_rmsd(P, Q, W)
 
     P = kabsch_rotate(P, Q)
-    return rmsd(P, Q)
+    return compute_rmsd(P, Q)
 
 
 def kabsch_rotate(P: ndarray, Q: ndarray) -> ndarray:
@@ -771,7 +771,7 @@ def quaternion_rmsd(P: ndarray, Q: ndarray, **kwargs: Any) -> float:
     """
     rot = quaternion_rotate(P, Q)
     P = np.dot(P, rot)
-    return rmsd(P, Q)
+    return compute_rmsd(P, Q)
 
 
 def quaternion_transform(r: ndarray) -> ndarray:
@@ -2093,7 +2093,7 @@ def rmsd_from_numpy(
     elif rotation_method_str == METHOD_QUATERNION:
         actual_rmsd_method = quaternion_rmsd
     elif rotation_method_str == METHOD_NOROTATION:
-        actual_rmsd_method = rmsd
+        actual_rmsd_method = compute_rmsd
     else:
         raise ValueError(
             f"Unknown rotation method: '{rotation_method_str}'. Valid are: {ROTATION_METHODS}"
@@ -2564,7 +2564,7 @@ def example_file(args: Optional[List[str]] = None) -> str:
     elif settings.rotation == METHOD_QUATERNION:
         rmsd_method = quaternion_rmsd
     else:
-        rmsd_method = rmsd
+        rmsd_method = compute_rmsd
 
     # set reorder method
     reorder_method = None

@@ -24,14 +24,65 @@ from gadff.hessian_eigen import (
     compute_cartesian_modes,
     compute_vibrational_modes,
 )
+from ocpmodels.ff_lmdb import LmdbDataset
+from ocpmodels.hessian_graph_transform import HessianGraphTransform
 
 
 def get_model(config_path):
     with open(config_path, "r") as file:
         config = yaml.safe_load(file)
     model_config = config["model"]
+    # model_config["otf_graph"] = False
     print("model_config", model_config)
     return EquiformerV2_OC20(**model_config), model_config
+
+
+def get_model_and_dataloader_for_hessian_prediction(
+    batch_size,
+    shuffle,
+    device,
+    dataset_path=None,
+    config_path=None,
+    checkpoint_path=None,
+    dataloader_kwargs={},
+):
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    # Model
+    if config_path is None:
+        config_path = os.path.join(project_root, "configs/equiformer_v2.yaml")
+    with open(config_path, "r") as file:
+        config = yaml.safe_load(file)
+    model_config = config["model"]
+    model_config["do_hessian"] = True
+    model_config["otf_graph"] = False
+    model = EquiformerV2_OC20(**model_config)
+    # Checkpoint
+    if checkpoint_path is None:
+        checkpoint_path = os.path.join(project_root, "ckpt/eqv2.ckpt")
+    state_dict = torch.load(checkpoint_path, weights_only=True)["state_dict"]
+    state_dict = {k.replace("potential.", ""): v for k, v in state_dict.items()}
+    model.load_state_dict(state_dict, strict=False)
+    model.train()
+    model.to(device)
+    # Dataset
+    transform = HessianGraphTransform(
+        cutoff=model.cutoff,
+        max_neighbors=model.max_neighbors,
+        use_pbc=model.use_pbc,
+    )
+    if dataset_path is None:
+        dataset_path = os.path.join(project_root, "data/sample_100.lmdb")
+    dataset = LmdbDataset(dataset_path, transform=transform)
+    # Dataloader
+    follow_batch = ["diag_ij", "edge_index", "message_idx_ij"]
+    dataloader = TGDataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        follow_batch=follow_batch,
+        **dataloader_kwargs
+    )
+    return model, dataloader
 
 
 # https://github.com/deepprinciple/HORM/blob/eval/eval.py
