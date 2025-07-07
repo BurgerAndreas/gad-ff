@@ -69,7 +69,6 @@ def setup_training(cfg: DictConfig):
     print(f"{cfg.potential_module_class} initialized")
 
     # Add SLURM job ID to config if it exists in environment
-    cfg.slurm_job_id = None
     if "SLURM_JOB_ID" in os.environ:
         cfg.slurm_job_id = os.environ["SLURM_JOB_ID"]
     print(f"SLURM job ID: {cfg.slurm_job_id}")

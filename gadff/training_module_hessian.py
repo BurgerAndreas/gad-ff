@@ -7,6 +7,7 @@ from omegaconf import ListConfig
 import os
 import yaml
 from pathlib import Path
+import wandb
 
 import torch
 from torch import nn
@@ -158,6 +159,14 @@ class HessianPotentialModule(PotentialModule):
         return optimizer
     
     def setup(self, stage: Optional[str] = None):
+        # Add SLURM job ID to config if it exists in environment
+        if "SLURM_JOB_ID" in os.environ:
+            slurm_job_id = os.environ["SLURM_JOB_ID"]
+            try:
+                wandb.log({"slurm_job_id": slurm_job_id}, step=self.global_step)
+            except Exception as e:
+                print(f"Error logging SLURM job ID: {e}")
+            print(f"SLURM job ID: {slurm_job_id}")
         print("Setting up dataset")
         if stage == "fit":
             print(f"Loading training dataset from {self.training_config['trn_path']}")

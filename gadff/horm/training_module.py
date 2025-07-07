@@ -579,7 +579,7 @@ class PotentialModule(LightningModule):
                 else:
                     info_prefix[key] = v
                 self.log(
-                    key, v, on_step=True, on_epoch=True, prog_bar=True, logger=True
+                    key, v, on_step=True, on_epoch=True, prog_bar=False, logger=True
                 )
 
             del info
