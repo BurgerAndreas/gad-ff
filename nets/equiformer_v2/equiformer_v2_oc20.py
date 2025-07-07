@@ -194,6 +194,7 @@ class EquiformerV2_OC20(BaseModel):
         do_eigval_2=False,
         do_hessian=False,
         hessian_alpha_drop=0.0,
+        num_layers_hessian=0,
         hessian_build_method="1d",  # blockdiagonal, 1d
         **kwargs,
     ):
@@ -507,10 +508,38 @@ class EquiformerV2_OC20(BaseModel):
         ):  # ["hessian_layers", "hessian_head", "hessian_edge_message_proj", "hessian_node_proj"]
             # Initialize the blocks for each layer of EquiformerV2
             self.hessian_layers = torch.nn.ModuleList()
-            # for i in range(self.num_layers_hessian):
-            #     hessian_block = TransBlockV2(
-            #     )
-            #     self.hessian_layers.append(hessian_block)
+            self.num_layers_hessian = num_layers_hessian
+            for i in range(self.num_layers_hessian):
+                hessian_block = TransBlockV2(
+                    self.sphere_channels,
+                    self.attn_hidden_channels,
+                    self.num_heads,
+                    self.attn_alpha_channels,
+                    self.attn_value_channels,
+                    self.ffn_hidden_channels,
+                    self.sphere_channels,
+                    self.lmax_list,
+                    self.mmax_list,
+                    self.SO3_rotation,
+                    self.mappingReduced,
+                    self.SO3_grid,
+                    self.max_num_elements,
+                    self.edge_channels_list,
+                    self.block_use_atom_edge_embedding,
+                    self.use_m_share_rad,
+                    self.attn_activation,
+                    self.use_s2_act_attn,
+                    self.use_attn_renorm,
+                    self.ffn_activation,
+                    self.use_gate_act,
+                    self.use_grid_mlp,
+                    self.use_sep_s2_act,
+                    self.norm_type,
+                    self.hessian_alpha_drop,
+                    self.drop_path_rate,
+                    self.proj_drop,
+                )
+                self.hessian_layers.append(hessian_block)
             # copied from force prediction head
             self.hessian_head = SO2EquivariantGraphAttention(
                 sphere_channels=self.sphere_channels,
@@ -844,6 +873,15 @@ class EquiformerV2_OC20(BaseModel):
         # Hessian estimation
         ###############################################################
         if hessian:
+            for i in range(self.num_layers_hessian):
+                x = self.hessian_layers[i](
+                    x,  # SO3_Embedding
+                    atomic_numbers,
+                    edge_distance,
+                    edge_index,
+                    batch=data.batch,  # for GraphDropPath
+                )
+
             # messages: SO3_Embedding (E, L, num_heads * attn_value_channels)
             x_message = self.hessian_head(
                 x,

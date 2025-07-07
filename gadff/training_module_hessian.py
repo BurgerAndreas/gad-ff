@@ -1,39 +1,40 @@
 """
-Pytorch Lightning training module for predicting Hessian eigenvalues and eigenvectors.
+Pytorch Lightning training module for predicting the full Hessian matrix.
 """
 
 from typing import Dict, List, Optional, Tuple, Any, Mapping
+from omegaconf import ListConfig
 import os
+import yaml
 from pathlib import Path
+
 import torch
 from torch import nn
-
-from torch_geometric.loader import DataLoader as TGDataLoader
+from torch.utils.data import ConcatDataset
 from torch.optim.lr_scheduler import (
     CosineAnnealingWarmRestarts,
     StepLR,
     ConstantLR,
 )
-import pytorch_lightning as pl
-from pytorch_lightning import LightningModule
+from torch_geometric.loader import DataLoader as TGDataLoader
 from torchmetrics import (
     MeanAbsoluteError,
     MeanAbsolutePercentageError,
     CosineSimilarity,
 )
 from torch_scatter import scatter_mean
+
+import pytorch_lightning as pl
+from pytorch_lightning import LightningModule
+
 from nets.equiformer_v2.equiformer_v2_oc20 import EquiformerV2_OC20
 from gadff.horm.ff_lmdb import LmdbDataset
+from ocpmodels.hessian_graph_transform import HessianGraphTransform
 from gadff.horm.utils import average_over_batch_metrics, pretty_print
 import gadff.horm.utils as diff_utils
-import yaml
 from gadff.path_config import find_project_root
-from gadff.horm.training_module import PotentialModule, compute_extra_props
-from gadff.loss_functions import (
-    get_vector_loss_fn,
-    get_scalar_loss_fn,
-    cosine_similarity,
-)
+from gadff.horm.training_module import PotentialModule, compute_extra_props, SchemaUniformDataset
+from gadff.loss_functions import compute_loss_blockdiagonal_hessian
 
 
 class MyPLTrainer(pl.Trainer):
@@ -65,6 +66,8 @@ class HessianPotentialModule(PotentialModule):
             "hessian_node_proj",
         ]
 
+        # model_config["do_hessian"] = True
+        # model_config["otf_graph"] = False
         super().__init__(
             model_config=model_config,
             optimizer_config=optimizer_config,
@@ -153,6 +156,63 @@ class HessianPotentialModule(PotentialModule):
             )
             return [optimizer], [scheduler]
         return optimizer
+    
+    def setup(self, stage: Optional[str] = None):
+        print("Setting up dataset")
+        if stage == "fit":
+            print(f"Loading training dataset from {self.training_config['trn_path']}")
+            if (
+                isinstance(self.training_config["trn_path"], list)
+                or isinstance(self.training_config["trn_path"], tuple)
+                or isinstance(self.training_config["trn_path"], ListConfig)
+            ):
+                datasets = []
+                for path in self.training_config["trn_path"]:
+                    transform = HessianGraphTransform(
+                        cutoff=self.potential.cutoff,
+                        max_neighbors=self.potential.max_neighbors,
+                        use_pbc=self.potential.use_pbc,
+                    )
+                    dataset = LmdbDataset(
+                        Path(path),
+                        transform=transform,
+                        **self.training_config,
+                    )
+                    datasets.append(SchemaUniformDataset(dataset))
+                    print(f"Loaded dataset from {path} with {len(dataset)} samples")
+
+                # Combine all datasets into a single concatenated dataset
+                self.train_dataset = ConcatDataset(datasets)
+                print(
+                    f"Combined {len(datasets)} datasets into one with {len(self.train_dataset)} total samples"
+                )
+            else:
+                transform = HessianGraphTransform(
+                    cutoff=self.potential.cutoff,
+                    max_neighbors=self.potential.max_neighbors,
+                    use_pbc=self.potential.use_pbc,
+                )
+                self.train_dataset = LmdbDataset(
+                    Path(self.training_config["trn_path"]),
+                    transform=transform,
+                    **self.training_config,
+                )
+            transform = HessianGraphTransform(
+                cutoff=self.potential.cutoff,
+                max_neighbors=self.potential.max_neighbors,
+                use_pbc=self.potential.use_pbc,
+            )
+            self.val_dataset = LmdbDataset(
+                Path(self.training_config["val_path"]),
+                transform=transform,
+                **self.training_config,
+            )
+            print("# of training data: ", len(self.train_dataset))
+            print("# of validation data: ", len(self.val_dataset))
+
+        else:
+            raise NotImplementedError
+        return
 
     @torch.enable_grad()
     def compute_loss(self, batch):
@@ -160,7 +220,7 @@ class HessianPotentialModule(PotentialModule):
         batch = compute_extra_props(batch, pos_require_grad=self.pos_require_grad)
 
         hat_ae, hat_forces, outputs = self.potential.forward(
-            batch.to(self.device),
+            batch.to(self.device), hessian=True
         )
         hat_hessian = outputs["hessian"].to(self.device)
         hessian_true = batch.hessian.to(self.device)
@@ -180,7 +240,7 @@ class HessianPotentialModule(PotentialModule):
     #     batch = compute_extra_props(batch=batch, pos_require_grad=self.pos_require_grad)
 
     #     hat_ae, hat_forces, outputs = self.potential.forward(
-    #         batch.to(self.device), eigen=True
+    #         batch.to(self.device), hessian=True
     #     )
 
     #     hessian_true = batch.hessian
@@ -188,7 +248,6 @@ class HessianPotentialModule(PotentialModule):
 
     #     eval_metrics = {}
 
-    #     # TODO
     #     return eval_metrics
 
     # def _shared_eval(self, batch, batch_idx, prefix, *args):

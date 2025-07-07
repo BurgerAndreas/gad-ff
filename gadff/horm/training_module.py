@@ -254,6 +254,7 @@ class PotentialModule(LightningModule):
 
         else:
             raise NotImplementedError
+        return
 
     def get_jacobian(self, forces, pos, grad_outputs, create_graph=False, looped=False):
         """
@@ -497,6 +498,7 @@ class PotentialModule(LightningModule):
             batch_size=self.training_config["bz"],
             shuffle=True,
             num_workers=self.training_config["num_workers"],
+            follow_batch=self.training_config["follow_batch"],
         )
 
     def val_dataloader(self) -> TGDataLoader:
@@ -505,6 +507,7 @@ class PotentialModule(LightningModule):
             batch_size=self.training_config["bz"],
             shuffle=False,
             num_workers=self.training_config["num_workers"],
+            follow_batch=self.training_config["follow_batch"],
         )
 
     def test_dataloader(self) -> TGDataLoader:
@@ -513,6 +516,7 @@ class PotentialModule(LightningModule):
             batch_size=self.training_config["bz"],
             shuffle=False,
             num_workers=self.training_config["num_workers"],
+            follow_batch=self.training_config["follow_batch"],
         )
 
     @torch.enable_grad()

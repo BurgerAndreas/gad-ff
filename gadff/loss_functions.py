@@ -2,6 +2,51 @@ import torch
 import torch.nn.functional as F
 from functools import partial
 
+##############################################################################
+# predicting the full Hessian matrix
+
+def compute_loss_blockdiagonal_hessian(pred_hessian, true_hessian, loss_fn, data):
+    """
+    pred_hessian: (B*N, 3, B*N, 3)
+    true_hessian: (B*N*3*N*3)
+    """
+    B = data.batch.max().item() + 1
+    N = data.natoms.sum().item()
+    pred_hessian = pred_hessian.reshape(N, 3, N, 3)
+    loss = 0
+    # compare by extracting blocks from full hessian
+    atom_offset = 0
+    past_entries = 0
+    test_mask = torch.zeros_like(pred_hessian)
+    for b in range(B):
+        n_atoms_batch = data.natoms[b].item()
+        assert (
+            atom_offset == data.ptr[b].item()
+        ), f"Atom offset {atom_offset} does not match batch {b} ptr {data.ptr[b].item()}"
+        # Extract the block from the full hessian
+        block_start = atom_offset
+        block_end = atom_offset + n_atoms_batch
+        pred_block = pred_hessian[block_start:block_end, :, block_start:block_end, :]
+        test_mask[block_start:block_end, :, block_start:block_end, :] = 1
+        # from the flat block
+        n_entries_batch = (n_atoms_batch * 3) ** 2
+        assert (
+            n_entries_batch == pred_block.numel()
+        ), f"Number of entries in batch {b} does not match"
+        true_block = true_hessian[past_entries : past_entries + n_entries_batch]
+        # Compare the blocks
+        pred_block = pred_block.reshape(true_block.shape)
+        loss += loss_fn(pred_block, true_block)
+        atom_offset += n_atoms_batch
+        past_entries += n_entries_batch
+    # invert the mask
+    test_mask = 1 - test_mask
+    # all other (non-visited) entries should be zero
+    assert torch.allclose(pred_hessian * test_mask, torch.zeros_like(pred_hessian))
+    return loss
+
+##############################################################################
+# predicting eigenvalues and eigenvectors
 
 def get_vector_loss_fn(loss_name: str, **kwargs):
     if loss_name == "cosine_squared":

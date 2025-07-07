@@ -153,11 +153,11 @@ def test_parity_l_features(model, batch_base):
         f"l012_edge_features irreps: {save_rel_error(l012_edge_features_irreps, l012_edge_features_irreps2):.2e} (rel)"
     )
     # only l1
-    l1_idx = torch.tensor([1, 2, 3, 4, 5])
-    _diff = l012_edge_features_irreps[l1_idx] - l012_edge_features_irreps2[l1_idx]
+    l1_idx = torch.tensor([1, 2, 3, 4])
+    _diff = l012_edge_features_irreps[:, l1_idx] - l012_edge_features_irreps2[:, l1_idx]
     print(f"l1 edge_features: {_diff.abs().mean().item():.2e} (abs)")
     print(
-        f"l1 edge_features: {save_rel_error(_diff, l012_edge_features_irreps[l1_idx] - l012_edge_features_irreps2[l1_idx]):.2e} (rel)"
+        f"l1 edge_features: {save_rel_error(_diff, l012_edge_features_irreps[:, l1_idx] - l012_edge_features_irreps2[:, l1_idx]):.2e} (rel)"
     )
 
     # check parity of l012_node_features
@@ -178,10 +178,10 @@ def test_parity_l_features(model, batch_base):
         f"l012_node_features irreps: {save_rel_error(l012_node_features_irreps, l012_node_features_irreps2):.2e} (rel)"
     )
     # only l1
-    _diff = l012_node_features_irreps[l1_idx] - l012_node_features_irreps2[l1_idx]
+    _diff = l012_node_features_irreps[:, l1_idx] - l012_node_features_irreps2[:, l1_idx]
     print(f"l1 node_features: {_diff.abs().mean().item():.2e} (abs)")
     print(
-        f"l1 node_features: {save_rel_error(_diff, l012_node_features_irreps[l1_idx] - l012_node_features_irreps2[l1_idx]):.2e} (rel)"
+        f"l1 node_features: {save_rel_error(_diff, l012_node_features_irreps[:, l1_idx] - l012_node_features_irreps2[:, l1_idx]):.2e} (rel)"
     )
 
     model.train(state_before)

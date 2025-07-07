@@ -48,6 +48,8 @@ training:
   # Checkpoint loading options
   load_weights_only: false  # If true, only load model weights, ignore training state (epoch, optimizer, etc.)
 
+  follow_batch: null
+
 # Pytorch Lightning Trainer configuration
 pltrainer:
   max_epochs: 10000
