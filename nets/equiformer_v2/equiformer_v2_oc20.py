@@ -870,7 +870,7 @@ class EquiformerV2_OC20(BaseModel):
             # project channel dimension to 1
             l012_edge_features = self.hessian_edge_message_proj(l012_edge_features)
             l012_edge_features: torch.Tensor = l012_edge_features.embedding[:, :, 0]
-            l012_edge_features = irreps_to_cartesian_matrix(
+            l012_edge_features_3x3 = irreps_to_cartesian_matrix(
                 l012_edge_features
             )  # (E, 3, 3)
             # sym_message: torch.Tensor = l012_edge_features
@@ -891,15 +891,18 @@ class EquiformerV2_OC20(BaseModel):
             l012_node_features = self.hessian_node_proj(l012_node_features)
             l012_node_features: torch.Tensor = l012_node_features.embedding[:, :, 0]
             # (N, 3, 3)
-            l012_node_features = irreps_to_cartesian_matrix(l012_node_features)
+            l012_node_features_3x3 = irreps_to_cartesian_matrix(l012_node_features)
 
             hessian = self._get_hessian_from_features(
-                edge_index, data, l012_edge_features, l012_node_features
+                edge_index, data, l012_edge_features_3x3, l012_node_features_3x3
             )
 
             if return_l_features:
-                outputs["l012_node_features"] = l012_node_features
-                outputs["l012_edge_features"] = l012_edge_features
+                outputs["l012_node_features"] = l012_node_features_3x3
+                outputs["l012_edge_features"] = l012_edge_features_3x3
+                outputs["l012_node_features_irreps"] = l012_node_features
+                outputs["l012_edge_features_irreps"] = l012_edge_features
+
             outputs["hessian"] = hessian
 
         return energy.reshape(data.ae.shape), forces, outputs

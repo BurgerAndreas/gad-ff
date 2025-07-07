@@ -43,6 +43,13 @@ from ocpmodels.hessian_graph_transform import HessianGraphTransform
 from nets.equiformer_v2.hessian_pred_utils import run_hessian_tests
 
 
+def save_rel_error(a, b):
+    diff = a - b
+    amasked = torch.where(a == 0, 1, a)
+    rel_error = (diff.abs() / amasked).mean().item()
+    return rel_error
+
+
 def equivariance_test(model, batch_base):
 
     state_before = model.training
@@ -74,25 +81,111 @@ def equivariance_test(model, batch_base):
     hessian2 = rotated_out["hessian"]
     hessian2 = hessian2.reshape(N * 3, N * 3)  # necessary for 1d hessian
 
-    print()
     # energy should be invariant
     diffe = energy - energy2
     print(f"Energy abs diff: {diffe.abs().sum().item():.2e}")
-    print(f"Energy rel diff: {(diffe.abs() / energy.abs()).mean().item():.2e}")
+    print(f"Energy rel diff: {save_rel_error(energy, energy2):.2e}")
 
     # forces should be equivariant
     difff = forces - (forces2 @ R.T)
     print(f"Forces abs diff: {difff.abs().mean().item():.2e}")
-    print(f"Forces rel diff: {(difff.abs() / forces.abs()).mean().item():.2e}")
+    print(f"Forces rel diff: {save_rel_error(forces, forces2):.2e}")
 
     # hessian should be equivariant
     R_hessian = torch.kron(torch.eye(N, device=model.device, dtype=model.dtype), R)
     diffh = pred_hessian - (R_hessian @ hessian2 @ R_hessian.T)
     print(f"Hessian abs diff: {diffh.abs().mean().item():.2e}")
-    _pred_hessian = torch.where(pred_hessian == 0, 1, pred_hessian)
-    print(f"Hessian rel diff: {(diffh.abs() / _pred_hessian.abs()).mean().item():.2e}")
+    print(f"Hessian rel diff: {save_rel_error(pred_hessian, hessian2):.2e}")
 
     model.train(state_before)
+    return
+
+
+def test_parity_l_features(model, batch_base):
+    state_before = model.training
+    model.eval()
+
+    N = batch_base.natoms.sum().item()
+
+    # regular forward pass
+    batch = batch_base.clone()
+    batch = batch.to(model.device)
+    batch = compute_extra_props(batch, pos_require_grad=False)
+    energy, forces, out = model.forward(
+        batch, eigen=True, hessian=True, return_l_features=True
+    )
+    pred_hessian = out["hessian"]
+    pred_hessian = pred_hessian.reshape(N * 3, N * 3)  # necessary for 1d hessian
+    l012_edge_features = out["l012_edge_features"]
+    l012_node_features = out["l012_node_features"]
+    l012_node_features_irreps = out["l012_node_features_irreps"]
+    l012_edge_features_irreps = out["l012_edge_features_irreps"]
+
+    # parity: mirror pos -> -pos
+    batch = batch_base.clone()
+    batch = batch.to(model.device)
+    batch.pos = -batch.pos
+    energy2, forces2, out2 = model.forward(
+        batch, eigen=True, hessian=True, return_l_features=True
+    )
+    hessian2 = out2["hessian"]
+    hessian2 = hessian2.reshape(N * 3, N * 3)  # necessary for 1d hessian
+    l012_edge_features2 = out2["l012_edge_features"]
+    l012_node_features2 = out2["l012_node_features"]
+    l012_node_features_irreps2 = out2["l012_node_features_irreps"]
+    l012_edge_features_irreps2 = out2["l012_edge_features_irreps"]
+
+    # check parity of l012_edge_features
+    diff_l012_edge_features = l012_edge_features - l012_edge_features2
+    print(
+        f"l012_edge_features 3x3: {diff_l012_edge_features.abs().mean().item():.2e} (abs)"
+    )
+    print(
+        f"l012_edge_features 3x3: {save_rel_error(l012_edge_features, l012_edge_features2):.2e} (rel)"
+    )
+    diff_l012_edge_features_irreps = (
+        l012_edge_features_irreps - l012_edge_features_irreps2
+    )
+    print(
+        f"l012_edge_features irreps: {diff_l012_edge_features_irreps.abs().mean().item():.2e} (abs)"
+    )
+    print(
+        f"l012_edge_features irreps: {save_rel_error(l012_edge_features_irreps, l012_edge_features_irreps2):.2e} (rel)"
+    )
+    # only l1
+    l1_idx = torch.tensor([1, 2, 3, 4, 5])
+    _diff = l012_edge_features_irreps[l1_idx] - l012_edge_features_irreps2[l1_idx]
+    print(f"l1 edge_features: {_diff.abs().mean().item():.2e} (abs)")
+    print(
+        f"l1 edge_features: {save_rel_error(_diff, l012_edge_features_irreps[l1_idx] - l012_edge_features_irreps2[l1_idx]):.2e} (rel)"
+    )
+
+    # check parity of l012_node_features
+    diff_l012_node_features = l012_node_features - l012_node_features2
+    print(
+        f"l012_node_features 3x3: {diff_l012_node_features.abs().mean().item():.2e} (abs)"
+    )
+    print(
+        f"l012_node_features 3x3: {save_rel_error(l012_node_features, l012_node_features2):.2e} (rel)"
+    )
+    diff_l012_node_features_irreps = (
+        l012_node_features_irreps - l012_node_features_irreps2
+    )
+    print(
+        f"l012_node_features irreps: {diff_l012_node_features_irreps.abs().mean().item():.2e} (abs)"
+    )
+    print(
+        f"l012_node_features irreps: {save_rel_error(l012_node_features_irreps, l012_node_features_irreps2):.2e} (rel)"
+    )
+    # only l1
+    _diff = l012_node_features_irreps[l1_idx] - l012_node_features_irreps2[l1_idx]
+    print(f"l1 node_features: {_diff.abs().mean().item():.2e} (abs)")
+    print(
+        f"l1 node_features: {save_rel_error(_diff, l012_node_features_irreps[l1_idx] - l012_node_features_irreps2[l1_idx]):.2e} (rel)"
+    )
+
+    model.train(state_before)
+    return
 
 
 def compute_loss_blockdiagonal_hessian(pred_hessian, true_hessian, loss_fn, data):
@@ -175,9 +268,7 @@ if __name__ == "__main__":
         dataloader = TGDataLoader(
             dataset, batch_size=1, shuffle=False, follow_batch=follow_batch
         )
-        for _b, batch_base in tqdm(
-            enumerate(dataloader), desc="Evaluating", total=len(dataloader)
-        ):
+        for _b, batch_base in enumerate(dataloader):
             N = batch_base.natoms.sum().item()
             batch = batch_base.clone()
             batch = batch.to(model.device)
@@ -200,13 +291,14 @@ if __name__ == "__main__":
 
             if _b == 1:
                 print("\n" + "-")
+                print("Equivariance test:")
                 equivariance_test(model, batch)
-                print("symmetry:")
+                print("\nParity test:")
+                test_parity_l_features(model, batch)
+                print("\nSymmetry test:")
                 diff = pred_hessian - pred_hessian.T
                 print(f"Symmetry abs diff: {diff.abs().mean().item():.2e}")
-                print(
-                    f"Symmetry rel diff: {(diff.abs() / pred_hessian.abs()).mean().item():.2e}"
-                )
+                print(f"Symmetry rel diff: {save_rel_error(pred_hessian, diff):.2e}")
                 break
 
         print("\n" + "=" * 100)
@@ -214,7 +306,7 @@ if __name__ == "__main__":
         dataloader = TGDataLoader(
             dataset, batch_size=2, shuffle=False, follow_batch=follow_batch
         )
-        for batch_base in tqdm(dataloader, desc="Evaluating", total=len(dataloader)):
+        for batch_base in dataloader:
             N = batch_base.natoms.sum().item()
 
             print("\n" + "-")
@@ -255,6 +347,7 @@ if __name__ == "__main__":
             print(f"num grad entries: {len(grad)} (none: {none_grad})")
             grad = torch.tensor(grad)
             print(f"Grad norm: {grad.mean().item():.2e}")
+            assert grad.numel() > 0, "No gradients found"
 
             print("\n" + "-")
             print(
