@@ -40,8 +40,14 @@ def setup_training(cfg: DictConfig):
     # print("Model config:\n", yaml.dump(model_config))
 
     optimizer_config = dict(cfg.optimizer)
-
     training_config = dict(cfg.training)
+
+    # Add SLURM job ID to config if it exists in environment
+    if "SLURM_JOB_ID" in os.environ:
+        cfg.slurm_job_id = os.environ["SLURM_JOB_ID"]
+        optimizer_config["opt_slurm_job_id"] = cfg.slurm_job_id
+        training_config["trn_slurm_job_id"] = cfg.slurm_job_id
+    print(f"SLURM job ID: {cfg.slurm_job_id}")
 
     # pm = EigenPotentialModule(model_config, optimizer_config, training_config)
     # pm = hydra.utils.instantiate(cfg.potential_module_class, model_config, optimizer_config, training_config)
@@ -67,11 +73,6 @@ def setup_training(cfg: DictConfig):
     else:
         print(f"Not loading model checkpoint from {cfg.ckpt_model_path}")
     print(f"{cfg.potential_module_class} initialized")
-
-    # Add SLURM job ID to config if it exists in environment
-    if "SLURM_JOB_ID" in os.environ:
-        cfg.slurm_job_id = os.environ["SLURM_JOB_ID"]
-    print(f"SLURM job ID: {cfg.slurm_job_id}")
 
     wandb_kwargs = {}
     if not cfg.use_wandb:
