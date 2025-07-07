@@ -8,7 +8,7 @@ training:
   bz: 128
   num_workers: 16 # 48
   
-pltrainer:
-  val_check_interval: 100    # Validate less frequently
+# pltrainer:
+#   val_check_interval: 100    # Validate less frequently
 
 experiment_name: "hessian_ts1x"
