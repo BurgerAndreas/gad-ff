@@ -1,9 +1,11 @@
 import torch
 import torch.nn.functional as F
 from functools import partial
+from collections.abc import Iterable
 
 ##############################################################################
 # predicting the full Hessian matrix
+
 
 def compute_loss_blockdiagonal_hessian(pred_hessian, true_hessian, loss_fn, data):
     """
@@ -45,20 +47,42 @@ def compute_loss_blockdiagonal_hessian(pred_hessian, true_hessian, loss_fn, data
     assert torch.allclose(pred_hessian * test_mask, torch.zeros_like(pred_hessian))
     return loss
 
+
 ##############################################################################
 # predicting eigenvalues and eigenvectors
 
-def get_vector_loss_fn(loss_name: str, **kwargs):
+
+def get_vector_loss_fn(loss_name: str):
     if loss_name == "cosine_squared":
-        return partial(cosine_squared_loss, **kwargs)
+        return BatchVectorLoss(cosine_squared_loss)
     elif loss_name == "angle":
-        return partial(L_ang_loss, **kwargs)
+        return BatchVectorLoss(L_ang_loss)
     elif loss_name == "cosine":
-        return partial(cosine_loss, **kwargs)
+        return BatchVectorLoss(cosine_loss)
     elif loss_name == "min_l2":
-        return min_l2_loss
+        return BatchVectorLoss(min_l2_loss)
     elif loss_name == "min_l1":
-        return min_l1_loss
+        return BatchVectorLoss(min_l1_loss)
+    else:
+        raise ValueError(f"Invalid loss name: {loss_name}")
+
+
+def get_vector_similarity_fn(loss_name: str):
+    if loss_name == "cosine":
+        return BatchVectorLoss(cosine_similarity)
+    elif loss_name == "abs_cosine":
+        return BatchVectorLoss(abs_cosine_similarity)
+    elif loss_name == "dot":
+        return BatchVectorLoss(dot_similarity)
+    else:
+        raise ValueError(f"Invalid loss name: {loss_name}")
+
+
+def get_hessian_loss_fn(loss_name: str, **kwargs):
+    if loss_name == "eigen":
+        return BatchHessianLoss(eigenspectrum_loss, **kwargs)
+    elif loss_name.lower() in ["mse", "l2"]:
+        return F.mse_loss
     else:
         raise ValueError(f"Invalid loss name: {loss_name}")
 
@@ -80,50 +104,68 @@ def get_scalar_loss_fn(loss_name: str, **kwargs):
 # vector losses
 
 
-def cosine_similarity(
-    pred: torch.Tensor, target: torch.Tensor, eps: float = 1e-8
-) -> torch.Tensor:
-    """Sign-invariant cosine similarity loss: |cos(pred, target)|"""
-    B = pred.shape[0]
-    pred = pred.view(B, -1)
-    target = target.view(B, -1)
-    pred_norm = pred / (torch.norm(pred, dim=-1, keepdim=True) + eps)
-    target_norm = target / (torch.norm(target, dim=-1, keepdim=True) + eps)
-    cosine_sim = torch.sum(pred_norm * target_norm, dim=-1)
-    return torch.mean(torch.abs(cosine_sim))
+def batch_similarity(a, b, data, lossfn):
+    """We can't normalize concatenated vectors, so we process each vector separately.
+    Returns a scalar of similarity averaged over batches.
+    lossfn should return a scalar, otherwise it will be averaged over all entries returned.
+    data should be a torch_geometric.data.Batch object.
+    """
+    B = data.batch.max() + 1
+    ptr = data.ptr
+    natoms = data.natoms
+    sim = []
+    for _b in range(B):
+        _start = ptr[_b] * 3
+        _end = (ptr[_b] + natoms[_b]) * 3
+        a_b = a[_start:_end]
+        b_b = b[_start:_end]
+        sim_b = lossfn(a_b, b_b)
+        sim.append(sim_b)
+    return torch.stack(sim).mean()
 
 
-def cosine_loss(
-    pred: torch.Tensor, target: torch.Tensor, eps: float = 1e-8
-) -> torch.Tensor:
+class BatchVectorLoss(torch.nn.Module):
+    """Wrapper to batch a loss function over vectors."""
+
+    def __init__(self, loss_fn):
+        super(BatchVectorLoss, self).__init__()
+        self.loss_fn = loss_fn
+
+    def forward(self, pred, target, data):
+        return batch_similarity(pred, target, data, self.loss_fn)
+
+
+def cosine_similarity(a, b):
+    """Cosine similarity: cos(a, b) = <a, b> / (|a|*|b|) =  < a/|a|, b/|b| >"""
+    a = a.reshape(-1)
+    b = b.reshape(-1)
+    return torch.dot(a, b) / (torch.norm(a) * torch.norm(b))
+
+
+def abs_cosine_similarity(a, b):
+    """Sign-invariant absolute cosine similarity: |cos(a, b)|"""
+    a = a.reshape(-1)
+    b = b.reshape(-1)
+    return torch.abs(torch.dot(a, b) / (torch.norm(a) * torch.norm(b)))
+
+
+def dot_similarity(a, b):
+    """Dot product similarity: <a, b>"""
+    a = a.reshape(-1)
+    b = b.reshape(-1)
+    return torch.dot(a, b)
+
+
+def abs_dot_similarity(a, b):
+    """Sign-invariant absolute dot product similarity: |<a, b>|"""
+    a = a.reshape(-1)
+    b = b.reshape(-1)
+    return torch.abs(torch.dot(a, b))
+
+
+def cosine_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     """Sign-invariant cosine similarity loss: 1 - |cos(pred, target)|"""
-    B = pred.shape[0]
-    pred = pred.view(B, -1)
-    target = target.view(B, -1)
-    pred_norm = pred / (torch.norm(pred, dim=-1, keepdim=True) + eps)
-    target_norm = target / (torch.norm(target, dim=-1, keepdim=True) + eps)
-    cosine_sim = torch.sum(pred_norm * target_norm, dim=-1)
-    return torch.mean(1.0 - torch.abs(cosine_sim))
-
-
-def min_l2_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-    """Minimum L2 loss between pred vs target and pred vs -target"""
-    B = pred.shape[0]
-    pred = pred.view(B, -1)
-    target = target.view(B, -1)
-    loss_pos = torch.mean((pred - target) ** 2, dim=-1)
-    loss_neg = torch.mean((pred + target) ** 2, dim=-1)
-    return torch.mean(torch.min(loss_pos, loss_neg))
-
-
-def min_l1_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-    """Minimum L1 loss between pred vs target and pred vs -target"""
-    B = pred.shape[0]
-    pred = pred.view(B, -1)
-    target = target.view(B, -1)
-    loss_pos = torch.mean(torch.abs(pred - target), dim=-1)
-    loss_neg = torch.mean(torch.abs(pred + target), dim=-1)
-    return torch.mean(torch.min(loss_pos, loss_neg))
+    return 1.0 - abs_cosine_similarity(pred, target)
 
 
 def cosine_squared_loss(
@@ -131,72 +173,57 @@ def cosine_squared_loss(
     v_true: torch.Tensor,
     eps: float = 1e-8,
 ) -> torch.Tensor:
-    """
-    Cosine-squared loss, sign-invariant:
-      L = 1 - (v_pred · v_true)^2
+    """Cosine-squared loss, sign-invariant: 1 - |cos(pred, target)|^2"""
+    return 1.0 - (abs_cosine_similarity(v_pred, v_true) ** 2)
 
-    Args:
-      v_pred: Tensor of shape (B, N, 3) or (B, N*3)
-      v_true: Tensor of shape (B, N, 3) or (B, N*3)
-      eps:     small constant to avoid NaNs
 
-    Returns:
-      scalar tensor: average loss over batch and N
-    """
-    B = v_pred.shape[0]
-    v_pred = v_pred.view(B, -1)
-    v_true = v_true.view(B, -1)
+def min_l2_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    """Minimum L2 (MSE) loss between pred vs target and pred vs -target"""
+    pred = pred.reshape(-1)
+    target = target.reshape(-1)
     # normalize to unit vectors
-    v_pred_norm = F.normalize(v_pred, dim=-1, eps=eps)
-    v_true_norm = F.normalize(v_true, dim=-1, eps=eps)
+    pred = pred / torch.norm(pred)
+    target = target / torch.norm(target)
+    loss_pos = torch.mean((pred - target) ** 2)
+    loss_neg = torch.mean((pred + target) ** 2)
+    return torch.min(loss_pos, loss_neg)
 
-    # dot product along last dim → shape (B)
-    dots = torch.sum(v_pred_norm * v_true_norm, dim=-1)
-    assert dots.shape == (
-        B,
-    ), f"dots.shape: {dots.shape}, v_pred.shape: {v_pred.shape}, v_true.shape: {v_true.shape}"
 
-    # cosine-squared loss
-    loss = 1.0 - dots.pow(2)
-
-    return loss.mean()
+def min_l1_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    """Minimum L1 (MAE) loss between pred vs target and pred vs -target"""
+    # eigenvectors are in N*3 space
+    pred = pred.reshape(-1)
+    target = target.reshape(-1)
+    # normalize to unit vectors
+    pred = pred / torch.norm(pred)
+    target = target / torch.norm(target)
+    loss_pos = torch.mean(torch.abs(pred - target))
+    loss_neg = torch.mean(torch.abs(pred + target))
+    return torch.min(loss_pos, loss_neg)
 
 
 def L_ang_loss(
-    v_pred: torch.Tensor,
-    v_true: torch.Tensor,
+    pred: torch.Tensor,
+    target: torch.Tensor,
     eps: float = 1e-8,
 ) -> torch.Tensor:
     """
     Squared angle loss, sign-invariant:
-      L = arccos(|v_pred · v_true|)^2
-
-    Args:
-      v_pred: Tensor of shape (B, N, 3)
-      v_true: Tensor of shape (B, N, 3)
-      eps:     small constant to clamp dot into [-1, 1]
-
-    Returns:
-      scalar tensor: average loss over batch and N
+    L = arccos(|pred/|pred| · target/|target||)^2
     """
-    B = v_pred.shape[0]
-    v_pred = v_pred.view(B, -1)
-    v_true = v_true.view(B, -1)
-    # normalize
-    v_pred_norm = F.normalize(v_pred, dim=-1, eps=eps)
-    v_true_norm = F.normalize(v_true, dim=-1, eps=eps)
-
+    # eigenvectors are in N*3 space
+    pred = pred.reshape(-1)
+    target = target.reshape(-1)
+    # normalize to unit vectors
+    pred = pred / torch.norm(pred)
+    target = target / torch.norm(target)
     # dot product
-    dots = torch.sum(v_pred_norm * v_true_norm, dim=-1).abs()
-
+    dots = torch.sum(pred * target).abs()
     # clamp for numeric stability
     dots = dots.clamp(-1.0 + eps, 1.0 - eps)
-
     # squared arccosine
     ang = torch.acos(dots)
-    loss = ang.pow(2)
-
-    return loss.mean()
+    return ang.pow(2)
 
 
 ##############################################################################
@@ -280,6 +307,112 @@ class HuberLoss(torch.nn.Module):
             return loss
 
 
+##############################################################################
+# Eigenspectrum losses that don't require to backprop through .eigh
+
+
+def batch_hessian_loss(hessian_pred, hessian_true, data, lossfn, **lossfn_kwargs):
+    """We can't normalize concatenated vectors, so we process each vector separately.
+    Returns a scalar of similarity averaged over batches.
+    lossfn should return a scalar, otherwise it will be averaged over all entries returned.
+    data should be a torch_geometric.data.Batch object.
+    """
+    B = data.batch.max() + 1
+    ptr = data.ptr
+    natoms = data.natoms
+    losses = []
+    for _b in range(B):
+        _start = (ptr[_b] * 3) ** 2
+        _end = ((ptr[_b] + natoms[_b]) * 3) ** 2
+        hessian_pred_b = hessian_pred[_start:_end]
+        hessian_true_b = hessian_true[_start:_end]
+        loss_b = lossfn(
+            hessian_pred=hessian_pred_b,
+            hessian_true=hessian_true_b,
+            N=natoms[_b].item(),
+            **lossfn_kwargs,
+        )
+        losses.append(loss_b)
+    return torch.stack(losses).mean()
+
+
+class BatchHessianLoss(torch.nn.Module):
+    """Wrapper to batch a loss function over vectors."""
+
+    def __init__(self, loss_fn, **kwargs):
+        super(BatchVectorLoss, self).__init__()
+        self.loss_fn = loss_fn
+        self.kwargs = kwargs
+
+    def forward(self, pred, target, data):
+        return batch_hessian_loss(pred, target, data, self.loss_fn, **self.kwargs)
+
+
+def eigenspectrum_loss(
+    hessian_pred,
+    hessian_true,
+    N,
+    k=None,
+    alpha=1.0,
+    dof_filter_fn=None,
+    loss_type="eigen",
+):
+    """Inspired by wavefunction alignment loss from
+    Enhancing the Scalability and Applicability of Kohn-Sham Hamiltonians for Molecular Systems
+    See formula (2) and (3) and appendix
+    https://openreview.net/pdf/1bcd6e438fe04dffca1ba36654fe64ed6c042d79.pdf#page=38.10
+    To get the original loss, use loss_type='wa' instead of 'eigen'.
+
+    To get loss over all eigenvalues/vectors, do:
+    loss = eigenspectrum_loss(hessian_pred, hessian_true, N)
+
+    To get additional loss over the subspace, do:
+    loss = eigenspectrum_loss(hessian_pred, hessian_true, N, k=[None, k], alpha=[1.0, alpha])
+
+    To only get loss over the subspace, do:
+    loss = eigenspectrum_loss(hessian_pred, hessian_true, N, k=k, alpha=alpha)
+
+    k: list of integers, or None to use all eigenvalues/vectors
+    alpha: list of floats, or None to use all eigenvalues/vectors
+    dof_filter_fn: function that takes a list of eigenvalues and returns a list of booleans
+    to filter out the eigenvalues/vectors to use.
+    """
+    hessian_true = hessian_true.reshape(N * 3, N * 3)
+    hessian_pred = hessian_pred.reshape(N * 3, N * 3)
+    if not isinstance(k, Iterable):
+        k = [k]
+    if not isinstance(alpha, Iterable):
+        alpha = [alpha] * len(k)
+    loss = 0.0
+    for k_i, alpha_i in zip(k, alpha):
+        evals_true, evecs_true = torch.linalg.eigh(hessian_true)
+        if k_i is None:
+            # easy case: use all eigenvalues/vectors
+            diff = (evecs_true.T @ (hessian_pred @ evecs_true)) - torch.diag(evals_true)
+            loss += alpha_i * torch.linalg.norm(diff, "fro") ** 2
+        else:
+            # use a subspace (subset) of the smallest eigenvalues/vectors
+            evecs_true_k = evecs_true[:, :k_i]  # (N*3, k)
+            evals_true_k = evals_true[:k_i]
+            if loss_type == "wa":
+                for i in range(k_i):
+                    evec_true_i = evecs_true_k[:, i]  # (N*3)
+                    eval_true_i = evals_true_k[i]
+                    diff = (
+                        evec_true_i.T @ (hessian_pred @ evec_true_i)
+                    ) - eval_true_i  # (1)
+                    loss += alpha_i * diff**2
+            elif loss_type == "eigen":
+                diff = (evecs_true_k.T @ (hessian_pred @ evecs_true_k)) - torch.diag(
+                    evals_true_k
+                )
+                loss += alpha_i * torch.linalg.norm(diff, "fro") ** 2
+            else:
+                raise ValueError(f"Invalid loss type: {loss_type}")
+    return loss
+
+
+##############################################################################
 if __name__ == "__main__":
     B, N = 4, 5
     v_pred = torch.randn(B, N, 3)

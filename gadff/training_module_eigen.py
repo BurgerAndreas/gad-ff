@@ -32,7 +32,9 @@ from gadff.horm.training_module import PotentialModule, compute_extra_props
 from gadff.loss_functions import (
     get_vector_loss_fn,
     get_scalar_loss_fn,
-    cosine_similarity,
+    get_vector_similarity_fn,
+    abs_cosine_similarity,
+    BatchVectorLoss,
 )
 
 
@@ -187,10 +189,10 @@ class EigenPotentialModule(PotentialModule):
             loss_eigval2 = self.loss_fn(eigval_2, batch.hessian_eigenvalue_2)
         if self.model_config["do_eigvec_1"]:
             eigvec_1 = outputs["eigvec_1"]
-            loss_eigvec1 = self.loss_fn_vec(eigvec_1, batch.hessian_eigenvector_1)
+            loss_eigvec1 = self.loss_fn_vec(eigvec_1, batch.hessian_eigenvector_1, data=batch)
         if self.model_config["do_eigvec_2"]:
             eigvec_2 = outputs["eigvec_2"]
-            loss_eigvec2 = self.loss_fn_vec(eigvec_2, batch.hessian_eigenvector_2)
+            loss_eigvec2 = self.loss_fn_vec(eigvec_2, batch.hessian_eigenvector_2, data=batch)
 
         info = {
             "Loss eigval1": loss_eigval1.detach().item(),
@@ -357,46 +359,54 @@ class EigenPotentialModule(PotentialModule):
         # Eigenvector metrics
         # Cosine similarity (most important for vectors)
 
+        abs_cos_sim = get_vector_similarity_fn("abs_cosine")
+
         if eigvec_1_pred is not None:
-            eval_metrics["CosSim eigvec1"] = cosine_similarity(
-                eigvec_1_pred, eigvec_1_true
+            eval_metrics["CosSim eigvec1"] = abs_cos_sim(
+                eigvec_1_pred, eigvec_1_true, data=batch
             ).item()
         if eigvec_2_pred is not None:
-            eval_metrics["CosSim eigvec2"] = cosine_similarity(
-                eigvec_2_pred, eigvec_2_true
+            eval_metrics["CosSim eigvec2"] = abs_cos_sim(
+                eigvec_2_pred, eigvec_2_true, data=batch
             ).item()
 
         # Angular error in degrees
-        def angular_error(v1, v2):
-            cos_sim = cosine_similarity(v1, v2)
+        def _angular_error(v1, v2):
+            v1 = v1.reshape(-1)
+            v2 = v2.reshape(-1)
+            cos_sim = torch.dot(v1, v2) / (torch.norm(v1) * torch.norm(v2))
             cos_sim = torch.clamp(cos_sim, -1.0, 1.0)  # Numerical stability
-            angle_rad = torch.acos(
-                torch.abs(cos_sim)
-            )  # abs because eigenvectors can have opposite signs
+            # abs because eigenvectors can have opposite signs
+            angle_rad = torch.acos(torch.abs(cos_sim))
             return torch.rad2deg(angle_rad)
+
+        angular_error = BatchVectorLoss(_angular_error)
 
         if eigvec_1_pred is not None:
             eval_metrics["AngleErr eigvec1"] = angular_error(
-                eigvec_1_pred, eigvec_1_true
+                eigvec_1_pred, eigvec_1_true, data=batch
             ).item()
         if eigvec_2_pred is not None:
             eval_metrics["AngleErr eigvec2"] = angular_error(
-                eigvec_2_pred, eigvec_2_true
+                eigvec_2_pred, eigvec_2_true, data=batch
             ).item()
 
         # Vector magnitude error
+        def _magnitude_error(v1, v2):
+            v1 = v1.reshape(-1)
+            v2 = v2.reshape(-1)
+            return torch.norm(v1 - v2)
+
+        magnitude_error = BatchVectorLoss(_magnitude_error)
+
         if eigvec_1_pred is not None:
-            mag_1_pred = torch.norm(eigvec_1_pred, dim=-1)
-            mag_1_true = torch.norm(eigvec_1_true, dim=-1)
-            eval_metrics["MAE eigvec1 magnitude"] = torch.mean(
-                torch.abs(mag_1_pred - mag_1_true)
+            eval_metrics["MAE eigvec1 magnitude"] = magnitude_error(
+                eigvec_1_pred, eigvec_1_true, data=batch
             ).item()
 
         if eigvec_2_pred is not None:
-            mag_2_pred = torch.norm(eigvec_2_pred, dim=-1)
-            mag_2_true = torch.norm(eigvec_2_true, dim=-1)
-            eval_metrics["MAE eigvec2 magnitude"] = torch.mean(
-                torch.abs(mag_2_pred - mag_2_true)
+            eval_metrics["MAE eigvec2 magnitude"] = magnitude_error(
+                eigvec_2_pred, eigvec_2_true, data=batch
             ).item()
 
         return eval_metrics

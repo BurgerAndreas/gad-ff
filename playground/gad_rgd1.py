@@ -275,7 +275,16 @@ def integrate_dynamics(
     return trajectory_pos, trajectory_energy, trajectory_forces_norm, trajectory_forces
 
 
-def run_sella(pos_initial_guess, z, natoms, true_pos, calc=None):
+def run_sella(
+    pos_initial_guess,
+    z,
+    natoms,
+    true_pos,
+    title,
+    calc=None,
+    hessian_function=None,
+    sella_kwargs={},
+):
     # Create ASE Atoms object from the initial guess position
     positions_np = (
         pos_initial_guess.detach().cpu().numpy()
@@ -314,6 +323,8 @@ def run_sella(pos_initial_guess, z, natoms, true_pos, calc=None):
         # sigma_inc=1.3,  # Larger trust radius increases
         # sigma_dec=0.5,  # More aggressive trust radius decreases
         log_every_n=100,
+        hessian_function=hessian_function,
+        **sella_kwargs,
     )
 
     # Run with much tighter convergence
@@ -328,13 +339,25 @@ def run_sella(pos_initial_guess, z, natoms, true_pos, calc=None):
     print(f"RMSD end: {rmsd_sella:.6f} Å")
     print(f"Improvement: {rmsd_initial - rmsd_sella:.6f} Å")
 
+    _this_plot_dir = os.path.join(plot_dir, clean_filename(title, None, None))
+    os.makedirs(_this_plot_dir, exist_ok=True)
+
     traj = dyn.trajectory
     plot_traj_mpl(
         coords_traj=traj,
-        title=f"Sella {calcname}",
-        plot_dir=plot_dir,
+        title=f"Sella {calcname} {title}",
+        plot_dir=_this_plot_dir,
         atomic_numbers=z,
+        save=True,
     )
+    # plot_molecule_mpl(
+    #     mol_ase.get_positions(),
+    #     atomic_numbers=z,
+    #     title=f"Sella {calcname} {title}",
+    #     plot_dir=_this_plot_dir,
+    #     save=True,
+    # )
+    save_trajectory_to_xyz(traj, z, plotfolder=_this_plot_dir, filename=title)
     return mol_ase
 
 
@@ -599,38 +622,32 @@ def example(
 
     # Linear interpolation between reactant and product
     mol_ase = run_sella(
-        pos_initial_guess_rp, sample.z, sample.natoms, sample.pos_transition, asecalc
-    )
-    plot_molecule_mpl(
-        mol_ase.get_positions(),
-        atomic_numbers=sample.z,
-        title="Sella Equiformer Optimized TS from R-P interpolation",
-        plot_dir=plot_dir,
-        save=True,
+        pos_initial_guess_rp,
+        z=sample.z,
+        natoms=sample.natoms,
+        true_pos=sample.pos_transition,
+        title="TS from R-P",
+        calc=asecalc,
     )
 
     # Linear interpolation between reactant and TS
     mol_ase = run_sella(
-        pos_initial_guess_rts, sample.z, sample.natoms, sample.pos_transition, asecalc
-    )
-    plot_molecule_mpl(
-        mol_ase.get_positions(),
-        atomic_numbers=sample.z,
-        title="Sella Equiformer Optimized TS from R-TS interpolation",
-        plot_dir=plot_dir,
-        save=True,
+        pos_initial_guess_rts,
+        z=sample.z,
+        natoms=sample.natoms,
+        true_pos=sample.pos_transition,
+        title="TS from R-TS",
+        calc=asecalc,
     )
 
     # Start from reactant
     mol_ase = run_sella(
-        pos_reactant, sample.z, sample.natoms, sample.pos_transition, asecalc
-    )
-    plot_molecule_mpl(
-        mol_ase.get_positions(),
-        atomic_numbers=sample.z,
-        title="Sella Equiformer Optimized TS from reactant",
-        plot_dir=plot_dir,
-        save=True,
+        pos_reactant,
+        z=sample.z,
+        natoms=sample.natoms,
+        true_pos=sample.pos_transition,
+        title="TS from R",
+        calc=asecalc,
     )
 
     ###################################################################################
@@ -647,6 +664,36 @@ def example(
     #     plot_dir=plot_dir,
     #     save=True,
     # )
+
+    ###################################################################################
+    # Test Sella with Equiformer
+    print("=" * 60)
+    print("Testing Sella with Equiformer Hessian")
+
+    # asecalchessian = EquiformerASECalculator(checkpoint_path="model.pt")
+    # Create wrapper function
+    def ml_hessian_function(atoms):
+        return asecalc.get_hessian_autodiff(atoms)
+
+    mol_ase = run_sella(
+        pos_initial_guess_rp,
+        z=sample.z,
+        natoms=sample.natoms,
+        true_pos=sample.pos_transition,
+        title="Autodiff Hessian Cartesian",
+        calc=asecalc,
+        hessian_function=ml_hessian_function,
+    )
+    mol_ase = run_sella(
+        pos_initial_guess_rp,
+        z=sample.z,
+        natoms=sample.natoms,
+        true_pos=sample.pos_transition,
+        title="Autodiff Hessian Internal",
+        calc=asecalc,
+        hessian_function=ml_hessian_function,
+        sella_kwargs={"internal": True},
+    )
 
     ###################################################################################
     # Follow the forces to find the reactant minimum

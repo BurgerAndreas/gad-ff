@@ -34,7 +34,11 @@ from ocpmodels.hessian_graph_transform import HessianGraphTransform
 from gadff.horm.utils import average_over_batch_metrics, pretty_print
 import gadff.horm.utils as diff_utils
 from gadff.path_config import find_project_root
-from gadff.horm.training_module import PotentialModule, compute_extra_props, SchemaUniformDataset
+from gadff.horm.training_module import (
+    PotentialModule,
+    compute_extra_props,
+    SchemaUniformDataset,
+)
 from gadff.loss_functions import compute_loss_blockdiagonal_hessian
 
 
@@ -157,7 +161,7 @@ class HessianPotentialModule(PotentialModule):
             )
             return [optimizer], [scheduler]
         return optimizer
-    
+
     def setup(self, stage: Optional[str] = None):
         # Add SLURM job ID to config if it exists in environment
         if "SLURM_JOB_ID" in os.environ:
