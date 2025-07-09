@@ -79,10 +79,10 @@ def get_vector_similarity_fn(loss_name: str):
 
 
 def get_hessian_loss_fn(loss_name: str, **kwargs):
-    if loss_name == "eigen":
+    if loss_name == "eigenspectrum":
         return BatchHessianLoss(eigenspectrum_loss, **kwargs)
     elif loss_name.lower() in ["mse", "l2"]:
-        return F.mse_loss
+        return torch.nn.MSELoss() # F.mse_loss
     else:
         raise ValueError(f"Invalid loss name: {loss_name}")
 
@@ -340,7 +340,7 @@ class BatchHessianLoss(torch.nn.Module):
     """Wrapper to batch a loss function over vectors."""
 
     def __init__(self, loss_fn, **kwargs):
-        super(BatchVectorLoss, self).__init__()
+        super(BatchHessianLoss, self).__init__()
         self.loss_fn = loss_fn
         self.kwargs = kwargs
 

@@ -3,6 +3,7 @@ Pytorch Lightning training module for predicting the full Hessian matrix.
 """
 
 from typing import Dict, List, Optional, Tuple, Any, Mapping
+from collections.abc import Iterable
 from omegaconf import ListConfig
 import os
 import yaml
@@ -39,7 +40,7 @@ from gadff.horm.training_module import (
     compute_extra_props,
     SchemaUniformDataset,
 )
-from gadff.loss_functions import compute_loss_blockdiagonal_hessian
+from gadff.loss_functions import compute_loss_blockdiagonal_hessian, get_hessian_loss_fn
 
 
 class MyPLTrainer(pl.Trainer):
@@ -86,25 +87,52 @@ class HessianPotentialModule(PotentialModule):
         # Only needed to predict forces from energy of Hessian from forces
         self.pos_require_grad = False
 
-        self.loss_fn = nn.MSELoss()
+        self.loss_fn_hessian = nn.MSELoss()
+        print(f"Training config: {training_config['eigen_loss']}")
+        self.loss_fn_eigen = get_hessian_loss_fn(**training_config["eigen_loss"])
+        
+        _alpha = self.training_config["eigen_loss"]["alpha"]
+        if isinstance(_alpha, Iterable) or (isinstance(_alpha, float) and _alpha > 0.0):
+            self.do_eigen_loss = True
+            print("! Training with eigenvalue loss")
+        else:
+            self.do_eigen_loss = False
+            print("! Training without eigenvalue loss")
+        
+        self.test_loss_fn_eigen = get_hessian_loss_fn(
+            loss_name="eigenspectrum",
+            k=None,
+            alpha=1.0
+        )
+        self.test_loss_fn_eigen_k2 = get_hessian_loss_fn(
+            loss_name="eigenspectrum",
+            k=2,
+            alpha=1.0
+        )
+        self.test_loss_fn_eigen_k8 = get_hessian_loss_fn(
+            loss_name="eigenspectrum",
+            k=8,
+            alpha=1.0
+        )
+        
         # self.loss_fn = nn.L1Loss()
         # self.MAEEval = MeanAbsoluteError()
         # self.MAPEEval = MeanAbsolutePercentageError()
         # self.cosineEval = CosineSimilarity(reduction="mean")
 
-    #     # Store functions as private attributes to avoid PyTorch module registration
-    #     self._loss_fn_vec = get_vector_loss_fn(training_config["loss_type_vec"])
-    #     self._loss_fn = get_scalar_loss_fn(training_config["loss_type"])
+        # # Store functions as private attributes to avoid PyTorch module registration
+        # self._loss_fn_eigen = get_vector_loss_fn(training_config["loss_type_vec"])
+        # self._loss_fn_hessian = get_scalar_loss_fn(training_config["loss_type"])
 
     # @property
-    # def loss_fn(self):
+    # def loss_fn_hessian(self):
     #     """Access the scalar loss function."""
-    #     return self._loss_fn
+    #     return self._loss_fn_hessian
 
     # @property
-    # def loss_fn_vec(self):
+    # def loss_fn_eigen(self):
     #     """Access the vector loss function."""
-    #     return self._loss_fn_vec
+    #     return self._loss_fn_eigen
 
     def _freeze_except_heads(self, heads_to_train: List[str]) -> None:
         """
@@ -237,48 +265,74 @@ class HessianPotentialModule(PotentialModule):
         )
         hat_hessian = outputs["hessian"].to(self.device)
         hessian_true = batch.hessian.to(self.device)
-        hessian_loss = self.loss_fn(hat_hessian, hessian_true)
+        hessian_loss = self.loss_fn_hessian(hat_hessian, hessian_true)
+        loss = hessian_loss * self.training_config["hessian_loss_weight"]
         info = {
-            "MAE_hessian": hessian_loss.detach().item(),
+            "Loss Hessian": hessian_loss.detach().item(),
         }
+        
+        if self.do_eigen_loss:
+            eigen_loss = self.loss_fn_eigen(
+                pred=hat_hessian,
+                target=hessian_true,
+                data=batch,
+            )
+            loss += eigen_loss
+            info["Loss Eigen"] = eigen_loss.detach().item()
+            
         self.MAEEval.reset()
         self.MAPEEval.reset()
         self.cosineEval.reset()
 
-        loss = hessian_loss
         return loss, info
 
-    # def compute_eval_loss(self, batch):
-    #     """Compute comprehensive evaluation metrics for eigenvalues and eigenvectors."""
-    #     batch = compute_extra_props(batch=batch, pos_require_grad=self.pos_require_grad)
+    def compute_eval_loss(self, batch):
+        """Compute comprehensive evaluation metrics for eigenvalues and eigenvectors."""
+        batch = compute_extra_props(batch=batch, pos_require_grad=self.pos_require_grad)
 
-    #     hat_ae, hat_forces, outputs = self.potential.forward(
-    #         batch.to(self.device), hessian=True
-    #     )
+        hat_ae, hat_forces, outputs = self.potential.forward(
+            batch.to(self.device), hessian=True
+        )
 
-    #     hessian_true = batch.hessian
-    #     hessian_pred = outputs["hessian"]
+        hessian_true = batch.hessian
+        hessian_pred = outputs["hessian"]
 
-    #     eval_metrics = {}
+        eval_metrics = {}
+        
+        eval_metrics["Loss Eigen"] = self.test_loss_fn_eigen(
+            pred=hessian_pred,
+            target=hessian_true,
+            data=batch,
+        ).detach().item()
+        eval_metrics["Loss Eigen k2"] = self.test_loss_fn_eigen_k2(
+            pred=hessian_pred,
+            target=hessian_true,
+            data=batch,
+        ).detach().item()
+        eval_metrics["Loss Eigen k8"] = self.test_loss_fn_eigen_k8(
+            pred=hessian_pred,
+            target=hessian_true,
+            data=batch,
+        ).detach().item()
 
-    #     return eval_metrics
+        return eval_metrics
 
-    # def _shared_eval(self, batch, batch_idx, prefix, *args):
-    #     # compute training loss on eval set
-    #     loss, info = self.compute_loss(batch)
-    #     detached_loss = loss.detach()
-    #     info["totloss"] = detached_loss.item()
+    def _shared_eval(self, batch, batch_idx, prefix, *args):
+        # compute training loss on eval set
+        loss, info = self.compute_loss(batch)
+        detached_loss = loss.detach()
+        info["totloss"] = detached_loss.item()
 
-    #     info_prefix = {}
-    #     for k, v in info.items():
-    #         info_prefix[f"{prefix}-{k}"] = v
-    #     del info
+        info_prefix = {}
+        for k, v in info.items():
+            info_prefix[f"{prefix}-{k}"] = v
+        del info
 
-    #     # compute eval metrics on eval set
-    #     eval_info = self.compute_eval_loss(batch)
-    #     for k, v in eval_info.items():
-    #         info_prefix[f"{prefix}-{k}"] = v
+        # compute eval metrics on eval set
+        eval_info = self.compute_eval_loss(batch)
+        for k, v in eval_info.items():
+            info_prefix[f"{prefix}-{k}"] = v
 
-    #     if torch.cuda.is_available():
-    #         torch.cuda.empty_cache()
-    #     return info_prefix
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        return info_prefix
