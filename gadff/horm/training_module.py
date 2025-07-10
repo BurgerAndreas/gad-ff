@@ -5,6 +5,7 @@ PyTorch Lightning module for training AlphaNet
 from typing import Dict, List, Optional, Tuple
 from omegaconf import ListConfig
 import os
+import time
 from pathlib import Path
 import torch
 from torch import nn
@@ -561,10 +562,13 @@ class PotentialModule(LightningModule):
     def training_step(self, batch, batch_idx):
         loss, info = self.compute_loss(batch)
 
-        self.log("train-totloss", loss, rank_zero_only=True)
+        # self.log("train-totloss", loss, rank_zero_only=True)
+        loss_dict = {"train-totloss": loss}
 
         for k, v in info.items():
-            self.log(f"train-{k}", v, rank_zero_only=True)
+            # self.log(f"train-{k}", v, rank_zero_only=True)
+            loss_dict[f"train-{k}"] = v
+        self.log_dict(loss_dict, rank_zero_only=True)
         del info
         return loss
 
@@ -628,6 +632,18 @@ class PotentialModule(LightningModule):
             self.log(k, v, sync_dist=True)
 
         self.val_step_outputs.clear()
+
+    def on_train_epoch_start(self):
+        """Record the start time of the training epoch."""
+        self.epoch_start_time = time.time()
+
+    def on_train_epoch_end(self):
+        """Calculate and log the time taken for the training epoch."""
+        if hasattr(self, 'epoch_start_time'):
+            epoch_duration = time.time() - self.epoch_start_time
+            self.log("train-epoch_duration_seconds", epoch_duration, rank_zero_only=True)
+            # if self.trainer.is_global_zero:
+            #     print(f"Epoch {self.current_epoch} completed in {epoch_duration:.2f} seconds")
 
     def _configure_gradient_clipping(
         self,
