@@ -320,7 +320,6 @@ def batch_hessian_loss(hessian_pred, hessian_true, data, lossfn, **lossfn_kwargs
     hessian_pred = hessian_pred.view(-1)
     hessian_true = hessian_true.view(-1)
     B = data.batch.max() + 1
-    print("B", B)
     ptr = data.ptr
     natoms = data.natoms
     losses = []
@@ -329,10 +328,12 @@ def batch_hessian_loss(hessian_pred, hessian_true, data, lossfn, **lossfn_kwargs
         _end = ((natoms[_b]) * 3) ** 2 + _start
         hessian_pred_b = hessian_pred[_start:_end]
         hessian_true_b = hessian_true[_start:_end]
-        print("hessians shape", hessian_pred_b.shape, hessian_true_b.shape)
-        print("start, end", _start, _end)
-        print("N", natoms[_b].item())
         if hessian_pred_b.numel() == 0:
+            print("Skipping!!!!!!!!!!!!!!!!!")
+            print("hessians shape", hessian_pred_b.shape, hessian_true_b.shape)
+            print("start, end", _start, _end)
+            print("N", natoms[_b].item())
+            print("B", B)   
             continue
         loss_b = lossfn(
             hessian_pred=hessian_pred_b,

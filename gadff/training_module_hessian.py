@@ -298,7 +298,6 @@ class HessianPotentialModule(PotentialModule):
         hessian_pred = outputs["hessian"]
 
         eval_metrics = {}
-        
         eval_metrics["Loss Eigen"] = self.test_loss_fn_eigen(
             pred=hessian_pred,
             target=hessian_true,
