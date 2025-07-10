@@ -323,11 +323,21 @@ def batch_hessian_loss(hessian_pred, hessian_true, data, lossfn, debugstr="", **
     lossfn should return a scalar, otherwise it will be averaged over all entries returned.
     data should be a torch_geometric.data.Batch object.
     """
-    hessian_pred = hessian_pred.view(-1)
-    hessian_true = hessian_true.view(-1)
+    natoms = data.natoms
     B = data.batch.max() + 1
     ptr = data.ptr
-    natoms = data.natoms
+    # check
+    numels = data.natoms.pow(2).mul(9).tolist()
+    total_numel = sum(numels)
+    if hessian_pred.numel() != total_numel:
+        print(f"{debugstr}\n hessian_pred numel {hessian_pred.numel()} != total_numel {total_numel}")
+        print(" numels:", numels)
+        print(" natoms:", natoms)
+        print(" hessian_pred:", tensor_info(hessian_pred))
+        print(" hessian_true:", tensor_info(hessian_true))
+        # return torch.tensor(0.0)
+    hessian_pred = hessian_pred.view(-1)
+    hessian_true = hessian_true.view(-1)
     losses = []
     for _b in range(B):
         _start = (ptr[_b] * 3) ** 2
@@ -337,7 +347,8 @@ def batch_hessian_loss(hessian_pred, hessian_true, data, lossfn, debugstr="", **
         hessian_true_b = hessian_true[_start:_end]
         if hessian_pred_b.numel() != _numel:
             print(f"Skipping!! {debugstr}")
-            print(" hessians shape", list(hessian_pred_b.shape), list(hessian_true_b.shape))
+            print(" hessian_pred:", tensor_info(hessian_pred))
+            print(" hessian_true:", tensor_info(hessian_true))
             print(" start, end", _start.item(), _end.item())
             print(" numel", _numel)
             print(" N", natoms[_b].item())
