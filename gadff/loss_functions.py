@@ -3,6 +3,12 @@ import torch.nn.functional as F
 from functools import partial
 from collections.abc import Iterable
 
+
+def tensor_info(t):
+    if not isinstance(t, torch.Tensor):
+        return f"{type(t)}"
+    return f"{list(t.shape)} {int(t.numel())} {t.dtype}"
+
 ##############################################################################
 # predicting the full Hessian matrix
 
@@ -325,15 +331,17 @@ def batch_hessian_loss(hessian_pred, hessian_true, data, lossfn, debugstr="", **
     losses = []
     for _b in range(B):
         _start = (ptr[_b] * 3) ** 2
-        _end = ((natoms[_b]) * 3) ** 2 + _start
+        _numel = ((natoms[_b]) * 3) ** 2 
+        _end = _numel + _start
         hessian_pred_b = hessian_pred[_start:_end]
         hessian_true_b = hessian_true[_start:_end]
-        if hessian_pred_b.numel() == 0:
+        if hessian_pred_b.numel() != _numel:
             print(f"Skipping!! {debugstr}")
-            print(" hessians shape", hessian_pred_b.shape, hessian_true_b.shape)
-            print(" start, end", _start, _end)
+            print(" hessians shape", list(hessian_pred_b.shape), list(hessian_true_b.shape))
+            print(" start, end", _start.item(), _end.item())
+            print(" numel", _numel)
             print(" N", natoms[_b].item())
-            print(" B", B)   
+            print(" B", B.item(), set(data.batch.tolist()))   
             continue
         loss_b = lossfn(
             hessian_pred=hessian_pred_b,
@@ -391,8 +399,15 @@ def eigenspectrum_loss(
     dof_filter_fn: function that takes a list of eigenvalues and returns a list of booleans
     to filter out the eigenvalues/vectors to use.
     """
-    hessian_true = hessian_true.reshape(N * 3, N * 3)
-    hessian_pred = hessian_pred.reshape(N * 3, N * 3)
+    try:
+        hessian_true = hessian_true.reshape(N * 3, N * 3)
+        hessian_pred = hessian_pred.reshape(N * 3, N * 3)
+    except Exception as e:
+        print(f"Error reshaping hessian: {e}")
+        print(f" hessian_true shape: {tensor_info(hessian_true)}")
+        print(f" hessian_pred shape: {tensor_info(hessian_pred)}")
+        print(f" N: {N}")
+        raise e
     if not isinstance(k, Iterable):
         k = [k]
     if not isinstance(alpha, Iterable):
