@@ -286,7 +286,7 @@ class HessianPotentialModule(PotentialModule):
 
         return loss, info
 
-    def compute_eval_loss(self, batch):
+    def compute_eval_loss(self, batch, prefix):
         """Compute comprehensive evaluation metrics for eigenvalues and eigenvectors."""
         batch = compute_extra_props(batch=batch, pos_require_grad=self.pos_require_grad)
 
@@ -302,16 +302,19 @@ class HessianPotentialModule(PotentialModule):
             pred=hessian_pred,
             target=hessian_true,
             data=batch,
+            debugstr=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}-Loss Eigen"
         ).detach().item()
         eval_metrics["Loss Eigen k2"] = self.test_loss_fn_eigen_k2(
             pred=hessian_pred,
             target=hessian_true,
             data=batch,
+            debugstr=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}-Loss Eigen k2"
         ).detach().item()
         eval_metrics["Loss Eigen k8"] = self.test_loss_fn_eigen_k8(
             pred=hessian_pred,
             target=hessian_true,
             data=batch,
+            debugstr=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}-Loss Eigen k8"
         ).detach().item()
 
         return eval_metrics
@@ -328,10 +331,16 @@ class HessianPotentialModule(PotentialModule):
         del info
 
         # compute eval metrics on eval set
-        eval_info = self.compute_eval_loss(batch)
+        eval_info = self.compute_eval_loss(batch, prefix=prefix)
         for k, v in eval_info.items():
             info_prefix[f"{prefix}-{k}"] = v
 
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         return info_prefix
+    
+    def validation_step(self, batch, batch_idx, *args):
+        return self._shared_eval(batch, batch_idx, "val", *args)
+
+    def test_step(self, batch, batch_idx, *args):
+        return self._shared_eval(batch, batch_idx, "test", *args)

@@ -311,7 +311,7 @@ class HuberLoss(torch.nn.Module):
 # Eigenspectrum losses that don't require to backprop through .eigh
 
 
-def batch_hessian_loss(hessian_pred, hessian_true, data, lossfn, **lossfn_kwargs):
+def batch_hessian_loss(hessian_pred, hessian_true, data, lossfn, debugstr="", **lossfn_kwargs):
     """We can't normalize concatenated vectors, so we process each vector separately.
     Returns a scalar of similarity averaged over batches.
     lossfn should return a scalar, otherwise it will be averaged over all entries returned.
@@ -329,7 +329,7 @@ def batch_hessian_loss(hessian_pred, hessian_true, data, lossfn, **lossfn_kwargs
         hessian_pred_b = hessian_pred[_start:_end]
         hessian_true_b = hessian_true[_start:_end]
         if hessian_pred_b.numel() == 0:
-            print("Skipping!!!!!!!!!!!!!!!!!")
+            print(f"Skipping!! {debugstr}")
             print("hessians shape", hessian_pred_b.shape, hessian_true_b.shape)
             print("start, end", _start, _end)
             print("N", natoms[_b].item())
@@ -351,10 +351,15 @@ class BatchHessianLoss(torch.nn.Module):
     def __init__(self, loss_fn, **kwargs):
         super(BatchHessianLoss, self).__init__()
         self.loss_fn = loss_fn
+        if kwargs is None:
+            kwargs = {}
         self.kwargs = kwargs
 
-    def forward(self, pred, target, data):
-        return batch_hessian_loss(pred, target, data, self.loss_fn, **self.kwargs)
+    def forward(self, pred, target, data, **kwargs):
+        _kwargs = self.kwargs.copy()
+        if kwargs is not None:
+            _kwargs.update(kwargs)
+        return batch_hessian_loss(pred, target, data, self.loss_fn, **_kwargs)
 
 
 def eigenspectrum_loss(

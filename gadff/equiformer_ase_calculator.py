@@ -73,6 +73,7 @@ class EquiformerASECalculator(Calculator):
         checkpoint_path: Optional[str] = None,
         device: Optional[torch.device] = None,
         project_root: str = None,
+        hessian_method: str = "autodiff",
         **kwargs,
     ):
         """
@@ -84,6 +85,8 @@ class EquiformerASECalculator(Calculator):
             **kwargs: Additional keyword arguments for parent Calculator class
         """
         Calculator.__init__(self, **kwargs)
+        
+        # this is where all the calculated properties are stored
         self.results = {}
 
         # Set device
@@ -107,7 +110,10 @@ class EquiformerASECalculator(Calculator):
         self.model.eval()
 
         # Set implemented properties
+        # # standard properties: ‘energy’, ‘forces’, ‘stress’, ‘dipole’, ‘charges’, ‘magmom’ and ‘magmoms’.
         self.implemented_properties = ["energy", "forces", "hessian"]
+        
+        self.hessian_method = hessian_method
 
         # ocpmodels/common/relaxation/ase_utils.py
         self.a2g = AtomsToGraphs(
@@ -119,6 +125,10 @@ class EquiformerASECalculator(Calculator):
             r_edges=False,
             r_pbc=True,
         )
+    
+    def reset(self):
+        """Reset the calculator."""
+        self.results = {}
 
     def forward(self, atoms, hessian=False):
         """
@@ -164,7 +174,9 @@ class EquiformerASECalculator(Calculator):
 
         # Run prediction
         with torch.enable_grad():
-            energy, forces, eigenoutputs = self.model.forward(batch, eigen=True)
+            energy, forces, eigenoutputs = self.model.forward(
+                batch, eigen=True, hessian=self.hessian_method == "predict"
+            )
 
         # Store results
         self.results = {}
@@ -182,12 +194,17 @@ class EquiformerASECalculator(Calculator):
 
         # Compute the Hessian via autodiff on the fly
         if "hessian" in properties:
-            # 3D coordinates -> 3N^2 Hessian elements
-            N = batch.pos.shape[0]
-            forces = forces.reshape(-1)
-            num_elements = forces.shape[0]
+            if self.hessian_method == "autodiff":
+                # 3D coordinates -> 3N^2 Hessian elements
+                N = batch.pos.shape[0]
+                forces = forces.reshape(-1)
+                num_elements = forces.shape[0]
 
-            hessian = compute_hessian(batch.pos, forces, retain_graph=True)
+                hessian = compute_hessian(batch.pos, forces, retain_graph=True)
+            elif self.hessian_method == "predict":
+                hessian = eigenoutputs["hessian"]
+            else:
+                raise ValueError(f"Invalid Hessian method: {self.hessian_method}")
             self.results["hessian"] = hessian.detach().cpu().numpy()
 
         if "eigen" in properties:
@@ -207,6 +224,13 @@ class EquiformerASECalculator(Calculator):
     def get_hessian_autodiff(self, atoms):
         """
         Get the Hessian matrix for the given atoms via autodiff (on the fly Hessian).
+        """
+        self.calculate(atoms, properties=["energy", "forces", "hessian"])
+        return self.results["hessian"]
+    
+    def get_hessian_prediction(self, atoms):
+        """
+        Get the Hessian matrix for the given atoms via prediction (from the model).
         """
         self.calculate(atoms, properties=["energy", "forces", "hessian"])
         return self.results["hessian"]
@@ -378,7 +402,8 @@ if __name__ == "__main__":
         exit()
 
     calculator = EquiformerASECalculator(
-        checkpoint_path=checkpoint_path, project_root=project_root
+        checkpoint_path=checkpoint_path, project_root=project_root, 
+        # hessian_method="predict"
     )
 
     # Attach calculator to atoms

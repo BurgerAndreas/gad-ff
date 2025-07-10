@@ -50,6 +50,7 @@ pip install -e .
 pip install -U "jax[cuda12]"==0.6.2
 pip install -e sella
 pip install quacc
+pip install git+https://github.com/virtualzx-nad/geodesic-interpolate.git
 ```
 
 I had problems with the compute canada version of wandb, so I installed it manually
