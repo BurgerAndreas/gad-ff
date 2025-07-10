@@ -249,8 +249,13 @@ class PotentialModule(LightningModule):
                 Path(self.training_config["val_path"]),
                 **self.training_config,
             )
-            print("# of training data: ", len(self.train_dataset))
-            print("# of validation data: ", len(self.val_dataset))
+            if self.training_config["max_train_samples"] is not None:
+                self.train_dataset = self.train_dataset[:self.training_config["max_train_samples"]]
+            if self.training_config["max_val_samples"] is not None:
+                self.val_dataset = self.val_dataset[:self.training_config["max_val_samples"]]
+            print("Num samples in training data: ", len(self.train_dataset))
+            print("Num samples in validation data: ", len(self.val_dataset))
+            print("Num samples in test data: ", len(self.test_dataset))
 
         else:
             raise NotImplementedError
@@ -499,6 +504,7 @@ class PotentialModule(LightningModule):
             shuffle=True,
             num_workers=self.training_config["num_workers"],
             follow_batch=self.training_config["follow_batch"],
+            drop_last=self.training_config["drop_last"],
         )
 
     def val_dataloader(self) -> TGDataLoader:
@@ -508,6 +514,7 @@ class PotentialModule(LightningModule):
             shuffle=False,
             num_workers=self.training_config["num_workers"],
             follow_batch=self.training_config["follow_batch"],
+            drop_last=self.training_config["drop_last"],
         )
 
     def test_dataloader(self) -> TGDataLoader:
@@ -517,6 +524,7 @@ class PotentialModule(LightningModule):
             shuffle=False,
             num_workers=self.training_config["num_workers"],
             follow_batch=self.training_config["follow_batch"],
+            drop_last=self.training_config["drop_last"],
         )
 
     @torch.enable_grad()

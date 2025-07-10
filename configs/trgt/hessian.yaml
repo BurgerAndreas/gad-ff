@@ -29,3 +29,7 @@ training:
     alpha: null
     dof_filter_fn: null
     loss_type: "eigen"
+
+  max_train_samples: null
+  max_val_samples: null
+  drop_last: true # otherwise we run into shape issues

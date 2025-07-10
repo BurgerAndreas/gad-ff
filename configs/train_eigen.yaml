@@ -49,6 +49,9 @@ training:
   load_weights_only: false  # If true, only load model weights, ignore training state (epoch, optimizer, etc.)
 
   follow_batch: null
+  max_train_samples: null
+  max_val_samples: null
+  drop_last: false
 
 # Pytorch Lightning Trainer configuration
 pltrainer:
