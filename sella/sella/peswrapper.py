@@ -383,7 +383,7 @@ class InternalPES(PES):
         self.dummies = self.int.dummies
         self.dim = len(self.get_x())
         self.ncart = self.int.ndof
-        
+
         if H0 is None:
             # Construct guess hessian and zero out components in
             # infeasible subspace
@@ -397,7 +397,7 @@ class InternalPES(PES):
         # Flag used to indicate that new internal coordinates are required
         self.bad_int = None
         self.iterative_stepper = iterative_stepper
-        
+
         # Andreas
         self.write_dummies_to_traj = write_dummies_to_traj
 
@@ -448,7 +448,9 @@ class InternalPES(PES):
         return: tuple[np.ndarray[3*len(self.atoms),], np.ndarray[3*len(self.dummies),]]
             Atom and dummy positions in cartesian coordinates
         """
-        return self.set_x(target=coord_internal, return_y=True, force_not_iterative=True)
+        return self.set_x(
+            target=coord_internal, return_y=True, force_not_iterative=True
+        )
 
     # Position getter/setter
     def set_x(self, target, return_y=False, force_not_iterative=False):
@@ -475,7 +477,7 @@ class InternalPES(PES):
             )
         )
         ode = LSODA(self._q_ode, t0, y0, t_bound=1.0, atol=1e-6)
-        
+
         if return_y:
             # buffer atom and dummy positions in cartesian coordinates
             # because _q_ode sets atoms.positions
@@ -687,9 +689,7 @@ class InternalPES(PES):
             else:
                 atoms_tmp = copy.deepcopy(self.atoms)
                 if hasattr(self.traj, "trajectory_dummies"):
-                    self.traj.trajectory_dummies.append(
-                        copy.deepcopy(self.dummies)
-                    )
+                    self.traj.trajectory_dummies.append(copy.deepcopy(self.dummies))
             # Andreas end
             atoms_tmp.calc = SinglePointCalculator(
                 atoms_tmp, energy=energy, forces=forces

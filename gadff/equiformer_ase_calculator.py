@@ -173,10 +173,16 @@ class EquiformerASECalculator(Calculator):
         batch = compute_extra_props(batch, pos_require_grad="hessian" in properties)
 
         # Run prediction
-        with torch.enable_grad():
-            energy, forces, eigenoutputs = self.model.forward(
-                batch, eigen=True, hessian=self.hessian_method == "predict"
-            )
+        if (self.hessian_method == "autodiff") and ("hessian" in properties):
+            with torch.enable_grad():
+                energy, forces, eigenoutputs = self.model.forward(
+                    batch, eigen=True, hessian=False
+                )
+        else:
+            with torch.no_grad():
+                energy, forces, eigenoutputs = self.model.forward(
+                    batch, eigen=True, hessian=self.hessian_method == "predict"
+                )
 
         # Store results
         self.results = {}

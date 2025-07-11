@@ -67,7 +67,7 @@ class Sella(Optimizer):
         diag_every_n: Optional[int] = None,
         hessian_function: Optional[Callable[[Atoms], np.ndarray]] = None,
         log_every_n: int = 100,
-        **kwargs
+        **kwargs,
     ):
         if order == 0:
             default = _default_kwargs["minimum"]
@@ -93,7 +93,7 @@ class Sella(Optimizer):
             v0,
             internal,
             hessian_function,
-            **kwargs
+            **kwargs,
         )
 
         if rs is None:
@@ -177,7 +177,7 @@ class Sella(Optimizer):
         v0: np.ndarray = None,
         internal: Union[bool, Internals] = False,
         hessian_function: Optional[Callable[[Atoms], np.ndarray]] = None,
-        **kwargs
+        **kwargs,
     ):
         if internal:
             if isinstance(internal, Internals):
@@ -203,7 +203,7 @@ class Sella(Optimizer):
                 auto_find_internals=auto_find_internals,
                 hessian_function=hessian_function,
                 write_dummies_to_traj=False,
-                **kwargs
+                **kwargs,
             )
             print("InternalPES deduced internals (dyn.pes.int.internals):")
             for k, v in self.pes.int.internals.items():
@@ -221,7 +221,7 @@ class Sella(Optimizer):
                 eta=eta,
                 v0=v0,
                 hessian_function=hessian_function,
-                **kwargs
+                **kwargs,
             )
         self.trajectory = self.pes.traj
         return

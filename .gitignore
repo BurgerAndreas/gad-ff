@@ -18,6 +18,9 @@ _*
 plots/
 plots_*/
 
+tmp_quacc*/
+vib
+
 Data
 .csv
 rgd1_raw/

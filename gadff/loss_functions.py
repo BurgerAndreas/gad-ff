@@ -326,11 +326,14 @@ def batch_hessian_loss(
     lossfn should return a scalar, otherwise it will be averaged over all entries returned.
     data should be a torch_geometric.data.Batch object.
     """
+    # N=15, B=64 ~ 130_000 entries
     natoms = data.natoms
     B = data.batch.max() + 1
-    ptr = data.ptr
+    # ptr = data.ptr
     # check
-    numels = data.natoms.pow(2).mul(9).tolist()
+    numels = data.natoms.pow(2).mul(9)
+    ptr_hessian = torch.cat([torch.tensor([0], device=numels.device), numels], dim=0)
+    ptr_hessian = torch.cumsum(ptr_hessian, dim=0)
     total_numel = sum(numels)
     if hessian_pred.numel() != total_numel:
         print(
@@ -345,7 +348,7 @@ def batch_hessian_loss(
     hessian_true = hessian_true.view(-1)
     losses = []
     for _b in range(B):
-        _start = (ptr[_b] * 3) ** 2
+        _start = ptr_hessian[_b].item()
         _numel = ((natoms[_b]) * 3) ** 2
         _end = _numel + _start
         hessian_pred_b = hessian_pred[_start:_end]
@@ -366,6 +369,13 @@ def batch_hessian_loss(
             **lossfn_kwargs,
         )
         losses.append(loss_b)
+    if _end != hessian_pred.numel():
+        print(f"Missed or overshot entries: {debugstr}")
+        print(" hessian_pred:", tensor_info(hessian_pred))
+        print(" hessian_true:", tensor_info(hessian_true))
+        print(" start, end", _start.item(), _end.item())
+        print(" numel", _numel)
+        print(" N", natoms[_b].item())
     return torch.stack(losses).mean()
 
 

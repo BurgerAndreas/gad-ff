@@ -15,14 +15,14 @@ Available eigen methods:
 Example commands:
 
 # Test all eigen methods
-python playground/gad_rgd1.py --eigen-method qr
-python playground/gad_rgd1.py --eigen-method svd
-python playground/gad_rgd1.py --eigen-method svdforce
-python playground/gad_rgd1.py --eigen-method inertia
-python playground/gad_rgd1.py --eigen-method geo
-python playground/gad_rgd1.py --eigen-method ase
-python playground/gad_rgd1.py --eigen-method eckartsvd
-python playground/gad_rgd1.py --eigen-method eckartqr
+python playground/run_tssearch_rgd1.py --eigen-method qr --do-gad
+python playground/run_tssearch_rgd1.py --eigen-method svd --do-gad
+python playground/run_tssearch_rgd1.py --eigen-method svdforce --do-gad
+python playground/run_tssearch_rgd1.py --eigen-method inertia --do-gad
+python playground/run_tssearch_rgd1.py --eigen-method geo --do-gad
+python playground/run_tssearch_rgd1.py --eigen-method ase --do-gad
+python playground/run_tssearch_rgd1.py --eigen-method eckartsvd --do-gad
+python playground/run_tssearch_rgd1.py --eigen-method eckartqr --do-gad
 """
 
 import torch
@@ -66,11 +66,11 @@ from sella import Sella, Constraints
 from sella.peswrapper import InternalPES
 from sella.internal import Internals
 
-from recipes.gad import (
+from recipes.ts_search import (
     integrate_dynamics,
     run_sella,
-    before_ase,
-    after_ase,
+    before_ase_opt,
+    after_ase_opt,
     run_irc,
     run_neb,
     run_relaxation,
@@ -116,9 +116,8 @@ def test_gad_ts_search(sample, calc, eigen_method, x_lininter_rp):
     results["ts_from_ts"] = _rmsd_ts
 
     # Follow the GAD vector field from perturbed transition state
-    _pos = (
-        torch.randn_like(sample.pos_transition) + sample.pos_transition
-    )  # RMSD ~ 1.2 Å
+    # RMSD ~ 1.2 Å
+    _pos = torch.randn_like(sample.pos_transition) + sample.pos_transition
     traj, _, _, _ = integrate_dynamics(
         _pos,
         sample.z,
@@ -355,11 +354,7 @@ def main(
 
     # geodesic interpolation
     geointer_atoms_list = run_geodesic_interpolate(
-        pos_reactant,
-        pos_product,
-        z=sample.z,
-        calc=asecalc,
-        return_middle_image=True
+        pos_reactant, pos_product, z=sample.z, calc=asecalc, return_middle_image=True
     )
     x_geointer_rp = geointer_atoms_list.get_positions()
     plot_molecule_mpl(
@@ -377,10 +372,10 @@ def main(
 
     if do_gad:
         test_gad_ts_search(sample, torchcalc, eigen_method, x_lininter_rp)
-        
+
     ###################################################################################
     # Use Sella internal coordinates for GAD
-    
+
     # constraints = None
     # internal = Internals(atoms, cons=constraints)
     # pes = InternalPES(
@@ -399,7 +394,7 @@ def main(
     #     print(f" {k}: {len(v)}")
     # print(f" pes.dim={pes.dim}, pes.ncart={pes.ncart}")
 
-    # # get current internal coordinates 
+    # # get current internal coordinates
     # x = pes.int.calc()
     # # same as
     # x = pes.get_x()
@@ -416,22 +411,23 @@ def main(
         print("Following Sella to find transition state")
 
         # See if Sella can find the transition state
-        
-        # Start from reactant, internal coordinates
-        hessian_method = None
-        mol_ase = run_sella(
-            pos_reactant,
-            z=sample.z,
-            natoms=sample.natoms,
-            true_pos=sample.pos_transition,
-            title=f"Sella TS from R | Hessian={hessian_method} | Internal",
-            calc=asecalc,
-            hessian_function=get_hessian_function(hessian_method, asecalc),
-            internal=True,
-            run_kwargs={"steps": 100},
-        )
 
-        for hessian_method in [None, "autodiff", "predict"]:
+        # # Test run: Start from reactant, internal coordinates
+        # hessian_method = None
+        # mol_ase = run_sella(
+        #     pos_reactant,
+        #     z=sample.z,
+        #     natoms=sample.natoms,
+        #     true_pos=sample.pos_transition,
+        #     title=f"Sella TS from R | Hessian={hessian_method} | Internal",
+        #     calc=asecalc,
+        #     hessian_function=get_hessian_function(hessian_method, asecalc),
+        #     internal=True,
+        #     run_kwargs={"steps": 100},
+        # )
+
+        # for hessian_method in [None, "autodiff", "predict"]:
+        for hessian_method in ["autodiff"]:
 
             hessian_function = get_hessian_function(hessian_method, asecalc)
 
@@ -444,6 +440,19 @@ def main(
                 title=f"Sella TS from linear R-P | Hessian={hessian_method}",
                 calc=asecalc,
                 hessian_function=hessian_function,
+                run_kwargs=dict(fmax=1e-4),
+            )
+
+            # Geodesic interpolation between reactant and product
+            mol_ase = run_sella(
+                x_geointer_rp,
+                z=sample.z,
+                natoms=sample.natoms,
+                true_pos=sample.pos_transition,
+                title=f"Sella TS from linear R-P | Hessian={hessian_method}",
+                calc=asecalc,
+                hessian_function=hessian_function,
+                run_kwargs=dict(fmax=1e-4),
             )
 
             # Linear interpolation between reactant and TS
@@ -455,6 +464,7 @@ def main(
                 title=f"Sella TS from linear R-TS | Hessian={hessian_method}",
                 calc=asecalc,
                 hessian_function=hessian_function,
+                run_kwargs=dict(fmax=1e-4),
             )
 
             # Start from reactant
@@ -478,6 +488,7 @@ def main(
                 calc=asecalc,
                 hessian_function=hessian_function,
                 internal=True,
+                run_kwargs=dict(fmax=1e-4),
             )
 
             # Start from reactant, internal coordinates, diag every 1 step
@@ -491,6 +502,7 @@ def main(
                 hessian_function=hessian_function,
                 internal=True,
                 diag_every_n=1,
+                run_kwargs=dict(fmax=1e-4),
             )
             mol_ase = run_sella(
                 pos_reactant,
@@ -502,6 +514,7 @@ def main(
                 hessian_function=hessian_function,
                 internal=True,
                 diag_every_n=0,
+                run_kwargs=dict(fmax=1e-4),
             )
 
     ###################################################################################
@@ -526,7 +539,7 @@ def main(
 
         print("\n# irc_job")
         # build atoms object
-        mol_ase, initsummary = before_ase(
+        mol_ase, initsummary = before_ase_opt(
             start_pos=sample.pos_transition,
             z=sample.z,
             true_pos=sample.pos_transition,
@@ -544,7 +557,7 @@ def main(
         )
         result.update(initsummary)
         # eval and plot
-        endsummary = after_ase(
+        endsummary = after_ase_opt(
             result,
             z=sample.z,
             title="Forward IRC QuAcc from R",
@@ -554,12 +567,12 @@ def main(
         result.update(endsummary)
 
         print("\n# neb_job")
-        atoms_r, _ = before_ase(
+        atoms_r, _ = before_ase_opt(
             start_pos=sample.pos_reactant,
             z=sample.z,
             calc=asecalc,
         )
-        atoms_p, _ = before_ase(
+        atoms_p, _ = before_ase_opt(
             start_pos=sample.pos_product,
             z=sample.z,
             calc=asecalc,
@@ -686,6 +699,9 @@ if __name__ == "__main__":
         do_sella_hessian=args.do_sella_hessian,
         do_forces=args.do_forces,
     )
-    print("Results:")
-    for k, v in results.items():
-        print(f"  {k}: {v:.6f}")
+    if results is not None:
+        print("Results:")
+        for k, v in results.items():
+            print(f"  {k}: {v:.6f}")
+
+    print("\nDone ✅")

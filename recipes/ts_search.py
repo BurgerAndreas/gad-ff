@@ -21,6 +21,7 @@ import copy
 import logging
 import math
 import time
+from datetime import datetime
 
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.equiformer_calculator import EquiformerCalculator
@@ -156,15 +157,14 @@ def get_hessian_function(hessian_method, asecalc):
 
         def _hessian_function(atoms):
             return asecalc.get_hessian_autodiff(atoms).reshape(
-                (len(atoms), 3, len(atoms), 3)
+                (len(atoms) * 3, len(atoms) * 3)
             )
 
     elif hessian_method == "predict":
 
         def _hessian_function(atoms):
             return asecalc.get_hessian_prediction(atoms).reshape(
-                (len(atoms), 3, len(atoms), 3)
-                # (3 * len(atoms), 3 * len(atoms))
+                (len(atoms) * 3, len(atoms) * 3)
             )
 
     elif hessian_method is None:
@@ -374,11 +374,12 @@ def integrate_dynamics(
         "rmsd_final": rmsd_final,
         "rmsd_improvement": rmsd_initial - rmsd_final,
         "time_taken": t2 - t1,
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
     return summary
 
 
-def before_ase(start_pos, z, true_pos=None, calc=None):
+def before_ase_opt(start_pos, z, true_pos=None, calc=None):
     # Create ASE Atoms object from the initial guess position
     start_pos = to_numpy(start_pos)
     atomic_numbers_np = to_numpy(z)
@@ -392,7 +393,7 @@ def before_ase(start_pos, z, true_pos=None, calc=None):
     summary = {
         "calcname": calcname,
     }
-    
+
     # Measure RMSD between start_pos and true_pos
     if true_pos is not None:
         true_pos = to_numpy(true_pos)
@@ -402,7 +403,7 @@ def before_ase(start_pos, z, true_pos=None, calc=None):
     return mol_ase, summary
 
 
-def after_ase(summary, z, title, true_pos=None, plot_dir=None):
+def after_ase_opt(summary, z, title, true_pos=None, plot_dir=None):
     """Computes RMSD between predicted and true transition state, and plots trajectory"""
     if plot_dir is None:
         # Auto-detect plot directory based on main script
@@ -460,12 +461,12 @@ def run_with_ase_wrapper(
     run_fn: Callable, start_pos, z, title, true_pos=None, calc=None, plot_dir=None
 ):
     # build atoms object
-    mol_ase, initsummary = before_ase(start_pos, z, true_pos, calc)
+    mol_ase, initsummary = before_ase_opt(start_pos, z, true_pos, calc)
     # run function
     summary = run_fn(mol_ase)
     summary.update(initsummary)
     # eval and plot
-    summary = after_ase(summary, z, title, true_pos, plot_dir)
+    summary = after_ase_opt(summary, z, title, true_pos, plot_dir)
     return summary
 
 
@@ -512,10 +513,10 @@ def run_sella(
         # Auto-detect plot directory based on main script
         main_script = sys.argv[0]
         main_dir = os.path.dirname(os.path.abspath(main_script))
-        plot_dir = os.path.join(main_dir, "plots")
+        plot_dir = os.path.join(main_dir, "plots_sella")
         print(f"Sella autodetected plot directory: {plot_dir}")
 
-    mol_ase, initsummary = before_ase(start_pos, z, true_pos, calc)
+    mol_ase, initsummary = before_ase_opt(start_pos, z, true_pos, calc)
 
     # Set up a Sella Dynamics object with improved parameters for TS search
     _sella_kwargs = dict(
@@ -543,7 +544,10 @@ def run_sella(
     )
 
     # Run with much tighter convergence
-    _run_kwargs = dict(fmax=1e-5, steps=2000)
+    _run_kwargs = dict(
+        # fmax=1e-5,
+        steps=4000,
+    )
     _run_kwargs.update(run_kwargs)
     t1 = time.time()
     dyn.run(**_run_kwargs)  # Much stricter convergence criterion
@@ -562,6 +566,7 @@ def run_sella(
         "sella_kwargs": _sella_kwargs,
         "run_kwargs": _run_kwargs,
         "time_taken": t2 - t1,
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
     summary.update(initsummary)
 
@@ -569,7 +574,7 @@ def run_sella(
         freq_summary = run_freq(mol_ase, calc)
         summary.update(freq_summary)
 
-    endsummary = after_ase(summary, z, title, true_pos, plot_dir=None)
+    endsummary = after_ase_opt(summary, z, title, true_pos, plot_dir=plot_dir)
     summary.update(endsummary)
     return summary
 
@@ -605,6 +610,7 @@ def run_freq(atoms, calc):
         summary[f"energy_{freq_method}"] = energies
         summary[f"mode_{freq_method}"] = modes
         summary[f"time_taken_{freq_method}"] = t2 - t1
+        summary[f"date_{freq_method}"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         # vib.summary()
         # summary_lines = VibrationsData._tabulate_from_energies(energies)
         # log_text = '\n'.join(summary_lines) + '\n'
@@ -621,7 +627,7 @@ def run_irc(
     run_kwargs={},
 ):
 
-    atoms, initsummary = before_ase(start_pos, z, true_pos, calc)
+    atoms, initsummary = before_ase_opt(start_pos, z, true_pos, calc)
 
     _opt_kwargs = dict(
         dx=0.1,
@@ -645,8 +651,9 @@ def run_irc(
         "trajectory": traj,
         "nsteps": dyn.nsteps,
         "time_taken": t2 - t1,
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
-    endsummary = after_ase(summary, z, title, true_pos, plot_dir=None)
+    endsummary = after_ase_opt(summary, z, title, true_pos, plot_dir=None)
     summary.update(initsummary)
     summary.update(endsummary)
     return summary
@@ -692,6 +699,7 @@ def _run_relaxation(
         "trajectory": traj,
         "nsteps": dyn.nsteps,
         "time_taken": t2 - t1,
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
     return summary
 
@@ -708,13 +716,13 @@ def run_relaxation(
     do_freq=False,
     plot_dir=None,
 ):
-    atoms, initsummary = before_ase(start_pos, z, true_pos, calc)
+    atoms, initsummary = before_ase_opt(start_pos, z, true_pos, calc)
     summary = _run_relaxation(atoms, method, opt_kwargs, run_kwargs)
     initsummary.update(summary)
     if do_freq:
         freq_summary = run_freq(atoms, calc)
         initsummary.update(freq_summary)
-    endsummary = after_ase(initsummary, z, title, true_pos, plot_dir=None)
+    endsummary = after_ase_opt(initsummary, z, title, true_pos, plot_dir=None)
     initsummary.update(endsummary)
     return summary
 
@@ -740,8 +748,8 @@ def run_neb(
     _neb_kwargs = dict(method="aseneb", precon=None)
     _neb_kwargs.update(neb_kwargs)
 
-    reactant_atoms, summary_r = before_ase(reactant_atoms, z, true_pos, calc)
-    product_atoms, summary_p = before_ase(product_atoms, z, true_pos, calc)
+    reactant_atoms, summary_r = before_ase_opt(reactant_atoms, z, true_pos, calc)
+    product_atoms, summary_p = before_ase_opt(product_atoms, z, true_pos, calc)
 
     # Run relax job
     relax_summary_r = _run_relaxation(
@@ -790,12 +798,13 @@ def run_neb(
     summary["neb_summary"] = dyn.summary
     summary["nsteps"] = dyn.nsteps
     summary["time_taken"] = t2 - t1
+    summary["date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     if do_freq:
         freq_summary = run_freq(images, calc)
         summary.update(freq_summary)
 
-    endsummary = after_ase(summary, z, title, true_pos, plot_dir=None)
+    endsummary = after_ase_opt(summary, z, title, true_pos, plot_dir=None)
     summary.update(endsummary)
     return summary
 
@@ -859,7 +868,7 @@ def geodesic_interpolate_wrapper(
     # Read the initial geometries.
     chemical_symbols = reactant.get_chemical_symbols()
 
-    # First redistribute number of images. 
+    # First redistribute number of images.
     # Perform interpolation if too few and subsampling if too many images are given
     raw_interpolated_positions = redistribute(
         chemical_symbols,
@@ -876,7 +885,6 @@ def geodesic_interpolate_wrapper(
         morse_scaling,
         threshold=distance_cutoff,
         friction=geometry_friction,
-        # log_level=logging.INFO,
         log_level=logging.DEBUG,
     )
     if perform_sweep == "auto":
@@ -903,8 +911,8 @@ def run_geodesic_interpolate(
     return_middle_image=False,
 ):
     # initialize atoms objects
-    atoms_r, _ = before_ase(pos_reactant, z, calc=calc)
-    atoms_p, _ = before_ase(pos_product, z, calc=calc)
+    atoms_r, _ = before_ase_opt(pos_reactant, z, calc=calc)
+    atoms_p, _ = before_ase_opt(pos_product, z, calc=calc)
 
     _opt_kwargs = dict(
         n_images=3,
@@ -926,7 +934,9 @@ def run_geodesic_interpolate(
         **_opt_kwargs,
     )
     if return_middle_image:
-        assert _opt_kwargs["n_images"] % 2 == 1, "n_images must be odd for return_middle_image"
+        assert (
+            _opt_kwargs["n_images"] % 2 == 1
+        ), "n_images must be odd for return_middle_image"
         return atoms_list[math.floor(_opt_kwargs["n_images"] / 2)]
     else:
         return atoms_list

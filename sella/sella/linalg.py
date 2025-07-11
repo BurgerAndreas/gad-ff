@@ -165,7 +165,7 @@ class ApproximateHessian(LinearOperator):
             target = target * np.eye(self.dim)
         else:
             self.initialized = True
-        assert target.shape == self.shape
+        assert target.shape == self.shape, f"{target.shape} != {self.shape}"
         self.B = target
         self.evals, self.evecs = eigh(self.B)
 
