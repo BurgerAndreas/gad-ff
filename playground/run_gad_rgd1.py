@@ -55,15 +55,29 @@ from gadff.plot_molecules import (
     save_trajectory_to_xyz,
 )
 from gadff.align_ordered_mols import find_rigid_alignment
+from gadff.equiformer_ase_calculator import EquiformerASECalculator
 
 from ase import Atoms
 from ase.io import read
 from ase.calculators.emt import EMT
 from ase.constraints import FixAtoms
+from ase.vibrations.data import VibrationsData
 from sella import Sella, Constraints
-from gadff.equiformer_ase_calculator import EquiformerASECalculator
-from recipes.gad import integrate_dynamics, run_sella, before_ase, after_ase
-from recipes.quacc.equiformer.ts import ts_job, irc_job, quasi_irc_job, neb_job, geodesic_job
+from sella.peswrapper import InternalPES
+from sella.internal import Internals
+
+from recipes.gad import (
+    integrate_dynamics,
+    run_sella,
+    before_ase,
+    after_ase,
+    run_irc,
+    run_neb,
+    run_relaxation,
+    run_geodesic_interpolate,
+    get_hessian_function,
+)
+from recipes.trajectorysaver import MyTrajectory
 
 from quacc.atoms.ts import geodesic_interpolate_wrapper
 
@@ -146,7 +160,7 @@ def test_gad_ts_search(sample, calc, eigen_method, x_lininter_rp):
     results["ts_from_r_dt0.1_s100"] = _rmsd_ts
 
     # Start from reactant
-    traj, _, _, _ = integrate_dynamics(
+    summary = integrate_dynamics(
         sample.pos_reactant,
         sample.z,
         sample.natoms,
@@ -161,10 +175,7 @@ def test_gad_ts_search(sample, calc, eigen_method, x_lininter_rp):
         # center_around_com=True,
         plot_dir=plot_dir,
     )
-    _rmsd_ts = align_ordered_and_get_rmsd(
-        traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
-    )
-    results["ts_from_r_dt0.01_s1000"] = _rmsd_ts
+    results["ts_from_r_dt0.01_s1000"] = summary["rmsd_final"]
 
     # large steps
     traj, _, _, _ = integrate_dynamics(
@@ -239,11 +250,12 @@ def test_gad_ts_search(sample, calc, eigen_method, x_lininter_rp):
 
     return results
 
+
 def main(
     eigen_method="qr",
     do_gad=False,
     do_sella=False,
-    do_sella_quacc=False,
+    do_irc_neb_geodesic=False,
     do_sella_hessian=False,
     do_forces=False,
 ):
@@ -269,7 +281,10 @@ def main(
     # Initialize equiformer calculator
     print("\n" + "-" * 6)
     print(f"Initializing EquiformerCalculator with eigen_method={eigen_method}")
-    calc = EquiformerCalculator(device=device, eigen_dof_method=eigen_method)
+    torchcalc = EquiformerCalculator(device=device, eigen_dof_method=eigen_method)
+
+    print("\nASE EquiformerCalculator")
+    asecalc = EquiformerASECalculator(device=device)
 
     # # Example forward pass
     # # Create batch (equiformer expects batch format)
@@ -310,7 +325,7 @@ def main(
 
     ###################################################################################
     # Use linear interpolation as initial guess (simpler than geodesic for now)
-    print("\nCreating initial guess using linear interpolation")
+    print("\nCreating initial guess using interpolation")
 
     # Get reactant and transition state positions
     pos_reactant = sample.pos_reactant
@@ -324,7 +339,7 @@ def main(
     plot_molecule_mpl(
         x_lininter_rts,
         atomic_numbers=sample.z,
-        title="Initial guess R-TS interpolation",
+        title="R-TS linear interpolation",
         plot_dir=plot_dir,
         save=True,
     )
@@ -333,16 +348,67 @@ def main(
     plot_molecule_mpl(
         x_lininter_rp,
         atomic_numbers=sample.z,
-        title="Initial guess R-P interpolation",
+        title="R-P linear interpolation",
         plot_dir=plot_dir,
         save=True,
     )
 
+    # geodesic interpolation
+    geointer_atoms_list = run_geodesic_interpolate(
+        pos_reactant,
+        pos_product,
+        z=sample.z,
+        calc=asecalc,
+        return_middle_image=True
+    )
+    x_geointer_rp = geointer_atoms_list.get_positions()
+    plot_molecule_mpl(
+        x_geointer_rp,
+        atomic_numbers=sample.z,
+        title="R-P geodesic interpolation",
+        plot_dir=plot_dir,
+        save=True,
+    )
+    _rmsd_lin_geo = align_ordered_and_get_rmsd(x_geointer_rp, x_lininter_rp)
+    print(f"Linear vs geodesic interpolation R-P RMSD: {_rmsd_lin_geo:.4f}")
+
     ###################################################################################
     # Follow the GAD vector field to find the transition state
-    
+
     if do_gad:
-        test_gad_ts_search(sample, calc, eigen_method, x_lininter_rp)
+        test_gad_ts_search(sample, torchcalc, eigen_method, x_lininter_rp)
+        
+    ###################################################################################
+    # Use Sella internal coordinates for GAD
+    
+    # constraints = None
+    # internal = Internals(atoms, cons=constraints)
+    # pes = InternalPES(
+    #     atoms: Atoms,
+    #     internals: Internals,
+    #     H0: np.ndarray = None,
+    #     iterative_stepper: int = 0,
+    #     auto_find_internals: bool = True,
+    #     # passed to PES
+    #     trajectory=trajectory,
+    #     eta=eta,
+    #     v0=v0,
+    # )
+    # print("InternalPES deduced internals (pes.int.internals):")
+    # for k, v in pes.int.internals.items():
+    #     print(f" {k}: {len(v)}")
+    # print(f" pes.dim={pes.dim}, pes.ncart={pes.ncart}")
+
+    # # get current internal coordinates 
+    # x = pes.int.calc()
+    # # same as
+    # x = pes.get_x()
+
+    # # converts internal to cartesian
+    # x = pes.get_cartesian_from_internal(internalcoords)
+
+    # pes.int._convert_cartesian_hessian_to_internal()
+    # # _convert_internal_hessian_to_cartesian
 
     ###################################################################################
     if do_sella:
@@ -350,20 +416,24 @@ def main(
         print("Following Sella to find transition state")
 
         # See if Sella can find the transition state
-        asecalc = EquiformerASECalculator(device=device)
         
+        # Start from reactant, internal coordinates
+        hessian_method = None
+        mol_ase = run_sella(
+            pos_reactant,
+            z=sample.z,
+            natoms=sample.natoms,
+            true_pos=sample.pos_transition,
+            title=f"Sella TS from R | Hessian={hessian_method} | Internal",
+            calc=asecalc,
+            hessian_function=get_hessian_function(hessian_method, asecalc),
+            internal=True,
+            run_kwargs={"steps": 100},
+        )
+
         for hessian_method in [None, "autodiff", "predict"]:
-            
-            if hessian_method == "autodiff":
-                def hessian_function(atoms): 
-                    return asecalc.get_hessian_autodiff(atoms).reshape((3 * len(atoms), 3 * len(atoms)))
-            elif hessian_method == "predict":
-                def hessian_function(atoms):
-                    return asecalc.get_hessian_prediction(atoms).reshape((3 * len(atoms), 3 * len(atoms)))
-            elif hessian_method is None:
-                hessian_function = None
-            else:
-                raise ValueError(f"Invalid method: {hessian_method}")
+
+            hessian_function = get_hessian_function(hessian_method, asecalc)
 
             # Linear interpolation between reactant and product
             mol_ase = run_sella(
@@ -371,7 +441,7 @@ def main(
                 z=sample.z,
                 natoms=sample.natoms,
                 true_pos=sample.pos_transition,
-                title=f"TS from R-P | Hessian={hessian_method}",
+                title=f"Sella TS from linear R-P | Hessian={hessian_method}",
                 calc=asecalc,
                 hessian_function=hessian_function,
             )
@@ -382,7 +452,7 @@ def main(
                 z=sample.z,
                 natoms=sample.natoms,
                 true_pos=sample.pos_transition,
-                title=f"TS from R-TS | Hessian={hessian_method}",
+                title=f"Sella TS from linear R-TS | Hessian={hessian_method}",
                 calc=asecalc,
                 hessian_function=hessian_function,
             )
@@ -393,89 +463,120 @@ def main(
                 z=sample.z,
                 natoms=sample.natoms,
                 true_pos=sample.pos_transition,
-                title=f"TS from R | Hessian={hessian_method}",
+                title=f"Sella TS from R | Hessian={hessian_method}",
                 calc=asecalc,
                 hessian_function=hessian_function,
             )
-        
-        # # See if Sella can find the transition state with EMT calculator
+
+            # Start from reactant, internal coordinates
+            mol_ase = run_sella(
+                pos_reactant,
+                z=sample.z,
+                natoms=sample.natoms,
+                true_pos=sample.pos_transition,
+                title=f"Sella TS from R | Hessian={hessian_method} | Internal",
+                calc=asecalc,
+                hessian_function=hessian_function,
+                internal=True,
+            )
+
+            # Start from reactant, internal coordinates, diag every 1 step
+            mol_ase = run_sella(
+                pos_reactant,
+                z=sample.z,
+                natoms=sample.natoms,
+                true_pos=sample.pos_transition,
+                title=f"Sella TS from R | Hessian={hessian_method} | Internal diag1",
+                calc=asecalc,
+                hessian_function=hessian_function,
+                internal=True,
+                diag_every_n=1,
+            )
+            mol_ase = run_sella(
+                pos_reactant,
+                z=sample.z,
+                natoms=sample.natoms,
+                true_pos=sample.pos_transition,
+                title=f"Sella TS from R | Hessian={hessian_method} | Internal diag0",
+                calc=asecalc,
+                hessian_function=hessian_function,
+                internal=True,
+                diag_every_n=0,
+            )
+
+    ###################################################################################
+    if do_irc_neb_geodesic:
+        print("=" * 60)
+
+        asecalc = EquiformerASECalculator(device=device)
+
+        # print("\n# ts_job")
         # mol_ase = run_sella(
-        #     pos_initial_guess, sample.z, sample.natoms, sample.pos_transition
+        #     x_lininter_rts,
+        #     z=sample.z,
+        #     natoms=sample.natoms,
+        #     true_pos=sample.pos_transition,
+        #     title="TS from R-TS | Hessian=autodiff",
+        #     calc=asecalc,
+        #     diag_every_n=1,
+        #     # hessian_function=hessian_function,
+        #     hessian_function=get_hessian_function(hessian_method="autodiff", asecalc=asecalc),
+        #     do_freq=True,
         # )
 
-        # # Plot the Sella-optimized structure
-        # plot_molecule_mpl(
-        #     mol_ase.get_positions(),
-        #     atomic_numbers=sample.z,
-        #     title="Sella EMT Optimized TS",
-        #     plot_dir=plot_dir,
-        #     save=True,
-        # )
-        
-    ###################################################################################
-    if do_sella_quacc:
-        print("=" * 60)
-        print("Quacc recipes")
-        
-        asecalc = EquiformerASECalculator(device=device)
-        
+        print("\n# irc_job")
         # build atoms object
-        mol_ase, initsummary = before_ase(start_pos=x_lininter_rp, z=sample.z, true_pos=sample.pos_transition, calc=calc)
+        mol_ase, initsummary = before_ase(
+            start_pos=sample.pos_transition,
+            z=sample.z,
+            true_pos=sample.pos_transition,
+            calc=asecalc,
+        )
         # run function
-        result = ts_job(
-            atoms=mol_ase.copy(),
-            use_custom_hessian=False,
+        result = run_irc(
+            atoms=mol_ase,
+            direction="forward",  # forward or reverse
             run_freq=True,
             freq_job_kwargs=None,
             opt_params=None,
             additional_fields=None,
-            calc=calc,
+            calc=asecalc,
         )
         result.update(initsummary)
         # eval and plot
-        endsummary = after_ase(result, z=sample.z, title="TS QuAcc from R-P", true_pos=sample.pos_transition, plot_dir=plot_dir)
-        result.update(endsummary)
-        
-        
-        result = irc_job
-        # build atoms object
-        mol_ase, initsummary = before_ase(start_pos=sample.pos_transition, z=sample.z, true_pos=sample.pos_transition, calc=calc)
-        # run function
-        result = irc_job(
-            atoms=mol_ase.copy(),
-            direction= "forward", # forward or reverse
-            run_freq=True,
-            freq_job_kwargs=None,
-            opt_params=None,
-            additional_fields=None,
-            calc=calc,
+        endsummary = after_ase(
+            result,
+            z=sample.z,
+            title="Forward IRC QuAcc from R",
+            true_pos=sample.pos_transition,
+            plot_dir=plot_dir,
         )
-        result.update(initsummary)
-        # eval and plot
-        endsummary = after_ase(result, z=sample.z, title="Forward IRC QuAcc from R", true_pos=sample.pos_transition, plot_dir=plot_dir)
         result.update(endsummary)
-        
-        
-        result = neb_job(
-            reactant_atoms=sample.pos_reactant,
-            product_atoms=sample.pos_product,
-            interpolation_method="linear", # "linear", "idpp" and "geodesic"
+
+        print("\n# neb_job")
+        atoms_r, _ = before_ase(
+            start_pos=sample.pos_reactant,
+            z=sample.z,
+            calc=asecalc,
+        )
+        atoms_p, _ = before_ase(
+            start_pos=sample.pos_product,
+            z=sample.z,
+            calc=asecalc,
+        )
+        result = run_neb(
+            reactant_atoms=atoms_r,
+            product_atoms=atoms_p,
+            interpolation_method="linear",  # "linear", "idpp" and "geodesic"
             relax_job_kwargs=None,
             interpolate_kwargs=None,
             neb_kwargs=None,
         )
-        
-        result = geodesic_job(
-            reactant_atoms=sample.pos_reactant,
-            product_atoms=sample.pos_product,
-            relax_job_kwargs=None,
-            geodesic_interpolate_kwargs=None,
-        )
-        
+
         atoms_list = geodesic_interpolate_wrapper(
-            reactant=sample.pos_reactant,
-            product=sample.pos_product,
-            n_images=10, # MEP guess for NEB
+            reactant=atoms_r,
+            product=atoms_p,
+            n_images=10,  # MEP guess for NEB
             perform_sweep="auto",
             redistribute_tol=1e-2,
             smoother_tol=2e-3,
@@ -486,7 +587,6 @@ def main(
             distance_cutoff=3.0,
             sweep_cutoff_size=35,
         )
-    
 
     ###################################################################################
     # Follow the forces to find the reactant minimum
@@ -503,7 +603,7 @@ def main(
             pos_initial_guess,
             sample.z,
             sample.natoms,
-            calc,
+            torchcalc,
             sample.pos_reactant,
             force_field="forces",
             dt=0.01,  # time step
@@ -540,9 +640,9 @@ if __name__ == "__main__":
         help="Run Sella",
     )
     parser.add_argument(
-        "--do-sella-quacc",
+        "--do-irc-neb-geodesic",
         action="store_true",
-        help="Run Sella with QuAcc recipes",
+        help="Run IRC, NEB, and geodesic interpolation",
     )
     parser.add_argument(
         "--do-sella-hessian",
@@ -582,7 +682,7 @@ if __name__ == "__main__":
         eigen_method=args.eigen_method,
         do_gad=args.do_gad,
         do_sella=args.do_sella,
-        do_sella_quacc=args.do_sella_quacc,
+        do_irc_neb_geodesic=args.do_irc_neb_geodesic,
         do_sella_hessian=args.do_sella_hessian,
         do_forces=args.do_forces,
     )

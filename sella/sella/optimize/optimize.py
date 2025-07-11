@@ -43,7 +43,8 @@ class Sella(Optimizer):
         restart: bool = None,
         logfile: str = "-",
         # The name of the file. Traditionally ends in .traj
-        trajectory: Union[str, Trajectory] = None,
+        trajectory: Union[str, Trajectory] = None,  # Sella PES trajectory
+        asetraj: Union[str, Trajectory] = None,  # ASE trajectory
         master: bool = None,
         delta0: float = None,
         sigma_inc: float = None,
@@ -80,9 +81,9 @@ class Sella(Optimizer):
                     filename=trajectory, mode=mode, atoms=atoms, master=master
                 )
 
-        asetraj = None
         self.peskwargs = kwargs.copy()
         self.user_internal = internal
+        # saves self.pes.traj
         self.initialize_pes(
             atoms,
             trajectory,
@@ -98,6 +99,7 @@ class Sella(Optimizer):
         if rs is None:
             rs = "mis" if internal else "ras"
         self.rs = get_restricted_step(rs)
+        # this overwrites self.trajectory
         Optimizer.__init__(
             self,
             atoms,
@@ -200,8 +202,13 @@ class Sella(Optimizer):
                 v0=v0,
                 auto_find_internals=auto_find_internals,
                 hessian_function=hessian_function,
+                write_dummies_to_traj=False,
                 **kwargs
             )
+            print("InternalPES deduced internals (dyn.pes.int.internals):")
+            for k, v in self.pes.int.internals.items():
+                print(f" {k}: {len(v)}")
+            print(f" dyn.pes.dim={self.pes.dim}, dyn.pes.ncart={self.pes.ncart}")
         else:
             self.internal = None
             if constraints is None:
@@ -217,6 +224,7 @@ class Sella(Optimizer):
                 **kwargs
             )
         self.trajectory = self.pes.traj
+        return
 
     def _predict_step(self):
         if not self.initialized:

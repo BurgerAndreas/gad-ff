@@ -1,6 +1,7 @@
 from ase.build import fcc111, add_adsorbate
 from ase.calculators.emt import EMT
 from ase.vibrations import Vibrations
+from ase.vibrations.data import VibrationsData
 from ase.optimize import BFGS
 import numpy as np
 import matplotlib.pyplot as plt

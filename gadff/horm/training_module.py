@@ -251,9 +251,13 @@ class PotentialModule(LightningModule):
                 **self.training_config,
             )
             if self.training_config["max_train_samples"] is not None:
-                self.train_dataset = self.train_dataset[:self.training_config["max_train_samples"]]
+                self.train_dataset = self.train_dataset[
+                    : self.training_config["max_train_samples"]
+                ]
             if self.training_config["max_val_samples"] is not None:
-                self.val_dataset = self.val_dataset[:self.training_config["max_val_samples"]]
+                self.val_dataset = self.val_dataset[
+                    : self.training_config["max_val_samples"]
+                ]
             print("Num samples in training data: ", len(self.train_dataset))
             print("Num samples in validation data: ", len(self.val_dataset))
             print("Num samples in test data: ", len(self.test_dataset))
@@ -639,9 +643,11 @@ class PotentialModule(LightningModule):
 
     def on_train_epoch_end(self):
         """Calculate and log the time taken for the training epoch."""
-        if hasattr(self, 'epoch_start_time'):
+        if hasattr(self, "epoch_start_time"):
             epoch_duration = time.time() - self.epoch_start_time
-            self.log("train-epoch_duration_seconds", epoch_duration, rank_zero_only=True)
+            self.log(
+                "train-epoch_duration_seconds", epoch_duration, rank_zero_only=True
+            )
             # if self.trainer.is_global_zero:
             #     print(f"Epoch {self.current_epoch} completed in {epoch_duration:.2f} seconds")
 

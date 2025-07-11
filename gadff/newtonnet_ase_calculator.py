@@ -13,23 +13,32 @@ from newtonnet.models.output import DerivativeProperty, SecondDerivativeProperty
 from newtonnet.data import RadiusGraph
 from newtonnet.utils.pretrained_models import download_checkpoint
 
+
 ##-------------------------------------
 ##     ML model ASE interface
 ##--------------------------------------
 class MLAseCalculator(Calculator):
     # standard properties: ‘energy’, ‘forces’, ‘stress’, ‘dipole’, ‘charges’, ‘magmom’ and ‘magmoms’.
-    implemented_properties = ['charges', 'bec', 'energy', 'free_energy', 'forces', 'hessian', 'stress']
+    implemented_properties = [
+        "charges",
+        "bec",
+        "energy",
+        "free_energy",
+        "forces",
+        "hessian",
+        "stress",
+    ]
     # note that the free_energy is not the Gibbs/Helmholtz free energy, but the potential energy in the ASE calculator, how confusing
 
     ### Constructor ###
     def __init__(
-            self, 
-            model_path: str,
-            properties: list = None, 
-            device: str = None,
-            precision: str = 'float32',
-            **kwargs,
-            ):
+        self,
+        model_path: str,
+        properties: list = None,
+        device: str = None,
+        precision: str = "float32",
+        **kwargs,
+    ):
         """
         Constructor for MLAseCalculator for NewtonNet models
 
@@ -42,18 +51,17 @@ class MLAseCalculator(Calculator):
         Calculator.__init__(self, **kwargs)
 
         if device is None:
-            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         else:
             self.device = torch.device(device)
         self.dtype = get_precision_by_string(precision)
 
         self.properties = properties
         self.model = self.load_model(model_path)
-        
 
     def calculate(self, atoms=None, properties=None, system_changes=None):
         """
-        calculate(atoms=None, properties=['energy'], 
+        calculate(atoms=None, properties=['energy'],
         system_changes=['positions', 'numbers', 'cell', 'pbc', 'initial_charges', 'initial_magmoms'])
         Do the calculation.
 
@@ -81,54 +89,58 @@ class MLAseCalculator(Calculator):
         n_frames, n_atoms = len(atoms), len(atoms[0])
 
         pred = self.model(data.z, data.pos, data.cell, data.batch)
-        if 'charges' in self.properties:
+        if "charges" in self.properties:
             charge = pred.charge.cpu().detach().numpy()
-            self.results['charges'] = charge.reshape(n_frames, n_atoms).squeeze()
-        if 'bec' in self.properties:
+            self.results["charges"] = charge.reshape(n_frames, n_atoms).squeeze()
+        if "bec" in self.properties:
             bec = pred.bec.cpu().detach().numpy()
-            self.results['bec'] = bec.reshape(n_frames, n_atoms, 3, 3).squeeze()
-        if 'energy' in self.properties:
+            self.results["bec"] = bec.reshape(n_frames, n_atoms, 3, 3).squeeze()
+        if "energy" in self.properties:
             energy = pred.energy.cpu().detach().numpy()
-            self.results['energy'] = energy.squeeze()
-        if 'free_energy' in self.properties:
+            self.results["energy"] = energy.squeeze()
+        if "free_energy" in self.properties:
             energy = pred.energy.cpu().detach().numpy()
-            self.results['free_energy'] = energy.squeeze()
-        if 'forces' in self.properties:
+            self.results["free_energy"] = energy.squeeze()
+        if "forces" in self.properties:
             force = pred.gradient_force.cpu().detach().numpy()
-            self.results['forces'] = force.reshape(n_frames, n_atoms, 3).squeeze()
-        if 'hessian' in self.properties:
+            self.results["forces"] = force.reshape(n_frames, n_atoms, 3).squeeze()
+        if "hessian" in self.properties:
             hessian = pred.hessian.cpu().detach().numpy()
-            self.results['hessian'] = hessian.reshape(n_frames, n_atoms, 3, n_atoms, 3).squeeze()
-        if 'stress' in self.properties:
+            self.results["hessian"] = hessian.reshape(
+                n_frames, n_atoms, 3, n_atoms, 3
+            ).squeeze()
+        if "stress" in self.properties:
             stress = pred.stress.cpu().detach().numpy()
-            self.results['stress'] = stress[:, [0, 1, 2, 1, 0, 0], [0, 1, 2, 2, 2, 1]].squeeze()
+            self.results["stress"] = stress[
+                :, [0, 1, 2, 1, 0, 0], [0, 1, 2, 2, 2, 1]
+            ].squeeze()
         del pred
 
     def load_model(self, model):
         # TODO: Load model with only weights
-        if model in ['ani1', 'ani1x', 't1x']:
+        if model in ["ani1", "ani1x", "t1x"]:
             model = download_checkpoint(model)
         model = torch.load(model, map_location=self.device, weights_only=False)
         if self.properties is None:
             self.properties = []
             for key in model.output_properties:
                 key = {
-                    'charge': 'charges',
-                    'energy': 'energy',
-                    'gradient_force': 'forces',
+                    "charge": "charges",
+                    "energy": "energy",
+                    "gradient_force": "forces",
                 }.get(key)
                 self.properties.append(key)
         else:
-            keys_to_keep = ['charge', 'energy']
+            keys_to_keep = ["charge", "energy"]
             for key in self.properties:
                 key = {
-                    'charges': 'charge',
-                    'bec': 'bec',
-                    'energy': 'energy',
-                    'free_energy': 'energy',
-                    'forces': 'gradient_force',
-                    'stress': 'stress',
-                    'hessian': 'hessian',
+                    "charges": "charge",
+                    "bec": "bec",
+                    "energy": "energy",
+                    "free_energy": "energy",
+                    "forces": "gradient_force",
+                    "stress": "stress",
+                    "hessian": "hessian",
                 }.get(key)
                 keys_to_keep.append(key)
                 if key in model.output_properties:
@@ -137,7 +149,11 @@ class MLAseCalculator(Calculator):
                 model.output_layers.append(get_output_by_string(key))
                 model.scalers.append(get_scaler_by_string(key))
                 model.aggregators.append(get_aggregator_by_string(key))
-            ids_to_remove = [i for i, key in enumerate(model.output_properties) if key not in keys_to_keep]
+            ids_to_remove = [
+                i
+                for i, key in enumerate(model.output_properties)
+                if key not in keys_to_keep
+            ]
             for i in reversed(ids_to_remove):
                 model.output_properties.pop(i)
                 model.output_layers.pop(i)
@@ -145,8 +161,12 @@ class MLAseCalculator(Calculator):
                 model.aggregators.pop(i)
         model.to(self.dtype)
         model.eval()
-        model.embedding_layers.requires_dr = any(isinstance(layer, DerivativeProperty) for layer in model.output_layers)
-        if any(isinstance(layer, SecondDerivativeProperty) for layer in model.output_layers):
+        model.embedding_layers.requires_dr = any(
+            isinstance(layer, DerivativeProperty) for layer in model.output_layers
+        )
+        if any(
+            isinstance(layer, SecondDerivativeProperty) for layer in model.output_layers
+        ):
             for layer in model.output_layers:
                 if isinstance(layer, DerivativeProperty):
                     layer.create_graph = True
@@ -155,9 +175,15 @@ class MLAseCalculator(Calculator):
     def format_data(self, atoms_list):
         data_list = []
         for atoms in atoms_list:
-            z = torch.tensor(atoms.get_atomic_numbers(), dtype=torch.long, device=self.device)
-            pos = torch.tensor(atoms.get_positions(wrap=True), dtype=self.dtype, device=self.device)
-            cell = torch.tensor(atoms.get_cell().array, dtype=self.dtype, device=self.device)
+            z = torch.tensor(
+                atoms.get_atomic_numbers(), dtype=torch.long, device=self.device
+            )
+            pos = torch.tensor(
+                atoms.get_positions(wrap=True), dtype=self.dtype, device=self.device
+            )
+            cell = torch.tensor(
+                atoms.get_cell().array, dtype=self.dtype, device=self.device
+            )
             pbc = torch.tensor(atoms.get_pbc(), dtype=torch.bool, device=self.device)
             cell[~pbc] = 0.0
             data = Data(pos=pos, z=z, cell=cell.reshape(1, 3, 3))

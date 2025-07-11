@@ -189,10 +189,14 @@ class EigenPotentialModule(PotentialModule):
             loss_eigval2 = self.loss_fn(eigval_2, batch.hessian_eigenvalue_2)
         if self.model_config["do_eigvec_1"]:
             eigvec_1 = outputs["eigvec_1"]
-            loss_eigvec1 = self.loss_fn_vec(eigvec_1, batch.hessian_eigenvector_1, data=batch)
+            loss_eigvec1 = self.loss_fn_vec(
+                eigvec_1, batch.hessian_eigenvector_1, data=batch
+            )
         if self.model_config["do_eigvec_2"]:
             eigvec_2 = outputs["eigvec_2"]
-            loss_eigvec2 = self.loss_fn_vec(eigvec_2, batch.hessian_eigenvector_2, data=batch)
+            loss_eigvec2 = self.loss_fn_vec(
+                eigvec_2, batch.hessian_eigenvector_2, data=batch
+            )
 
         info = {
             "Loss eigval1": loss_eigval1.detach().item(),

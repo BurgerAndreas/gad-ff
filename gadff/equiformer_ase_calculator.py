@@ -85,7 +85,7 @@ class EquiformerASECalculator(Calculator):
             **kwargs: Additional keyword arguments for parent Calculator class
         """
         Calculator.__init__(self, **kwargs)
-        
+
         # this is where all the calculated properties are stored
         self.results = {}
 
@@ -112,7 +112,7 @@ class EquiformerASECalculator(Calculator):
         # Set implemented properties
         # # standard properties: ‘energy’, ‘forces’, ‘stress’, ‘dipole’, ‘charges’, ‘magmom’ and ‘magmoms’.
         self.implemented_properties = ["energy", "forces", "hessian"]
-        
+
         self.hessian_method = hessian_method
 
         # ocpmodels/common/relaxation/ase_utils.py
@@ -125,7 +125,7 @@ class EquiformerASECalculator(Calculator):
             r_edges=False,
             r_pbc=True,
         )
-    
+
     def reset(self):
         """Reset the calculator."""
         self.results = {}
@@ -226,14 +226,16 @@ class EquiformerASECalculator(Calculator):
         Get the Hessian matrix for the given atoms via autodiff (on the fly Hessian).
         """
         self.calculate(atoms, properties=["energy", "forces", "hessian"])
-        return self.results["hessian"]
-    
+        N = len(atoms)
+        return self.results["hessian"].reshape(N * 3, N * 3)
+
     def get_hessian_prediction(self, atoms):
         """
         Get the Hessian matrix for the given atoms via prediction (from the model).
         """
         self.calculate(atoms, properties=["energy", "forces", "hessian"])
-        return self.results["hessian"]
+        N = len(atoms)
+        return self.results["hessian"].reshape(N * 3, N * 3)
 
     def get_eigen_autodiff(self, atoms):
         """
@@ -402,7 +404,8 @@ if __name__ == "__main__":
         exit()
 
     calculator = EquiformerASECalculator(
-        checkpoint_path=checkpoint_path, project_root=project_root, 
+        checkpoint_path=checkpoint_path,
+        project_root=project_root,
         # hessian_method="predict"
     )
 

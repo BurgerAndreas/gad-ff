@@ -66,6 +66,12 @@ def align_ordered_and_get_rmsd(A, B):
     A: (N, 3)
     B: (N, 3)
     """
+    if A.shape != B.shape:
+        # probably optimization diverged
+        print(
+            f"Error in get_rmsd: A and B must have the same shape, but got {A.shape} and {B.shape}"
+        )
+        return float("inf")
     if isinstance(A, torch.Tensor):
         A = A.detach().cpu().numpy()
     if isinstance(B, torch.Tensor):

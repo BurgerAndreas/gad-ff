@@ -9,6 +9,7 @@ def tensor_info(t):
         return f"{type(t)}"
     return f"{list(t.shape)} {int(t.numel())} {t.dtype}"
 
+
 ##############################################################################
 # predicting the full Hessian matrix
 
@@ -88,7 +89,7 @@ def get_hessian_loss_fn(loss_name: str, **kwargs):
     if loss_name == "eigenspectrum":
         return BatchHessianLoss(eigenspectrum_loss, **kwargs)
     elif loss_name.lower() in ["mse", "l2"]:
-        return torch.nn.MSELoss() # F.mse_loss
+        return torch.nn.MSELoss()  # F.mse_loss
     else:
         raise ValueError(f"Invalid loss name: {loss_name}")
 
@@ -317,7 +318,9 @@ class HuberLoss(torch.nn.Module):
 # Eigenspectrum losses that don't require to backprop through .eigh
 
 
-def batch_hessian_loss(hessian_pred, hessian_true, data, lossfn, debugstr="", **lossfn_kwargs):
+def batch_hessian_loss(
+    hessian_pred, hessian_true, data, lossfn, debugstr="", **lossfn_kwargs
+):
     """We can't normalize concatenated vectors, so we process each vector separately.
     Returns a scalar of similarity averaged over batches.
     lossfn should return a scalar, otherwise it will be averaged over all entries returned.
@@ -330,7 +333,9 @@ def batch_hessian_loss(hessian_pred, hessian_true, data, lossfn, debugstr="", **
     numels = data.natoms.pow(2).mul(9).tolist()
     total_numel = sum(numels)
     if hessian_pred.numel() != total_numel:
-        print(f"{debugstr}\n hessian_pred numel {hessian_pred.numel()} != total_numel {total_numel}")
+        print(
+            f"{debugstr}\n hessian_pred numel {hessian_pred.numel()} != total_numel {total_numel}"
+        )
         print(" numels:", numels)
         print(" natoms:", natoms)
         print(" hessian_pred:", tensor_info(hessian_pred))
@@ -341,7 +346,7 @@ def batch_hessian_loss(hessian_pred, hessian_true, data, lossfn, debugstr="", **
     losses = []
     for _b in range(B):
         _start = (ptr[_b] * 3) ** 2
-        _numel = ((natoms[_b]) * 3) ** 2 
+        _numel = ((natoms[_b]) * 3) ** 2
         _end = _numel + _start
         hessian_pred_b = hessian_pred[_start:_end]
         hessian_true_b = hessian_true[_start:_end]
@@ -352,7 +357,7 @@ def batch_hessian_loss(hessian_pred, hessian_true, data, lossfn, debugstr="", **
             print(" start, end", _start.item(), _end.item())
             print(" numel", _numel)
             print(" N", natoms[_b].item())
-            print(" B", B.item(), set(data.batch.tolist()))   
+            print(" B", B.item(), set(data.batch.tolist()))
             continue
         loss_b = lossfn(
             hessian_pred=hessian_pred_b,

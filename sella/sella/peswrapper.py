@@ -1,4 +1,5 @@
 from typing import Union, Callable
+import copy
 
 import numpy as np
 from scipy.linalg import eigh
@@ -355,6 +356,8 @@ class InternalPES(PES):
         H0: np.ndarray = None,
         iterative_stepper: int = 0,
         auto_find_internals: bool = True,
+        # Sella adds dummy atoms to handle internal coordinates
+        write_dummies_to_traj: bool = True,
         **kwargs
     ):
         self.int_orig = internals
@@ -380,6 +383,7 @@ class InternalPES(PES):
         self.dummies = self.int.dummies
         self.dim = len(self.get_x())
         self.ncart = self.int.ndof
+        
         if H0 is None:
             # Construct guess hessian and zero out components in
             # infeasible subspace
@@ -393,6 +397,9 @@ class InternalPES(PES):
         # Flag used to indicate that new internal coordinates are required
         self.bad_int = None
         self.iterative_stepper = iterative_stepper
+        
+        # Andreas
+        self.write_dummies_to_traj = write_dummies_to_traj
 
     dpos = property(lambda self: self.dummies.positions.copy())
 
@@ -433,9 +440,25 @@ class InternalPES(PES):
         g_final = self.int.jacobian() @ g0
         return dx_initial, dx_final, g_final
 
+    # Andreas
+    def get_cartesian_from_internal(self, coord_internal):
+        """
+        target: np.ndarray[self.dim,]:
+            Internal coordinate vector
+        return: tuple[np.ndarray[3*len(self.atoms),], np.ndarray[3*len(self.dummies),]]
+            Atom and dummy positions in cartesian coordinates
+        """
+        return self.set_x(target=coord_internal, return_y=True, force_not_iterative=True)
+
     # Position getter/setter
-    def set_x(self, target):
-        if self.iterative_stepper:
+    def set_x(self, target, return_y=False, force_not_iterative=False):
+        """
+        target: np.ndarray[self.dim,]:
+            Internal coordinate vector
+        return_y: bool
+            If True, return atom and dummy positions in cartesian coordinates
+        """
+        if self.iterative_stepper and not force_not_iterative:
             res = self._set_x_iterative(target)
             if res is not None:
                 return res
@@ -452,6 +475,12 @@ class InternalPES(PES):
             )
         )
         ode = LSODA(self._q_ode, t0, y0, t_bound=1.0, atol=1e-6)
+        
+        if return_y:
+            # buffer atom and dummy positions in cartesian coordinates
+            # because _q_ode sets atoms.positions
+            atoms_pos_tmp = self.atoms.positions.copy()
+            dummies_pos_tmp = self.dummies.positions.copy()
 
         while ode.status == "running":
             ode.step()
@@ -473,6 +502,15 @@ class InternalPES(PES):
         nxa = 3 * len(self.atoms)
         nxd = 3 * len(self.dummies)
         y = y.reshape((3, nxa + nxd))
+        if return_y:
+            self.atoms.positions = atoms_pos_tmp
+            self.dummies.positions = dummies_pos_tmp
+            # return atom and dummy positions in cartesian coordinates
+            return (
+                y[0, :nxa].reshape((-1, 3)),
+                y[0, nxa:].reshape((-1, 3)),
+            )
+        # set positions to self
         self.atoms.positions = y[0, :nxa].reshape((-1, 3))
         self.dummies.positions = y[0, nxa:].reshape((-1, 3))
         B = self.int.jacobian()
@@ -482,6 +520,7 @@ class InternalPES(PES):
         return dx_initial, dx_final, g_final
 
     def get_x(self):
+        """Get the internal coordinate vector."""
         return self.int.calc()
 
     # Hessian of the constraints
@@ -642,7 +681,16 @@ class InternalPES(PES):
             energy = self.atoms.calc.results["energy"]
             forces = np.zeros((len(self.atoms) + len(self.dummies), 3))
             forces[: len(self.atoms)] = self.atoms.calc.results["forces"]
-            atoms_tmp = self.atoms + self.dummies
+            # Andreas
+            if self.write_dummies_to_traj:
+                atoms_tmp = copy.deepcopy(self.atoms) + copy.deepcopy(self.dummies)
+            else:
+                atoms_tmp = copy.deepcopy(self.atoms)
+                if hasattr(self.traj, "trajectory_dummies"):
+                    self.traj.trajectory_dummies.append(
+                        copy.deepcopy(self.dummies)
+                    )
+            # Andreas end
             atoms_tmp.calc = SinglePointCalculator(
                 atoms_tmp, energy=energy, forces=forces
             )

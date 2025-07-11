@@ -1,9 +1,9 @@
-from setuptools import find_packages, setup
+import setuptools
 
 
-setup(
+setuptools.setup(
     name="gadff",
     version="1.0.0",
-    # packages=find_packages(),
-    packages=["gadff", "nets", "ocpmodels", "quacc_recipes"],
+    # packages=setuptools.find_packages(),
+    packages=["gadff", "nets", "ocpmodels", "recipes"],
 )

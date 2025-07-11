@@ -90,7 +90,7 @@ class HessianPotentialModule(PotentialModule):
         self.loss_fn_hessian = nn.MSELoss()
         print(f"Training config: {training_config['eigen_loss']}")
         self.loss_fn_eigen = get_hessian_loss_fn(**training_config["eigen_loss"])
-        
+
         _alpha = self.training_config["eigen_loss"]["alpha"]
         if isinstance(_alpha, Iterable) or (isinstance(_alpha, float) and _alpha > 0.0):
             self.do_eigen_loss = True
@@ -98,23 +98,17 @@ class HessianPotentialModule(PotentialModule):
         else:
             self.do_eigen_loss = False
             print("! Training without eigenvalue loss")
-        
+
         self.test_loss_fn_eigen = get_hessian_loss_fn(
-            loss_name="eigenspectrum",
-            k=None,
-            alpha=1.0
+            loss_name="eigenspectrum", k=None, alpha=1.0
         )
         self.test_loss_fn_eigen_k2 = get_hessian_loss_fn(
-            loss_name="eigenspectrum",
-            k=2,
-            alpha=1.0
+            loss_name="eigenspectrum", k=2, alpha=1.0
         )
         self.test_loss_fn_eigen_k8 = get_hessian_loss_fn(
-            loss_name="eigenspectrum",
-            k=8,
-            alpha=1.0
+            loss_name="eigenspectrum", k=8, alpha=1.0
         )
-        
+
         # self.loss_fn = nn.L1Loss()
         # self.MAEEval = MeanAbsoluteError()
         # self.MAPEEval = MeanAbsolutePercentageError()
@@ -270,7 +264,7 @@ class HessianPotentialModule(PotentialModule):
         info = {
             "Loss Hessian": hessian_loss.detach().item(),
         }
-        
+
         if self.do_eigen_loss:
             eigen_loss = self.loss_fn_eigen(
                 pred=hat_hessian,
@@ -279,7 +273,7 @@ class HessianPotentialModule(PotentialModule):
             )
             loss += eigen_loss
             info["Loss Eigen"] = eigen_loss.detach().item()
-            
+
         self.MAEEval.reset()
         self.MAPEEval.reset()
         self.cosineEval.reset()
@@ -298,24 +292,36 @@ class HessianPotentialModule(PotentialModule):
         hessian_pred = outputs["hessian"]
 
         eval_metrics = {}
-        eval_metrics["Loss Eigen"] = self.test_loss_fn_eigen(
-            pred=hessian_pred,
-            target=hessian_true,
-            data=batch,
-            debugstr=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}-Loss Eigen"
-        ).detach().item()
-        eval_metrics["Loss Eigen k2"] = self.test_loss_fn_eigen_k2(
-            pred=hessian_pred,
-            target=hessian_true,
-            data=batch,
-            debugstr=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}-Loss Eigen k2"
-        ).detach().item()
-        eval_metrics["Loss Eigen k8"] = self.test_loss_fn_eigen_k8(
-            pred=hessian_pred,
-            target=hessian_true,
-            data=batch,
-            debugstr=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}-Loss Eigen k8"
-        ).detach().item()
+        eval_metrics["Loss Eigen"] = (
+            self.test_loss_fn_eigen(
+                pred=hessian_pred,
+                target=hessian_true,
+                data=batch,
+                debugstr=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}-Loss Eigen",
+            )
+            .detach()
+            .item()
+        )
+        eval_metrics["Loss Eigen k2"] = (
+            self.test_loss_fn_eigen_k2(
+                pred=hessian_pred,
+                target=hessian_true,
+                data=batch,
+                debugstr=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}-Loss Eigen k2",
+            )
+            .detach()
+            .item()
+        )
+        eval_metrics["Loss Eigen k8"] = (
+            self.test_loss_fn_eigen_k8(
+                pred=hessian_pred,
+                target=hessian_true,
+                data=batch,
+                debugstr=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}-Loss Eigen k8",
+            )
+            .detach()
+            .item()
+        )
 
         return eval_metrics
 
@@ -338,7 +344,7 @@ class HessianPotentialModule(PotentialModule):
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         return info_prefix
-    
+
     def validation_step(self, batch, batch_idx, *args):
         return self._shared_eval(batch, batch_idx, "val", *args)
 
