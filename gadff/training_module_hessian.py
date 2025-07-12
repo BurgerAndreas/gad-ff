@@ -105,24 +105,26 @@ class HessianPotentialModule(PotentialModule):
 
         # loss from Hamiltonian prediction paper
         self.test_loss_fn_wa2 = get_hessian_loss_fn(
-            loss_name="wa",
+            loss_name="eigenspectrum",
             k=2,
             alpha=1.0,
+            loss_type="wa",
         )
         self.test_loss_fn_wa8 = get_hessian_loss_fn(
-            loss_name="wa",
+            loss_name="eigenspectrum",
             k=8,
             alpha=1.0,
+            loss_type="wa",
         )
         # Luca's loss
         self.test_loss_fn_eigen = get_hessian_loss_fn(
-            loss_name="eigenspectrum", k=None, alpha=1.0
+            loss_name="eigenspectrum", k=None, alpha=1.0, loss_type="eigen"
         )
         self.test_loss_fn_eigen_k2 = get_hessian_loss_fn(
-            loss_name="eigenspectrum", k=2, alpha=1.0
+            loss_name="eigenspectrum", k=2, alpha=1.0, loss_type="eigen"
         )
         self.test_loss_fn_eigen_k8 = get_hessian_loss_fn(
-            loss_name="eigenspectrum", k=8, alpha=1.0
+            loss_name="eigenspectrum", k=8, alpha=1.0, loss_type="eigen"
         )
 
         # self.loss_fn = nn.L1Loss()
