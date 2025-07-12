@@ -467,6 +467,17 @@ def eigenspectrum_loss(
                 raise ValueError(f"Invalid loss type: {loss_type}")
     return loss
 
+# by HORM
+def hess2eigenvalues(hess):
+    """Convert Hessian to eigenvalues with proper unit conversion"""
+    hartree_to_ev = 27.2114
+    bohr_to_angstrom = 0.529177
+    ev_angstrom_2_to_hartree_bohr_2 = (bohr_to_angstrom**2) / hartree_to_ev
+    
+    hess = hess * ev_angstrom_2_to_hartree_bohr_2
+    eigen_values, _ = torch.linalg.eigh(hess)
+    return eigen_values
+
 def get_eigval_eigvec_metrics(hessian_true, hessian_pred, data, prefix=""):
     """We can't normalize concatenated vectors, so we process each vector separately.
     Returns a scalar of similarity averaged over batches.
@@ -528,6 +539,14 @@ def get_eigval_eigvec_metrics(hessian_true, hessian_pred, data, prefix=""):
         metrics["MSE e2"].append(F.mse_loss(e2_true, e2_pred))
         metrics["Correct sign e1"].append(e1_true_sign_correct)
         metrics["Correct sign e2"].append(e2_true_sign_correct)
+        
+        eigvals_true_horm = hess2eigenvalues(hessian_true_b)
+        eigvals_pred_horm = hess2eigenvalues(hessian_pred_b)
+        
+        metrics["MAE Eigvals HORM"].append(
+            torch.mean(torch.abs(eigvals_true_horm - eigvals_pred_horm))
+        )
+        
     # average over batches
     for key in metrics:
         metrics[key] = torch.stack(metrics[key]).mean()

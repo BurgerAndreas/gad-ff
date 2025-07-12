@@ -1,6 +1,7 @@
 from gadff.horm.training_module import PotentialModule, compute_extra_props
 from torch_geometric.loader import DataLoader
-from gadff.horm.ffa_lmdb import LmdbDataset
+from gadff.horm.ff_lmdb import LmdbDataset
+from gadff.path_config import fix_dataset_path
 import torch
 from tqdm import tqdm
 
@@ -55,7 +56,8 @@ def evaluate(lmdb_path,  checkpoint_path):
         strict=False,
     ).potential.to('cuda')
 
-    dataset = LmdbDataset(lmdb_path)
+
+    dataset = LmdbDataset(fix_dataset_path(lmdb_path))
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
 
     # Initialize metrics
@@ -78,7 +80,7 @@ def evaluate(lmdb_path,  checkpoint_path):
         if model_name == 'LEFTNet':
             ener, force = pm.forward_autograd(batch)
         else:
-            ener, force = pm.forward(batch)
+            ener, force, out = pm.forward(batch)
         
         # Compute hessian and eigenvalues
         # Use reshape instead of view to handle non-contiguous tensors
@@ -132,6 +134,13 @@ if __name__ == '__main__':
     torch.manual_seed(42)
 
     checkpoint_path = 'ckpt/eqv2.ckpt'
-    lmdb_path = 'data/sample_100.lmdb'
+    
+    DATASET_FILES_HORM = [
+        "ts1x-val.lmdb",  # 50844 samples
+        "ts1x_hess_train_big.lmdb",  # 1725362 samples
+        "RGD1.lmdb",  # 60000 samples
+    ]
+    # lmdb_path = 'data/sample_100.lmdb'
+    lmdb_path = DATASET_FILES_HORM[0]
     
     evaluate(lmdb_path, checkpoint_path)

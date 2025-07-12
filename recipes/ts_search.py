@@ -213,7 +213,7 @@ def integrate_dynamics(
     print(f"Following {force_field} vector field: {title}")
 
     # Compute RMSD between initial guess and transition state
-    rmsd_initial = align_ordered_and_get_rmsd(initial_pos.numpy(), true_pos.numpy())
+    rmsd_initial = align_ordered_and_get_rmsd(initial_pos, true_pos)
     print(f"RMSD start: {rmsd_initial:.6f} Å")
 
     # Create initial batch from interpolated guess
@@ -325,7 +325,7 @@ def integrate_dynamics(
     save_trajectory_to_xyz(trajectory_pos, z, plotfolder=_this_plot_dir, filename=title)
 
     # Compute RMSD between converged structure and true transition state
-    rmsd_final = align_ordered_and_get_rmsd(final_pos.numpy(), true_pos.numpy())
+    rmsd_final = align_ordered_and_get_rmsd(final_pos, true_pos)
     print(f"RMSD end: {rmsd_final:.6f} Å")
     print(f"Improvement: {rmsd_initial - rmsd_final:.6f} Å")
 
