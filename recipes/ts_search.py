@@ -152,6 +152,16 @@ def to_numpy(x):
     return x
 
 
+def to_torch(x, device):
+    if isinstance(x, torch.Tensor):
+        return x.to(device)
+    if x is None:
+        return None
+    if isinstance(x, np.ndarray):
+        return torch.from_numpy(x).to(device)
+    return torch.tensor(x).to(device)
+
+
 def get_hessian_function(hessian_method, asecalc):
     if hessian_method == "autodiff":
 
@@ -179,11 +189,11 @@ def get_hessian_function(hessian_method, asecalc):
 
 
 def integrate_dynamics(
-    initial_pos,
-    z,
-    natoms,
+    initial_pos: torch.Tensor,
+    z: torch.Tensor,
+    natoms: torch.Tensor,
     calc,
-    true_pos,
+    true_pos: torch.Tensor,
     force_field="gad",
     title=None,
     max_steps=100,
@@ -204,8 +214,6 @@ def integrate_dynamics(
         main_dir = os.path.dirname(os.path.abspath(main_script))
         plot_dir = os.path.join(main_dir, "plots")
 
-    device = calc.model.device
-
     title += f" dt{dt}"
 
     print("")
@@ -215,6 +223,12 @@ def integrate_dynamics(
     # Compute RMSD between initial guess and transition state
     rmsd_initial = align_ordered_and_get_rmsd(initial_pos, true_pos)
     print(f"RMSD start: {rmsd_initial:.6f} Å")
+
+    device = calc.model.device
+    initial_pos = to_torch(initial_pos, device)
+    true_pos = to_torch(true_pos, device)
+    # z = to_torch(z, device)
+    # natoms = to_torch(natoms, device)
 
     # Create initial batch from interpolated guess
     current_pos = initial_pos.clone().requires_grad_(True).to(device)

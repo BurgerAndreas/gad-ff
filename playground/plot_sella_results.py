@@ -245,6 +245,113 @@ def create_rmsd_plots(df: pd.DataFrame, output_dir: str = "playground/plots_sell
     # plt.show()
 
 
+def create_rmsd_standalone_plots(
+    df: pd.DataFrame, output_dir: str = "playground/plots_sella"
+):
+    """Create standalone RMSD initial vs final plots - normal and log scale."""
+
+    fig, axes = plt.subplots(1, 2, figsize=(15, 6))
+    fig.suptitle(
+        "RMSD Initial vs Final - Linear and Log Scale Comparison",
+        fontsize=16,
+        fontweight="bold",
+    )
+
+    # Plot 1: RMSD Initial vs Final (Linear Scale)
+    ax1 = axes[0]
+    scatter1 = ax1.scatter(
+        df["rmsd_initial"],
+        df["rmsd_final"],
+        c=range(len(df)),
+        cmap="viridis",
+        s=100,
+        alpha=0.7,
+    )
+    ax1.plot(
+        [0, df[["rmsd_initial", "rmsd_final"]].max().max()],
+        [0, df[["rmsd_initial", "rmsd_final"]].max().max()],
+        "k--",
+        alpha=0.5,
+        label="y=x",
+    )
+    ax1.set_xlabel("Initial RMSD (Å)")
+    ax1.set_ylabel("Final RMSD (Å)")
+    ax1.set_title("Initial vs Final RMSD (Linear Scale)")
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+
+    # Add experiment labels
+    for i, row in df.iterrows():
+        short_name = (
+            row["experiment_name"]
+            .replace("sella_ts_from_", "")
+            .replace("_hessian_none", "")
+        )
+        ax1.annotate(
+            short_name,
+            (row["rmsd_initial"], row["rmsd_final"]),
+            xytext=(5, 5),
+            textcoords="offset points",
+            fontsize=8,
+            alpha=0.7,
+        )
+
+    # Plot 2: RMSD Initial vs Final (Log Scale)
+    ax2 = axes[1]
+    scatter2 = ax2.scatter(
+        df["rmsd_initial"],
+        df["rmsd_final"],
+        c=range(len(df)),
+        cmap="viridis",
+        s=100,
+        alpha=0.7,
+    )
+
+    # For log scale, we need to be careful with the y=x line
+    # Only plot where both values are positive
+    max_val = df[["rmsd_initial", "rmsd_final"]].max().max()
+    min_val = max(df[["rmsd_initial", "rmsd_final"]].min().min(), 1e-6)  # Avoid log(0)
+
+    ax2.plot(
+        [min_val, max_val],
+        [min_val, max_val],
+        "k--",
+        alpha=0.5,
+        label="y=x",
+    )
+
+    ax2.set_xlabel("Initial RMSD (Å)")
+    ax2.set_ylabel("Final RMSD (Å)")
+    ax2.set_title("Initial vs Final RMSD (Log Scale)")
+    ax2.set_yscale("log")
+    ax2.legend()
+    ax2.grid(True, alpha=0.3)
+
+    # Add experiment labels
+    for i, row in df.iterrows():
+        short_name = (
+            row["experiment_name"]
+            .replace("sella_ts_from_", "")
+            .replace("_hessian_none", "")
+        )
+        ax2.annotate(
+            short_name,
+            (row["rmsd_initial"], row["rmsd_final"]),
+            xytext=(5, 5),
+            textcoords="offset points",
+            fontsize=8,
+            alpha=0.7,
+        )
+
+    plt.tight_layout()
+
+    # Save the plot
+    output_file = os.path.join(output_dir, "rmsd_only_comparison.png")
+    plt.savefig(output_file, dpi=300, bbox_inches="tight")
+    print(f"Standalone RMSD comparison plot saved to: {output_file}")
+    # plt.show()
+
+
 def create_timing_plots(df: pd.DataFrame, output_dir: str = "playground/plots_sella"):
     """Create timing comparison plots."""
 
@@ -386,107 +493,162 @@ def create_timing_plots(df: pd.DataFrame, output_dir: str = "playground/plots_se
 
 def create_steps_plots(df: pd.DataFrame, output_dir: str = "playground/plots_sella"):
     """Create number of steps analysis plots."""
-    
+
     fig, axes = plt.subplots(2, 2, figsize=(15, 12))
-    fig.suptitle('Optimization Steps Analysis Across Sella TS Experiments', fontsize=16, fontweight='bold')
-    
+    fig.suptitle(
+        "Optimization Steps Analysis Across Sella TS Experiments",
+        fontsize=16,
+        fontweight="bold",
+    )
+
     # Plot 1: Number of steps by experiment
     ax1 = axes[0, 0]
     x = np.arange(len(df))
-    bars = ax1.bar(x, df['nsteps'], alpha=0.7, color='orange')
-    ax1.set_xlabel('Experiment')
-    ax1.set_ylabel('Number of Steps')
-    ax1.set_title('Optimization Steps by Experiment')
+    bars = ax1.bar(x, df["nsteps"], alpha=0.7, color="orange")
+    ax1.set_xlabel("Experiment")
+    ax1.set_ylabel("Number of Steps")
+    ax1.set_title("Optimization Steps by Experiment")
     ax1.set_xticks(x)
-    ax1.set_xticklabels([name.replace('sella_ts_from_', '').replace('_hessian_none', '') 
-                        for name in df['experiment_name']], rotation=45, ha='right')
+    ax1.set_xticklabels(
+        [
+            name.replace("sella_ts_from_", "").replace("_hessian_none", "")
+            for name in df["experiment_name"]
+        ],
+        rotation=45,
+        ha="right",
+    )
     ax1.grid(True, alpha=0.3)
-    
+
     # Add value labels on bars
-    for bar, steps in zip(bars, df['nsteps']):
-        ax1.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 50, 
-                f'{int(steps)}', ha='center', va='bottom', fontsize=10, fontweight='bold')
-    
+    for bar, steps in zip(bars, df["nsteps"]):
+        ax1.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 50,
+            f"{int(steps)}",
+            ha="center",
+            va="bottom",
+            fontsize=10,
+            fontweight="bold",
+        )
+
     # Plot 2: Steps vs RMSD Improvement
     ax2 = axes[0, 1]
-    scatter = ax2.scatter(df['nsteps'], df['rmsd_improvement'], 
-                         c=range(len(df)), cmap='viridis', s=150, alpha=0.7)
-    ax2.axhline(y=0, color='r', linestyle='--', alpha=0.5, label='No improvement')
-    ax2.set_xlabel('Number of Steps')
-    ax2.set_ylabel('RMSD Improvement (Å)')
-    ax2.set_title('RMSD Improvement vs Number of Steps')
+    scatter = ax2.scatter(
+        df["nsteps"],
+        df["rmsd_improvement"],
+        c=range(len(df)),
+        cmap="viridis",
+        s=150,
+        alpha=0.7,
+    )
+    ax2.axhline(y=0, color="r", linestyle="--", alpha=0.5, label="No improvement")
+    ax2.set_xlabel("Number of Steps")
+    ax2.set_ylabel("RMSD Improvement (Å)")
+    ax2.set_title("RMSD Improvement vs Number of Steps")
     ax2.legend()
     ax2.grid(True, alpha=0.3)
-    
+
     # Add experiment labels
     for i, row in df.iterrows():
-        short_name = row['experiment_name'].replace('sella_ts_from_', '').replace('_hessian_none', '')
-        ax2.annotate(short_name, (row['nsteps'], row['rmsd_improvement']), 
-                    xytext=(10, 10), textcoords='offset points', fontsize=9, alpha=0.8)
-    
+        short_name = (
+            row["experiment_name"]
+            .replace("sella_ts_from_", "")
+            .replace("_hessian_none", "")
+        )
+        ax2.annotate(
+            short_name,
+            (row["nsteps"], row["rmsd_improvement"]),
+            xytext=(10, 10),
+            textcoords="offset points",
+            fontsize=9,
+            alpha=0.8,
+        )
+
     # Plot 3: Steps by starting point and coordinates
     ax3 = axes[1, 0]
-    
+
     # Group by start_point and coordinates
-    grouped = df.groupby(['start_point', 'coordinates'])['nsteps'].first().reset_index()
-    
+    grouped = df.groupby(["start_point", "coordinates"])["nsteps"].first().reset_index()
+
     # Create combined labels
-    grouped['combined_label'] = grouped['start_point'] + '\n(' + grouped['coordinates'] + ')'
-    
+    grouped["combined_label"] = (
+        grouped["start_point"] + "\n(" + grouped["coordinates"] + ")"
+    )
+
     x_pos = np.arange(len(grouped))
-    bars = ax3.bar(x_pos, grouped['nsteps'], alpha=0.7)
-    ax3.set_xlabel('Starting Point (Coordinate System)')
-    ax3.set_ylabel('Number of Steps')
-    ax3.set_title('Steps by Starting Point and Coordinate System')
+    bars = ax3.bar(x_pos, grouped["nsteps"], alpha=0.7)
+    ax3.set_xlabel("Starting Point (Coordinate System)")
+    ax3.set_ylabel("Number of Steps")
+    ax3.set_title("Steps by Starting Point and Coordinate System")
     ax3.set_xticks(x_pos)
-    ax3.set_xticklabels(grouped['combined_label'], rotation=45, ha='right')
+    ax3.set_xticklabels(grouped["combined_label"], rotation=45, ha="right")
     ax3.grid(True, alpha=0.3)
-    
+
     # Color bars based on coordinate system
-    colors = {'cartesian': 'lightblue', 'internal': 'lightcoral'}
-    for bar, coord_sys in zip(bars, grouped['coordinates']):
-        bar.set_color(colors.get(coord_sys, 'lightgray'))
-    
+    colors = {"cartesian": "lightblue", "internal": "lightcoral"}
+    for bar, coord_sys in zip(bars, grouped["coordinates"]):
+        bar.set_color(colors.get(coord_sys, "lightgray"))
+
     # Add value labels
-    for bar, steps in zip(bars, grouped['nsteps']):
-        ax3.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 25, 
-                f'{int(steps)}', ha='center', va='bottom', fontsize=9, fontweight='bold')
-    
+    for bar, steps in zip(bars, grouped["nsteps"]):
+        ax3.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 25,
+            f"{int(steps)}",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+            fontweight="bold",
+        )
+
     # Plot 4: Steps efficiency (RMSD improvement per step)
     ax4 = axes[1, 1]
-    df['rmsd_improvement_per_step'] = df['rmsd_improvement'] / df['nsteps']
-    
-    bars = ax4.bar(x, df['rmsd_improvement_per_step'], alpha=0.7, color='mediumseagreen')
-    ax4.set_xlabel('Experiment')
-    ax4.set_ylabel('RMSD Improvement per Step (Å/step)')
-    ax4.set_title('Optimization Efficiency (RMSD Improvement per Step)')
+    df["rmsd_improvement_per_step"] = df["rmsd_improvement"] / df["nsteps"]
+
+    bars = ax4.bar(
+        x, df["rmsd_improvement_per_step"], alpha=0.7, color="mediumseagreen"
+    )
+    ax4.set_xlabel("Experiment")
+    ax4.set_ylabel("RMSD Improvement per Step (Å/step)")
+    ax4.set_title("Optimization Efficiency (RMSD Improvement per Step)")
     ax4.set_xticks(x)
-    ax4.set_xticklabels([name.replace('sella_ts_from_', '').replace('_hessian_none', '') 
-                        for name in df['experiment_name']], rotation=45, ha='right')
+    ax4.set_xticklabels(
+        [
+            name.replace("sella_ts_from_", "").replace("_hessian_none", "")
+            for name in df["experiment_name"]
+        ],
+        rotation=45,
+        ha="right",
+    )
     ax4.grid(True, alpha=0.3)
-    ax4.axhline(y=0, color='r', linestyle='--', alpha=0.5)
-    
+    ax4.axhline(y=0, color="r", linestyle="--", alpha=0.5)
+
     # Color bars based on efficiency (green=good, red=bad)
-    for bar, eff in zip(bars, df['rmsd_improvement_per_step']):
+    for bar, eff in zip(bars, df["rmsd_improvement_per_step"]):
         if eff > 0:
-            bar.set_color('green')
+            bar.set_color("green")
             bar.set_alpha(0.7)
         else:
-            bar.set_color('red')
+            bar.set_color("red")
             bar.set_alpha(0.7)
-    
+
     # Add value labels
-    for bar, eff in zip(bars, df['rmsd_improvement_per_step']):
-        ax4.text(bar.get_x() + bar.get_width()/2, 
-                bar.get_height() + (0.00001 if eff > 0 else -0.00002), 
-                f'{eff:.6f}', ha='center', va='bottom' if eff > 0 else 'top', 
-                fontsize=8, fontweight='bold')
-    
+    for bar, eff in zip(bars, df["rmsd_improvement_per_step"]):
+        ax4.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + (0.00001 if eff > 0 else -0.00002),
+            f"{eff:.6f}",
+            ha="center",
+            va="bottom" if eff > 0 else "top",
+            fontsize=8,
+            fontweight="bold",
+        )
+
     plt.tight_layout()
-    
+
     # Save the plot
     output_file = os.path.join(output_dir, "steps_analysis.png")
-    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    plt.savefig(output_file, dpi=300, bbox_inches="tight")
     print(f"Steps analysis plot saved to: {output_file}")
     # plt.show()
 
@@ -568,6 +730,9 @@ def main():
         # Create plots
         print("\nCreating RMSD analysis plots...")
         create_rmsd_plots(df, output_dir)
+
+        print("\nCreating standalone RMSD comparison plots...")
+        create_rmsd_standalone_plots(df, output_dir)
 
         print("\nCreating timing analysis plots...")
         create_timing_plots(df, output_dir)

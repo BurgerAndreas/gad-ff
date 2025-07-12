@@ -243,14 +243,14 @@ def test_gad_ts_search(sample, calc, eigen_method, x_lininter_rp, x_geointer_rp)
         traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
     )
     results["ts_from_r_p_dt0.01_s1000"] = _rmsd_ts
-    
+
     # Follow the GAD vector field from R-P interpolation
     summary = integrate_dynamics(
-        x_geointer_rp,
-        sample.z,
-        sample.natoms,
-        calc,
-        sample.pos_transition,
+        initial_pos=x_geointer_rp,
+        z=sample.z,
+        natoms=sample.natoms,
+        calc=calc,
+        true_pos=sample.pos_transition,
         force_field="gad",
         max_steps=1_000,
         dt=0.01,
@@ -391,14 +391,19 @@ def main(
         plot_dir=plot_dir,
         save=True,
     )
+    _rmsd_lin_geo = align_ordered_and_get_rmsd(x_geointer_rp, pos_transition)
+    print(f"Geodesic interpolation R-P vs TS RMSD: {_rmsd_lin_geo:.4f}")
     _rmsd_lin_geo = align_ordered_and_get_rmsd(x_geointer_rp, x_lininter_rp)
     print(f"Linear vs geodesic interpolation R-P RMSD: {_rmsd_lin_geo:.4f}")
+    x_geointer_rp = torch.tensor(x_geointer_rp, device=device, dtype=sample.pos_reactant.dtype)
 
     ###################################################################################
     # Follow the GAD vector field to find the transition state
 
     if do_gad:
-        test_gad_ts_search(sample, torchcalc, eigen_method, x_lininter_rp, x_geointer_rp)
+        test_gad_ts_search(
+            sample, torchcalc, eigen_method, x_lininter_rp, x_geointer_rp
+        )
 
     ###################################################################################
     # Use Sella internal coordinates for GAD

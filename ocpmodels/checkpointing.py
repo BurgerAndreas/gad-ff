@@ -297,9 +297,11 @@ def load_state_dict(
 
     print("\nload_state_dict()")
     print(f"Unexpected keys: {len(unexpected_keys)} / {len(state_dict.keys())}")
-    print(unexpected_keys[:10])
+    if len(unexpected_keys) > 0:
+        print(unexpected_keys[:10])
     print(f"Missing keys: {len(missing_keys)} / {len(state_dict.keys())}")
-    print(missing_keys[:10])
+    if len(missing_keys) > 0:
+        print(missing_keys[:10])
 
     if strict_unexpected_keys:
         if len(unexpected_keys) > 0:

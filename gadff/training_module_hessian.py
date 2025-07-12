@@ -40,7 +40,11 @@ from gadff.horm.training_module import (
     compute_extra_props,
     SchemaUniformDataset,
 )
-from gadff.loss_functions import compute_loss_blockdiagonal_hessian, get_hessian_loss_fn, get_eigval_eigvec_metrics
+from gadff.loss_functions import (
+    compute_loss_blockdiagonal_hessian,
+    get_hessian_loss_fn,
+    get_eigval_eigvec_metrics,
+)
 
 
 class MyPLTrainer(pl.Trainer):
@@ -101,10 +105,14 @@ class HessianPotentialModule(PotentialModule):
 
         # loss from Hamiltonian prediction paper
         self.test_loss_fn_wa2 = get_hessian_loss_fn(
-            loss_name="wa", k=2, alpha=1.0,
+            loss_name="wa",
+            k=2,
+            alpha=1.0,
         )
         self.test_loss_fn_wa8 = get_hessian_loss_fn(
-            loss_name="wa", k=8, alpha=1.0,
+            loss_name="wa",
+            k=8,
+            alpha=1.0,
         )
         # Luca's loss
         self.test_loss_fn_eigen = get_hessian_loss_fn(
@@ -351,7 +359,7 @@ class HessianPotentialModule(PotentialModule):
             .detach()
             .item()
         )
-        
+
         # Eigenvalue, Eigenvector metrics
         eig_metrics = get_eigval_eigvec_metrics(
             hessian_true,

@@ -8,7 +8,9 @@ from tqdm import tqdm
 
 def _get_derivatives(x, y, retain_graph=None, create_graph=False):
     """Helper function to compute derivatives"""
-    grad = torch.autograd.grad([y.sum()], [x], retain_graph=retain_graph, create_graph=create_graph)[0]
+    grad = torch.autograd.grad(
+        [y.sum()], [x], retain_graph=retain_graph, create_graph=create_graph
+    )[0]
     return grad
 
 
@@ -17,17 +19,17 @@ def compute_hessian(coords, energy, forces=None):
     # Compute forces if not given
     if forces is None:
         forces = -_get_derivatives(coords, energy, create_graph=True)
-    
+
     # Get number of components (n_atoms * 3)
     n_comp = forces.reshape(-1).shape[0]
-    
+
     # Initialize hessian
     hess = []
     for f in forces.reshape(-1):
         # Compute second-order derivative for each element
         hess_row = _get_derivatives(coords, -f, retain_graph=True)
         hess.append(hess_row)
-        
+
     # Stack hessian
     hessian = torch.stack(hess)
     return hessian.reshape(n_comp, -1)
@@ -38,24 +40,23 @@ def hess2eigenvalues(hess):
     hartree_to_ev = 27.2114
     bohr_to_angstrom = 0.529177
     ev_angstrom_2_to_hartree_bohr_2 = (bohr_to_angstrom**2) / hartree_to_ev
-    
+
     hess = hess * ev_angstrom_2_to_hartree_bohr_2
     eigen_values, _ = torch.linalg.eigh(hess)
     return eigen_values
 
 
-def evaluate(lmdb_path,  checkpoint_path):
+def evaluate(lmdb_path, checkpoint_path):
 
     ckpt = torch.load(checkpoint_path)
-    model_name =ckpt['hyper_parameters']['model_config']['name']
+    model_name = ckpt["hyper_parameters"]["model_config"]["name"]
 
     print(f"Model name: {model_name}")
 
     pm = PotentialModule.load_from_checkpoint(
         checkpoint_path,
         strict=False,
-    ).potential.to('cuda')
-
+    ).potential.to("cuda")
 
     dataset = LmdbDataset(fix_dataset_path(lmdb_path))
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
@@ -68,20 +69,18 @@ def evaluate(lmdb_path,  checkpoint_path):
     total_asymmetry_error = 0.0
     n_samples = 0
 
+    for batch in tqdm(dataloader, desc="Evaluating", total=len(dataloader)):
 
-    for batch in tqdm(dataloader, desc='Evaluating', total=len(dataloader)):
-
-
-        batch = batch.to('cuda')
+        batch = batch.to("cuda")
         batch.pos.requires_grad_()
         batch = compute_extra_props(batch)
 
         # Forward pass
-        if model_name == 'LEFTNet':
+        if model_name == "LEFTNet":
             ener, force = pm.forward_autograd(batch)
         else:
             ener, force, out = pm.forward(batch)
-        
+
         # Compute hessian and eigenvalues
         # Use reshape instead of view to handle non-contiguous tensors
         hess = compute_hessian(batch.pos, ener, force)
@@ -90,12 +89,12 @@ def evaluate(lmdb_path,  checkpoint_path):
         # Compute errors
         e_error = torch.mean(torch.abs(ener.squeeze() - batch.ae))
         f_error = torch.mean(torch.abs(force - batch.forces))
-        
+
         # Reshape true hessian
         n_atoms = batch.pos.shape[0]
         hessian_true = batch.hessian.reshape(n_atoms * 3, n_atoms * 3)
         h_error = torch.mean(torch.abs(hess - hessian_true))
-        
+
         # Eigenvalue error
         eigen_true = hess2eigenvalues(hessian_true)
         eigen_error = torch.mean(torch.abs(eigenvalues - eigen_true))
@@ -129,12 +128,12 @@ def evaluate(lmdb_path,  checkpoint_path):
     print(f"Asymmetry MAE: {mae_asymmetry:.6f}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     torch.manual_seed(42)
 
-    checkpoint_path = 'ckpt/eqv2.ckpt'
-    
+    checkpoint_path = "ckpt/eqv2.ckpt"
+
     DATASET_FILES_HORM = [
         "ts1x-val.lmdb",  # 50844 samples
         "ts1x_hess_train_big.lmdb",  # 1725362 samples
@@ -142,5 +141,5 @@ if __name__ == '__main__':
     ]
     # lmdb_path = 'data/sample_100.lmdb'
     lmdb_path = DATASET_FILES_HORM[0]
-    
+
     evaluate(lmdb_path, checkpoint_path)
