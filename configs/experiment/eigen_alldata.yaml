@@ -6,6 +6,5 @@ training:
   trn_path: ["ts1x_hess_train_big-dft-hess-eigen.lmdb", "RGD1-dft-hess-eigen.lmdb"]
   val_path: "ts1x-val-dft-hess-eigen.lmdb"
   bz: 64
-  num_workers: 16 # 48
   
 experiment_name: "alldata"

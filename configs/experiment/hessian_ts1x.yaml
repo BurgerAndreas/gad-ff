@@ -6,7 +6,6 @@ training:
   trn_path: "ts1x_hess_train_big.lmdb"
   val_path: "ts1x-val.lmdb"
   bz: 128
-  num_workers: 16 # 48
   
 # pltrainer:
 #   val_check_interval: 100    # Validate less frequently
