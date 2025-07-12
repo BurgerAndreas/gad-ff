@@ -88,7 +88,7 @@ os.makedirs(plot_dir, exist_ok=True)
 os.makedirs(log_dir, exist_ok=True)
 
 
-def test_gad_ts_search(sample, calc, eigen_method, x_lininter_rp):
+def test_gad_ts_search(sample, calc, eigen_method, x_lininter_rp, x_geointer_rp):
     print("\n" + "=" * 60)
     print("Following GAD vector field to find transition state")
 
@@ -96,7 +96,7 @@ def test_gad_ts_search(sample, calc, eigen_method, x_lininter_rp):
 
     # Test 1: is the transition state a fixed point of our GAD vector field?
     # Follow the GAD vector field from transition state
-    traj, _, _, _ = integrate_dynamics(
+    summary = integrate_dynamics(
         sample.pos_transition,
         sample.z,
         sample.natoms,
@@ -110,6 +110,7 @@ def test_gad_ts_search(sample, calc, eigen_method, x_lininter_rp):
         patience_threshold=1.0,
         plot_dir=plot_dir,
     )
+    traj = summary["trajectory"]
     _rmsd_ts = align_ordered_and_get_rmsd(
         traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
     )
@@ -118,7 +119,7 @@ def test_gad_ts_search(sample, calc, eigen_method, x_lininter_rp):
     # Follow the GAD vector field from perturbed transition state
     # RMSD ~ 1.2 Å
     _pos = torch.randn_like(sample.pos_transition) + sample.pos_transition
-    traj, _, _, _ = integrate_dynamics(
+    summary = integrate_dynamics(
         _pos,
         sample.z,
         sample.natoms,
@@ -132,13 +133,14 @@ def test_gad_ts_search(sample, calc, eigen_method, x_lininter_rp):
         patience_threshold=1.0,
         plot_dir=plot_dir,
     )
+    traj = summary["trajectory"]
     _rmsd_ts = align_ordered_and_get_rmsd(
         traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
     )
     results["ts_from_perturbed_ts"] = _rmsd_ts
 
     # Test run - start from reactant
-    traj, _, _, _ = integrate_dynamics(
+    summary = integrate_dynamics(
         sample.pos_reactant,
         sample.z,
         sample.natoms,
@@ -153,6 +155,7 @@ def test_gad_ts_search(sample, calc, eigen_method, x_lininter_rp):
         # center_around_com=True,
         plot_dir=plot_dir,
     )
+    traj = summary["trajectory"]
     _rmsd_ts = align_ordered_and_get_rmsd(
         traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
     )
@@ -177,7 +180,7 @@ def test_gad_ts_search(sample, calc, eigen_method, x_lininter_rp):
     results["ts_from_r_dt0.01_s1000"] = summary["rmsd_final"]
 
     # large steps
-    traj, _, _, _ = integrate_dynamics(
+    summary = integrate_dynamics(
         sample.pos_reactant,
         sample.z,
         sample.natoms,
@@ -192,13 +195,14 @@ def test_gad_ts_search(sample, calc, eigen_method, x_lininter_rp):
         # center_around_com=True,
         plot_dir=plot_dir,
     )
+    traj = summary["trajectory"]
     _rmsd_ts = align_ordered_and_get_rmsd(
         traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
     )
     results["ts_from_r_dt0.1_s1000"] = _rmsd_ts
 
     # very long
-    traj, _, _, _ = integrate_dynamics(
+    summary = integrate_dynamics(
         sample.pos_reactant,
         sample.z,
         sample.natoms,
@@ -213,13 +217,14 @@ def test_gad_ts_search(sample, calc, eigen_method, x_lininter_rp):
         # center_around_com=True,
         plot_dir=plot_dir,
     )
+    traj = summary["trajectory"]
     _rmsd_ts = align_ordered_and_get_rmsd(
         traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
     )
     results["ts_from_r_dt0.1_s10000"] = _rmsd_ts
 
     # Follow the GAD vector field from R-P interpolation
-    traj, _, _, _ = integrate_dynamics(
+    summary = integrate_dynamics(
         x_lininter_rp,
         sample.z,
         sample.natoms,
@@ -233,10 +238,32 @@ def test_gad_ts_search(sample, calc, eigen_method, x_lininter_rp):
         # patience_threshold=1.0,
         plot_dir=plot_dir,
     )
+    traj = summary["trajectory"]
     _rmsd_ts = align_ordered_and_get_rmsd(
         traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
     )
     results["ts_from_r_p_dt0.01_s1000"] = _rmsd_ts
+    
+    # Follow the GAD vector field from R-P interpolation
+    summary = integrate_dynamics(
+        x_geointer_rp,
+        sample.z,
+        sample.natoms,
+        calc,
+        sample.pos_transition,
+        force_field="gad",
+        max_steps=1_000,
+        dt=0.01,
+        title=f"R-P geodesic interpolation {eigen_method}",
+        n_patience_steps=500,
+        # patience_threshold=1.0,
+        plot_dir=plot_dir,
+    )
+    traj = summary["trajectory"]
+    _rmsd_ts = align_ordered_and_get_rmsd(
+        traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
+    )
+    results["ts_from_r_p_geo_dt0.01_s1000"] = _rmsd_ts
 
     # Save results to JSON
     with open(os.path.join(log_dir, f"results_{eigen_method}.json"), "w") as f:
@@ -371,7 +398,7 @@ def main(
     # Follow the GAD vector field to find the transition state
 
     if do_gad:
-        test_gad_ts_search(sample, torchcalc, eigen_method, x_lininter_rp)
+        test_gad_ts_search(sample, torchcalc, eigen_method, x_lininter_rp, x_geointer_rp)
 
     ###################################################################################
     # Use Sella internal coordinates for GAD
@@ -449,19 +476,7 @@ def main(
                 z=sample.z,
                 natoms=sample.natoms,
                 true_pos=sample.pos_transition,
-                title=f"Sella TS from linear R-P | Hessian={hessian_method}",
-                calc=asecalc,
-                hessian_function=hessian_function,
-                run_kwargs=dict(fmax=1e-4),
-            )
-
-            # Linear interpolation between reactant and TS
-            mol_ase = run_sella(
-                x_lininter_rts,
-                z=sample.z,
-                natoms=sample.natoms,
-                true_pos=sample.pos_transition,
-                title=f"Sella TS from linear R-TS | Hessian={hessian_method}",
+                title=f"Sella TS from geodesic R-P | Hessian={hessian_method}",
                 calc=asecalc,
                 hessian_function=hessian_function,
                 run_kwargs=dict(fmax=1e-4),

@@ -233,6 +233,7 @@ def L_ang_loss(
     return ang.pow(2)
 
 
+
 ##############################################################################
 # scalar losses
 def log_mse_loss(
@@ -466,6 +467,71 @@ def eigenspectrum_loss(
                 raise ValueError(f"Invalid loss type: {loss_type}")
     return loss
 
+def get_eigval_eigvec_metrics(hessian_true, hessian_pred, data, prefix=""):
+    """We can't normalize concatenated vectors, so we process each vector separately.
+    Returns a scalar of similarity averaged over batches.
+    data should be a torch_geometric.data.Batch object.
+    """
+    # N=15, B=64 ~ 130_000 entries
+    natoms = data.natoms
+    B = data.batch.max() + 1
+    # ptr = data.ptr
+    # check
+    numels = data.natoms.pow(2).mul(9)
+    ptr_hessian = torch.cat([torch.tensor([0], device=numels.device), numels], dim=0)
+    ptr_hessian = torch.cumsum(ptr_hessian, dim=0)
+    total_numel = sum(numels)
+    hessian_pred = hessian_pred.view(-1)
+    hessian_true = hessian_true.view(-1)
+    metrics = {
+        "Abs Cosine Sim v1": [],
+        "Abs Cosine Sim v2": [],
+        "MSE v1": [],
+        "MSE v2": [],
+        "MSE e1": [],
+        "MSE e2": [],
+        "Correct sign e1": [],
+        "Correct sign e2": [],
+        
+    }
+    for _b in range(B):
+        _start = ptr_hessian[_b].item()
+        _numel = ((natoms[_b]) * 3) ** 2
+        _end = _numel + _start
+        hessian_pred_b = hessian_pred[_start:_end]
+        hessian_true_b = hessian_true[_start:_end]
+        
+        hessian_pred_b = hessian_pred_b.reshape(natoms[_b]* 3, natoms[_b]* 3)
+        hessian_true_b = hessian_true_b.reshape(natoms[_b]* 3, natoms[_b]* 3)
+        
+        eigvals_true_b, eigvecs_true_b = torch.linalg.eigh(hessian_true_b)
+        eigvals_pred_b, eigvecs_pred_b = torch.linalg.eigh(hessian_pred_b)
+        
+        e1_true = eigvals_true_b[0]
+        e1_pred = eigvals_pred_b[0]
+        e2_true = eigvals_true_b[1]
+        e2_pred = eigvals_pred_b[1]
+        
+        e1_true_sign = torch.sign(e1_true)
+        e1_pred_sign = torch.sign(e1_pred)
+        e2_true_sign = torch.sign(e2_true)
+        e2_pred_sign = torch.sign(e2_pred)
+        
+        e1_true_sign_correct = (e1_true_sign == e1_pred_sign).float()
+        e2_true_sign_correct = (e2_true_sign == e2_pred_sign).float()
+        
+        metrics["Abs Cosine Sim v1"].append(abs_cosine_similarity(e1_true, e1_pred))
+        metrics["Abs Cosine Sim v2"].append(abs_cosine_similarity(e2_true, e2_pred))
+        metrics["MSE v1"].append(F.mse_loss(e1_true, e1_pred))
+        metrics["MSE v2"].append(F.mse_loss(e2_true, e2_pred))
+        metrics["MSE e1"].append(F.mse_loss(e1_true, e1_pred))
+        metrics["MSE e2"].append(F.mse_loss(e2_true, e2_pred))
+        metrics["Correct sign e1"].append(e1_true_sign_correct)
+        metrics["Correct sign e2"].append(e2_true_sign_correct)
+    # average over batches
+    for key in metrics:
+        metrics[key] = torch.stack(metrics[key]).mean()
+    return metrics
 
 ##############################################################################
 if __name__ == "__main__":

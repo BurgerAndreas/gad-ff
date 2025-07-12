@@ -73,7 +73,7 @@ def parse_experiment_name(dirname: str) -> Dict[str, str]:
     return metadata
 
 
-def load_all_results(plots_dir: str = "playground/plots") -> pd.DataFrame:
+def load_all_results(plots_dir: str = "playground/plots_sella") -> pd.DataFrame:
     """Load all Sella TS results from the plots directory."""
 
     # Find all sella_ts_* directories
@@ -551,7 +551,7 @@ def main():
         df = load_all_results()
 
         # Create output directory for plots
-        output_dir = "playground/plots"
+        output_dir = "playground/plots_sella"
         os.makedirs(output_dir, exist_ok=True)
 
         print(f"\nDataset overview:")

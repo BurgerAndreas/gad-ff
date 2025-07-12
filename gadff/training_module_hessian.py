@@ -40,7 +40,7 @@ from gadff.horm.training_module import (
     compute_extra_props,
     SchemaUniformDataset,
 )
-from gadff.loss_functions import compute_loss_blockdiagonal_hessian, get_hessian_loss_fn
+from gadff.loss_functions import compute_loss_blockdiagonal_hessian, get_hessian_loss_fn, get_eigval_eigvec_metrics
 
 
 class MyPLTrainer(pl.Trainer):
@@ -99,6 +99,14 @@ class HessianPotentialModule(PotentialModule):
             self.do_eigen_loss = False
             print("! Training without eigenvalue loss")
 
+        # loss from Hamiltonian prediction paper
+        self.test_loss_fn_wa2 = get_hessian_loss_fn(
+            loss_name="wa", k=2, alpha=1.0,
+        )
+        self.test_loss_fn_wa8 = get_hessian_loss_fn(
+            loss_name="wa", k=8, alpha=1.0,
+        )
+        # Luca's loss
         self.test_loss_fn_eigen = get_hessian_loss_fn(
             loss_name="eigenspectrum", k=None, alpha=1.0
         )
@@ -274,9 +282,9 @@ class HessianPotentialModule(PotentialModule):
             loss += eigen_loss
             info["Loss Eigen"] = eigen_loss.detach().item()
 
-        self.MAEEval.reset()
-        self.MAPEEval.reset()
-        self.cosineEval.reset()
+        # self.MAEEval.reset()
+        # self.MAPEEval.reset()
+        # self.cosineEval.reset()
 
         return loss, info
 
@@ -322,6 +330,36 @@ class HessianPotentialModule(PotentialModule):
             .detach()
             .item()
         )
+        # loss from Hamiltonian prediction paper
+        eval_metrics["Loss WA k2"] = (
+            self.test_loss_fn_wa2(
+                pred=hessian_pred,
+                target=hessian_true,
+                data=batch,
+                debugstr=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}-Loss WA k2",
+            )
+            .detach()
+            .item()
+        )
+        eval_metrics["Loss WA k8"] = (
+            self.test_loss_fn_wa8(
+                pred=hessian_pred,
+                target=hessian_true,
+                data=batch,
+                debugstr=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}-Loss WA k8",
+            )
+            .detach()
+            .item()
+        )
+        
+        # Eigenvalue, Eigenvector metrics
+        eig_metrics = get_eigval_eigvec_metrics(
+            hessian_true,
+            hessian_pred,
+            batch,
+            prefix=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}",
+        )
+        eval_metrics.update(eig_metrics)
 
         return eval_metrics
 
