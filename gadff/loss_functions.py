@@ -498,10 +498,17 @@ def get_eigval_eigvec_metrics(hessian_true, hessian_pred, data, prefix=""):
     metrics = {
         "Abs Cosine Sim v1": [],
         "Abs Cosine Sim v2": [],
+        # L2
         "MSE v1": [],
         "MSE v2": [],
         "MSE e1": [],
         "MSE e2": [],
+        # L1
+        "MAE v1": [],
+        "MAE v2": [],
+        "MAE e1": [],
+        "MAE e2": [],
+        "MAE Eigvals HORM": [],
         "Correct sign e1": [],
         "Correct sign e2": [],
     }
@@ -537,6 +544,10 @@ def get_eigval_eigvec_metrics(hessian_true, hessian_pred, data, prefix=""):
         metrics["MSE v2"].append(F.mse_loss(e2_true, e2_pred))
         metrics["MSE e1"].append(F.mse_loss(e1_true, e1_pred))
         metrics["MSE e2"].append(F.mse_loss(e2_true, e2_pred))
+        metrics["MAE v1"].append(F.l1_loss(e1_true, e1_pred))
+        metrics["MAE v2"].append(F.l1_loss(e2_true, e2_pred))
+        metrics["MAE e1"].append(F.l1_loss(e1_true, e1_pred))
+        metrics["MAE e2"].append(F.l1_loss(e2_true, e2_pred))
         metrics["Correct sign e1"].append(e1_true_sign_correct)
         metrics["Correct sign e2"].append(e2_true_sign_correct)
 
