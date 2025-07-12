@@ -451,8 +451,9 @@ def eigenspectrum_loss(
             evals_true_k = evals_true[:k_i]
             if loss_type == "wa":
                 for i in range(k_i):
-                    evec_true_i = evecs_true_k[:, i]  # (N*3)
+                    evec_true_i = evecs_true_k[:, i].reshape(N*3, 1)  # (N*3, 1)
                     eval_true_i = evals_true_k[i]
+                    # (1, N*3) @ (N*3, N*3) @ (N*3, 1) = (1, 1)
                     diff = (
                         evec_true_i.T @ (hessian_pred @ evec_true_i)
                     ) - eval_true_i  # (1)
@@ -483,6 +484,7 @@ def get_eigval_eigvec_metrics(hessian_true, hessian_pred, data, prefix=""):
     """We can't normalize concatenated vectors, so we process each vector separately.
     Returns a scalar of similarity averaged over batches.
     data should be a torch_geometric.data.Batch object.
+    Warning: detach() is used to avoid memory leaks. Do not use for training!
     """
     # N=15, B=64 ~ 130_000 entries
     natoms = data.natoms
@@ -560,7 +562,7 @@ def get_eigval_eigvec_metrics(hessian_true, hessian_pred, data, prefix=""):
 
     # average over batches
     for key in metrics:
-        metrics[key] = torch.stack(metrics[key]).mean()
+        metrics[key] = torch.stack(metrics[key]).mean().detach().cpu().item()
     return metrics
 
 
