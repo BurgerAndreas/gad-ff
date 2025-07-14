@@ -451,7 +451,7 @@ def eigenspectrum_loss(
             evals_true_k = evals_true[:k_i]
             if loss_type == "wa":
                 for i in range(k_i):
-                    evec_true_i = evecs_true_k[:, i].reshape(N*3, 1)  # (N*3, 1)
+                    evec_true_i = evecs_true_k[:, i].reshape(N * 3, 1)  # (N*3, 1)
                     eval_true_i = evals_true_k[i]
                     # (1, N*3) @ (N*3, N*3) @ (N*3, 1) = (1, 1)
                     diff = (
@@ -501,15 +501,15 @@ def get_eigval_eigvec_metrics(hessian_true, hessian_pred, data, prefix=""):
         "Abs Cosine Sim v1": [],
         "Abs Cosine Sim v2": [],
         # L2
-        "MSE v1": [],
-        "MSE v2": [],
-        "MSE e1": [],
-        "MSE e2": [],
+        "MSE Vec1": [],
+        "MSE Vec2": [],
+        "MSE Val1": [],
+        "MSE Val2": [],
         # L1
-        "MAE v1": [],
-        "MAE v2": [],
-        "MAE e1": [],
-        "MAE e2": [],
+        "MAE Vec1": [],
+        "MAE Vec2": [],
+        "MAE Val1": [],
+        "MAE Val2": [],
         "MAE Eigvals HORM": [],
         "Correct sign e1": [],
         "Correct sign e2": [],
@@ -527,38 +527,38 @@ def get_eigval_eigvec_metrics(hessian_true, hessian_pred, data, prefix=""):
         eigvals_true_b, eigvecs_true_b = torch.linalg.eigh(hessian_true_b)
         eigvals_pred_b, eigvecs_pred_b = torch.linalg.eigh(hessian_pred_b)
 
+        # eigenvalues, scalars
         e1_true = eigvals_true_b[0]
         e1_pred = eigvals_pred_b[0]
         e2_true = eigvals_true_b[1]
         e2_pred = eigvals_pred_b[1]
-
-        e1_true_sign = torch.sign(e1_true)
-        e1_pred_sign = torch.sign(e1_pred)
-        e2_true_sign = torch.sign(e2_true)
-        e2_pred_sign = torch.sign(e2_pred)
-
-        e1_true_sign_correct = (e1_true_sign == e1_pred_sign).float()
-        e2_true_sign_correct = (e2_true_sign == e2_pred_sign).float()
-
-        metrics["Abs Cosine Sim v1"].append(abs_cosine_similarity(e1_true, e1_pred))
-        metrics["Abs Cosine Sim v2"].append(abs_cosine_similarity(e2_true, e2_pred))
-        metrics["MSE v1"].append(F.mse_loss(e1_true, e1_pred))
-        metrics["MSE v2"].append(F.mse_loss(e2_true, e2_pred))
-        metrics["MSE e1"].append(F.mse_loss(e1_true, e1_pred))
-        metrics["MSE e2"].append(F.mse_loss(e2_true, e2_pred))
-        metrics["MAE v1"].append(F.l1_loss(e1_true, e1_pred))
-        metrics["MAE v2"].append(F.l1_loss(e2_true, e2_pred))
-        metrics["MAE e1"].append(F.l1_loss(e1_true, e1_pred))
-        metrics["MAE e2"].append(F.l1_loss(e2_true, e2_pred))
-        metrics["Correct sign e1"].append(e1_true_sign_correct)
-        metrics["Correct sign e2"].append(e2_true_sign_correct)
-
+        metrics["MSE Val1"].append(F.mse_loss(e1_true, e1_pred))
+        metrics["MSE Val2"].append(F.mse_loss(e2_true, e2_pred))
+        metrics["MAE Val1"].append(F.l1_loss(e1_true, e1_pred))
+        metrics["MAE Val2"].append(F.l1_loss(e2_true, e2_pred))
+        metrics["Correct sign e1"].append(
+            (torch.sign(e1_true) == torch.sign(e1_pred)).float()
+        )
+        metrics["Correct sign e2"].append(
+            (torch.sign(e2_true) == torch.sign(e2_pred)).float()
+        )
+        # Hartree / Bohr^2 over all eigenvalues
         eigvals_true_horm = hess2eigenvalues(hessian_true_b)
         eigvals_pred_horm = hess2eigenvalues(hessian_pred_b)
-
         metrics["MAE Eigvals HORM"].append(
             torch.mean(torch.abs(eigvals_true_horm - eigvals_pred_horm))
         )
+        # eigenvectors
+        v1_true = eigvecs_true_b[:, 0].reshape(-1)
+        v1_pred = eigvecs_pred_b[:, 0].reshape(-1)
+        v2_true = eigvecs_true_b[:, 1].reshape(-1)
+        v2_pred = eigvecs_pred_b[:, 1].reshape(-1)
+        metrics["Abs Cosine Sim v1"].append(torch.abs(torch.dot(v1_true, v1_pred)))
+        metrics["Abs Cosine Sim v2"].append(torch.abs(torch.dot(v2_true, v2_pred)))
+        metrics["MSE Vec1"].append(torch.abs(v1_true - v1_pred).pow(2).mean())
+        metrics["MSE Vec2"].append(torch.abs(v2_true - v2_pred).pow(2).mean())
+        metrics["MAE Vec1"].append(torch.abs(v1_true - v1_pred).mean())
+        metrics["MAE Vec2"].append(torch.abs(v2_true - v2_pred).mean())
 
     # average over batches
     for key in metrics:

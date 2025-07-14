@@ -395,7 +395,9 @@ def main(
     print(f"Geodesic interpolation R-P vs TS RMSD: {_rmsd_lin_geo:.4f}")
     _rmsd_lin_geo = align_ordered_and_get_rmsd(x_geointer_rp, x_lininter_rp)
     print(f"Linear vs geodesic interpolation R-P RMSD: {_rmsd_lin_geo:.4f}")
-    x_geointer_rp = torch.tensor(x_geointer_rp, device=device, dtype=sample.pos_reactant.dtype)
+    x_geointer_rp = torch.tensor(
+        x_geointer_rp, device=device, dtype=sample.pos_reactant.dtype
+    )
 
     ###################################################################################
     # Follow the GAD vector field to find the transition state

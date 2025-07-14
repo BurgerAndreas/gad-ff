@@ -1467,6 +1467,7 @@ class Internals(BaseInternals):
                 return bad
         return None
 
+    # only used for guess_hessian
     def _h0_bond(
         self,
         bond: Bond,
@@ -1479,6 +1480,7 @@ class Internals(BaseInternals):
         h0 = Ab * np.exp(-Bb * (rij - rcov) / units.Bohr)
         return h0 * units.Hartree / units.Bohr**2
 
+    # only used for guess_hessian
     def _h0_angle(
         self,
         angle: Angle,
@@ -1502,6 +1504,7 @@ class Internals(BaseInternals):
         )
         return h0 * units.Hartree
 
+    # only used for guess_hessian
     def _h0_dihedral(
         self,
         dihedral: Dihedral,
