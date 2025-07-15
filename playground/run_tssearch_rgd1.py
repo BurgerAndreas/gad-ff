@@ -43,7 +43,7 @@ import argparse
 import json
 
 from gadff.horm.ff_lmdb import LmdbDataset
-from gadff.equiformer_calculator import EquiformerCalculator
+from gadff.equiformer_calculator import EquiformerTorchCalculator
 
 # from gadff.align_unordered_mols import rmsd
 from gadff.align_ordered_mols import align_ordered_and_get_rmsd
@@ -76,6 +76,7 @@ from recipes.ts_search import (
     run_relaxation,
     run_geodesic_interpolate,
     get_hessian_function,
+    copy_atoms,
 )
 from recipes.trajectorysaver import MyTrajectory
 
@@ -88,197 +89,332 @@ os.makedirs(plot_dir, exist_ok=True)
 os.makedirs(log_dir, exist_ok=True)
 
 
-def test_gad_ts_search(sample, calc, eigen_method, x_lininter_rp, x_geointer_rp):
+def test_gad_ts_search(sample, torchcalc, asecalc, x_lininter_rp, x_geointer_rp, idx):
     print("\n" + "=" * 60)
     print("Following GAD vector field to find transition state")
+    tmp_eigen_dof_method = torchcalc.eigen_dof_method
 
-    results = {}
+    for eigen_method in [
+        None,
+        "qr",
+        "svd",
+        "svdforce",
+        "inertia",
+        "geo",
+        "ase",
+        "eckartsvd",
+        "eckartqr",
+    ]:
 
-    # Test 1: is the transition state a fixed point of our GAD vector field?
-    # Follow the GAD vector field from transition state
-    summary = integrate_dynamics(
-        sample.pos_transition,
-        sample.z,
-        sample.natoms,
-        calc,
-        sample.pos_transition,
-        force_field="gad",
-        max_steps=100,
-        dt=0.01,
-        title=f"TS from TS {eigen_method}",
-        n_patience_steps=1000,
-        patience_threshold=1.0,
-        plot_dir=plot_dir,
-    )
-    traj = summary["trajectory"]
-    _rmsd_ts = align_ordered_and_get_rmsd(
-        traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
-    )
-    results["ts_from_ts"] = _rmsd_ts
+        torchcalc.eigen_dof_method = eigen_method
 
-    # Follow the GAD vector field from perturbed transition state
-    # RMSD ~ 1.2 Å
-    _pos = torch.randn_like(sample.pos_transition) + sample.pos_transition
-    summary = integrate_dynamics(
-        _pos,
-        sample.z,
-        sample.natoms,
-        calc,
-        sample.pos_transition,
-        force_field="gad",
-        max_steps=1000,
-        dt=0.01,
-        title=f"TS from perturbed TS {eigen_method}",
-        n_patience_steps=1000,
-        patience_threshold=1.0,
-        plot_dir=plot_dir,
-    )
-    traj = summary["trajectory"]
-    _rmsd_ts = align_ordered_and_get_rmsd(
-        traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
-    )
-    results["ts_from_perturbed_ts"] = _rmsd_ts
+        results = {}
 
-    # Test run - start from reactant
-    summary = integrate_dynamics(
-        sample.pos_reactant,
-        sample.z,
-        sample.natoms,
-        calc,
-        sample.pos_transition,
-        force_field="gad",
-        max_steps=100,
-        dt=0.1,
-        title=f"TS from R {eigen_method}",
-        n_patience_steps=100,
-        # patience_threshold=1.0,
-        # center_around_com=True,
-        plot_dir=plot_dir,
-    )
-    traj = summary["trajectory"]
-    _rmsd_ts = align_ordered_and_get_rmsd(
-        traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
-    )
-    results["ts_from_r_dt0.1_s100"] = _rmsd_ts
+        # Test 1: is the transition state a fixed point of our GAD vector field?
+        # Follow the GAD vector field from transition state
+        summary = integrate_dynamics(
+            sample.pos_transition,
+            sample.z,
+            sample.natoms,
+            torchcalc,
+            sample.pos_transition,
+            force_field="gad",
+            max_steps=1_000,
+            dt=0.01,
+            title=f"TS from TS {eigen_method} idx{idx}",
+            n_patience_steps=1_000,
+            patience_threshold=1.0,
+            plot_dir=plot_dir,
+            asecalc=asecalc,
+        )
+        traj = summary["trajectory"]
+        _rmsd_ts = align_ordered_and_get_rmsd(
+            traj[-1].detach().cpu().numpy(),
+            sample.pos_transition.detach().cpu().numpy(),
+        )
+        results["ts_from_ts"] = _rmsd_ts
 
-    # Start from reactant
-    summary = integrate_dynamics(
-        sample.pos_reactant,
-        sample.z,
-        sample.natoms,
-        calc,
-        sample.pos_transition,
-        force_field="gad",
-        max_steps=1_000,
-        dt=0.01,
-        title=f"TS from R {eigen_method}",
-        n_patience_steps=1000,
-        # patience_threshold=1.0,
-        # center_around_com=True,
-        plot_dir=plot_dir,
-    )
-    results["ts_from_r_dt0.01_s1000"] = summary["rmsd_final"]
+        # Follow the GAD vector field from perturbed transition state
+        # RMSD ~ 1.2 Å
+        _pos = torch.randn_like(sample.pos_transition) + sample.pos_transition
+        summary = integrate_dynamics(
+            _pos,
+            sample.z,
+            sample.natoms,
+            torchcalc,
+            sample.pos_transition,
+            force_field="gad",
+            max_steps=1000,
+            dt=0.01,
+            title=f"TS from perturbed TS {eigen_method} idx{idx}",
+            n_patience_steps=1000,
+            patience_threshold=1.0,
+            plot_dir=plot_dir,
+            asecalc=asecalc,
+        )
+        traj = summary["trajectory"]
+        _rmsd_ts = align_ordered_and_get_rmsd(
+            traj[-1].detach().cpu().numpy(),
+            sample.pos_transition.detach().cpu().numpy(),
+        )
+        results["ts_from_perturbed_ts"] = _rmsd_ts
 
-    # large steps
-    summary = integrate_dynamics(
-        sample.pos_reactant,
-        sample.z,
-        sample.natoms,
-        calc,
-        sample.pos_transition,
-        force_field="gad",
-        max_steps=1_000,
-        dt=0.1,
-        title=f"TS from R {eigen_method}",
-        n_patience_steps=1000,
-        # patience_threshold=1.0,
-        # center_around_com=True,
-        plot_dir=plot_dir,
-    )
-    traj = summary["trajectory"]
-    _rmsd_ts = align_ordered_and_get_rmsd(
-        traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
-    )
-    results["ts_from_r_dt0.1_s1000"] = _rmsd_ts
+        # # Test run - start from reactant
+        # summary = integrate_dynamics(
+        #     sample.pos_reactant,
+        #     sample.z,
+        #     sample.natoms,
+        #     calc,
+        #     sample.pos_transition,
+        #     force_field="gad",
+        #     max_steps=100,
+        #     dt=0.1,
+        #     title=f"TS from R {eigen_method}",
+        #     n_patience_steps=100,
+        #     # patience_threshold=1.0,
+        #     # center_around_com=True,
+        #     plot_dir=plot_dir,
+        # )
+        # traj = summary["trajectory"]
+        # _rmsd_ts = align_ordered_and_get_rmsd(
+        #     traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
+        # )
+        # results["ts_from_r_dt0.1_s100"] = _rmsd_ts
 
-    # very long
-    summary = integrate_dynamics(
-        sample.pos_reactant,
-        sample.z,
-        sample.natoms,
-        calc,
-        sample.pos_transition,
-        force_field="gad",
-        max_steps=10_000,
-        dt=0.01,
-        title=f"TS from R (10k steps) {eigen_method}",
-        n_patience_steps=10000,
-        # patience_threshold=1.0,
-        # center_around_com=True,
-        plot_dir=plot_dir,
-    )
-    traj = summary["trajectory"]
-    _rmsd_ts = align_ordered_and_get_rmsd(
-        traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
-    )
-    results["ts_from_r_dt0.1_s10000"] = _rmsd_ts
+        # Start from reactant
+        summary = integrate_dynamics(
+            sample.pos_reactant,
+            sample.z,
+            sample.natoms,
+            torchcalc,
+            sample.pos_transition,
+            force_field="gad",
+            max_steps=1_000,
+            dt=0.01,
+            title=f"TS from R {eigen_method} idx{idx}",
+            n_patience_steps=1000,
+            # patience_threshold=1.0,
+            # center_around_com=True,
+            plot_dir=plot_dir,
+            asecalc=asecalc,
+        )
+        results["ts_from_r_dt0.01_s1000"] = summary["rmsd_final"]
 
-    # Follow the GAD vector field from R-P interpolation
-    summary = integrate_dynamics(
-        x_lininter_rp,
-        sample.z,
-        sample.natoms,
-        calc,
-        sample.pos_transition,
-        force_field="gad",
-        max_steps=1_000,
-        dt=0.01,
-        title=f"R-P interpolation {eigen_method}",
-        n_patience_steps=500,
-        # patience_threshold=1.0,
-        plot_dir=plot_dir,
-    )
-    traj = summary["trajectory"]
-    _rmsd_ts = align_ordered_and_get_rmsd(
-        traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
-    )
-    results["ts_from_r_p_dt0.01_s1000"] = _rmsd_ts
+        # large steps
+        summary = integrate_dynamics(
+            sample.pos_reactant,
+            sample.z,
+            sample.natoms,
+            torchcalc,
+            sample.pos_transition,
+            force_field="gad",
+            max_steps=1_000,
+            dt=0.1,
+            title=f"TS from R {eigen_method} idx{idx}",
+            n_patience_steps=1000,
+            # patience_threshold=1.0,
+            # center_around_com=True,
+            plot_dir=plot_dir,
+            asecalc=asecalc,
+        )
+        traj = summary["trajectory"]
+        _rmsd_ts = align_ordered_and_get_rmsd(
+            traj[-1].detach().cpu().numpy(),
+            sample.pos_transition.detach().cpu().numpy(),
+        )
+        results["ts_from_r_dt0.1_s1000"] = _rmsd_ts
 
-    # Follow the GAD vector field from R-P interpolation
-    summary = integrate_dynamics(
-        initial_pos=x_geointer_rp,
-        z=sample.z,
-        natoms=sample.natoms,
-        calc=calc,
-        true_pos=sample.pos_transition,
-        force_field="gad",
-        max_steps=1_000,
-        dt=0.01,
-        title=f"R-P geodesic interpolation {eigen_method}",
-        n_patience_steps=500,
-        # patience_threshold=1.0,
-        plot_dir=plot_dir,
-    )
-    traj = summary["trajectory"]
-    _rmsd_ts = align_ordered_and_get_rmsd(
-        traj[-1].detach().cpu().numpy(), sample.pos_transition.detach().cpu().numpy()
-    )
-    results["ts_from_r_p_geo_dt0.01_s1000"] = _rmsd_ts
+        # very long
+        summary = integrate_dynamics(
+            sample.pos_reactant,
+            sample.z,
+            sample.natoms,
+            torchcalc,
+            sample.pos_transition,
+            force_field="gad",
+            max_steps=10_000,
+            dt=0.01,
+            title=f"TS from R (10k steps) {eigen_method} idx{idx}",
+            n_patience_steps=10000,
+            # patience_threshold=1.0,
+            # center_around_com=True,
+            plot_dir=plot_dir,
+            asecalc=asecalc,
+        )
+        traj = summary["trajectory"]
+        _rmsd_ts = align_ordered_and_get_rmsd(
+            traj[-1].detach().cpu().numpy(),
+            sample.pos_transition.detach().cpu().numpy(),
+        )
+        results["ts_from_r_dt0.1_s10000"] = _rmsd_ts
 
-    # Save results to JSON
-    with open(os.path.join(log_dir, f"results_{eigen_method}.json"), "w") as f:
-        json.dump(results, f)
+        # Follow the GAD vector field from R-P linear interpolation
+        summary = integrate_dynamics(
+            x_lininter_rp,
+            sample.z,
+            sample.natoms,
+            torchcalc,
+            sample.pos_transition,
+            force_field="gad",
+            max_steps=2_000,
+            dt=0.01,
+            title=f"TS from R-P interpolation {eigen_method} idx{idx}",
+            n_patience_steps=500,
+            # patience_threshold=1.0,
+            plot_dir=plot_dir,
+            asecalc=asecalc,
+        )
+        traj = summary["trajectory"]
+        _rmsd_ts = align_ordered_and_get_rmsd(
+            traj[-1].detach().cpu().numpy(),
+            sample.pos_transition.detach().cpu().numpy(),
+        )
+        results["ts_from_r_p_dt0.01_s2000"] = _rmsd_ts
 
-    with open(os.path.join(log_dir, f"results_{eigen_method}.txt"), "w") as f:
-        f.write(f"# eigen_method: {eigen_method}\n")
-        for k, v in results.items():
-            f.write(f"{k}: {v:.6f}\n")
+        # Follow the GAD vector field from R-P geodesic interpolation
+        summary = integrate_dynamics(
+            initial_pos=x_geointer_rp,
+            z=sample.z,
+            natoms=sample.natoms,
+            torchcalc=torchcalc,
+            true_pos=sample.pos_transition,
+            force_field="gad",
+            max_steps=2_000,
+            dt=0.01,
+            title=f"TS from R-P geodesic interpolation {eigen_method} idx{idx}",
+            n_patience_steps=500,
+            # patience_threshold=1.0,
+            plot_dir=plot_dir,
+            asecalc=asecalc,
+        )
+        traj = summary["trajectory"]
+        _rmsd_ts = align_ordered_and_get_rmsd(
+            traj[-1].detach().cpu().numpy(),
+            sample.pos_transition.detach().cpu().numpy(),
+        )
+        results["ts_from_r_p_geo_dt0.01_s2000"] = _rmsd_ts
+
+        # Save results to JSON
+        with open(
+            os.path.join(log_dir, f"results_{eigen_method}_idx{idx}.json"), "w"
+        ) as f:
+            json.dump(results, f)
+
+        with open(
+            os.path.join(log_dir, f"results_{eigen_method}_idx{idx}.txt"), "w"
+        ) as f:
+            f.write(f"# eigen_method: {eigen_method}, idx: {idx}\n")
+            for k, v in results.items():
+                f.write(f"{k}: {v:.6f}\n")
+
+    torchcalc.eigen_dof_method = tmp_eigen_dof_method
 
     return results
 
 
+def test_sella_ts_search(
+    sample, torchcalc, x_lininter_rp, x_geointer_rp, idx, asecalc=None
+):
+    print("=" * 60)
+    print("Following Sella to find transition state")
+
+    # See if Sella can find the transition state
+
+    # # Test run: Start from reactant, internal coordinates
+    # hessian_method = None
+    # mol_ase = run_sella(
+    #     pos_reactant,
+    #     z=sample.z,
+    #     natoms=sample.natoms,
+    #     true_pos=sample.pos_transition,
+    #     title=f"Sella TS from R | Hessian={hessian_method} | Internal",
+    #     calc=asecalc,
+    #     hessian_function=get_hessian_function(hessian_method, asecalc),
+    #     internal=True,
+    #     run_kwargs={"steps": 100},
+    # )
+
+    # for hessian_method in [None, "autodiff", "predict"]:
+    for hessian_method in [None, "autodiff"]:
+        # for hessian_method in ["autodiff"]:
+
+        for internal in [False, True]:
+            hessian_function = get_hessian_function(hessian_method, asecalc)
+
+            # title needs to be s.t. we can plot it later:
+            # sella_ts_from_<starting_point>_hessian_<hessianmethod>_<coordinates>
+
+            # Linear interpolation between reactant and product
+            mol_ase = run_sella(
+                x_lininter_rp,
+                z=sample.z,
+                natoms=sample.natoms,
+                true_pos=sample.pos_transition,
+                title=f"Sella TS from linear R-P idx{idx}",
+                calc=asecalc,
+                hessian_function=hessian_function,
+                hessian_method=hessian_method,
+                internal=internal,
+            )
+
+            # Geodesic interpolation between reactant and product
+            mol_ase = run_sella(
+                x_geointer_rp,
+                z=sample.z,
+                natoms=sample.natoms,
+                true_pos=sample.pos_transition,
+                title=f"Sella TS from geodesic R-P idx{idx}",
+                calc=asecalc,
+                hessian_function=hessian_function,
+                hessian_method=hessian_method,
+                internal=internal,
+            )
+            # Geodesic interpolation between reactant and product
+            mol_ase = run_sella(
+                x_geointer_rp,
+                z=sample.z,
+                natoms=sample.natoms,
+                true_pos=sample.pos_transition,
+                title=f"Sella TS from geodesic R-P idx{idx}",
+                calc=asecalc,
+                hessian_function=hessian_function,
+                hessian_method=hessian_method,
+                internal=internal,
+                diag_every_n=0,
+            )
+
+            # Start from reactant
+            mol_ase = run_sella(
+                sample.pos_reactant,
+                z=sample.z,
+                natoms=sample.natoms,
+                true_pos=sample.pos_transition,
+                title=f"Sella TS from R idx{idx}",
+                calc=asecalc,
+                hessian_function=hessian_function,
+                hessian_method=hessian_method,
+                internal=internal,
+            )
+
+            # Start from reactant, diag every 1 step
+            mol_ase = run_sella(
+                sample.pos_reactant,
+                z=sample.z,
+                natoms=sample.natoms,
+                true_pos=sample.pos_transition,
+                title=f"Sella TS from R idx{idx}",
+                calc=asecalc,
+                hessian_function=hessian_function,
+                hessian_method=hessian_method,
+                internal=internal,
+                diag_every_n=0,
+            )
+    return
+
+
 def main(
-    eigen_method="qr",
+    # eigen_method="qr",
+    idx=104_000,
     do_gad=False,
     do_sella=False,
     do_irc_neb_geodesic=False,
@@ -293,12 +429,11 @@ def main(
     dataset = LmdbDataset("data/rgd1/rgd1_minimal_train.lmdb")
     print(f"Dataset size: {len(dataset)}")
 
-    # Get the first sample
-    print("\nLoading first sample")
-    # Smallest sample: 104_000 with 4 atoms
-    sample = dataset[104_000]
+    # Get the sample by index
+    print(f"\nLoading sample {idx}")
+    sample = dataset[idx]
     print(sample)
-    print(f"First sample keys: {sample.keys()}")
+    print(f"Sample keys: {sample.keys()}")
     print(f"Number of atoms: {sample.natoms}")
     print(f"Elements (z): {sample.z}")
     print(f"Reactant SMILES: {sample.smiles_reactant}")
@@ -306,10 +441,10 @@ def main(
 
     # Initialize equiformer calculator
     print("\n" + "-" * 6)
-    print(f"Initializing EquiformerCalculator with eigen_method={eigen_method}")
-    torchcalc = EquiformerCalculator(device=device, eigen_dof_method=eigen_method)
+    print("Initializing EquiformerTorchCalculator")
+    torchcalc = EquiformerTorchCalculator(device=device)
 
-    print("\nASE EquiformerCalculator")
+    print("\nASE EquiformerTorchCalculator")
     asecalc = EquiformerASECalculator(device=device)
 
     # # Example forward pass
@@ -330,21 +465,21 @@ def main(
     plot_molecule_mpl(
         sample.pos_reactant,
         atomic_numbers=sample.z,
-        title="Reactant",
+        title=f"Reactant idx{idx}",
         plot_dir=plot_dir,
         save=True,
     )
     plot_molecule_mpl(
         sample.pos_transition,
         atomic_numbers=sample.z,
-        title="Transition state",
+        title=f"Transition state idx{idx}",
         plot_dir=plot_dir,
         save=True,
     )
     plot_molecule_mpl(
         sample.pos_product,
         atomic_numbers=sample.z,
-        title="Product",
+        title=f"Product idx{idx}",
         plot_dir=plot_dir,
         save=True,
     )
@@ -365,7 +500,7 @@ def main(
     plot_molecule_mpl(
         x_lininter_rts,
         atomic_numbers=sample.z,
-        title="R-TS linear interpolation",
+        title=f"R-TS linear interpolation idx{idx}",
         plot_dir=plot_dir,
         save=True,
     )
@@ -374,7 +509,7 @@ def main(
     plot_molecule_mpl(
         x_lininter_rp,
         atomic_numbers=sample.z,
-        title="R-P linear interpolation",
+        title=f"R-P linear interpolation idx{idx}",
         plot_dir=plot_dir,
         save=True,
     )
@@ -387,7 +522,7 @@ def main(
     plot_molecule_mpl(
         x_geointer_rp,
         atomic_numbers=sample.z,
-        title="R-P geodesic interpolation",
+        title=f"R-P geodesic interpolation idx{idx}",
         plot_dir=plot_dir,
         save=True,
     )
@@ -404,7 +539,12 @@ def main(
 
     if do_gad:
         test_gad_ts_search(
-            sample, torchcalc, eigen_method, x_lininter_rp, x_geointer_rp
+            sample=sample,
+            torchcalc=torchcalc,
+            x_lininter_rp=x_lininter_rp,
+            x_geointer_rp=x_geointer_rp,
+            idx=idx,
+            asecalc=asecalc,
         )
 
     ###################################################################################
@@ -441,103 +581,14 @@ def main(
 
     ###################################################################################
     if do_sella:
-        print("=" * 60)
-        print("Following Sella to find transition state")
-
-        # See if Sella can find the transition state
-
-        # # Test run: Start from reactant, internal coordinates
-        # hessian_method = None
-        # mol_ase = run_sella(
-        #     pos_reactant,
-        #     z=sample.z,
-        #     natoms=sample.natoms,
-        #     true_pos=sample.pos_transition,
-        #     title=f"Sella TS from R | Hessian={hessian_method} | Internal",
-        #     calc=asecalc,
-        #     hessian_function=get_hessian_function(hessian_method, asecalc),
-        #     internal=True,
-        #     run_kwargs={"steps": 100},
-        # )
-
-        # for hessian_method in [None, "autodiff", "predict"]:
-        for hessian_method in ["autodiff"]:
-
-            hessian_function = get_hessian_function(hessian_method, asecalc)
-
-            # Linear interpolation between reactant and product
-            mol_ase = run_sella(
-                x_lininter_rp,
-                z=sample.z,
-                natoms=sample.natoms,
-                true_pos=sample.pos_transition,
-                title=f"Sella TS from linear R-P | Hessian={hessian_method}",
-                calc=asecalc,
-                hessian_function=hessian_function,
-                run_kwargs=dict(fmax=1e-4),
-            )
-
-            # Geodesic interpolation between reactant and product
-            mol_ase = run_sella(
-                x_geointer_rp,
-                z=sample.z,
-                natoms=sample.natoms,
-                true_pos=sample.pos_transition,
-                title=f"Sella TS from geodesic R-P | Hessian={hessian_method}",
-                calc=asecalc,
-                hessian_function=hessian_function,
-                run_kwargs=dict(fmax=1e-4),
-            )
-
-            # Start from reactant
-            mol_ase = run_sella(
-                pos_reactant,
-                z=sample.z,
-                natoms=sample.natoms,
-                true_pos=sample.pos_transition,
-                title=f"Sella TS from R | Hessian={hessian_method}",
-                calc=asecalc,
-                hessian_function=hessian_function,
-            )
-
-            # Start from reactant, internal coordinates
-            mol_ase = run_sella(
-                pos_reactant,
-                z=sample.z,
-                natoms=sample.natoms,
-                true_pos=sample.pos_transition,
-                title=f"Sella TS from R | Hessian={hessian_method} | Internal",
-                calc=asecalc,
-                hessian_function=hessian_function,
-                internal=True,
-                run_kwargs=dict(fmax=1e-4),
-            )
-
-            # Start from reactant, internal coordinates, diag every 1 step
-            mol_ase = run_sella(
-                pos_reactant,
-                z=sample.z,
-                natoms=sample.natoms,
-                true_pos=sample.pos_transition,
-                title=f"Sella TS from R | Hessian={hessian_method} | Internal diag1",
-                calc=asecalc,
-                hessian_function=hessian_function,
-                internal=True,
-                diag_every_n=1,
-                run_kwargs=dict(fmax=1e-4),
-            )
-            mol_ase = run_sella(
-                pos_reactant,
-                z=sample.z,
-                natoms=sample.natoms,
-                true_pos=sample.pos_transition,
-                title=f"Sella TS from R | Hessian={hessian_method} | Internal diag0",
-                calc=asecalc,
-                hessian_function=hessian_function,
-                internal=True,
-                diag_every_n=0,
-                run_kwargs=dict(fmax=1e-4),
-            )
+        test_sella_ts_search(
+            sample=sample,
+            torchcalc=torchcalc,
+            x_lininter_rp=x_lininter_rp,
+            x_geointer_rp=x_geointer_rp,
+            idx=idx,
+            asecalc=asecalc,
+        )
 
     ###################################################################################
     if do_irc_neb_geodesic:
@@ -582,7 +633,7 @@ def main(
         endsummary = after_ase_opt(
             result,
             z=sample.z,
-            title="Forward IRC QuAcc from R",
+            title=f"Forward IRC QuAcc from R idx{idx}",
             true_pos=sample.pos_transition,
             plot_dir=plot_dir,
         )
@@ -644,13 +695,14 @@ def main(
             dt=0.01,  # time step
             max_steps=100,  # maximum optimization steps
             convergence_threshold=1e-4,  # convergence criterion for forces
-            title="R-TS interpolation",
+            title=f"R-TS interpolation idx{idx}",
             plot_dir=plot_dir,
+            asecalc=asecalc,
         )
         plot_molecule_mpl(
             trajectory_pos[-1],
             atomic_numbers=sample.z,
-            title="Optimized Minimum from R-TS interpolation",
+            title=f"Optimized Minimum from R-TS interpolation idx{idx}",
             plot_dir=plot_dir,
             save=True,
         )
@@ -658,12 +710,12 @@ def main(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run GAD-RGD1 main.")
-    parser.add_argument(
-        "--eigen-method",
-        type=str,
-        default="qr",
-        help="Eigenvalue method for GAD (qr, svd, svdforce, inertia, geo, ase, eckartsvd, eckartqr)",
-    )
+    # parser.add_argument(
+    #     "--eigen-method",
+    #     type=str,
+    #     default="qr",
+    #     help="Eigenvalue method for GAD (qr, svd, svdforce, inertia, geo, ase, eckartsvd, eckartqr)",
+    # )
     parser.add_argument(
         "--do-gad",
         action="store_true",
@@ -688,6 +740,12 @@ if __name__ == "__main__":
         "--do-forces",
         action="store_true",
         help="Run forces to find reactant minimum",
+    )
+    parser.add_argument(
+        "--idx",
+        type=int,
+        default=104_000,
+        help="Index of the sample to load from the dataset.",
     )
     args, unknown = parser.parse_known_args()
 
@@ -714,7 +772,8 @@ if __name__ == "__main__":
     #         eigen_kwargs[key] = True
 
     results = main(
-        eigen_method=args.eigen_method,
+        # eigen_method=args.eigen_method,
+        idx=args.idx,
         do_gad=args.do_gad,
         do_sella=args.do_sella,
         do_irc_neb_geodesic=args.do_irc_neb_geodesic,

@@ -22,9 +22,10 @@ import logging
 import math
 import time
 from datetime import datetime
+import traceback
 
 from gadff.horm.ff_lmdb import LmdbDataset
-from gadff.equiformer_calculator import EquiformerCalculator
+from gadff.equiformer_calculator import EquiformerTorchCalculator
 
 # from gadff.align_unordered_mols import rmsd
 from gadff.align_ordered_mols import align_ordered_and_get_rmsd
@@ -107,6 +108,14 @@ def clean_dict(data):
         except:
             pass
         return None
+    elif isinstance(data, type):
+        # Return class name for classes
+        return data.__class__.__name__
+    elif hasattr(data, "__name__"):
+        # Return function name for functions
+        return data.__name__
+    # elif callable(data):
+    #     return
     else:
         # Discard other non-serializable types
         return None
@@ -133,14 +142,13 @@ def copy_atoms(atoms: Atoms) -> Atoms:
     """
     Simple function to copy an atoms object to prevent mutability.
     """
-    try:
-        atoms = copy.deepcopy(atoms)
-    except Exception:
-        # Needed because of ASE issue #1084
-        calc = atoms.calc
-        atoms = atoms.copy()
-        atoms.calc = calc
-
+    # try:
+    #     atoms = copy.deepcopy(atoms)
+    # except Exception:
+    #     # Needed because of ASE issue #1084
+    calc = atoms.calc
+    atoms = atoms.copy()
+    atoms.calc = calc
     return atoms
 
 
@@ -192,19 +200,21 @@ def integrate_dynamics(
     initial_pos: torch.Tensor,
     z: torch.Tensor,
     natoms: torch.Tensor,
-    calc,
+    torchcalc,
     true_pos: torch.Tensor,
     force_field="gad",
     title=None,
-    max_steps=100,
+    max_steps=3_000,
     convergence_threshold=1e-4,
     dt=0.01,
     print_every=100,
-    n_patience_steps=50,
+    n_patience_steps=1_000,
     patience_threshold=2.0,
     center_around_com=False,
     align_rotation=False,
     plot_dir=None,
+    do_freq=True,
+    asecalc=None,
 ):
     assert force_field in ["gad", "forces"], f"Unknown force field: {force_field}"
 
@@ -224,7 +234,7 @@ def integrate_dynamics(
     rmsd_initial = align_ordered_and_get_rmsd(initial_pos, true_pos)
     print(f"RMSD start: {rmsd_initial:.6f} Å")
 
-    device = calc.model.device
+    device = torchcalc.model.device
     initial_pos = to_torch(initial_pos, device)
     true_pos = to_torch(true_pos, device)
     # z = to_torch(z, device)
@@ -254,12 +264,12 @@ def integrate_dynamics(
 
         if force_field == "gad":
             # Compute GAD vector field
-            gad_vector, out = calc.predict_gad_with_hessian(batch_current)
+            gad_vector, out = torchcalc.gad_autograd_hessian(batch_current)
             energy = out["energy"]
             forces = gad_vector.reshape(-1, 3)
         elif force_field == "forces":
             # Compute forces
-            energy, forces, eigenpred = calc.predict(batch_current)
+            energy, forces, eigenpred = torchcalc.predict(batch_current)
             forces = forces.reshape(-1, 3)
         else:
             raise ValueError(f"Unknown force field: {force_field}")
@@ -280,11 +290,13 @@ def integrate_dynamics(
             break
 
         # terminate if force norm was small for 50 steps
-        if np.all(
-            np.array(trajectory_forces_norm[-n_patience_steps:]) < patience_threshold
-        ):
-            print(f"Force norm was small for {n_patience_steps} steps, terminating")
-            break
+        if step > n_patience_steps:
+            if np.all(
+                np.array(trajectory_forces_norm[-n_patience_steps:])
+                < patience_threshold
+            ):
+                print(f"Force norm was small for {n_patience_steps} steps, terminating")
+                break
 
         # Euler integration step
         current_pos = current_pos.detach() + dt * forces  # [N, 3]
@@ -303,11 +315,11 @@ def integrate_dynamics(
                 f"Step {step}: VF norm = {forces_norm:.6f}, Energy = {energy.item():.6f}"
             )
     t2 = time.time()
-    print(f"Time taken: {t2 - t1:.2f} seconds")
+    steps = len(trajectory_pos)
+    print(f"Time taken: {t2 - t1:.2f} seconds (steps={steps})")
     # Final position
     final_pos = trajectory_pos[-1]
 
-    steps = len(trajectory_pos)
     title += f" s{steps}"
     title = f"{force_field} - {title}"
 
@@ -345,12 +357,12 @@ def integrate_dynamics(
 
     # Compute Hessian eigenvalues at final structure
     batch_final = Batch.from_data_list(
-        [TGData(z=z, pos=final_pos.requires_grad_(True), natoms=natoms)]
+        [TGData(z=z, pos=final_pos.clone().requires_grad_(True), natoms=natoms)]
     )
 
     # Computing Hessian eigenvalues at converged structure
     energy_final, forces_final, hessian, eigenvalues, eigenvectors, eigenpred = (
-        calc.predict_with_hessian(batch_final)
+        torchcalc.predict_with_hessian(batch_final)
     )
 
     print(
@@ -390,6 +402,12 @@ def integrate_dynamics(
         "time_taken": t2 - t1,
         "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
+
+    if do_freq:
+        mol_ase = Atoms(numbers=z, positions=final_pos)
+        mol_ase.calc = asecalc
+        freq_summary = run_freq(mol_ase, asecalc)
+        summary.update(freq_summary)
     return summary
 
 
@@ -514,6 +532,7 @@ def run_sella(
     title,
     calc=None,
     hessian_function=None,
+    hessian_method=None,
     sella_kwargs={},
     run_kwargs={},
     diag_every_n=None,  # brute force. paper set this to 1. try 0
@@ -522,6 +541,21 @@ def run_sella(
     plot_dir=None,
     do_freq=True,
 ):
+    if hessian_function is None:
+        hessian_method = None
+    else:
+        if hessian_method is None:
+            hessian_method = hessian_function.__name__
+    title += f" | Hessian={hessian_method}"
+    if internal:
+        title += " | Internal"
+    else:
+
+        title += " | Cartesian"
+    if diag_every_n is not None:
+        title += f" | diag_every_n={diag_every_n}"
+    # if nsteps_per_diag != 3:
+    #     title += f" | nsteps_per_diag={nsteps_per_diag}"
     print("\nRunning Sella TS search:", title)
     if plot_dir is None:
         # Auto-detect plot directory based on main script
@@ -557,14 +591,32 @@ def run_sella(
         **_sella_kwargs,
     )
 
-    # Run with much tighter convergence
     _run_kwargs = dict(
-        # fmax=1e-5,
+        fmax=1e-3,
         steps=4000,
     )
     _run_kwargs.update(run_kwargs)
+
+    summary = {
+        "sella_kwargs": _sella_kwargs,
+        "run_kwargs": _run_kwargs,
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+    # Run the optimization
     t1 = time.time()
-    dyn.run(**_run_kwargs)  # Much stricter convergence criterion
+    try:
+        dyn.run(**_run_kwargs)
+    except Exception as e:
+        error_traceback = traceback.print_exc()
+        print(f"Error in Sella optimization: {e}")
+        print(f"Sella kwargs: {_sella_kwargs}")
+        print(f"Run kwargs: {_run_kwargs}")
+        print("Full stack trace:")
+        print(error_traceback)
+        summary["error"] = str(e)
+        summary["error_traceback"] = error_traceback
+        return summary
     t2 = time.time()
     print(f"Time taken: {t2 - t1:.2f} seconds")
     print("Sella optimization completed!")
@@ -574,14 +626,13 @@ def run_sella(
     # traj = dyn.trajectory.trajectory # ASE
     traj = dyn.pes.traj.trajectory  # Sella PES trajectory
 
-    summary = {
-        "trajectory": traj,
-        "nsteps": dyn.nsteps,
-        "sella_kwargs": _sella_kwargs,
-        "run_kwargs": _run_kwargs,
-        "time_taken": t2 - t1,
-        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-    }
+    summary.update(
+        {
+            "trajectory": traj,
+            "nsteps": dyn.nsteps,
+            "time_taken": t2 - t1,
+        }
+    )
     summary.update(initsummary)
 
     if do_freq:
@@ -620,9 +671,17 @@ def run_freq(atoms, calc):
         frequencies = vib_data.get_frequencies()  # in cm^-1
         energies = vib_data.get_energies()  # in eV
         modes = vib_data.get_modes()
+
+        # Check if this is a transition state (exactly one negative frequency)
+        negative_freq_count = np.sum(frequencies < 0)
+        is_transition_state = negative_freq_count == 1
+        print(f"Is transition state: {is_transition_state} for {freq_method}")
+
         summary[f"freq_{freq_method}"] = frequencies
         summary[f"energy_{freq_method}"] = energies
         summary[f"mode_{freq_method}"] = modes
+        summary[f"negative_freq_count_{freq_method}"] = negative_freq_count
+        summary[f"is_transition_state_{freq_method}"] = is_transition_state
         summary[f"time_taken_{freq_method}"] = t2 - t1
         summary[f"date_{freq_method}"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         # vib.summary()

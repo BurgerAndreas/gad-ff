@@ -1,5 +1,6 @@
 from typing import Union, Callable
-import copy
+
+# import copy
 
 import numpy as np
 from scipy.linalg import eigh
@@ -15,6 +16,16 @@ from sella.hessian_update import symmetrize_Y
 from sella.linalg import NumericalHessian, ApproximateHessian
 from sella.eigensolvers import rayleigh_ritz
 from sella.internal import Internals, Constraints, DuplicateInternalError
+
+
+def copy_atoms(atoms: Atoms) -> Atoms:
+    """
+    Simple function to copy an atoms object to prevent mutability.
+    """
+    calc = atoms.calc
+    atoms = atoms.copy()
+    atoms.calc = calc
+    return atoms
 
 
 class PES:
@@ -680,21 +691,28 @@ class InternalPES(PES):
 
     def write_traj(self):
         if self.traj is not None:
+            # Andreas start
+            if hasattr(self.traj, "save_full_atoms"):
+                self.traj.write(atoms=self.atoms, dummies=self.dummies)
+                return
+            # Andreas end
             energy = self.atoms.calc.results["energy"]
             forces = np.zeros((len(self.atoms) + len(self.dummies), 3))
             forces[: len(self.atoms)] = self.atoms.calc.results["forces"]
-            # Andreas
-            if self.write_dummies_to_traj:
-                atoms_tmp = copy.deepcopy(self.atoms) + copy.deepcopy(self.dummies)
-            else:
-                atoms_tmp = copy.deepcopy(self.atoms)
-                if hasattr(self.traj, "trajectory_dummies"):
-                    self.traj.trajectory_dummies.append(copy.deepcopy(self.dummies))
-            # Andreas end
+            # # Andreas start
+            # if self.write_dummies_to_traj:
+            #     atoms_tmp = copy.deepcopy(self.atoms) + copy.deepcopy(self.dummies)
+            # else:
+            #     atoms_tmp = copy.deepcopy(self.atoms)
+            #     if hasattr(self.traj, "trajectory_dummies"):
+            #         self.traj.trajectory_dummies.append(copy.deepcopy(self.dummies))
+            # # Andreas end
+            atoms_tmp = self.atoms + self.dummies
             atoms_tmp.calc = SinglePointCalculator(
                 atoms_tmp, energy=energy, forces=forces
             )
             self.traj.write(atoms_tmp)
+        return
 
     def _update(self, feval=True):
         if not PES._update(self, feval=feval):

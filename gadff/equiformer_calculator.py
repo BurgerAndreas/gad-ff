@@ -112,12 +112,12 @@ def compute_hessian(coords, forces, retain_graph=True):
     return hessian.reshape(n_comp, -1)
 
 
-class EquiformerCalculator:
+class EquiformerTorchCalculator:
     def __init__(
         self,
         checkpoint_path: Optional[str] = None,
         device: Optional[torch.device] = None,
-        eigen_dof_method: str = "qr",
+        eigen_dof_method: str = None,
     ):
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -234,7 +234,7 @@ class EquiformerCalculator:
         out.update(eigenpred)
         return gad, out
 
-    def predict_gad_with_hessian(self, batch):
+    def gad_autograd_hessian(self, batch):
         B = batch.batch.max() + 1
         assert B == 1, "Only one batch is supported for Hessian prediction"
         N = batch.natoms

@@ -75,7 +75,7 @@ def predict_gad(batch, potential):
     return gad
 
 
-def predict_gad_with_hessian(batch, potential):
+def gad_autograd_hessian(batch, potential):
     energy, forces, hessian, eigenvalues, eigenvectors, eigenpred = (
         predict_with_hessian(batch, potential)
     )
@@ -145,5 +145,5 @@ if __name__ == "__main__":
     print(f"  GAD: {gad.shape}")
 
     # Example 4: predict gad with hessian
-    gad = predict_gad_with_hessian(data, model)
+    gad = gad_autograd_hessian(data, model)
     print(f"  GAD with Hessian: {gad.shape}")

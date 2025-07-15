@@ -109,7 +109,10 @@ class MyTrajectory:
             _traj_step = _traj_step[0]
         self.trajectory.append(_traj_step)
         if dummies is not None:
-            self.trajectory_dummies.append(dummies)
+            if self.save_full_atoms:
+                self.trajectory_dummies.append(dummies)
+            else:
+                self.trajectory_dummies.append(dummies.get_positions())
         self.trajectory_properties.append(kwargs)
         return
 

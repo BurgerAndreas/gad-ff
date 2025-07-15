@@ -28,9 +28,20 @@ import seaborn as sns
 # pio.renderers.default = "browser"
 
 from gadff.horm.ff_lmdb import LmdbDataset
-from gadff.equiformer_calculator import EquiformerCalculator
+from gadff.equiformer_calculator import EquiformerTorchCalculator
 from gadff.align_unordered_mols import compute_rmsd
 from ocpmodels.units import ELEMENT_TO_ATOMIC_NUMBER, ATOMIC_NUMBER_TO_ELEMENT
+
+# # Set global font size for all plots
+# plt.rcParams.update({
+#     'font.size': 6,
+#     'axes.titlesize': 8,
+#     'axes.labelsize': 6,
+#     'xtick.labelsize': 5,
+#     'ytick.labelsize': 5,
+#     'legend.fontsize': 6,
+#     'figure.titlesize': 10
+# })
 
 
 def to_numpy(x):
@@ -646,7 +657,7 @@ def plot_traj_mpl(
     ax.set_xlabel("X (Å)", fontsize=fontsize)
     ax.set_ylabel("Y (Å)", fontsize=fontsize)
     ax.set_zlabel("Z (Å)", fontsize=fontsize)
-    # ax.set_title(f'{title}', fontsize=fontsize)
+    ax.set_title(f"{title}", fontsize=fontsize)
 
     # Make axes equal - calculate bounds over entire trajectory
     coords_traj_np = to_numpy(coords_traj)  # Convert entire trajectory to numpy

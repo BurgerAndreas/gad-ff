@@ -24,17 +24,29 @@ from typing import Dict, List, Tuple
 plt.style.use("default")
 sns.set_palette("husl")
 
+# # Set global font size for all plots
+# plt.rcParams.update({
+#     'font.size': 4,
+#     'axes.titlesize': 5,
+#     'axes.labelsize': 4,
+#     'xtick.labelsize': 3,
+#     'ytick.labelsize': 3,
+#     'legend.fontsize': 4,
+#     'figure.titlesize': 6
+# })
+
 
 def parse_experiment_name(dirname: str) -> Dict[str, str]:
     """
     Parse experiment directory name to extract metadata.
 
-    Example: 'sella_ts_from_linear_r_p_hessian_none' ->
+    Example: 'sella_ts_from_linear_r_p_hessian_none_idx_0' ->
     {
         'method': 'sella_ts',
         'start_point': 'linear_r_p',
         'hessian': 'none',
-        'coordinates': 'cartesian'
+        'coordinates': 'cartesian',
+        'idx': '0'
     }
     """
     parts = dirname.split("_")
@@ -44,6 +56,8 @@ def parse_experiment_name(dirname: str) -> Dict[str, str]:
         "start_point": "unknown",
         "hessian": "none",
         "coordinates": "cartesian",
+        "diag_every_n": None,
+        "idx": None,
     }
 
     # Extract starting point
@@ -65,6 +79,20 @@ def parse_experiment_name(dirname: str) -> Dict[str, str]:
             # Handle case where there might be more parts after hessian
             if hess_method not in ["internal"]:
                 metadata["hessian"] = hess_method
+
+    # Extract diag_every_n
+    if "diag_every_n" in parts:
+        diag_idx = parts.index("diag_every_n")
+        if diag_idx < len(parts) - 1:
+            diag_every_n = parts[diag_idx + 1]
+            metadata["diag_every_n"] = diag_every_n
+
+    # Extract idx
+    if "idx" in parts:
+        idx_pos = parts.index("idx")
+        if idx_pos < len(parts) - 1:
+            idx_value = parts[idx_pos + 1]
+            metadata["idx"] = idx_value
 
     # Check for internal coordinates
     if "internal" in parts:
@@ -121,12 +149,16 @@ def load_all_results(plots_dir: str = "playground/plots_sella") -> pd.DataFrame:
     return df
 
 
-def create_rmsd_plots(df: pd.DataFrame, output_dir: str = "playground/plots_sella"):
+def create_rmsd_plots(
+    df: pd.DataFrame, output_dir: str = "playground/plots_sella", suffix: str = ""
+):
     """Create RMSD comparison plots."""
 
     fig, axes = plt.subplots(2, 2, figsize=(15, 12))
     fig.suptitle(
-        "RMSD Analysis Across Sella TS Experiments", fontsize=16, fontweight="bold"
+        f"RMSD Analysis Across Sella TS Experiments{suffix}",
+        fontsize=10,
+        fontweight="bold",
     )
 
     # Plot 1: RMSD Initial vs Final
@@ -232,28 +264,28 @@ def create_rmsd_plots(df: pd.DataFrame, output_dir: str = "playground/plots_sell
             (row["time_taken"], row["rmsd_improvement"]),
             xytext=(5, 5),
             textcoords="offset points",
-            fontsize=8,
+            fontsize=5,
             alpha=0.7,
         )
 
     plt.tight_layout()
 
     # Save the plot
-    output_file = os.path.join(output_dir, "rmsd_analysis.png")
+    output_file = os.path.join(output_dir, f"rmsd_analysis{suffix}.png")
     plt.savefig(output_file, dpi=300, bbox_inches="tight")
     print(f"RMSD analysis plot saved to: {output_file}")
     # plt.show()
 
 
 def create_rmsd_standalone_plots(
-    df: pd.DataFrame, output_dir: str = "playground/plots_sella"
+    df: pd.DataFrame, output_dir: str = "playground/plots_sella", suffix: str = ""
 ):
     """Create standalone RMSD initial vs final plots - normal and log scale."""
 
     fig, axes = plt.subplots(1, 2, figsize=(15, 6))
     fig.suptitle(
-        "RMSD Initial vs Final - Linear and Log Scale Comparison",
-        fontsize=16,
+        f"RMSD Initial vs Final - Linear and Log Scale Comparison{suffix}",
+        fontsize=10,
         fontweight="bold",
     )
 
@@ -292,7 +324,7 @@ def create_rmsd_standalone_plots(
             (row["rmsd_initial"], row["rmsd_final"]),
             xytext=(5, 5),
             textcoords="offset points",
-            fontsize=8,
+            fontsize=5,
             alpha=0.7,
         )
 
@@ -339,25 +371,29 @@ def create_rmsd_standalone_plots(
             (row["rmsd_initial"], row["rmsd_final"]),
             xytext=(5, 5),
             textcoords="offset points",
-            fontsize=8,
+            fontsize=5,
             alpha=0.7,
         )
 
     plt.tight_layout()
 
     # Save the plot
-    output_file = os.path.join(output_dir, "rmsd_only_comparison.png")
+    output_file = os.path.join(output_dir, f"rmsd_only_comparison{suffix}.png")
     plt.savefig(output_file, dpi=300, bbox_inches="tight")
     print(f"Standalone RMSD comparison plot saved to: {output_file}")
     # plt.show()
 
 
-def create_timing_plots(df: pd.DataFrame, output_dir: str = "playground/plots_sella"):
+def create_timing_plots(
+    df: pd.DataFrame, output_dir: str = "playground/plots_sella", suffix: str = ""
+):
     """Create timing comparison plots."""
 
     fig, axes = plt.subplots(2, 2, figsize=(15, 12))
     fig.suptitle(
-        "Timing Analysis Across Sella TS Experiments", fontsize=16, fontweight="bold"
+        f"Timing Analysis Across Sella TS Experiments{suffix}",
+        fontsize=10,
+        fontweight="bold",
     )
 
     # Plot 1: Total optimization time by experiment
@@ -386,7 +422,7 @@ def create_timing_plots(df: pd.DataFrame, output_dir: str = "playground/plots_se
             f"{time_val:.1f}s",
             ha="center",
             va="bottom",
-            fontsize=8,
+            fontsize=5,
         )
 
     # Plot 2: Hessian computation times comparison
@@ -448,7 +484,7 @@ def create_timing_plots(df: pd.DataFrame, output_dir: str = "playground/plots_se
             (row["nsteps"], row["time_taken"]),
             xytext=(5, 5),
             textcoords="offset points",
-            fontsize=8,
+            fontsize=5,
             alpha=0.7,
         )
 
@@ -479,25 +515,27 @@ def create_timing_plots(df: pd.DataFrame, output_dir: str = "playground/plots_se
             f"{time_val:.3f}s",
             ha="center",
             va="bottom",
-            fontsize=8,
+            fontsize=5,
         )
 
     plt.tight_layout()
 
     # Save the plot
-    output_file = os.path.join(output_dir, "timing_analysis.png")
+    output_file = os.path.join(output_dir, f"timing_analysis{suffix}.png")
     plt.savefig(output_file, dpi=300, bbox_inches="tight")
     print(f"Timing analysis plot saved to: {output_file}")
     # plt.show()
 
 
-def create_steps_plots(df: pd.DataFrame, output_dir: str = "playground/plots_sella"):
+def create_steps_plots(
+    df: pd.DataFrame, output_dir: str = "playground/plots_sella", suffix: str = ""
+):
     """Create number of steps analysis plots."""
 
     fig, axes = plt.subplots(2, 2, figsize=(15, 12))
     fig.suptitle(
-        "Optimization Steps Analysis Across Sella TS Experiments",
-        fontsize=16,
+        f"Optimization Steps Analysis Across Sella TS Experiments{suffix}",
+        fontsize=10,
         fontweight="bold",
     )
 
@@ -527,7 +565,7 @@ def create_steps_plots(df: pd.DataFrame, output_dir: str = "playground/plots_sel
             f"{int(steps)}",
             ha="center",
             va="bottom",
-            fontsize=10,
+            fontsize=6,
             fontweight="bold",
         )
 
@@ -560,7 +598,7 @@ def create_steps_plots(df: pd.DataFrame, output_dir: str = "playground/plots_sel
             (row["nsteps"], row["rmsd_improvement"]),
             xytext=(10, 10),
             textcoords="offset points",
-            fontsize=9,
+            fontsize=6,
             alpha=0.8,
         )
 
@@ -597,7 +635,7 @@ def create_steps_plots(df: pd.DataFrame, output_dir: str = "playground/plots_sel
             f"{int(steps)}",
             ha="center",
             va="bottom",
-            fontsize=9,
+            fontsize=6,
             fontweight="bold",
         )
 
@@ -640,20 +678,22 @@ def create_steps_plots(df: pd.DataFrame, output_dir: str = "playground/plots_sel
             f"{eff:.6f}",
             ha="center",
             va="bottom" if eff > 0 else "top",
-            fontsize=8,
+            fontsize=5,
             fontweight="bold",
         )
 
     plt.tight_layout()
 
     # Save the plot
-    output_file = os.path.join(output_dir, "steps_analysis.png")
+    output_file = os.path.join(output_dir, f"steps_analysis{suffix}.png")
     plt.savefig(output_file, dpi=300, bbox_inches="tight")
     print(f"Steps analysis plot saved to: {output_file}")
     # plt.show()
 
 
-def create_summary_table(df: pd.DataFrame, output_dir: str = "playground/plots_sella"):
+def create_summary_table(
+    df: pd.DataFrame, output_dir: str = "playground/plots_sella", suffix: str = ""
+):
     """Create a summary table of all results."""
 
     # Select key columns for summary
@@ -689,18 +729,939 @@ def create_summary_table(df: pd.DataFrame, output_dir: str = "playground/plots_s
     # Sort by RMSD improvement (best first)
     summary_df = summary_df.sort_values("rmsd_improvement", ascending=False)
 
-    print("\n" + "=" * 100)
-    print("SUMMARY TABLE - Sella TS Experiments")
+    print(f"\n" + "=" * 100)
+    print(f"SUMMARY TABLE - Sella TS Experiments{suffix}")
     print("=" * 100)
     print(summary_df.to_string(index=False))
     print("=" * 100)
 
     # Save to CSV
-    output_file = os.path.join(output_dir, "sella_results_summary.csv")
+    output_file = os.path.join(output_dir, f"sella_results_summary{suffix}.csv")
     summary_df.to_csv(output_file, index=False)
     print(f"\nSummary table saved to: {output_file}")
 
     return summary_df
+
+
+def create_diag_comparison_plots(
+    df: pd.DataFrame, output_dir: str = "playground/plots_sella"
+):
+    """Create comparison plots across different diag_every_n values."""
+
+    # Filter out rows where diag_every_n is None
+    df_with_diag = df[df["diag_every_n"].notna()].copy()
+
+    if len(df_with_diag) == 0:
+        print("No experiments with diag_every_n values found for comparison.")
+        return
+
+    # Convert diag_every_n to numeric for proper sorting
+    df_with_diag["diag_every_n"] = pd.to_numeric(df_with_diag["diag_every_n"])
+
+    fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+    fig.suptitle(
+        "Performance Comparison Across diag_every_n Values",
+        fontsize=10,
+        fontweight="bold",
+    )
+
+    # Plot 1: RMSD Improvement vs diag_every_n
+    ax1 = axes[0, 0]
+    diag_values = sorted(df_with_diag["diag_every_n"].unique())
+    rmsd_improvements = []
+    rmsd_stds = []
+
+    for diag_val in diag_values:
+        subset = df_with_diag[df_with_diag["diag_every_n"] == diag_val]
+        rmsd_improvements.append(subset["rmsd_improvement"].mean())
+        rmsd_stds.append(subset["rmsd_improvement"].std() if len(subset) > 1 else 0)
+
+    bars = ax1.bar(
+        range(len(diag_values)),
+        rmsd_improvements,
+        yerr=rmsd_stds,
+        capsize=5,
+        alpha=0.7,
+        color="skyblue",
+    )
+    ax1.set_xlabel("diag_every_n")
+    ax1.set_ylabel("RMSD Improvement (Å)")
+    ax1.set_title("Average RMSD Improvement vs diag_every_n")
+    ax1.set_xticks(range(len(diag_values)))
+    ax1.set_xticklabels([str(int(x)) for x in diag_values])
+    ax1.grid(True, alpha=0.3)
+    ax1.axhline(y=0, color="r", linestyle="--", alpha=0.5)
+
+    # Add value labels on bars
+    for bar, improvement in zip(bars, rmsd_improvements):
+        ax1.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 0.001,
+            f"{improvement:.4f}",
+            ha="center",
+            va="bottom",
+            fontsize=6,
+        )
+
+    # Plot 2: Time Taken vs diag_every_n
+    ax2 = axes[0, 1]
+    time_means = []
+    time_stds = []
+
+    for diag_val in diag_values:
+        subset = df_with_diag[df_with_diag["diag_every_n"] == diag_val]
+        time_means.append(subset["time_taken"].mean())
+        time_stds.append(subset["time_taken"].std() if len(subset) > 1 else 0)
+
+    bars = ax2.bar(
+        range(len(diag_values)),
+        time_means,
+        yerr=time_stds,
+        capsize=5,
+        alpha=0.7,
+        color="lightcoral",
+    )
+    ax2.set_xlabel("diag_every_n")
+    ax2.set_ylabel("Time Taken (s)")
+    ax2.set_title("Average Time Taken vs diag_every_n")
+    ax2.set_xticks(range(len(diag_values)))
+    ax2.set_xticklabels([str(int(x)) for x in diag_values])
+    ax2.grid(True, alpha=0.3)
+
+    # Add value labels on bars
+    for bar, time_val in zip(bars, time_means):
+        ax2.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 1,
+            f"{time_val:.1f}s",
+            ha="center",
+            va="bottom",
+            fontsize=6,
+        )
+
+    # Plot 3: Number of Steps vs diag_every_n
+    ax3 = axes[1, 0]
+    steps_means = []
+    steps_stds = []
+
+    for diag_val in diag_values:
+        subset = df_with_diag[df_with_diag["diag_every_n"] == diag_val]
+        steps_means.append(subset["nsteps"].mean())
+        steps_stds.append(subset["nsteps"].std() if len(subset) > 1 else 0)
+
+    bars = ax3.bar(
+        range(len(diag_values)),
+        steps_means,
+        yerr=steps_stds,
+        capsize=5,
+        alpha=0.7,
+        color="orange",
+    )
+    ax3.set_xlabel("diag_every_n")
+    ax3.set_ylabel("Number of Steps")
+    ax3.set_title("Average Number of Steps vs diag_every_n")
+    ax3.set_xticks(range(len(diag_values)))
+    ax3.set_xticklabels([str(int(x)) for x in diag_values])
+    ax3.grid(True, alpha=0.3)
+
+    # Add value labels on bars
+    for bar, steps in zip(bars, steps_means):
+        ax3.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 10,
+            f"{int(steps)}",
+            ha="center",
+            va="bottom",
+            fontsize=6,
+        )
+
+    # Plot 4: Efficiency (RMSD improvement per step) vs diag_every_n
+    ax4 = axes[1, 1]
+    efficiency_means = []
+    efficiency_stds = []
+
+    for diag_val in diag_values:
+        subset = df_with_diag[df_with_diag["diag_every_n"] == diag_val]
+        efficiency = subset["rmsd_improvement"] / subset["nsteps"]
+        efficiency_means.append(efficiency.mean())
+        efficiency_stds.append(efficiency.std() if len(subset) > 1 else 0)
+
+    bars = ax4.bar(
+        range(len(diag_values)),
+        efficiency_means,
+        yerr=efficiency_stds,
+        capsize=5,
+        alpha=0.7,
+        color="mediumseagreen",
+    )
+    ax4.set_xlabel("diag_every_n")
+    ax4.set_ylabel("RMSD Improvement per Step (Å/step)")
+    ax4.set_title("Average Efficiency vs diag_every_n")
+    ax4.set_xticks(range(len(diag_values)))
+    ax4.set_xticklabels([str(int(x)) for x in diag_values])
+    ax4.grid(True, alpha=0.3)
+    ax4.axhline(y=0, color="r", linestyle="--", alpha=0.5)
+
+    # Color bars based on efficiency
+    for bar, eff in zip(bars, efficiency_means):
+        if eff > 0:
+            bar.set_color("green")
+            bar.set_alpha(0.7)
+        else:
+            bar.set_color("red")
+            bar.set_alpha(0.7)
+
+    # Add value labels on bars
+    for bar, eff in zip(bars, efficiency_means):
+        ax4.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + (0.00001 if eff > 0 else -0.00002),
+            f"{eff:.6f}",
+            ha="center",
+            va="bottom" if eff > 0 else "top",
+            fontsize=6,
+        )
+
+    plt.tight_layout()
+
+    # Save the plot
+    output_file = os.path.join(output_dir, "diag_every_n_comparison.png")
+    plt.savefig(output_file, dpi=300, bbox_inches="tight")
+    print(f"diag_every_n comparison plot saved to: {output_file}")
+
+    # Create summary statistics table
+    summary_stats = []
+    for diag_val in diag_values:
+        subset = df_with_diag[df_with_diag["diag_every_n"] == diag_val]
+        stats = {
+            "diag_every_n": int(diag_val),
+            "n_experiments": len(subset),
+            "avg_rmsd_improvement": subset["rmsd_improvement"].mean(),
+            "std_rmsd_improvement": subset["rmsd_improvement"].std(),
+            "avg_time_taken": subset["time_taken"].mean(),
+            "std_time_taken": subset["time_taken"].std(),
+            "avg_nsteps": subset["nsteps"].mean(),
+            "std_nsteps": subset["nsteps"].std(),
+            "avg_efficiency": (subset["rmsd_improvement"] / subset["nsteps"]).mean(),
+        }
+        summary_stats.append(stats)
+
+    stats_df = pd.DataFrame(summary_stats)
+
+    # Save summary statistics
+    stats_file = os.path.join(output_dir, "diag_every_n_summary_stats.csv")
+    stats_df.to_csv(stats_file, index=False)
+    print(f"diag_every_n summary statistics saved to: {stats_file}")
+
+    # Print summary
+    print(f"\n" + "=" * 80)
+    print("SUMMARY STATISTICS BY diag_every_n")
+    print("=" * 80)
+    print(stats_df.round(6).to_string(index=False))
+    print("=" * 80)
+
+
+def create_idx_comparison_plots(
+    df: pd.DataFrame, output_dir: str = "playground/plots_sella"
+):
+    """Create comparison plots across different idx values."""
+
+    # Filter out rows where idx is None
+    df_with_idx = df[df["idx"].notna()].copy()
+
+    if len(df_with_idx) == 0:
+        print("No experiments with idx values found for comparison.")
+        return
+
+    # Convert idx to numeric for proper sorting if they are numeric
+    try:
+        df_with_idx["idx"] = pd.to_numeric(df_with_idx["idx"])
+        numeric_idx = True
+    except (ValueError, TypeError):
+        # Keep as string if not numeric
+        numeric_idx = False
+
+    fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+    fig.suptitle(
+        "Performance Comparison Across idx Values", fontsize=10, fontweight="bold"
+    )
+
+    # Plot 1: RMSD Improvement vs idx
+    ax1 = axes[0, 0]
+    idx_values = sorted(df_with_idx["idx"].unique())
+    rmsd_improvements = []
+    rmsd_stds = []
+
+    for idx_val in idx_values:
+        subset = df_with_idx[df_with_idx["idx"] == idx_val]
+        rmsd_improvements.append(subset["rmsd_improvement"].mean())
+        rmsd_stds.append(subset["rmsd_improvement"].std() if len(subset) > 1 else 0)
+
+    bars = ax1.bar(
+        range(len(idx_values)),
+        rmsd_improvements,
+        yerr=rmsd_stds,
+        capsize=5,
+        alpha=0.7,
+        color="skyblue",
+    )
+    ax1.set_xlabel("idx")
+    ax1.set_ylabel("RMSD Improvement (Å)")
+    ax1.set_title("Average RMSD Improvement vs idx")
+    ax1.set_xticks(range(len(idx_values)))
+    if numeric_idx:
+        ax1.set_xticklabels([str(int(x)) for x in idx_values])
+    else:
+        ax1.set_xticklabels([str(x) for x in idx_values])
+    ax1.grid(True, alpha=0.3)
+    ax1.axhline(y=0, color="r", linestyle="--", alpha=0.5)
+
+    # Add value labels on bars
+    for bar, improvement in zip(bars, rmsd_improvements):
+        ax1.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 0.001,
+            f"{improvement:.4f}",
+            ha="center",
+            va="bottom",
+            fontsize=6,
+        )
+
+    # Plot 2: Time Taken vs idx
+    ax2 = axes[0, 1]
+    time_means = []
+    time_stds = []
+
+    for idx_val in idx_values:
+        subset = df_with_idx[df_with_idx["idx"] == idx_val]
+        time_means.append(subset["time_taken"].mean())
+        time_stds.append(subset["time_taken"].std() if len(subset) > 1 else 0)
+
+    bars = ax2.bar(
+        range(len(idx_values)),
+        time_means,
+        yerr=time_stds,
+        capsize=5,
+        alpha=0.7,
+        color="lightcoral",
+    )
+    ax2.set_xlabel("idx")
+    ax2.set_ylabel("Time Taken (s)")
+    ax2.set_title("Average Time Taken vs idx")
+    ax2.set_xticks(range(len(idx_values)))
+    if numeric_idx:
+        ax2.set_xticklabels([str(int(x)) for x in idx_values])
+    else:
+        ax2.set_xticklabels([str(x) for x in idx_values])
+    ax2.grid(True, alpha=0.3)
+
+    # Add value labels on bars
+    for bar, time_val in zip(bars, time_means):
+        ax2.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 1,
+            f"{time_val:.1f}s",
+            ha="center",
+            va="bottom",
+            fontsize=6,
+        )
+
+    # Plot 3: Number of Steps vs idx
+    ax3 = axes[1, 0]
+    steps_means = []
+    steps_stds = []
+
+    for idx_val in idx_values:
+        subset = df_with_idx[df_with_idx["idx"] == idx_val]
+        steps_means.append(subset["nsteps"].mean())
+        steps_stds.append(subset["nsteps"].std() if len(subset) > 1 else 0)
+
+    bars = ax3.bar(
+        range(len(idx_values)),
+        steps_means,
+        yerr=steps_stds,
+        capsize=5,
+        alpha=0.7,
+        color="orange",
+    )
+    ax3.set_xlabel("idx")
+    ax3.set_ylabel("Number of Steps")
+    ax3.set_title("Average Number of Steps vs idx")
+    ax3.set_xticks(range(len(idx_values)))
+    if numeric_idx:
+        ax3.set_xticklabels([str(int(x)) for x in idx_values])
+    else:
+        ax3.set_xticklabels([str(x) for x in idx_values])
+    ax3.grid(True, alpha=0.3)
+
+    # Add value labels on bars
+    for bar, steps in zip(bars, steps_means):
+        ax3.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 10,
+            f"{int(steps)}",
+            ha="center",
+            va="bottom",
+            fontsize=6,
+        )
+
+    # Plot 4: Efficiency (RMSD improvement per step) vs idx
+    ax4 = axes[1, 1]
+    efficiency_means = []
+    efficiency_stds = []
+
+    for idx_val in idx_values:
+        subset = df_with_idx[df_with_idx["idx"] == idx_val]
+        efficiency = subset["rmsd_improvement"] / subset["nsteps"]
+        efficiency_means.append(efficiency.mean())
+        efficiency_stds.append(efficiency.std() if len(subset) > 1 else 0)
+
+    bars = ax4.bar(
+        range(len(idx_values)),
+        efficiency_means,
+        yerr=efficiency_stds,
+        capsize=5,
+        alpha=0.7,
+        color="mediumseagreen",
+    )
+    ax4.set_xlabel("idx")
+    ax4.set_ylabel("RMSD Improvement per Step (Å/step)")
+    ax4.set_title("Average Efficiency vs idx")
+    ax4.set_xticks(range(len(idx_values)))
+    if numeric_idx:
+        ax4.set_xticklabels([str(int(x)) for x in idx_values])
+    else:
+        ax4.set_xticklabels([str(x) for x in idx_values])
+    ax4.grid(True, alpha=0.3)
+    ax4.axhline(y=0, color="r", linestyle="--", alpha=0.5)
+
+    # Color bars based on efficiency
+    for bar, eff in zip(bars, efficiency_means):
+        if eff > 0:
+            bar.set_color("green")
+            bar.set_alpha(0.7)
+        else:
+            bar.set_color("red")
+            bar.set_alpha(0.7)
+
+    # Add value labels on bars
+    for bar, eff in zip(bars, efficiency_means):
+        ax4.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + (0.00001 if eff > 0 else -0.00002),
+            f"{eff:.6f}",
+            ha="center",
+            va="bottom" if eff > 0 else "top",
+            fontsize=6,
+        )
+
+    plt.tight_layout()
+
+    # Save the plot
+    output_file = os.path.join(output_dir, "idx_comparison.png")
+    plt.savefig(output_file, dpi=300, bbox_inches="tight")
+    print(f"idx comparison plot saved to: {output_file}")
+
+    # Create summary statistics table
+    summary_stats = []
+    for idx_val in idx_values:
+        subset = df_with_idx[df_with_idx["idx"] == idx_val]
+        stats = {
+            "idx": str(
+                idx_val
+            ),  # Keep as string to handle both numeric and non-numeric
+            "n_experiments": len(subset),
+            "avg_rmsd_improvement": subset["rmsd_improvement"].mean(),
+            "std_rmsd_improvement": subset["rmsd_improvement"].std(),
+            "avg_time_taken": subset["time_taken"].mean(),
+            "std_time_taken": subset["time_taken"].std(),
+            "avg_nsteps": subset["nsteps"].mean(),
+            "std_nsteps": subset["nsteps"].std(),
+            "avg_efficiency": (subset["rmsd_improvement"] / subset["nsteps"]).mean(),
+        }
+        summary_stats.append(stats)
+
+    stats_df = pd.DataFrame(summary_stats)
+
+    # Save summary statistics
+    stats_file = os.path.join(output_dir, "idx_summary_stats.csv")
+    stats_df.to_csv(stats_file, index=False)
+    print(f"idx summary statistics saved to: {stats_file}")
+
+    # Print summary
+    print(f"\n" + "=" * 80)
+    print("SUMMARY STATISTICS BY idx")
+    print("=" * 80)
+    print(stats_df.round(6).to_string(index=False))
+    print("=" * 80)
+
+
+def create_transition_state_analysis(
+    df: pd.DataFrame, output_dir: str = "playground/plots_sella"
+):
+    """Create plots analyzing transition state identification across different methods."""
+
+    # Check which frequency analysis columns are available
+    freq_methods = []
+    for method in ["autodiff", "predict", "finite_diff"]:
+        if f"is_transition_state_{method}" in df.columns:
+            freq_methods.append(method)
+
+    if not freq_methods:
+        print("No transition state analysis data found in results.")
+        return
+
+    print(f"Found transition state data for methods: {freq_methods}")
+
+    fig, axes = plt.subplots(2, 2, figsize=(16, 12))
+    fig.suptitle(
+        "Transition State Identification Analysis", fontsize=10, fontweight="bold"
+    )
+
+    # Plot 1: Success rate by frequency method
+    ax1 = axes[0, 0]
+    success_rates = []
+    method_names = []
+
+    for method in freq_methods:
+        ts_col = f"is_transition_state_{method}"
+        if ts_col in df.columns:
+            # Count non-null values and successful identifications
+            valid_results = df[ts_col].notna()
+            if valid_results.sum() > 0:
+                success_rate = df.loc[valid_results, ts_col].mean() * 100
+                success_rates.append(success_rate)
+                method_names.append(method.replace("_", " ").title())
+
+    if success_rates:
+        bars = ax1.bar(
+            range(len(method_names)),
+            success_rates,
+            alpha=0.7,
+            color=["skyblue", "lightcoral", "lightgreen"][: len(method_names)],
+        )
+        ax1.set_xlabel("Frequency Analysis Method")
+        ax1.set_ylabel("Transition State Success Rate (%)")
+        ax1.set_title("TS Identification Success Rate by Method")
+        ax1.set_xticks(range(len(method_names)))
+        ax1.set_xticklabels(method_names, rotation=45)
+        ax1.set_ylim(0, 100)
+        ax1.grid(True, alpha=0.3)
+
+        # Add value labels on bars
+        for bar, rate in zip(bars, success_rates):
+            ax1.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + 1,
+                f"{rate:.1f}%",
+                ha="center",
+                va="bottom",
+                fontsize=6,
+                fontweight="bold",
+            )
+
+    # Plot 2: Success rate by starting point
+    ax2 = axes[0, 1]
+    if freq_methods and "start_point" in df.columns:
+        start_points = df["start_point"].unique()
+        sp_success_rates = []
+        sp_labels = []
+
+        for sp in start_points:
+            sp_data = df[df["start_point"] == sp]
+            # Use the first available method for this analysis
+            ts_col = f"is_transition_state_{freq_methods[0]}"
+            if ts_col in sp_data.columns:
+                valid_results = sp_data[ts_col].notna()
+                if valid_results.sum() > 0:
+                    success_rate = sp_data.loc[valid_results, ts_col].mean() * 100
+                    sp_success_rates.append(success_rate)
+                    sp_labels.append(sp.replace("_", " ").title())
+
+        if sp_success_rates:
+            bars = ax2.bar(
+                range(len(sp_labels)), sp_success_rates, alpha=0.7, color="orange"
+            )
+            ax2.set_xlabel("Starting Point")
+            ax2.set_ylabel("Transition State Success Rate (%)")
+            ax2.set_title(f"TS Success Rate by Starting Point ({freq_methods[0]})")
+            ax2.set_xticks(range(len(sp_labels)))
+            ax2.set_xticklabels(sp_labels, rotation=45, ha="right")
+            ax2.set_ylim(0, 100)
+            ax2.grid(True, alpha=0.3)
+
+            # Add value labels
+            for bar, rate in zip(bars, sp_success_rates):
+                ax2.text(
+                    bar.get_x() + bar.get_width() / 2,
+                    bar.get_height() + 1,
+                    f"{rate:.1f}%",
+                    ha="center",
+                    va="bottom",
+                    fontsize=6,
+                )
+
+    # Plot 3: Success rate by idx (if available)
+    ax3 = axes[1, 0]
+    if freq_methods and "idx" in df.columns:
+        idx_values = sorted([x for x in df["idx"].unique() if x is not None])
+        idx_success_rates = []
+
+        for idx_val in idx_values:
+            idx_data = df[df["idx"] == idx_val]
+            ts_col = f"is_transition_state_{freq_methods[0]}"
+            if ts_col in idx_data.columns:
+                valid_results = idx_data[ts_col].notna()
+                if valid_results.sum() > 0:
+                    success_rate = idx_data.loc[valid_results, ts_col].mean() * 100
+                    idx_success_rates.append(success_rate)
+
+        if idx_success_rates and len(idx_values) == len(idx_success_rates):
+            bars = ax3.bar(
+                range(len(idx_values)),
+                idx_success_rates,
+                alpha=0.7,
+                color="mediumseagreen",
+            )
+            ax3.set_xlabel("idx")
+            ax3.set_ylabel("Transition State Success Rate (%)")
+            ax3.set_title(f"TS Success Rate by idx ({freq_methods[0]})")
+            ax3.set_xticks(range(len(idx_values)))
+            ax3.set_xticklabels([str(x) for x in idx_values])
+            ax3.set_ylim(0, 100)
+            ax3.grid(True, alpha=0.3)
+
+            # Add value labels
+            for bar, rate in zip(bars, idx_success_rates):
+                ax3.text(
+                    bar.get_x() + bar.get_width() / 2,
+                    bar.get_height() + 1,
+                    f"{rate:.1f}%",
+                    ha="center",
+                    va="bottom",
+                    fontsize=6,
+                )
+
+    # Plot 4: Method agreement analysis
+    ax4 = axes[1, 1]
+    if len(freq_methods) >= 2:
+        # Create agreement matrix
+        agreement_data = []
+
+        # Get experiments that have data for multiple methods
+        valid_experiments = df.copy()
+        for method in freq_methods:
+            ts_col = f"is_transition_state_{method}"
+            valid_experiments = valid_experiments[valid_experiments[ts_col].notna()]
+
+        if len(valid_experiments) > 0:
+            # Calculate agreement statistics
+            agreements = []
+            labels = []
+
+            if len(freq_methods) >= 2:
+                # All methods agree (TS)
+                all_ts = True
+                for method in freq_methods:
+                    ts_col = f"is_transition_state_{method}"
+                    all_ts = all_ts & valid_experiments[ts_col]
+                agreements.append(all_ts.sum())
+                labels.append("All Agree\n(TS)")
+
+                # All methods agree (not TS)
+                all_not_ts = True
+                for method in freq_methods:
+                    ts_col = f"is_transition_state_{method}"
+                    all_not_ts = all_not_ts & (~valid_experiments[ts_col])
+                agreements.append(all_not_ts.sum())
+                labels.append("All Agree\n(Not TS)")
+
+                # Disagreement
+                disagreement = len(valid_experiments) - all_ts.sum() - all_not_ts.sum()
+                agreements.append(disagreement)
+                labels.append("Disagreement")
+
+            # Create pie chart
+            colors = ["lightgreen", "lightcoral", "lightyellow"]
+            wedges, texts, autotexts = ax4.pie(
+                agreements,
+                labels=labels,
+                autopct="%1.1f%%",
+                colors=colors,
+                startangle=90,
+            )
+            ax4.set_title("Method Agreement Analysis")
+
+            # Make percentage text bold
+            for autotext in autotexts:
+                autotext.set_fontweight("bold")
+        else:
+            ax4.text(
+                0.5,
+                0.5,
+                "No overlapping\nmethod data",
+                ha="center",
+                va="center",
+                transform=ax4.transAxes,
+                fontsize=5,
+            )
+            ax4.set_title("Method Agreement Analysis")
+    else:
+        ax4.text(
+            0.5,
+            0.5,
+            "Need ≥2 methods\nfor agreement analysis",
+            ha="center",
+            va="center",
+            transform=ax4.transAxes,
+            fontsize=5,
+        )
+        ax4.set_title("Method Agreement Analysis")
+
+    plt.tight_layout()
+
+    # Save the plot
+    output_file = os.path.join(output_dir, "transition_state_analysis.png")
+    plt.savefig(output_file, dpi=300, bbox_inches="tight")
+    print(f"Transition state analysis plot saved to: {output_file}")
+
+    # Create detailed summary table
+    summary_data = []
+
+    for i, row in df.iterrows():
+        experiment_summary = {
+            "experiment_name": row.get("experiment_name", "unknown"),
+            "start_point": row.get("start_point", "unknown"),
+            "idx": row.get("idx", "unknown"),
+            "rmsd_improvement": row.get("rmsd_improvement", None),
+        }
+
+        for method in freq_methods:
+            ts_col = f"is_transition_state_{method}"
+            neg_freq_col = f"negative_freq_count_{method}"
+
+            if ts_col in row and pd.notna(row[ts_col]):
+                experiment_summary[f"is_ts_{method}"] = row[ts_col]
+            else:
+                experiment_summary[f"is_ts_{method}"] = None
+
+            if neg_freq_col in row and pd.notna(row[neg_freq_col]):
+                experiment_summary[f"neg_freq_{method}"] = int(row[neg_freq_col])
+            else:
+                experiment_summary[f"neg_freq_{method}"] = None
+
+        summary_data.append(experiment_summary)
+
+    summary_df = pd.DataFrame(summary_data)
+
+    # Save detailed summary
+    summary_file = os.path.join(output_dir, "transition_state_summary.csv")
+    summary_df.to_csv(summary_file, index=False)
+    print(f"Transition state summary saved to: {summary_file}")
+
+    # Print summary statistics
+    print(f"\n" + "=" * 80)
+    print("TRANSITION STATE IDENTIFICATION SUMMARY")
+    print("=" * 80)
+
+    for method in freq_methods:
+        ts_col = f"is_ts_{method}"
+        if ts_col in summary_df.columns:
+            valid_count = summary_df[ts_col].notna().sum()
+            ts_count = summary_df[ts_col].sum() if valid_count > 0 else 0
+            success_rate = (ts_count / valid_count * 100) if valid_count > 0 else 0
+            print(
+                f"{method.upper():>12}: {ts_count:>3}/{valid_count:<3} experiments found TS ({success_rate:5.1f}%)"
+            )
+
+    print("=" * 80)
+
+
+def create_hessian_method_analysis(
+    df: pd.DataFrame, output_dir: str = "playground/plots_sella"
+):
+    """Create plots analyzing transition state success rates by hessian method."""
+
+    # Check which frequency analysis columns are available
+    freq_methods = []
+    for method in ["autodiff", "predict", "finite_diff"]:
+        if f"is_transition_state_{method}" in df.columns:
+            freq_methods.append(method)
+
+    if not freq_methods:
+        print("No transition state analysis data found for hessian method analysis.")
+        return
+
+    if "hessian" not in df.columns:
+        print("No hessian method information found in the data.")
+        return
+
+    print(f"Creating hessian method analysis with TS data from: {freq_methods}")
+
+    # Get unique hessian methods
+    hessian_methods = [h for h in df["hessian"].unique() if h is not None]
+    if not hessian_methods:
+        print("No valid hessian methods found in the data.")
+        return
+
+    # Create subplots - one for each frequency method
+    n_freq_methods = len(freq_methods)
+    if n_freq_methods == 1:
+        fig, ax = plt.subplots(1, 1, figsize=(10, 6))
+        axes = [ax]
+    elif n_freq_methods == 2:
+        fig, axes = plt.subplots(1, 2, figsize=(15, 6))
+    else:
+        fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+        axes = axes.flatten()
+
+    fig.suptitle(
+        "Transition State Success Rate by Hessian Method",
+        fontsize=10,
+        fontweight="bold",
+    )
+
+    colors = ["skyblue", "lightcoral", "lightgreen", "orange", "mediumpurple"]
+
+    for i, freq_method in enumerate(freq_methods):
+        ax = axes[i]
+        ts_col = f"is_transition_state_{freq_method}"
+
+        # Calculate success rates for each hessian method
+        hessian_success_rates = []
+        hessian_labels = []
+        hessian_counts = []
+
+        for hess_method in sorted(hessian_methods):
+            hess_data = df[df["hessian"] == hess_method]
+
+            if len(hess_data) > 0 and ts_col in hess_data.columns:
+                valid_results = hess_data[ts_col].notna()
+                if valid_results.sum() > 0:
+                    success_rate = hess_data.loc[valid_results, ts_col].mean() * 100
+                    hessian_success_rates.append(success_rate)
+                    hessian_labels.append(hess_method.replace("_", " ").title())
+                    hessian_counts.append(valid_results.sum())
+
+        if hessian_success_rates:
+            bars = ax.bar(
+                range(len(hessian_labels)),
+                hessian_success_rates,
+                alpha=0.7,
+                color=colors[: len(hessian_labels)],
+            )
+
+            ax.set_xlabel("Hessian Method")
+            ax.set_ylabel("Transition State Success Rate (%)")
+            ax.set_title(
+                f"TS Success Rate by Hessian Method\n({freq_method.replace('_', ' ').title()} Frequency Analysis)"
+            )
+            ax.set_xticks(range(len(hessian_labels)))
+            ax.set_xticklabels(hessian_labels, rotation=45, ha="right")
+            ax.set_ylim(0, 100)
+            ax.grid(True, alpha=0.3)
+
+            # Add value labels on bars with counts
+            for bar, rate, count in zip(bars, hessian_success_rates, hessian_counts):
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2,
+                    bar.get_height() + 2,
+                    f"{rate:.1f}%\n(n={count})",
+                    ha="center",
+                    va="bottom",
+                    fontsize=6,
+                    fontweight="bold",
+                )
+        else:
+            ax.text(
+                0.5,
+                0.5,
+                f"No data available\nfor {freq_method}",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+                fontsize=8,
+            )
+            ax.set_title(
+                f"TS Success Rate by Hessian Method\n({freq_method.replace('_', ' ').title()} Frequency Analysis)"
+            )
+
+    # Hide unused subplots if we have fewer frequency methods than subplots
+    if n_freq_methods < len(axes):
+        for j in range(n_freq_methods, len(axes)):
+            axes[j].set_visible(False)
+
+    plt.tight_layout()
+
+    # Save the plot
+    output_file = os.path.join(output_dir, "hessian_method_ts_analysis.png")
+    plt.savefig(output_file, dpi=300, bbox_inches="tight")
+    print(f"Hessian method TS analysis plot saved to: {output_file}")
+
+    # Create summary table
+    summary_data = []
+
+    for freq_method in freq_methods:
+        ts_col = f"is_transition_state_{freq_method}"
+
+        for hess_method in sorted(hessian_methods):
+            hess_data = df[df["hessian"] == hess_method]
+
+            if len(hess_data) > 0 and ts_col in hess_data.columns:
+                valid_results = hess_data[ts_col].notna()
+                if valid_results.sum() > 0:
+                    ts_count = hess_data.loc[valid_results, ts_col].sum()
+                    total_count = valid_results.sum()
+                    success_rate = (
+                        (ts_count / total_count * 100) if total_count > 0 else 0
+                    )
+
+                    summary_data.append(
+                        {
+                            "frequency_method": freq_method,
+                            "hessian_method": hess_method,
+                            "ts_found": int(ts_count),
+                            "total_experiments": int(total_count),
+                            "success_rate_percent": round(success_rate, 1),
+                        }
+                    )
+
+    if summary_data:
+        summary_df = pd.DataFrame(summary_data)
+
+        # Save summary table
+        summary_file = os.path.join(output_dir, "hessian_method_ts_summary.csv")
+        summary_df.to_csv(summary_file, index=False)
+        print(f"Hessian method TS summary saved to: {summary_file}")
+
+        # Print summary statistics
+        print(f"\n" + "=" * 90)
+        print("TRANSITION STATE SUCCESS RATE BY HESSIAN METHOD")
+        print("=" * 90)
+        print(
+            f"{'Frequency Method':<15} {'Hessian Method':<15} {'TS Found':<10} {'Total':<8} {'Success Rate':<12}"
+        )
+        print("-" * 90)
+
+        for _, row in summary_df.iterrows():
+            print(
+                f"{row['frequency_method']:<15} {row['hessian_method']:<15} "
+                f"{row['ts_found']:<10} {row['total_experiments']:<8} "
+                f"{row['success_rate_percent']:<12.1f}%"
+            )
+
+        print("=" * 90)
+
+        # Calculate overall best methods
+        best_overall = (
+            summary_df.groupby("hessian_method")["success_rate_percent"]
+            .mean()
+            .sort_values(ascending=False)
+        )
+        print(f"\nOVERALL RANKING BY AVERAGE SUCCESS RATE:")
+        for i, (method, rate) in enumerate(best_overall.items(), 1):
+            print(f"  {i}. {method}: {rate:.1f}% average success rate")
+        print()
 
 
 def main():
@@ -721,29 +1682,138 @@ def main():
         print(f"  - Starting points: {df['start_point'].unique()}")
         print(f"  - Coordinate systems: {df['coordinates'].unique()}")
         print(
+            f"  - idx values: {sorted([x for x in df['idx'].unique() if x is not None])}"
+        )
+        print(
+            f"  - diag_every_n values: {sorted([x for x in df['diag_every_n'].unique() if x is not None])}"
+        )
+        print(
             f"  - RMSD improvement range: {df['rmsd_improvement'].min():.4f} to {df['rmsd_improvement'].max():.4f} Å"
         )
         print(
             f"  - Time taken range: {df['time_taken'].min():.1f} to {df['time_taken'].max():.1f} s"
         )
 
-        # Create plots
-        print("\nCreating RMSD analysis plots...")
-        create_rmsd_plots(df, output_dir)
+        # Create overall plots
+        print("\n" + "=" * 60)
+        print("Creating OVERALL plots (all experiments combined)...")
+        print("=" * 60)
 
-        print("\nCreating standalone RMSD comparison plots...")
-        create_rmsd_standalone_plots(df, output_dir)
+        print("Creating RMSD analysis plots...")
+        create_rmsd_plots(df, output_dir, suffix="_overall")
 
-        print("\nCreating timing analysis plots...")
-        create_timing_plots(df, output_dir)
+        print("Creating standalone RMSD comparison plots...")
+        create_rmsd_standalone_plots(df, output_dir, suffix="_overall")
 
-        print("\nCreating steps analysis plots...")
-        create_steps_plots(df, output_dir)
+        print("Creating timing analysis plots...")
+        create_timing_plots(df, output_dir, suffix="_overall")
 
-        print("\nGenerating summary table...")
-        create_summary_table(df, output_dir)
+        print("Creating steps analysis plots...")
+        create_steps_plots(df, output_dir, suffix="_overall")
 
-        print("\n✅ Analysis complete! Check the plots directory for visualizations.")
+        print("Generating summary table...")
+        create_summary_table(df, output_dir, suffix="_overall")
+
+        # Create comparison plots across different diag_every_n values
+        print("\nCreating diag_every_n comparison plots...")
+        create_diag_comparison_plots(df, output_dir)
+
+        # Create comparison plots across different idx values
+        print("\nCreating idx comparison plots...")
+        create_idx_comparison_plots(df, output_dir)
+
+        # Create transition state analysis plots
+        print("\nCreating transition state analysis plots...")
+        create_transition_state_analysis(df, output_dir)
+
+        # Create hessian method analysis plots
+        print("\nCreating hessian method transition state analysis plots...")
+        create_hessian_method_analysis(df, output_dir)
+
+        # Create plots for each idx value
+        idx_values = [x for x in df["idx"].unique() if x is not None]
+        idx_values = sorted(idx_values)
+
+        if idx_values:
+            print(f"\n" + "=" * 60)
+            print(f"Creating SEPARATE plots for each idx value...")
+            print(f"Found idx values: {idx_values}")
+            print("=" * 60)
+
+            for idx_val in idx_values:
+                print(f"\n--- Processing idx = {idx_val} ---")
+
+                # Filter data for this idx value
+                df_subset = df[df["idx"] == idx_val].copy()
+
+                if len(df_subset) == 0:
+                    print(f"No experiments found for idx = {idx_val}")
+                    continue
+
+                print(f"Found {len(df_subset)} experiments for idx = {idx_val}")
+
+                # Create subdirectory
+                idx_output_dir = os.path.join(output_dir, f"idx_{idx_val}")
+                os.makedirs(idx_output_dir, exist_ok=True)
+
+                print(f"Creating RMSD plots for idx = {idx_val}...")
+                create_rmsd_plots(df_subset, idx_output_dir, suffix="")
+
+                print(f"Creating standalone RMSD plots for idx = {idx_val}...")
+                create_rmsd_standalone_plots(df_subset, idx_output_dir, suffix="")
+
+                print(f"Creating timing plots for idx = {idx_val}...")
+                create_timing_plots(df_subset, idx_output_dir, suffix="")
+
+                print(f"Creating steps plots for idx = {idx_val}...")
+                create_steps_plots(df_subset, idx_output_dir, suffix="")
+
+                print(f"Creating summary table for idx = {idx_val}...")
+                create_summary_table(df_subset, idx_output_dir, suffix="")
+
+                print(f"Creating transition state analysis for idx = {idx_val}...")
+                create_transition_state_analysis(df_subset, idx_output_dir)
+
+                print(f"Creating hessian method analysis for idx = {idx_val}...")
+                create_hessian_method_analysis(df_subset, idx_output_dir)
+
+                print(f"✅ Completed plots for idx = {idx_val}")
+
+        # Handle experiments without idx (if any)
+        df_no_idx = df[df["idx"].isna()].copy()
+        if len(df_no_idx) > 0:
+            print(f"\n--- Processing experiments without idx ---")
+            print(f"Found {len(df_no_idx)} experiments without idx")
+
+            no_idx_output_dir = os.path.join(output_dir, "no_idx")
+            os.makedirs(no_idx_output_dir, exist_ok=True)
+
+            create_rmsd_plots(df_no_idx, no_idx_output_dir, suffix="")
+            create_rmsd_standalone_plots(df_no_idx, no_idx_output_dir, suffix="")
+            create_timing_plots(df_no_idx, no_idx_output_dir, suffix="")
+            create_steps_plots(df_no_idx, no_idx_output_dir, suffix="")
+            create_summary_table(df_no_idx, no_idx_output_dir, suffix="")
+            create_transition_state_analysis(df_no_idx, no_idx_output_dir)
+            create_hessian_method_analysis(df_no_idx, no_idx_output_dir)
+
+            print("✅ Completed plots for experiments without idx")
+
+        print(f"\n🎉 Analysis complete! Check the following directories:")
+        print(f"  - Overall plots: {output_dir}")
+        print(f"  - Comparison plots: idx_comparison.png, diag_every_n_comparison.png")
+        print(f"  - Transition state analysis: transition_state_analysis.png")
+        print(f"  - Hessian method analysis: hessian_method_ts_analysis.png")
+        for idx_val in idx_values:
+            print(f"  - idx = {idx_val}: {os.path.join(output_dir, f'idx_{idx_val}')}")
+        if len(df_no_idx) > 0:
+            print(f"  - No idx: {os.path.join(output_dir, 'no_idx')}")
+        print(f"\nKey files in each directory:")
+        print(
+            f"  - transition_state_analysis.png: TS identification success rates by method"
+        )
+        print(f"  - hessian_method_ts_analysis.png: TS success rates by hessian method")
+        print(f"  - transition_state_summary.csv: Detailed TS results per experiment")
+        print(f"  - hessian_method_ts_summary.csv: TS success rates by hessian method")
 
     except Exception as e:
         print(f"Error: {e}")

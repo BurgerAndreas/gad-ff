@@ -127,6 +127,9 @@ python scripts_horm/download_horm_data_kaggle.py
 # Download HORM EquiformerV2 with Energy-Force-Hessian Training
 mkdir -p ckpt
 wget https://huggingface.co/yhong55/HORM/resolve/main/eqv2.ckpt -O ckpt/eqv2.ckpt
+wget https://huggingface.co/yhong55/HORM/resolve/main/left-df.ckpt -O ckpt/left-df.ckpt
+wget https://huggingface.co/yhong55/HORM/resolve/main/left.ckpt -O ckpt/left.ckpt
+wget https://huggingface.co/yhong55/HORM/resolve/main/alpha.ckpt -O ckpt/alpha.ckpt
 ```
 
 
