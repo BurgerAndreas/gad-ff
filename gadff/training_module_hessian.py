@@ -47,6 +47,27 @@ from gadff.loss_functions import (
 )
 
 
+class HessianBatchedRMSELoss(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, pred, target, data):
+        pred = pred.view(-1)
+        target = target.view(-1)
+        # element wise squared difference
+        diff = (pred - target).pow(2)
+        # sum over elements within batch
+        B = data.batch.max().item() + 1
+        loss_per_batch = torch.ones(B)
+        loss_per_batch.index_add_(0, data.hessian_batch, diff)
+        # divide by number of elements per batch
+        loss_per_batch = loss_per_batch / data.hessian_batch.bincount()
+        # sqrt per batch
+        loss_per_batch = loss_per_batch.sqrt()
+        # mean over batches
+        return loss_per_batch.mean()
+
+
 class MyPLTrainer(pl.Trainer):
     # Does not do anything?
     # self.trainer.strategy.load_model_state_dict
@@ -91,7 +112,16 @@ class HessianPotentialModule(PotentialModule):
         # Only needed to predict forces from energy of Hessian from forces
         self.pos_require_grad = False
 
-        self.loss_fn_hessian = nn.MSELoss()
+        if self.training_config["hessian_loss_type"] == "mse":
+            # TODO: batching not correct
+            self.loss_fn_hessian = nn.MSELoss()
+        elif self.training_config["hessian_loss_type"] == "mae":
+            self.loss_fn_hessian = nn.L1Loss()
+        else:
+            raise ValueError(
+                f"Invalid Hessian loss type: {self.model_config['hessian_loss_type']}"
+            )
+
         print(f"Training config: {training_config['eigen_loss']}")
         self.loss_fn_eigen = get_hessian_loss_fn(**training_config["eigen_loss"])
 
@@ -370,7 +400,7 @@ class HessianPotentialModule(PotentialModule):
             prefix=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}",
         )
         eval_metrics.update(eig_metrics)
-        
+
         B = batch.batch.max().item() + 1
         if hasattr(batch, "edge_index_hessian"):
             eval_metrics["Num Edges Hessian"] = batch.edge_index_hessian.shape[1] / B

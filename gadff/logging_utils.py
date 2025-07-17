@@ -15,11 +15,14 @@ REPLACE = {
     "+": "",
     "experiment=": "",
     "experiment": "",
-    "training.": "",
     "training.lr_schedule_type=": "lr=",
     "training.eigen_loss": "el",
+    "training.": "",
+    "model.": "",
+    "hessian_": "",
     "loss_type_vec=": "lossvec=",
     "loss_type=": "loss=",
+    "trgt=hessian": "",
 }
 
 
