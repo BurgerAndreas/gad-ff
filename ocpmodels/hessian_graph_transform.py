@@ -129,6 +129,9 @@ class HessianGraphTransform(BaseTransform):
         data.diag_ji = diag_ji
         data.node_transpose_idx = node_transpose_idx
 
+        # add theoretical maximal number of edges
+        data.max_nedges = torch.tensor(N * (N - 1), dtype=torch.long)
+        
         return data
 
     def __repr__(self):

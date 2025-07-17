@@ -376,6 +376,8 @@ class HessianPotentialModule(PotentialModule):
             eval_metrics["Num Edges Hessian"] = batch.edge_index_hessian.shape[1] / B
         if hasattr(batch, "edge_index"):
             eval_metrics["Num Edges"] = batch.edge_index.shape[1] / B
+        if hasattr(batch, "max_nedges"):
+            eval_metrics["Max Num Edges"] = batch.max_nedges.sum().item() / B
 
         return eval_metrics
 
