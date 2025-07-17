@@ -10,11 +10,22 @@ model:
   do_eigval_2: false
 
   do_hessian: true
+  # expressivity
   hessian_alpha_drop: 0.0
   num_layers_hessian: 1
-
+  num_gaussians_distance_hessian: 600
+  # if to also use atom type embedding or just relative distances for edge features
+  # in edge_distance 
+  use_atom_edge_embedding_hessian: True
+  # if the same embedding is used in every transformer block
+  share_atom_edge_embedding_hessian: False
+  reuse_source_target_embedding_hessian: True
+  reinit_edge_degree_embedding_hessian: False
+  cutoff_hessian: 12.0
+  # graph
   otf_graph: false
   hessian_build_method: "1d"
+
 
 training:
   # trn_path: "data/sample_100-dft-hess-eigen.lmdb"

@@ -37,17 +37,18 @@ def check_symmetry(hessian, N, nsamples=100):
 
 def add_extra_props_for_hessian(data, offset_indices=False):
     # add extra props for convience
+    nedges = data.nedges_hessian
     B = data.batch.max().item() + 1
     ptr_1d_hessian = [0]
     for b in range(B):
-        ptr_1d_hessian.append(ptr_1d_hessian[-1] + (data.nedges[b].item() * 3) ** 2)
+        ptr_1d_hessian.append(ptr_1d_hessian[-1] + (nedges[b].item() * 3) ** 2)
     data.ptr_1d_hessian = torch.tensor(
         ptr_1d_hessian, device=data.batch.device, dtype=torch.long
     )
     # indices are computed for each sample individually
     # so we need to offset the indices by the number of entries in the previous samples in the batch
     if offset_indices:
-        if hasattr(data, "offsetdone"):
+        if hasattr(data, "offsetdone") and (data.offsetdone is True):
             return data
         data.offsetdone = True
         for b in range(B):
@@ -58,7 +59,7 @@ def add_extra_props_for_hessian(data, offset_indices=False):
                 e_start = data.edge_index_ptr[b].item() * 9
                 # assert e_start == data.message_idx_ij_ptr[b], \
                 #     f"e_start={e_start} != data.message_idx_ij_ptr[b]={data.message_idx_ij_ptr[b]} * 9"
-                # e_dist = data.nedges[b].item() * 9
+                # e_dist = nedges[b].item() * 9
                 # shift message_index by number of hessian entries in previous samples
                 data.message_idx_ij[e_start:] = (
                     data.message_idx_ij[e_start:] + hessian_entries_last_sample
@@ -88,7 +89,7 @@ def add_extra_props_for_hessian(data, offset_indices=False):
             # if b == B-1:
             #     # last sample in batch
             #     e_start = data.edge_index_ptr[b].item() * 9
-            #     e_dist = data.nedges[b].item() * 9
+            #     e_dist = nedges[b].item() * 9
             #     assert e_start + e_dist == data.message_idx_ij.numel(), f"{e_start + e_dist} != {data.message_idx_ij.shape}"
             #     _start = data.ptr[b] * 9
             #     _dist = data.natoms[b].item() * 9
@@ -195,6 +196,10 @@ def _blockdiagonal_N3_N3_loop_explicit(N, edge_index, sym_message):
 
 # only works for single sample B=1
 def _flat_indexadd_explicit(edge_index, sym_message, data):
+    if hasattr(data, "nedges_hessian"):
+        nedges = data.nedges_hessian
+    else:
+        nedges = data.nedges
     # do the same thing but in 1d
     device = sym_message.device
     dtype = sym_message.dtype
@@ -211,7 +216,7 @@ def _flat_indexadd_explicit(edge_index, sym_message, data):
     n_node_entries_prev = 0
     n_entries_prev = 0
     for _b in range(data.batch.max().item() + 1):
-        _edge_index = edge_index[:, n_edges_prev : n_edges_prev + data.nedges[_b]]
+        _edge_index = edge_index[:, n_edges_prev : n_edges_prev + nedges[_b]]
         E = _edge_index.shape[1]
         N = data.natoms[_b].item()
         for ij in range(E):  # loop over messages
@@ -241,7 +246,7 @@ def _flat_indexadd_explicit(edge_index, sym_message, data):
                     values.append(messageflat[idx_message])
         n_entries_prev += (data.natoms[_b].item() * 3) ** 2
         n_node_entries_prev += data.natoms[_b].item() * 3 * 3
-        n_edges_prev += data.nedges[_b].item()
+        n_edges_prev += nedges[_b].item()
     # Convert to tensors
     indices = torch.tensor(indices, device=device, dtype=torch.long)
     values = torch.tensor(values, device=device, dtype=dtype)

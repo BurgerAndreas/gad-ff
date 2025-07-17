@@ -31,7 +31,8 @@ model:
 
   edge_channels:              128
   use_atom_edge_embedding:    True
-  share_atom_edge_embedding:  False         # If `True`, `use_atom_edge_embedding` must be `True` and the atom edge embedding will be shared across all blocks. 
+  # If `True`, `use_atom_edge_embedding` must be `True` and the atom edge embedding will be shared across all blocks. 
+  share_atom_edge_embedding:  False         
   distance_function:          'gaussian'
   num_distance_basis:         512         # not used
 

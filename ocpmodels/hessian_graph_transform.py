@@ -59,7 +59,8 @@ class HessianGraphTransform(BaseTransform):
         Returns:
             data: Modified data object with precomputed graph and indices
         """
-        # Generate graph
+        ########################################################################################
+        # Generate graph for backbone and energy and forces
         (
             edge_index,
             edge_distance,
@@ -67,9 +68,8 @@ class HessianGraphTransform(BaseTransform):
             cell_offsets,
             cell_offset_distances,
             neighbors,
-        ) = self.generate_fullyconnected_graph_nopbc(
-            data
-        )  # used by HORM
+        ) = generate_fullyconnected_graph_nopbc(data, cutoff=self.cutoff)  
+        # used by HORM
         # ) = self.generate_graph(data) # used by EquiformerV2
 
         # Careful!
@@ -88,10 +88,34 @@ class HessianGraphTransform(BaseTransform):
         data.neighbors = neighbors
         # add number of edges, analagous to natoms
         data.nedges = torch.tensor(edge_index.shape[1], dtype=torch.long)
+        
+        ########################################################################################
+        # Generate hessian graph
+        (
+            edge_index_hessian,
+            edge_distance_hessian,
+            edge_distance_vec_hessian,
+            cell_offsets_hessian,
+            cell_offset_distances_hessian,
+            neighbors_hessian,
+        ) = generate_fullyconnected_graph_nopbc(data, cutoff=self.cutoff)  
+        # used by HORM
+        # ) = self.generate_graph(data) # used by EquiformerV2
 
+        # Store hessian graph information in data object
+        data.edge_index_hessian = edge_index_hessian  
+        data.edge_distance_hessian = edge_distance_hessian
+        data.edge_distance_vec_hessian = edge_distance_vec_hessian
+        data.cell_offsets_hessian = cell_offsets_hessian
+        data.cell_offset_distances_hessian = cell_offset_distances_hessian
+        data.neighbors_hessian = neighbors_hessian
+        # add number of edges, analagous to natoms
+        data.nedges_hessian = torch.tensor(edge_index_hessian.shape[1], dtype=torch.long)
+
+        ########################################################################################
         # Precompute edge message indices for offdiagonal entries in the hessian
         N = data.natoms.sum().item()  # Number of atoms
-        indices_ij, indices_ji = _get_flat_indexadd_message_indices(N, edge_index)
+        indices_ij, indices_ji = _get_flat_indexadd_message_indices(N, edge_index_hessian)
         # Store indices in data object
         data.message_idx_ij = indices_ij
         data.message_idx_ji = indices_ji
@@ -165,21 +189,21 @@ class HessianGraphTransform(BaseTransform):
             neighbors,
         )
 
-    def generate_fullyconnected_graph_nopbc(self, data):
-        # used by HORM
-        pos = data.pos
-        edge_index = radius_graph(pos, r=self.cutoff, batch=data.batch)
-        j, i = edge_index
-        posj = pos[j]
-        posi = pos[i]
-        vecs = posj - posi
-        edge_distance_vec = vecs
-        edge_distance = (vecs).norm(dim=-1)
-        return (
-            edge_index,
-            edge_distance,
-            edge_distance_vec,
-            torch.tensor([0.0]),
-            torch.tensor([0.0]),
-            torch.tensor([0.0]),
-        )
+def generate_fullyconnected_graph_nopbc(data, cutoff):
+    # used by HORM
+    pos = data.pos
+    edge_index = radius_graph(pos, r=cutoff, batch=data.batch)
+    j, i = edge_index
+    posj = pos[j]
+    posi = pos[i]
+    vecs = posj - posi
+    edge_distance_vec = vecs
+    edge_distance = (vecs).norm(dim=-1)
+    return (
+        edge_index,
+        edge_distance,
+        edge_distance_vec,
+        torch.tensor([0.0]),
+        torch.tensor([0.0]),
+        torch.tensor([0.0]),
+    )
