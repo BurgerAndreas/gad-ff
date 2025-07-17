@@ -1,0 +1,21 @@
+geom:
+ type: redund
+ fn: lib:cytosin.xyz
+calc:
+ type: orca
+ keywords: pbe0 def2-svp rijcosx def2/J def2-svp/C
+ blocks: "%tddft nroots 2 iroot 1 tda false end"
+ track: True
+ ovlp_type: tden
+ charge: 0
+ mult: 1
+ pal: 6
+ mem: 1500
+ cdds: render
+opt:
+ type: rfo
+ overachieve_factor: 2
+ thresh: gau
+assert:
+ opt_geom.energy: -394.0613165
+ opt.cur_cycle: 7

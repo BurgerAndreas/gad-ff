@@ -39,7 +39,7 @@ from nets.equiformer_v2.transformer_block import (
     TransBlockV2,
 )
 
-from gadff.equiformer_calculator import compute_hessian
+from gadff.equiformer_torch_calculator import compute_hessian
 
 if __name__ == "__main__":
 

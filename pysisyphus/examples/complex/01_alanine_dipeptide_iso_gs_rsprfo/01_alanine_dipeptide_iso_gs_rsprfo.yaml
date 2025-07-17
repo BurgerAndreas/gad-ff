@@ -1,0 +1,26 @@
+cos:
+ type: gs                                # GrowingString
+ max_nodes: 9                            # Total string will have max_nodes + 2 images
+ climb: True
+opt:
+ type: string                            # Optimizer for GrowingString
+ #stop_in_when_full: 3                    # Stop string optimization N cycles after fully grown
+ align: False                            # Disable Kabsch algorithm. Should be True with
+tsopt:
+ type: rsirfo                            # Continue with TS-optimization of highest energy images
+                                         # (HEI) using the RS-P-RFO algorithm
+ do_hess: True                           # Calculate hessian at optimized TS geometry
+ trust_max: 0.3
+ thresh: gau_loose
+calc:
+ type: orca
+ keywords: "b3lyp 6-31G* rijcosx"
+ pal: 4
+ charge: 0
+ mult: 1
+geom:
+ type: dlc                               # Run GrowingString in delocalized internal coordinates
+ fn: [first_preopt.xyz, last_preopt.xyz] # (preferred).
+assert:
+ opt.is_converged: True
+ opt.cur_cycle: 8

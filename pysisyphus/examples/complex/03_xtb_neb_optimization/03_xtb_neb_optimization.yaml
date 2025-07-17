@@ -1,0 +1,26 @@
+# Dissociation
+preopt:
+ max_cycles: 15
+interpol:
+ type: idpp
+ between: 18
+cos:
+ type: neb
+opt:
+ type: lbfgs
+ align: True
+ max_cycles: 15
+calc:
+ type: xtb
+ charge: 0
+ mult: 1
+ pal: 4
+tsopt:
+ root: 0
+ do_hess: True
+geom:
+ type: cart
+ fn: [09_htransfer_product.xyz, 10_po_diss_product_xtbopt.xyz]
+assert:
+ ts_opt.is_converged: True
+ ts_geom.energy: -80.70117968

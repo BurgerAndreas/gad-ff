@@ -43,7 +43,7 @@ import argparse
 import json
 
 from gadff.horm.ff_lmdb import LmdbDataset
-from gadff.equiformer_calculator import EquiformerTorchCalculator
+from gadff.equiformer_torch_calculator import EquiformerTorchCalculator
 
 # from gadff.align_unordered_mols import rmsd
 from gadff.align_ordered_mols import align_ordered_and_get_rmsd
@@ -445,7 +445,7 @@ def main(
     torchcalc = EquiformerTorchCalculator(device=device)
 
     print("\nASE EquiformerTorchCalculator")
-    asecalc = EquiformerASECalculator(device=device)
+    asecalc = EquiformerASECalculator(device=device, model=torchcalc.model)
 
     # # Example forward pass
     # # Create batch (equiformer expects batch format)
@@ -593,8 +593,6 @@ def main(
     ###################################################################################
     if do_irc_neb_geodesic:
         print("=" * 60)
-
-        asecalc = EquiformerASECalculator(device=device)
 
         # print("\n# ts_job")
         # mol_ase = run_sella(

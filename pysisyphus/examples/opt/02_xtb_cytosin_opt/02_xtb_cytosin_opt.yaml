@@ -1,0 +1,19 @@
+opt:
+ type: rfo
+ thresh: gau
+ do_hess: True
+calc:
+ type: xtb
+ charge: 0
+ mult: 1
+ pal: 1
+geom:
+ type: redund
+ fn: cytosin.xyz
+shake:
+ seed: 25032018
+assert:
+ # Test against xtb 6.3.2
+ opt.is_converged: True
+ opt.cur_cycle: 7
+ opt_geom.energy: -23.963621

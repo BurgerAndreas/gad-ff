@@ -74,6 +74,7 @@ class EquiformerASECalculator(Calculator):
         device: Optional[torch.device] = None,
         project_root: str = None,
         hessian_method: str = "autodiff",
+        model: torch.nn.Module = None,
         **kwargs,
     ):
         """
@@ -90,24 +91,31 @@ class EquiformerASECalculator(Calculator):
         self.results = {}
 
         # Set device
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        if device is None:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = device
 
-        # Load model
-        if project_root is None:
-            project_root = os.path.dirname(os.path.dirname(__file__))
-        config_path = os.path.join(project_root, "configs/equiformer_v2.yaml")
-        with open(config_path, "r") as file:
-            config = yaml.safe_load(file)
-        model_config = config["model"]
-        self.model = EquiformerV2_OC20(**model_config)
+        if model is None:
+            # Load model
+            if project_root is None:
+                project_root = os.path.dirname(os.path.dirname(__file__))
+            config_path = os.path.join(project_root, "configs/equiformer_v2.yaml")
+            with open(config_path, "r") as file:
+                config = yaml.safe_load(file)
+            model_config = config["model"]
+            self.potential = EquiformerV2_OC20(**model_config)
 
-        if checkpoint_path is None:
-            checkpoint_path = os.path.join(project_root, "ckpt/eqv2.ckpt")
-        state_dict = torch.load(checkpoint_path, weights_only=True)["state_dict"]
-        state_dict = {k.replace("potential.", ""): v for k, v in state_dict.items()}
-        self.model.load_state_dict(state_dict, strict=False)
-        self.model = self.model.to(self.device)
-        self.model.eval()
+            if checkpoint_path is None:
+                checkpoint_path = os.path.join(project_root, "ckpt/eqv2.ckpt")
+            state_dict = torch.load(checkpoint_path, weights_only=True)["state_dict"]
+            state_dict = {k.replace("potential.", ""): v for k, v in state_dict.items()}
+            self.potential.load_state_dict(state_dict, strict=False)
+        else:
+            self.potential = model
+
+        # self.potential = self.potential.to(self.device)
+        self.potential.to(self.device)
+        self.potential.eval()
 
         # Set implemented properties
         # # standard properties: ‘energy’, ‘forces’, ‘stress’, ‘dipole’, ‘charges’, ‘magmom’ and ‘magmoms’.
@@ -117,8 +125,8 @@ class EquiformerASECalculator(Calculator):
 
         # ocpmodels/common/relaxation/ase_utils.py
         self.a2g = AtomsToGraphs(
-            max_neigh=self.model.max_neighbors,
-            radius=self.model.cutoff,
+            max_neigh=self.potential.max_neighbors,
+            radius=self.potential.cutoff,
             r_energy=False,
             r_forces=False,
             r_distances=False,
@@ -142,7 +150,13 @@ class EquiformerASECalculator(Calculator):
         self.calculate(atoms, properties=properties)
         return self.results
 
-    def calculate(self, atoms=None, properties=None, system_changes=all_changes):
+    def calculate(
+        self,
+        atoms=None,
+        properties=None,
+        hessian_method=None,
+        system_changes=all_changes,
+    ):
         """
         Calculate properties for the given atoms.
 
@@ -169,19 +183,22 @@ class EquiformerASECalculator(Calculator):
         if "eigen" in properties:
             properties.append("hessian")
 
+        if hessian_method is None:
+            hessian_method = self.hessian_method
+
         # Prepare batch with extra properties
         batch = compute_extra_props(batch, pos_require_grad="hessian" in properties)
 
         # Run prediction
-        if (self.hessian_method == "autodiff") and ("hessian" in properties):
+        if (hessian_method == "autodiff") and ("hessian" in properties):
             with torch.enable_grad():
-                energy, forces, eigenoutputs = self.model.forward(
+                energy, forces, eigenoutputs = self.potential.forward(
                     batch, eigen=True, hessian=False
                 )
         else:
             with torch.no_grad():
-                energy, forces, eigenoutputs = self.model.forward(
-                    batch, eigen=True, hessian=self.hessian_method == "predict"
+                energy, forces, eigenoutputs = self.potential.forward(
+                    batch, eigen=True, hessian=hessian_method == "predict"
                 )
 
         # Store results
@@ -200,17 +217,17 @@ class EquiformerASECalculator(Calculator):
 
         # Compute the Hessian via autodiff on the fly
         if "hessian" in properties:
-            if self.hessian_method == "autodiff":
+            if hessian_method == "autodiff":
                 # 3D coordinates -> 3N^2 Hessian elements
                 N = batch.pos.shape[0]
                 forces = forces.reshape(-1)
                 num_elements = forces.shape[0]
 
                 hessian = compute_hessian(batch.pos, forces, retain_graph=True)
-            elif self.hessian_method == "predict":
+            elif hessian_method == "predict":
                 hessian = eigenoutputs["hessian"]
             else:
-                raise ValueError(f"Invalid Hessian method: {self.hessian_method}")
+                raise ValueError(f"Invalid Hessian method: {hessian_method}")
             self.results["hessian"] = hessian.detach().cpu().numpy()
 
         if "eigen" in properties:
@@ -227,11 +244,46 @@ class EquiformerASECalculator(Calculator):
                 smallest_eigenvecs.T.view(2, N, 3).detach().cpu().numpy()
             )
 
+    def get_energy(self, atoms):
+        """
+        Get the energy for the given atoms.
+        """
+        self.calculate(atoms, properties=["energy"])
+        return self.results["energy"]
+
+    def get_potential_energy(self, atoms):
+        """
+        Get the potential energy for the given atoms.
+        """
+        self.calculate(atoms, properties=["energy"])
+        return self.results["energy"]
+
+    def get_forces(self, atoms):
+        """
+        Get the forces for the given atoms.
+        """
+        self.calculate(atoms, properties=["forces"])
+        return self.results["forces"]
+
+    def get_hessian(self, atoms, hessian_method=None):
+        """
+        Get the Hessian matrix for the given atoms via autodiff (on the fly Hessian).
+        """
+        self.calculate(
+            atoms,
+            properties=["energy", "forces", "hessian"],
+            hessian_method=hessian_method,
+        )
+        N = len(atoms)
+        return self.results["hessian"].reshape(N * 3, N * 3)
+
     def get_hessian_autodiff(self, atoms):
         """
         Get the Hessian matrix for the given atoms via autodiff (on the fly Hessian).
         """
-        self.calculate(atoms, properties=["energy", "forces", "hessian"])
+        self.calculate(
+            atoms, properties=["energy", "forces", "hessian"], hessian_method="autodiff"
+        )
         N = len(atoms)
         return self.results["hessian"].reshape(N * 3, N * 3)
 
@@ -239,7 +291,9 @@ class EquiformerASECalculator(Calculator):
         """
         Get the Hessian matrix for the given atoms via prediction (from the model).
         """
-        self.calculate(atoms, properties=["energy", "forces", "hessian"])
+        self.calculate(
+            atoms, properties=["energy", "forces", "hessian"], hessian_method="predict"
+        )
         N = len(atoms)
         return self.results["hessian"].reshape(N * 3, N * 3)
 
@@ -247,7 +301,11 @@ class EquiformerASECalculator(Calculator):
         """
         Get the eigenvalues and eigenvectors for the given atoms via autodiff (on the fly eigenvalues).
         """
-        self.calculate(atoms, properties=["energy", "forces", "hessian", "eigen"])
+        self.calculate(
+            atoms,
+            properties=["energy", "forces", "hessian", "eigen"],
+            hessian_method="autodiff",
+        )
         return self.results["eigenvalues"], self.results["eigenvectors"]
 
 
@@ -281,7 +339,6 @@ if __name__ == "__main__":
     )
 
     # Attach calculator to atoms
-    # atoms.set_calculator(calculator)
     atoms.calc = calculator
 
     # Calculate energy and forces

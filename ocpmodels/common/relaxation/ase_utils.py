@@ -61,7 +61,7 @@ def batch_to_atoms(batch):
             energy=energies[idx],
             forces=forces[idx].cpu().detach().numpy(),
         )
-        atoms.set_calculator(calc)
+        atoms.calc = calc
         atoms_objects.append(atoms)
 
     return atoms_objects
@@ -224,12 +224,17 @@ def ase_atoms_to_torch_geometric(atoms):
     positions = atoms.get_positions().astype(np.float32)
     atomic_nums = atoms.get_atomic_numbers()
 
+    # TODO: add graph and index computation for hessian prediction
+
     # Convert to torch tensors
     data = TGData(
         pos=torch.tensor(positions, dtype=torch.float32),
+        # TODO: difference between z and charges?
         z=torch.tensor(atomic_nums, dtype=torch.int64),
         charges=torch.tensor(atomic_nums, dtype=torch.int64),
         natoms=torch.tensor([len(atomic_nums)], dtype=torch.int64),
+        cell=torch.tensor(atoms.get_cell().astype(np.float32), dtype=torch.float32),
+        pbc=torch.tensor(False, dtype=torch.bool),
     )
     data = Batch.from_data_list([data])
 

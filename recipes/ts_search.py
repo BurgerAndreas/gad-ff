@@ -25,7 +25,7 @@ from datetime import datetime
 import traceback
 
 from gadff.horm.ff_lmdb import LmdbDataset
-from gadff.equiformer_calculator import EquiformerTorchCalculator
+from gadff.equiformer_torch_calculator import EquiformerTorchCalculator
 
 # from gadff.align_unordered_mols import rmsd
 from gadff.align_ordered_mols import align_ordered_and_get_rmsd
@@ -171,6 +171,7 @@ def to_torch(x, device):
 
 
 def get_hessian_function(hessian_method, asecalc):
+    """Function that returns a (N*3, N*3) hessian matrix"""
     if hessian_method == "autodiff":
 
         def _hessian_function(atoms):

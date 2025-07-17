@@ -23,7 +23,6 @@ from torchmetrics import (
     MeanAbsolutePercentageError,
     CosineSimilarity,
 )
-from torch_scatter import scatter_mean
 from nets.equiformer_v2.equiformer_v2_oc20 import EquiformerV2_OC20
 
 from gadff.horm.ff_lmdb import LmdbDataset
@@ -31,7 +30,7 @@ from gadff.horm.utils import average_over_batch_metrics, pretty_print
 import gadff.horm.utils as diff_utils
 import yaml
 from gadff.path_config import find_project_root, fix_dataset_path
-
+from nets.prediction_utils import compute_extra_props
 
 LR_SCHEDULER = {
     "cos": CosineAnnealingWarmRestarts,
@@ -77,26 +76,6 @@ class SchemaUniformDataset:
         if hasattr(data, "force_constant"):
             delattr(data, "force_constant")
         return data
-
-
-def compute_extra_props(batch, pos_require_grad=True):
-    """Adds device, z, and removes mean batch"""
-    device = batch.energy.device
-    indices = batch.one_hot.long().argmax(dim=1)
-    batch.z = GLOBAL_ATOM_NUMBERS.to(device)[indices.to(device)]
-    batch.pos = remove_mean_batch(batch.pos, batch.batch)
-    # atomization energy. shape used by equiformerv2
-    if not hasattr(batch, "ae"):
-        batch.ae = torch.zeros_like(batch.energy)
-    if pos_require_grad:
-        batch.pos.requires_grad_(True)
-    return batch
-
-
-def remove_mean_batch(x, indices):
-    mean = scatter_mean(x, indices, dim=0)
-    x = x - mean[indices]
-    return x
 
 
 class AlphaConfig:

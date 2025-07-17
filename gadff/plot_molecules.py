@@ -28,7 +28,7 @@ import seaborn as sns
 # pio.renderers.default = "browser"
 
 from gadff.horm.ff_lmdb import LmdbDataset
-from gadff.equiformer_calculator import EquiformerTorchCalculator
+from gadff.equiformer_torch_calculator import EquiformerTorchCalculator
 from gadff.align_unordered_mols import compute_rmsd
 from ocpmodels.units import ELEMENT_TO_ATOMIC_NUMBER, ATOMIC_NUMBER_TO_ELEMENT
 

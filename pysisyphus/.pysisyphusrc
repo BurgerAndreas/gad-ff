@@ -1,0 +1,89 @@
+# Excited state calculators
+
+[gaussian09]
+# Cmd to execute. Please ensure that g09 is on your $PATH.
+cmd=g09
+formchk_cmd=formchk
+unfchk_cmd=unfchk
+
+[gaussian16]
+# Cmds to execute. Please ensure that the binaries are found in your $PATH.
+cmd=g16
+formchk=formchk
+unfchk=unfchk
+rwfdump=rwfdump
+
+[openmolcas]
+# Cmd to execute. Please ensure that pymolcas is on your $PATH.
+cmd=pymolcas
+
+[orca]
+# ORCA needs the full path to its binary, so please provide the full path.
+cmd=/scratch/programme/orca_4_2_0_linux_x86-64_openmpi314/orca
+
+#[pyscf]
+# pyscf must not have an explicit entry in the .pysisyphusrc. pysisyphus uses
+# the python API of pyscf, so it is mandatory that is installed in the same environment
+# as pysisyphus.
+
+#[turbomole]
+# Turbomole must not have an explicit entry in the .pysisyphusrc. The user has to take
+# care that everything is set up correctly, e.g. TM-binaries are on the PATH etc...
+# The respective commands are hardcoded into pysisyphus (dscf, ridft, ricc2, ...)
+
+# Ground state calculators
+
+[mopac]
+# Similar to Psi4. An example is given below.
+cmd=/user/johannes/bin/runmopac.sh
+
+[psi4]
+# As the Psi4 installation without conda is, to put it slightly, tricky it was
+# decided to allow the installation of Psi4 into a separate conda environment.
+# pysisyphus then creates a Psi4 input and sends it to the (bash)-script given below
+# that accepts/expects one argument. It is the responsibility of the scrip to activate
+# the appropriate conda environment and submit the Psi4 input. An example runpsi4.sh
+# script is given below.
+# source /scratch/programme/anaconda3/bin/activate psi4
+# #conda activate psi4
+# psi4 -o stdout $1
+cmd=/user/johannes/bin/runpsi4.sh
+
+#[qcengine]
+# QCEngine must not have an entry explicit entry in the .pysisyphusrc. It is used
+# via its python interface and can be installed as an extra with pip (see above).
+# The user is referenced to the QCEngine-documentation for any further questions.
+
+[xtb]
+# Cmd to execute. Please ensure that xtb is on your $PATH.
+cmd=xtb
+
+[openmolcas]
+# Make sure that the MOLCAS variable is set.
+cmd=pymolcas
+
+[cfour]
+# Parallelism is managed by the user by setting environment variables in the runscript,
+# as the name of the environment variable for MPI parallelism depends on how CFOUR_MPI_CORES
+# was compiled. The GENBAS file must also be symlinked by the runscript.
+# A sample is provided below.
+cmd=/home/ghjones/bin/runcfour.sh
+
+# Utilities
+
+[wfoverlap]
+# Cmd to execute. Please ensure that wfoverlap is on your $PATH. The binary/source
+# can be obtained from https://github.com/sharc-md/sharc/tree/master/bin
+cmd=/scratch/wfoverlap_1.0/bin/wfoverlap.x
+
+[mwfn]
+# Cmd to execute. Please ensure that Multiwfn is on your $PATH. Otherwise put an
+# absolute path here. By default pysisyphus looks up "Multiwfn", so if you would
+# put a relative path here you don't have to, as this is already covered by the
+# defaults.
+cmd=Multiwfn
+
+[jmol]
+# Cmd to execute. The same arguments apply for jmol as for Multiwfn. "jmol" is
+# already the default.
+cmd=jmol
