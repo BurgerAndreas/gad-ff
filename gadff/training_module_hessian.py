@@ -370,6 +370,12 @@ class HessianPotentialModule(PotentialModule):
             prefix=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}",
         )
         eval_metrics.update(eig_metrics)
+        
+        B = batch.batch.max().item() + 1
+        if hasattr(batch, "edge_index_hessian"):
+            eval_metrics["Num Edges Hessian"] = batch.edge_index_hessian.shape[1] / B
+        if hasattr(batch, "edge_index"):
+            eval_metrics["Num Edges"] = batch.edge_index.shape[1] / B
 
         return eval_metrics
 
