@@ -34,7 +34,7 @@ training:
 
   hessian_loss_weight: 1.0
 
-  hessian_loss_type: "mse"
+  hessian_loss_type: "mae"
 
   eigen_loss:
     loss_name: "eigenspectrum"
