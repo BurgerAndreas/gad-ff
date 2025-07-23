@@ -179,4 +179,5 @@ if __name__ == "__main__":
     # lmdb_path = 'data/sample_100.lmdb'
     lmdb_path = DATASET_FILES_HORM[0]
 
-    evaluate(lmdb_path, checkpoint_path, max_samples=1000)
+    # evaluate(lmdb_path, checkpoint_path, max_samples=1000)
+    evaluate(lmdb_path, checkpoint_path)

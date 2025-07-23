@@ -12,6 +12,7 @@ import re
 from omegaconf import DictConfig
 import wandb
 from datetime import datetime
+from pathlib import Path
 
 from pytorch_lightning.callbacks import (
     TQDMProgressBar,
@@ -25,6 +26,52 @@ from gadff.training_module_eigen import EigenPotentialModule, MyPLTrainer
 from gadff.training_module_hessian import HessianPotentialModule, MyPLTrainer
 from gadff.path_config import CHECKPOINT_PATH_EQUIFORMER_HORM
 from gadff.logging_utils import name_from_config
+
+
+def find_latest_checkpoint(base_checkpoint_name: str, project: str) -> str:
+    """
+    Find the latest checkpoint file from directories matching the base name pattern.
+    
+    Args:
+        base_checkpoint_name: Base name without slurm_job_id and timestamp
+        project: Project name
+        
+    Returns:
+        Path to the latest checkpoint file, or None if not found
+    """
+    checkpoint_base_dir = Path(f"checkpoint/{project}")
+    if not checkpoint_base_dir.exists():
+        return None
+    
+    # Find all directories that start with the base name
+    pattern = f"{base_checkpoint_name}-*"
+    matching_dirs = list(checkpoint_base_dir.glob(pattern))
+    
+    if not matching_dirs:
+        print(f"No existing checkpoint directories found matching pattern: {pattern}")
+        return None
+    
+    print(f"Found {len(matching_dirs)} matching checkpoint directories: {[d.name for d in matching_dirs]}")
+    
+    # Find all checkpoint files in all matching directories
+    all_checkpoints = []
+    for dir_path in matching_dirs:
+        ckpt_files = list(dir_path.glob("*.ckpt"))
+        for ckpt_file in ckpt_files:
+            all_checkpoints.append(ckpt_file)
+    
+    if not all_checkpoints:
+        print("No checkpoint files found in matching directories")
+        return None
+    
+    # Sort by modification time, newest first
+    all_checkpoints.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+    latest_checkpoint = all_checkpoints[0]
+    
+    print(f"Found {len(all_checkpoints)} checkpoint files")
+    print(f"Latest checkpoint: {latest_checkpoint}")
+    
+    return str(latest_checkpoint)
 
 
 def setup_training(cfg: DictConfig):
@@ -86,6 +133,19 @@ def setup_training(cfg: DictConfig):
     checkpoint_name = re.sub(r"[^a-zA-Z0-9]", "", run_name)
     if len(checkpoint_name) <= 1:
         checkpoint_name = "base"
+    
+    # Auto-resume logic: find existing checkpoint with same base name
+    if cfg.get('ckpt_resume_auto', False):
+        if cfg.ckpt_trainer_path is not None:
+            print(f"Auto-resume is overwriting ckpt_trainer_path: {cfg.ckpt_trainer_path}")
+        print("Auto-resume enabled, searching for existing checkpoints...")
+        latest_ckpt = find_latest_checkpoint(checkpoint_name, cfg.project)
+        if latest_ckpt:
+            cfg.ckpt_trainer_path = latest_ckpt
+            print(f"Auto-resume: Will resume from {latest_ckpt}")
+        else:
+            print("Auto-resume: No existing checkpoints found, starting fresh")
+    
     checkpoint_name = f"{checkpoint_name}-{cfg.slurm_job_id}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
     ckpt_output_path = f"checkpoint/{cfg.project}/{checkpoint_name}"
     print(f"Checkpoint output path: {ckpt_output_path}")
@@ -93,7 +153,7 @@ def setup_training(cfg: DictConfig):
     checkpoint_callback = ModelCheckpoint(
         monitor="val-totloss",
         dirpath=ckpt_output_path,
-        filename="ff-{epoch:03d}-{val-totloss:.4f}-{val-MAE_E:.4f}-{val-MAE_F:.4f}",
+        filename="ff-{epoch:03d}-{val-totloss:.4f}",
         every_n_epochs=10,
         save_top_k=2,
     )

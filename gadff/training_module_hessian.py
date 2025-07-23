@@ -18,23 +18,23 @@ from torch.optim.lr_scheduler import (
     StepLR,
     ConstantLR,
 )
-from torch_geometric.loader import DataLoader as TGDataLoader
-from torchmetrics import (
-    MeanAbsoluteError,
-    MeanAbsolutePercentageError,
-    CosineSimilarity,
-)
-from torch_scatter import scatter_mean
+# from torch_geometric.loader import DataLoader as TGDataLoader
+# from torchmetrics import (
+#     MeanAbsoluteError,
+#     MeanAbsolutePercentageError,
+#     CosineSimilarity,
+# )
+# from torch_scatter import scatter_mean
 
 import pytorch_lightning as pl
-from pytorch_lightning import LightningModule
+# from pytorch_lightning import LightningModule
 
-from nets.equiformer_v2.equiformer_v2_oc20 import EquiformerV2_OC20
+# from nets.equiformer_v2.equiformer_v2_oc20 import EquiformerV2_OC20
 from gadff.horm.ff_lmdb import LmdbDataset
 from ocpmodels.hessian_graph_transform import HessianGraphTransform
-from gadff.horm.utils import average_over_batch_metrics, pretty_print
-import gadff.horm.utils as diff_utils
-from gadff.path_config import find_project_root
+# from gadff.horm.utils import average_over_batch_metrics, pretty_print
+# import gadff.horm.utils as diff_utils
+# from gadff.path_config import find_project_root
 from gadff.horm.training_module import (
     PotentialModule,
     compute_extra_props,
