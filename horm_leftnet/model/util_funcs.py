@@ -3,7 +3,9 @@
 import torch
 import numpy as np
 from torch import Tensor
-from torch_scatter import scatter, segment_coo, segment_csr
+
+# from torch_scatter import scatter, segment_coo, segment_csr
+from nets.scatter_utils import scatter, segment_coo, segment_csr
 
 
 def move_by_com(pos):

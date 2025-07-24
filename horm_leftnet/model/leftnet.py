@@ -7,7 +7,9 @@ import numpy as np
 from torch import nn, Tensor
 
 from torch_geometric.nn.conv import MessagePassing
-from torch_scatter import scatter, scatter_mean
+
+# from torch_scatter import scatter, scatter_mean
+from nets.scatter_utils import scatter, scatter_mean
 
 from leftnet.model.util_funcs import unsorted_segment_sum
 from leftnet.model.core import MLP

@@ -12,7 +12,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch_geometric.nn import MessagePassing
-from torch_scatter import scatter
+
+# from torch_scatter import scatter
+from ocpmodels.common.scatter_utils import scatter
 
 from ocpmodels.common.registry import registry
 from ocpmodels.common.utils import get_pbc_distances, radius_graph_pbc
@@ -20,6 +22,8 @@ from ocpmodels.datasets.embeddings import ATOMIC_RADII, CONTINUOUS_EMBEDDINGS
 from ocpmodels.models.base import BaseModel
 from ocpmodels.models.utils.activations import Act
 from ocpmodels.models.utils.basis import Basis, SphericalSmearing
+
+import logging
 
 
 class FNDecoder(nn.Module):

@@ -6,7 +6,9 @@ LICENSE file in the root directory of this source tree.
 """
 
 import torch
-from torch_scatter import segment_csr
+
+# from torch_scatter import segment_csr
+from ocpmodels.common.scatter_utils import segment_csr
 
 
 def repeat_blocks(

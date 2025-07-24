@@ -7,7 +7,9 @@ LICENSE file in the root directory of this source tree.
 
 import torch
 from torch_geometric.nn import SchNet
-from torch_scatter import scatter
+
+# from torch_scatter import scatter
+from ocpmodels.common.scatter_utils import scatter
 
 from ocpmodels.common.registry import registry
 from ocpmodels.common.utils import (

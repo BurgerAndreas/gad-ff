@@ -2,7 +2,7 @@ from typing import Optional
 import torch
 import numpy as np
 from ase.calculators.calculator import Calculator, all_changes
-from alphanet.alphanet_module import PotentialModule
+from horm_alphanet.alphanet_module import PotentialModule
 from torch_geometric.data import Data
 
 
@@ -52,7 +52,7 @@ def mols_to_batch(molecules):
 class AlphaNetCalculator(Calculator):
     """LeftNet ASE Calculator.
     args:
-        model: torch.nn.Module finetuned leftnet model
+        model: torch.nn.Module finetuned alphanet model
     """
 
     def __init__(

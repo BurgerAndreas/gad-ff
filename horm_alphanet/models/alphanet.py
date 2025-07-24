@@ -8,7 +8,9 @@ from torch import nn
 from torch.nn import Embedding
 from torch_geometric.nn import radius_graph
 from torch_geometric.nn.conv import MessagePassing
-from torch_scatter import scatter, segment_coo, segment_csr
+
+# from torch_scatter import scatter, segment_coo, segment_csr
+from nets.scatter_utils import scatter, segment_coo, segment_csr
 
 
 def get_max_neighbors_mask(natoms, index, atom_distance, max_num_neighbors_threshold):

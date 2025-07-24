@@ -13,7 +13,9 @@ from typing import Deque, Optional
 import ase
 import torch
 from torch_geometric.data import Batch
-from torch_scatter import scatter
+
+# from torch_scatter import scatter
+from ocpmodels.common.scatter_utils import scatter
 
 from ocpmodels.common.relaxation.ase_utils import batch_to_atoms
 from ocpmodels.common.utils import radius_graph_pbc

@@ -60,7 +60,7 @@ def evaluate(lmdb_path, checkpoint_path, max_samples=None):
 
     dataset = LmdbDataset(fix_dataset_path(lmdb_path))
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
-    
+
     dataset_name = lmdb_path.split("/")[-1].split(".")[0]
 
     # Initialize metrics
@@ -70,7 +70,7 @@ def evaluate(lmdb_path, checkpoint_path, max_samples=None):
     total_eigen_error = 0.0
     total_asymmetry_error = 0.0
     n_samples = 0
-    
+
     # Added Andreas
     total_eigval1_mae = 0.0
     total_eigval2_mae = 0.0
@@ -109,7 +109,9 @@ def evaluate(lmdb_path, checkpoint_path, max_samples=None):
         # Eigenvalue error
         eigvals_true, eigvecs_true = torch.linalg.eigh(hessian_true)
         eigen_true_hartree_bohr = hess2eigenvalues(hessian_true)
-        eigen_error = torch.mean(torch.abs(eigenvalues_hartree_bohr - eigen_true_hartree_bohr))
+        eigen_error = torch.mean(
+            torch.abs(eigenvalues_hartree_bohr - eigen_true_hartree_bohr)
+        )
 
         # Asymmetry error
         asymmetry_error = torch.mean(torch.abs(hess - hess.T))
@@ -121,7 +123,7 @@ def evaluate(lmdb_path, checkpoint_path, max_samples=None):
         total_h_error += h_error.item()
         total_eigen_error += eigen_error.item()
         n_samples += 1
-        
+
         # Added Andreas
         eigval1_mae = torch.mean(torch.abs(eigvals[0] - eigvals_true[0]))
         eigval2_mae = torch.mean(torch.abs(eigvals[1] - eigvals_true[1]))
@@ -138,7 +140,7 @@ def evaluate(lmdb_path, checkpoint_path, max_samples=None):
 
         # Memory management
         torch.cuda.empty_cache()
-        
+
         if max_samples is not None and n_samples >= max_samples:
             break
 
@@ -155,7 +157,7 @@ def evaluate(lmdb_path, checkpoint_path, max_samples=None):
     print(f"Hessian MAE: {mae_h:.6f}")
     print(f"Eigenvalue MAE: {mae_eigen:.6f}")
     print(f"Asymmetry MAE: {mae_asymmetry:.6f}")
-    
+
     # Added Andreas
     print(f"Eigenvalue 1 MAE: {total_eigval1_mae / n_samples:.6f}")
     print(f"Eigenvalue 2 MAE: {total_eigval2_mae / n_samples:.6f}")

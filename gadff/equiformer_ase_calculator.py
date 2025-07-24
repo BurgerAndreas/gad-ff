@@ -15,7 +15,6 @@ from ase.calculators.calculator import Calculator, all_changes
 from ase.data import atomic_numbers
 from ase.calculators.singlepoint import SinglePointCalculator as sp
 from ase.constraints import FixAtoms
-from torch_scatter import scatter_mean
 
 from ocpmodels.datasets import data_list_collater
 from ocpmodels.preprocessing import AtomsToGraphs

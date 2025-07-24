@@ -8,7 +8,9 @@ LICENSE file in the root directory of this source tree.
 from typing import Optional
 
 import torch
-from torch_scatter import scatter
+
+# from torch_scatter import scatter
+from ocpmodels.common.scatter_utils import scatter
 from torch_scatter.utils import broadcast
 
 from ocpmodels.common import gp_utils

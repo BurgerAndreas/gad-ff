@@ -6,7 +6,9 @@ LICENSE file in the root directory of this source tree.
 """
 
 import torch
-from torch_scatter import scatter
+
+# from torch_scatter import scatter
+from ocpmodels.common.scatter_utils import scatter
 
 from ocpmodels.modules.scaling import ScaleFactor
 

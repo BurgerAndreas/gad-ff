@@ -108,7 +108,7 @@ class PotentialModule(LightningModule):
             model_config.update(self.model_config)
             self.potential = EquiformerV2_OC20(**model_config)
         elif self.model_config["name"] == "AlphaNet":
-            from alphanet.models.alphanet import AlphaNet
+            from horm_alphanet.models.alphanet import AlphaNet
 
             self.potential = AlphaNet(AlphaConfig(model_config)).float()
         elif (

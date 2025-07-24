@@ -33,7 +33,9 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
 from torch_geometric.data import Data
 from torch_geometric.utils import remove_self_loops
-from torch_scatter import scatter, segment_coo, segment_csr
+
+# from torch_scatter import scatter, segment_coo, segment_csr
+from ocpmodels.common.scatter_utils import scatter, segment_coo, segment_csr
 
 if TYPE_CHECKING:
     from torch.nn.modules.module import _IncompatibleKeys

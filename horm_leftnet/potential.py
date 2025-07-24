@@ -3,7 +3,9 @@ from typing import Dict, List, Optional, Tuple
 import torch
 from torch import nn, Tensor
 from torch.autograd import grad
-from torch_scatter import scatter_sum, scatter_mean
+
+# from torch_scatter import scatter_sum, scatter_mean
+from nets.scatter_utils import scatter_sum, scatter_mean
 from torch_geometric.data import Data
 
 from leftnet.model.core import GatedMLP

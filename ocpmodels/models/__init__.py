@@ -10,19 +10,22 @@ from .cgcnn import CGCNN
 try:
     from .dimenet import DimeNetWrap as DimeNet
 except ImportError as e:
-    print("Will not be able to use DimeNet. Error: ", e)
+    # print("Will not be able to use DimeNet. Error: ", e)
+    pass
 
 try:
     from .dimenet_plus_plus import DimeNetPlusPlusWrap as DimeNetPlusPlus
 except ImportError as e:
-    print("Will not be able to use DimeNetPlusPlus. Error: ", e)
+    # print("Will not be able to use DimeNetPlusPlus. Error: ", e)
+    pass
 
 try:
     from .gemnet.gemnet import GemNetT
     from .gemnet_gp.gemnet import GraphParallelGemNetT as GraphParallelGemNetT
     from .gemnet_oc.gemnet_oc import GemNetOC
 except ImportError as e:
-    print("Will not be able to use GemNet. Error: ", e)
+    # print("Will not be able to use GemNet. Error: ", e)
+    pass
 
 from .forcenet import ForceNet
 from .painn.painn import PaiNN

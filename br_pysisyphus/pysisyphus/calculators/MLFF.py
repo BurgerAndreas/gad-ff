@@ -157,6 +157,7 @@ class MLFF(Calculator):
         method="ani",
         model_kwargs={},
         device="cpu",
+        ckpt_path=None,
         **kwargs,
     ):
         """MLFF calculator.
@@ -207,6 +208,9 @@ class MLFF(Calculator):
 
             from gadff.equiformer_ase_calculator import EquiformerASECalculator
 
+            if ckpt_path is not None:
+                model_kwargs["checkpoint_path"] = ckpt_path
+
             self.model = EquiformerASECalculator(
                 device=self.device,
                 **model_kwargs,
@@ -215,11 +219,12 @@ class MLFF(Calculator):
             self.model.potential.to(self.device)
 
         elif self.method == "alpha":
-            from alphanet.calculator import AlphaNetCalculator
+            from horm_alphanet.calculator import AlphaNetCalculator
 
-            self.model = AlphaNetCalculator(
-                weight="/root/.local/mlff/alphanet/ts1x-tuned.ckpt", device=self.device
-            )
+            if ckpt_path is None:
+                ckpt_path = "/root/.local/mlff/alphanet/ts1x-tuned.ckpt"
+
+            self.model = AlphaNetCalculator(weight=ckpt_path, device=self.device)
         elif self.method == "ani":
             # use a fine-tuned model
             # from torchani.calculator import ANICalculator
@@ -241,23 +246,28 @@ class MLFF(Calculator):
         elif self.method == "dpa2":
             from deepmd.infer import DeepEval as DeepPot
 
+            if ckpt_path is None:
+                ckpt_path = "/root/.local/mlff/dpa2/ts1x-tuned_epoch1000.pt"
+
             # deepeval = DeepPot("/root/.local/mlff/dpa2/dpa2-26head.pt", head='Domains_Drug')
-            deepeval = DeepPot(
-                "/root/.local/mlff/dpa2/ts1x-tuned_epoch1000.pt", head="Domains_Drug"
-            )
+            deepeval = DeepPot(ckpt_path, head="Domains_Drug")
             self.model = deepeval.deep_eval.dp.to(self.device)
         elif self.method[:4] == "left":
             from oa_reactdiff.trainer.calculator import LeftNetCalculator
 
             if "-d" in self.method:
+                if ckpt_path is None:
+                    ckpt_path = "/root/.local/mlff/leftnet/ts1x-tuned_df_epoch799.ckpt"
                 self.model = LeftNetCalculator(
-                    "/root/.local/mlff/leftnet/ts1x-tuned_df_epoch799.ckpt",
+                    ckpt_path,
                     device=self.device,
                     use_autograd=False,
                 )
             else:
+                if ckpt_path is None:
+                    ckpt_path = "/root/.local/mlff/leftnet/ts1x-tuned_epoch999.ckpt"
                 self.model = LeftNetCalculator(
-                    "/root/.local/mlff/leftnet/ts1x-tuned_epoch999.ckpt",
+                    ckpt_path,
                     device=self.device,
                     use_autograd=True,
                 )
@@ -284,9 +294,10 @@ class MLFF(Calculator):
         elif self.method == "matter":
             from mattersim.forcefield import MatterSimCalculator
 
-            calc = MatterSimCalculator(
-                load_path="MatterSim-v1.0.0-5M.pth", device=self.device
-            )
+            if ckpt_path is None:
+                ckpt_path = "MatterSim-v1.0.0-5M.pth"
+
+            calc = MatterSimCalculator(load_path=ckpt_path, device=self.device)
             self.model = calc
         else:
             raise ValueError(f"Invalid method: {self.method}")
@@ -452,7 +463,7 @@ class MLFF(Calculator):
     def get_hessian(self, atoms, coords):
         molecule = self.prepare_mol(atoms, coords)
         if self.method == "alpha":
-            from alphanet.calculator import mols_to_batch
+            from horm_alphanet.calculator import mols_to_batch
 
             data = mols_to_batch([molecule]).to(self.device)
             energy, forces = self.model.model.forward(data)

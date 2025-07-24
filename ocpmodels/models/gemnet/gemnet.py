@@ -10,7 +10,9 @@ from typing import Optional
 import numpy as np
 import torch
 from torch_geometric.nn import radius_graph
-from torch_scatter import scatter
+
+# from torch_scatter import scatter
+from ocpmodels.common.scatter_utils import scatter
 from torch_sparse import SparseTensor
 
 from ocpmodels.common.registry import registry

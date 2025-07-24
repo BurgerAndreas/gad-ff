@@ -3,6 +3,11 @@ from omegaconf import ListConfig
 import yaml
 import os
 import torch
+import warnings
+
+# Suppress the FutureWarning from e3nn about torch.load weights_only parameter
+warnings.filterwarnings("ignore", category=FutureWarning, module="e3nn")
+
 from torch_geometric.data import Batch
 from torch_geometric.data import Data as TGData
 from torch_geometric.loader import DataLoader as TGDataLoader

@@ -21,10 +21,10 @@ from torchmetrics import (
     CosineSimilarity,
 )
 
-from alphanet.ff_lmdb import LmdbDataset
-from alphanet.utils import average_over_batch_metrics, pretty_print
-import alphanet.utils as diff_utils
-from alphanet.models.alphanet import AlphaNet
+from horm_alphanet.ff_lmdb import LmdbDataset
+from horm_alphanet.utils import average_over_batch_metrics, pretty_print
+import horm_alphanet.utils as diff_utils
+from horm_alphanet.models.alphanet import AlphaNet
 
 from nets.prediction_utils import compute_extra_props
 

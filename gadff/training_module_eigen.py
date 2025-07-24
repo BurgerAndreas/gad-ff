@@ -21,7 +21,6 @@ from torchmetrics import (
     MeanAbsolutePercentageError,
     CosineSimilarity,
 )
-from torch_scatter import scatter_mean
 from nets.equiformer_v2.equiformer_v2_oc20 import EquiformerV2_OC20
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.horm.utils import average_over_batch_metrics, pretty_print
