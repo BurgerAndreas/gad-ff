@@ -239,7 +239,7 @@ class PotentialModule(LightningModule):
                 ]
             print("Num samples in training data: ", len(self.train_dataset))
             print("Num samples in validation data: ", len(self.val_dataset))
-            print("Num samples in test data: ", len(self.test_dataset))
+            # print("Num samples in test data: ", len(self.test_dataset))
 
         else:
             raise NotImplementedError

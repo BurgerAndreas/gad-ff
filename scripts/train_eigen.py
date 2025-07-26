@@ -98,31 +98,11 @@ def setup_training(cfg: DictConfig):
     print(f"SLURM job ID: {cfg.slurm_job_id}")
 
     ##########################################3
-    # Checkpoint loading
+    # Model checkpoint loading
     ##########################################3
-    # get checkpoint name
-    run_name_ckpt = name_from_config(cfg, is_checkpoint_name=True)
-    checkpoint_name = re.sub(r"[^a-zA-Z0-9]", "", run_name_ckpt)
-    if len(checkpoint_name) <= 1:
-        checkpoint_name = "base"
-    print(f"Checkpoint name: {checkpoint_name}")
-    
-    # Auto-resume logic: find existing checkpoint with same base name
-    if cfg.get("ckpt_resume_auto", False):
-        if cfg.ckpt_trainer_path is not None:
-            print(
-                f"Auto-resume is overwriting ckpt_trainer_path: {cfg.ckpt_trainer_path}"
-            )
-        print("Auto-resume enabled, searching for existing checkpoints...")
-        latest_ckpt = find_latest_checkpoint(checkpoint_name, cfg.project)
-        if latest_ckpt:
-            cfg.ckpt_trainer_path = latest_ckpt
-            print(f"Auto-resume: Will resume from {latest_ckpt}")
-        else:
-            print("Auto-resume: No existing checkpoints found, starting fresh")
-    
-    # TODO: difference between ckpt_model_path and ckpt_trainer_path?
-    
+    # ckpt_model_path
+    # only loads the model weights, not the trainer state
+    # like optimizer, learning rate scheduler, epoch/step, RNG state, etc.
             
     # pm = EigenPotentialModule(model_config, optimizer_config, training_config)
     # pm = hydra.utils.instantiate(cfg.potential_module_class, model_config, optimizer_config, training_config)
@@ -149,18 +129,38 @@ def setup_training(cfg: DictConfig):
         print(f"Not loading model checkpoint from {cfg.ckpt_model_path}")
     print(f"{cfg.potential_module_class} initialized")
 
-    wandb_kwargs = {}
-    if not cfg.use_wandb:
-        wandb_kwargs["mode"] = "disabled"
-    wandb_logger = WandbLogger(
-        project=cfg.project,
-        log_model=False,
-        name=run_name,
-        **wandb_kwargs,
-    )
-
     ##########################################3
-    # Checkpoint saving
+    # Trainer checkpoint loading
+    ##########################################3
+    # get checkpoint name
+    run_name_ckpt = name_from_config(cfg, is_checkpoint_name=True)
+    checkpoint_name = re.sub(r"[^a-zA-Z0-9]", "", run_name_ckpt)
+    if len(checkpoint_name) <= 1:
+        checkpoint_name = "base"
+    print(f"Checkpoint name: {checkpoint_name}")
+    
+    # Auto-resume logic: find existing trainer checkpoint with same base name
+    if cfg.get("ckpt_resume_auto", False):
+        if cfg.ckpt_trainer_path is not None:
+            print(
+                f"Auto-resume is overwriting ckpt_trainer_path: {cfg.ckpt_trainer_path}"
+            )
+        print("Auto-resume enabled, searching for existing checkpoints...")
+        latest_ckpt = find_latest_checkpoint(checkpoint_name, cfg.project)
+        if latest_ckpt:
+            cfg.ckpt_trainer_path = latest_ckpt
+            print(f"Auto-resume: Will resume from {latest_ckpt}")
+        else:
+            print("Auto-resume: No existing checkpoints found, starting fresh")
+    
+    if cfg.ckpt_trainer_path is not None and cfg.ckpt_model_path is not None:
+        # If both ckpt_model_path and ckpt_trainer_path are specified, 
+        # the ckpt_model_path loading becomes redundant 
+        # since those weights get immediately overwritten by the trainer checkpoint.
+        print("Warning: ckpt_trainer_path will override ckpt_model_path")
+    
+    ##########################################3
+    # Trainer checkpoint saving
     ##########################################3
     # add slurm job id and timestamp to checkpoint name
     checkpoint_name = f"{checkpoint_name}-{cfg.slurm_job_id}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
@@ -190,6 +190,16 @@ def setup_training(cfg: DictConfig):
         TQDMProgressBar(),
         lr_monitor,
     ]
+
+    wandb_kwargs = {}
+    if not cfg.use_wandb:
+        wandb_kwargs["mode"] = "disabled"
+    wandb_logger = WandbLogger(
+        project=cfg.project,
+        log_model=False,
+        name=run_name,
+        **wandb_kwargs,
+    )
 
     print("Initializing trainer")
     # trainer = pl.Trainer(
