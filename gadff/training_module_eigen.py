@@ -6,27 +6,26 @@ from typing import Dict, List, Optional, Tuple, Any, Mapping
 import os
 from pathlib import Path
 import torch
-from torch import nn
 
-from torch_geometric.loader import DataLoader as TGDataLoader
+# from torch_geometric.loader import DataLoader as TGDataLoader
 from torch.optim.lr_scheduler import (
     CosineAnnealingWarmRestarts,
     StepLR,
     ConstantLR,
 )
 import pytorch_lightning as pl
-from pytorch_lightning import LightningModule
-from torchmetrics import (
-    MeanAbsoluteError,
-    MeanAbsolutePercentageError,
-    CosineSimilarity,
-)
-from nets.equiformer_v2.equiformer_v2_oc20 import EquiformerV2_OC20
-from gadff.horm.ff_lmdb import LmdbDataset
+# from pytorch_lightning import LightningModule
+# from torchmetrics import (
+#     MeanAbsoluteError,
+#     MeanAbsolutePercentageError,
+#     CosineSimilarity,
+# )
+# from nets.equiformer_v2.equiformer_v2_oc20 import EquiformerV2_OC20
+# from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.horm.utils import average_over_batch_metrics, pretty_print
-import gadff.horm.utils as diff_utils
-import yaml
-from gadff.path_config import find_project_root
+# import gadff.horm.utils as diff_utils
+# import yaml
+# from gadff.path_config import find_project_root
 from gadff.horm.training_module import PotentialModule, compute_extra_props
 from gadff.loss_functions import (
     get_vector_loss_fn,

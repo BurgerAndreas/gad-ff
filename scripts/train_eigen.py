@@ -97,6 +97,33 @@ def setup_training(cfg: DictConfig):
         training_config["trn_slurm_job_id"] = cfg.slurm_job_id
     print(f"SLURM job ID: {cfg.slurm_job_id}")
 
+    ##########################################3
+    # Checkpoint loading
+    ##########################################3
+    # get checkpoint name
+    run_name_ckpt = name_from_config(cfg, is_checkpoint_name=True)
+    checkpoint_name = re.sub(r"[^a-zA-Z0-9]", "", run_name_ckpt)
+    if len(checkpoint_name) <= 1:
+        checkpoint_name = "base"
+    print(f"Checkpoint name: {checkpoint_name}")
+    
+    # Auto-resume logic: find existing checkpoint with same base name
+    if cfg.get("ckpt_resume_auto", False):
+        if cfg.ckpt_trainer_path is not None:
+            print(
+                f"Auto-resume is overwriting ckpt_trainer_path: {cfg.ckpt_trainer_path}"
+            )
+        print("Auto-resume enabled, searching for existing checkpoints...")
+        latest_ckpt = find_latest_checkpoint(checkpoint_name, cfg.project)
+        if latest_ckpt:
+            cfg.ckpt_trainer_path = latest_ckpt
+            print(f"Auto-resume: Will resume from {latest_ckpt}")
+        else:
+            print("Auto-resume: No existing checkpoints found, starting fresh")
+    
+    # TODO: difference between ckpt_model_path and ckpt_trainer_path?
+    
+            
     # pm = EigenPotentialModule(model_config, optimizer_config, training_config)
     # pm = hydra.utils.instantiate(cfg.potential_module_class, model_config, optimizer_config, training_config)
     pm = eval(cfg.potential_module_class)(
@@ -132,25 +159,13 @@ def setup_training(cfg: DictConfig):
         **wandb_kwargs,
     )
 
-    checkpoint_name = re.sub(r"[^a-zA-Z0-9]", "", run_name)
-    if len(checkpoint_name) <= 1:
-        checkpoint_name = "base"
-
-    # Auto-resume logic: find existing checkpoint with same base name
-    if cfg.get("ckpt_resume_auto", False):
-        if cfg.ckpt_trainer_path is not None:
-            print(
-                f"Auto-resume is overwriting ckpt_trainer_path: {cfg.ckpt_trainer_path}"
-            )
-        print("Auto-resume enabled, searching for existing checkpoints...")
-        latest_ckpt = find_latest_checkpoint(checkpoint_name, cfg.project)
-        if latest_ckpt:
-            cfg.ckpt_trainer_path = latest_ckpt
-            print(f"Auto-resume: Will resume from {latest_ckpt}")
-        else:
-            print("Auto-resume: No existing checkpoints found, starting fresh")
-
+    ##########################################3
+    # Checkpoint saving
+    ##########################################3
+    # add slurm job id and timestamp to checkpoint name
     checkpoint_name = f"{checkpoint_name}-{cfg.slurm_job_id}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    print(f"Checkpoint name: {checkpoint_name}")
+    
     ckpt_output_path = f"checkpoint/{cfg.project}/{checkpoint_name}"
     print(f"Checkpoint output path: {ckpt_output_path}")
 

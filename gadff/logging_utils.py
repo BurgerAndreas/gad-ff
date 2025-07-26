@@ -9,7 +9,11 @@ IGNORE_OVERRIDES = []
 
 # some stuff is not relevant for the checkpoint
 # e.g. inference kwargs
-IGNORE_OVERRIDES_CHECKPOINT = []
+IGNORE_OVERRIDES_CHECKPOINT = [
+    "ckpt_resume_auto",
+    "ckpt_model_path",
+    "ckpt_trainer_path",
+]
 
 REPLACE = {
     "+": "",
