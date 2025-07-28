@@ -3,6 +3,9 @@ import omegaconf
 import numpy as np
 import torch
 from uuid import uuid4
+from pathlib import Path
+
+# from gadff.path_config import CHECKPOINT_PATH_EQUIFORMER_HORM
 
 # allows to load checkpoint with the same name
 IGNORE_OVERRIDES = []
@@ -74,3 +77,51 @@ def set_gpu_name(args):
     except:
         pass
     return args
+
+
+def find_latest_checkpoint(base_checkpoint_name: str, project: str) -> str:
+    """
+    Find the latest checkpoint file from directories matching the base name pattern.
+
+    Args:
+        base_checkpoint_name: Base name without slurm_job_id and timestamp
+        project: Project name
+
+    Returns:
+        Path to the latest checkpoint file, or None if not found
+    """
+    checkpoint_base_dir = Path(f"checkpoint/{project}")
+    if not checkpoint_base_dir.exists():
+        return None
+
+    # Find all directories that start with the base name
+    pattern = f"{base_checkpoint_name}-*"
+    matching_dirs = list(checkpoint_base_dir.glob(pattern))
+
+    if not matching_dirs:
+        print(f"No existing checkpoint directories found matching pattern: {pattern}")
+        return None
+
+    print(
+        f"Found {len(matching_dirs)} matching checkpoint directories: {[d.name for d in matching_dirs]}"
+    )
+
+    # Find all checkpoint files in all matching directories
+    all_checkpoints = []
+    for dir_path in matching_dirs:
+        ckpt_files = list(dir_path.glob("*.ckpt"))
+        for ckpt_file in ckpt_files:
+            all_checkpoints.append(ckpt_file)
+
+    if not all_checkpoints:
+        print("No checkpoint files found in matching directories")
+        return None
+
+    # Sort by modification time, newest first
+    all_checkpoints.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+    latest_checkpoint = all_checkpoints[0]
+
+    print(f"Found {len(all_checkpoints)} checkpoint files")
+    print(f"Latest checkpoint: {latest_checkpoint}")
+
+    return str(latest_checkpoint)
