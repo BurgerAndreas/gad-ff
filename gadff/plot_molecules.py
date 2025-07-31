@@ -434,7 +434,7 @@ def plot_traj_mpl(
     forces_traj : torch.Tensor or np.ndarray, optional
         Forces on each atom with shape (T, n_atoms, 3)
     """
-    #######################################3
+    ########################################
     # plot final frame
 
     # Convert to numpy if torch tensor

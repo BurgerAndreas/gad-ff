@@ -6,9 +6,9 @@ from gadff.logging_utils import name_from_config, find_latest_checkpoint
 
 def setup_training(cfg: DictConfig):
 
-    ##########################################3
+    ###########################################
     # Trainer checkpoint loading
-    ##########################################3
+    ###########################################
     # get checkpoint name
     run_name_ckpt = name_from_config(cfg, is_checkpoint_name=True)
     checkpoint_name = re.sub(r"[^a-zA-Z0-9]", "", run_name_ckpt)

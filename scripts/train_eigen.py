@@ -49,9 +49,9 @@ def setup_training(cfg: DictConfig):
         training_config["trn_slurm_job_id"] = cfg.slurm_job_id
     print(f"SLURM job ID: {cfg.slurm_job_id}")
 
-    ##########################################3
+    ###########################################
     # Model checkpoint loading
-    ##########################################3
+    ###########################################
     # ckpt_model_path
     # only loads the model weights, not the trainer state
     # like optimizer, learning rate scheduler, epoch/step, RNG state, etc.
@@ -81,9 +81,9 @@ def setup_training(cfg: DictConfig):
         print(f"Not loading model checkpoint from {cfg.ckpt_model_path}")
     print(f"{cfg.potential_module_class} initialized")
 
-    ##########################################3
+    ###########################################
     # Trainer checkpoint loading
-    ##########################################3
+    ###########################################
     # get checkpoint name
     run_name_ckpt = name_from_config(cfg, is_checkpoint_name=True)
     checkpoint_name = re.sub(r"[^a-zA-Z0-9]", "", run_name_ckpt)
@@ -111,9 +111,9 @@ def setup_training(cfg: DictConfig):
         # since those weights get immediately overwritten by the trainer checkpoint.
         print("Warning: ckpt_trainer_path will override ckpt_model_path")
 
-    ##########################################3
+    ###########################################
     # Trainer checkpoint saving
-    ##########################################3
+    ###########################################
     # add slurm job id and timestamp to checkpoint name
     checkpoint_name = f"{checkpoint_name}-{cfg.slurm_job_id}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
     print(f"Checkpoint name: {checkpoint_name}")
