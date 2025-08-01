@@ -23,7 +23,7 @@ from pytorch_lightning.callbacks import (
 from pytorch_lightning.loggers import WandbLogger
 
 from gadff.training_module_eigen import EigenPotentialModule, MyPLTrainer
-from gadff.training_module_hessian import HessianPotentialModule, MyPLTrainer
+from gadff.training_module_hessian import HessianPotentialModule
 from gadff.path_config import CHECKPOINT_PATH_EQUIFORMER_HORM
 from gadff.logging_utils import name_from_config, find_latest_checkpoint
 
@@ -122,11 +122,15 @@ def setup_training(cfg: DictConfig):
     print(f"Checkpoint output path: {ckpt_output_path}")
 
     checkpoint_callback = ModelCheckpoint(
-        monitor="val-totloss",
         dirpath=ckpt_output_path,
-        filename="ff-{epoch:03d}-{val-totloss:.4f}",
-        every_n_epochs=10,
+        every_n_epochs=1,
         save_top_k=2,
+        # save every epoch
+        filename="ff-{epoch:03d}",
+        save_last=True,
+        # # save best by val loss
+        # monitor="val-totloss",
+        # filename="ff-{epoch:03d}-{val-totloss:.4f}",
     )
 
     early_stopping_callback = EarlyStopping(
@@ -146,6 +150,29 @@ def setup_training(cfg: DictConfig):
     wandb_kwargs = {}
     if not cfg.use_wandb:
         wandb_kwargs["mode"] = "disabled"
+    
+    # Check for existing WandB run ID in checkpoint for continuation
+    wandb_run_id = None
+    if cfg.ckpt_trainer_path is not None:
+        try:
+            checkpoint = torch.load(cfg.ckpt_trainer_path, map_location="cpu")
+            if "state_dict" in checkpoint:
+                # Look for wandb_run_id in the model state
+                for key, value in checkpoint["state_dict"].items():
+                    if key == "wandb_run_id" and value is not None:
+                        wandb_run_id = value
+                        print(f"Found WandB run ID in checkpoint: {wandb_run_id}")
+                        break
+        except Exception as e:
+            print(f"Could not extract WandB run ID from checkpoint: {e}")
+    
+    if wandb_run_id:
+        wandb_kwargs["id"] = wandb_run_id
+        wandb_kwargs["resume"] = "must"
+        print(f"Resuming WandB run: {wandb_run_id}")
+    else:
+        print("Starting new WandB run")
+    
     wandb_logger = WandbLogger(
         project=cfg.project,
         log_model=False,
@@ -174,6 +201,14 @@ def setup_training(cfg: DictConfig):
         # val_check_interval=cfg.pltrainer.get('val_check_interval', None),
     )
     print("Trainer initialized")
+    
+    # Set WandB run ID on the model for future checkpoints
+    if hasattr(wandb_logger.experiment, 'id') and wandb_logger.experiment.id:
+        pm.set_wandb_run_id(wandb_logger.experiment.id)
+        print(f"Set WandB run ID on model: {wandb_logger.experiment.id}")
+    else:
+        print("No WandB run ID found")
+    
     return trainer, pm
 
 

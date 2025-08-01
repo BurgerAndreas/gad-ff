@@ -86,6 +86,9 @@ class EigenPotentialModule(PotentialModule):
         self._loss_fn_vec = get_vector_loss_fn(training_config["loss_type_vec"])
         self._loss_fn = get_scalar_loss_fn(training_config["loss_type"])
 
+        # WandB run ID for checkpoint continuation
+        self.wandb_run_id = None
+
         # self.loss_fn = nn.L1Loss()
         # self.MAEEval = MeanAbsoluteError()
         # self.MAPEEval = MeanAbsolutePercentageError()
@@ -100,6 +103,14 @@ class EigenPotentialModule(PotentialModule):
     def loss_fn_vec(self):
         """Access the vector loss function."""
         return self._loss_fn_vec
+
+    def set_wandb_run_id(self, run_id: str) -> None:
+        """Set the WandB run ID for checkpoint continuation."""
+        self.wandb_run_id = run_id
+
+    def get_wandb_run_id(self) -> Optional[str]:
+        """Get the WandB run ID for checkpoint continuation."""
+        return self.wandb_run_id
 
     def _freeze_except_heads(self, heads_to_train: List[str]) -> None:
         """
