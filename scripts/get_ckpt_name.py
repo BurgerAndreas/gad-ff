@@ -16,13 +16,8 @@ def setup_training(cfg: DictConfig):
         checkpoint_name = "base"
     print(f"Checkpoint name: {checkpoint_name}")
 
-    # Auto-resume logic: find existing trainer checkpoint with same base name
-    if cfg.get("ckpt_resume_auto", False):
-        if cfg.ckpt_trainer_path is not None:
-            print(
-                f"Auto-resume is overwriting ckpt_trainer_path: {cfg.ckpt_trainer_path}"
-            )
-        print("Auto-resume enabled, searching for existing checkpoints...")
+    if cfg.ckpt_trainer_path is None:
+        # Auto-resume logic: find existing trainer checkpoint with same base name
         latest_ckpt = find_latest_checkpoint(checkpoint_name, cfg.project)
         if latest_ckpt:
             cfg.ckpt_trainer_path = latest_ckpt
