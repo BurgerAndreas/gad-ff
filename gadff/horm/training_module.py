@@ -171,6 +171,16 @@ class PotentialModule(LightningModule):
         self.MAPEEval = MeanAbsolutePercentageError()
         self.cosineEval = CosineSimilarity(reduction="mean")
         self.val_step_outputs = []
+        
+        self.wandb_run_id = None
+    
+    def set_wandb_run_id(self, run_id: str) -> None:
+        """Set the WandB run ID for checkpoint continuation."""
+        self.wandb_run_id = run_id
+
+    def get_wandb_run_id(self) -> Optional[str]:
+        """Get the WandB run ID for checkpoint continuation."""
+        return self.wandb_run_id
 
     def fix_paths(self, training_config):
         """

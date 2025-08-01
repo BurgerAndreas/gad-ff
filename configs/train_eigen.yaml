@@ -26,7 +26,13 @@ training:
   num_workers: 2 # 48
   clip_grad: true
   gradient_clip_val: 0.1
-  ema: false
+  # EMA configuration using PyTorch's AveragedModel
+  ema:
+    enabled: false
+    decay: 0.999               # EMA decay factor (higher = slower EMA updates)
+    validate_with_ema: true    # Use EMA weights during validation
+    save_ema_state: true       # Save EMA state in checkpoints
+    use_buffers: true          # Apply EMA to model buffers (BatchNorm stats, etc.)
   lr_schedule_type: "step"
   lr_schedule_config:
     gamma: 0.85

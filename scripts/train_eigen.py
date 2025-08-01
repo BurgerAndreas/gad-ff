@@ -26,6 +26,7 @@ from gadff.training_module_eigen import EigenPotentialModule, MyPLTrainer
 from gadff.training_module_hessian import HessianPotentialModule
 from gadff.path_config import CHECKPOINT_PATH_EQUIFORMER_HORM
 from gadff.logging_utils import name_from_config, find_latest_checkpoint
+from gadff.ema_callback import EMACallback
 
 
 def setup_training(cfg: DictConfig):
@@ -124,11 +125,11 @@ def setup_training(cfg: DictConfig):
     checkpoint_callback = ModelCheckpoint(
         dirpath=ckpt_output_path,
         every_n_epochs=1,
-        save_top_k=2,
         # save every epoch
         filename="ff-{epoch:03d}",
         save_last=True,
         # # save best by val loss
+        # save_top_k=2,
         # monitor="val-totloss",
         # filename="ff-{epoch:03d}-{val-totloss:.4f}",
     )
@@ -146,6 +147,17 @@ def setup_training(cfg: DictConfig):
         TQDMProgressBar(),
         lr_monitor,
     ]
+    
+    # Add EMA callback if enabled
+    if cfg.training.ema.get("enabled", False):
+        ema_callback = EMACallback(
+            decay=cfg.training.ema.get("decay", 0.999),
+            validate_with_ema=cfg.training.ema.get("validate_with_ema", True),
+            save_ema_state=cfg.training.ema.get("save_ema_state", True),
+            use_buffers=cfg.training.ema.get("use_buffers", True),
+        )
+        callbacks.append(ema_callback)
+        print(f"Added EMA callback with decay={ema_callback.decay}, use_buffers={ema_callback.use_buffers}")
 
     wandb_kwargs = {}
     if not cfg.use_wandb:
