@@ -47,7 +47,7 @@ class EMACallback(Callback):
         self.use_buffers = use_buffers
         self.ema_model: Optional[AveragedModel] = None
         
-        rank_zero_info(f"EMA Callback initialized with decay={decay}, use_buffers={use_buffers}")
+        # rank_zero_info(f"EMA Callback initialized with decay={decay}, use_buffers={use_buffers}")
 
     def setup(self, trainer: Trainer, pl_module: LightningModule, stage: str) -> None:
         """Initialize EMA model when training starts."""
@@ -58,7 +58,7 @@ class EMACallback(Callback):
                 multi_avg_fn=get_ema_multi_avg_fn(self.decay),
                 use_buffers=self.use_buffers,
             )
-            rank_zero_info(f"EMA model initialized with decay={self.decay}")
+            # rank_zero_info(f"EMA model initialized with decay={self.decay}")
 
     def on_train_batch_end(
         self,
@@ -79,27 +79,27 @@ class EMACallback(Callback):
             self._store_original_params(pl_module)
             # Copy EMA parameters to model
             self._copy_ema_to_model(pl_module)
-            rank_zero_info("Applied EMA weights for validation")
+            # rank_zero_info("Applied EMA weights for validation")
 
     def on_validation_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
         """Restore original weights after validation."""
         if self.ema_model is not None and self.validate_with_ema:
             # Restore original parameters
             self._restore_original_params(pl_module)
-            rank_zero_info("Restored original weights after validation")
+            # rank_zero_info("Restored original weights after validation")
 
     def on_test_start(self, trainer: Trainer, pl_module: LightningModule) -> None:
         """Apply EMA weights for testing."""
         if self.ema_model is not None and self.validate_with_ema:
             self._store_original_params(pl_module)
             self._copy_ema_to_model(pl_module)
-            rank_zero_info("Applied EMA weights for testing")
+            # rank_zero_info("Applied EMA weights for testing")
 
     def on_test_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
         """Restore original weights after testing."""
         if self.ema_model is not None and self.validate_with_ema:
             self._restore_original_params(pl_module)
-            rank_zero_info("Restored original weights after testing")
+            # rank_zero_info("Restored original weights after testing")
 
     def _store_original_params(self, pl_module: LightningModule) -> None:
         """Store current model parameters."""
@@ -152,7 +152,7 @@ class EMACallback(Callback):
         """Load callback state from checkpoint."""
         if "ema_model_state" in state_dict and self.ema_model is not None:
             self.ema_model.load_state_dict(state_dict["ema_model_state"])
-            rank_zero_info("Loaded EMA state from checkpoint")
+            # rank_zero_info("Loaded EMA state from checkpoint")
 
     def on_save_checkpoint(
         self, trainer: Trainer, pl_module: LightningModule, checkpoint: Dict[str, Any]
