@@ -6,5 +6,5 @@ training:
   trn_path: ["ts1x_hess_train_big.lmdb", "RGD1.lmdb"]
   val_path: "ts1x-val.lmdb"
   bz: 64
-  
+
 experiment_name: "hessian_alldata"
