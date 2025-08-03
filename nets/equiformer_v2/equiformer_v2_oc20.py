@@ -513,6 +513,7 @@ class EquiformerV2_OC20(BaseModel):
         else:
             self.eigval_2_head = None
 
+        self.do_hessian = do_hessian
         if do_hessian:
             self.cutoff_hessian = cutoff_hessian
             # if to also use atom type embedding or just relative distances for edge features
@@ -976,6 +977,7 @@ class EquiformerV2_OC20(BaseModel):
         # Hessian estimation
         ###############################################################
         if hessian:
+            assert self.do_hessian, f"do_hessian is {self.do_hessian} but hessian is {hessian}. Are you sure you loaded the right config?"
             # we are going to use a different graph here
             # with a bigger cutoff radius
             # graph = edge_distance, edge_index
@@ -992,7 +994,7 @@ class EquiformerV2_OC20(BaseModel):
             edge_rot_mat_hessian = self._init_edge_rot_mat(
                 data, edge_index_hessian, edge_distance_vec_hessian
             )
-
+            
             # Initialize the WignerD matrices and other values for spherical harmonic calculations
             # used in edge_degree_embedding, TransBlockV2
             for i in range(self.num_resolutions):

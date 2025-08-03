@@ -33,6 +33,7 @@ from ocpmodels.common.utils import (
 )
 from ocpmodels.datasets import data_list_collater
 from ocpmodels.preprocessing import AtomsToGraphs
+from ocpmodels.hessian_graph_transform import HessianGraphTransform
 
 
 def batch_to_atoms(batch):
@@ -209,8 +210,6 @@ class OCPCalculator(Calculator):
         elif self.trainer.name == "is2re":
             self.results["energy"] = predictions["energy"].item()
 
-
-# by Andreas. We do not care about the graph, because connectivity is computed on the fly?
 def ase_atoms_to_torch_geometric(atoms):
     """
     Convert ASE Atoms object to torch_geometric Data format expected by Equiformer.
@@ -224,7 +223,33 @@ def ase_atoms_to_torch_geometric(atoms):
     positions = atoms.get_positions().astype(np.float32)
     atomic_nums = atoms.get_atomic_numbers()
 
-    # TODO: add graph and index computation for hessian prediction
+    # Convert to torch tensors
+    data = TGData(
+        pos=torch.tensor(positions, dtype=torch.float32),
+        # TODO: difference between z and charges?
+        z=torch.tensor(atomic_nums, dtype=torch.int64),
+        charges=torch.tensor(atomic_nums, dtype=torch.int64),
+        natoms=torch.tensor([len(atomic_nums)], dtype=torch.int64),
+        cell=torch.tensor(atoms.get_cell().astype(np.float32), dtype=torch.float32),
+        pbc=torch.tensor(False, dtype=torch.bool),
+    )
+    data = Batch.from_data_list([data])
+
+    return data
+
+# by Andreas. We do not care about the graph, because connectivity is computed on the fly?
+def ase_atoms_to_torch_geometric_hessian(atoms, cutoff, max_neighbors, use_pbc):
+    """
+    Convert ASE Atoms object to torch_geometric Data format expected by Equiformer.
+
+    Args:
+        atoms: ASE Atoms object
+
+    Returns:
+        Data: torch_geometric Data object with required attributes
+    """
+    positions = atoms.get_positions().astype(np.float32)
+    atomic_nums = atoms.get_atomic_numbers()
 
     # Convert to torch tensors
     data = TGData(
@@ -236,6 +261,11 @@ def ase_atoms_to_torch_geometric(atoms):
         cell=torch.tensor(atoms.get_cell().astype(np.float32), dtype=torch.float32),
         pbc=torch.tensor(False, dtype=torch.bool),
     )
+    data = HessianGraphTransform(
+        cutoff=cutoff,
+        max_neighbors=max_neighbors,
+        use_pbc=use_pbc,
+    )(data)
     data = Batch.from_data_list([data])
 
     return data
