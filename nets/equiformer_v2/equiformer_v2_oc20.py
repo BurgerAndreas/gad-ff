@@ -806,9 +806,13 @@ class EquiformerV2_OC20(BaseModel):
             # neighbors = data.neighbors
         return edge_index, edge_distance, edge_distance_vec
 
-    def forward(self, data, eigen=False, hessian=False, return_l_features=False):
+    def forward(self, data, eigen=False, hessian=False, return_l_features=False, otf_graph=None):
         """
         If eigen=True, return predictions for eigenvalues and eigenvectors of the Hessian in outputs dict.
+        
+        hessian=True means direct prediction of the Hessian.
+        
+        Only pass otf_graph=True if you want to do Hessian from autograd on forces (no hessian prediction)!
 
         Returns:
             energy: (N*B,)
@@ -842,11 +846,14 @@ class EquiformerV2_OC20(BaseModel):
             edge_index,  # [E, 2]
             edge_distance,  # [E]
             edge_distance_vec,  # [E, 3]
-        ) = self.generate_fullyconnected_graph_nopbc(data)
-        if hasattr(data, "edge_index") and data.edge_index is not None:
-            assert torch.allclose(
-                edge_index, data.edge_index
-            ), "To fix this: model.otf_graph=False"
+        ) = self.generate_fullyconnected_graph_nopbc(data, otf_graph=otf_graph)
+        if hasattr(data, "edge_index") and (data.edge_index is not None):
+            # it only matters if we are doing hessian prediction
+            # if we pass otf_graph=True we want to do autograd (no hessian prediction)
+            if self.do_hessian and (otf_graph is None):
+                assert torch.allclose(
+                    edge_index, data.edge_index
+                ), "To fix this: model.otf_graph=False"
 
         ###############################################################
         # Initialize data structures
