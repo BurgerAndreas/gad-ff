@@ -8,7 +8,6 @@ from pysisyphus.irc.IRC import IRC
 
 
 class RK4(IRC):
-
     def get_k(self, mw_coords):
         self.mw_coords = mw_coords
         grad = self.mw_gradient

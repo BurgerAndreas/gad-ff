@@ -66,9 +66,7 @@ def test_dimer_hcn(bonds, ref_cycle):
     geom = geom_loader("lib:baker_ts/01_hcn.xyz")
     ref_energy = -92.24604
     N_raw = (
-        " 0.5858  0.      0.0543 "
-        "-0.7697 -0.      0.061 "
-        "0.2027  0.     -0.1295".split()
+        " 0.5858  0.      0.0543 -0.7697 -0.      0.061 0.2027  0.     -0.1295".split()
     )
     if bonds is not None:
         N_raw = None

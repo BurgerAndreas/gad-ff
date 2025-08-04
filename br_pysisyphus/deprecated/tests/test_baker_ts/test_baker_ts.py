@@ -24,7 +24,7 @@ from pysisyphus.tsoptimizers import *
 
 
 def print_summary(converged, failed, cycles, ran, runid):
-    ran_ = f"{ran+1:02d}"
+    ran_ = f"{ran + 1:02d}"
     print(f"converged: {converged:02d}/{ran_}")
     print(f"   failed: {failed:d}")
     print(f"   cycles: {cycles}")

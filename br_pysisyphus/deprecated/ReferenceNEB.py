@@ -7,7 +7,6 @@ from sympy import symbols, diff, lambdify, sympify
 
 
 class AnimPlot:
-
     def __init__(self, coords, tangents, cycles, ge):
         self.coords = coords
         self.tangents = tangents

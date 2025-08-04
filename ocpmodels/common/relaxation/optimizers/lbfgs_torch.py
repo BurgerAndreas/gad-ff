@@ -51,9 +51,9 @@ class LBFGS:
         self.traj_names = traj_names
         self.early_stop_batch = early_stop_batch
         self.otf_graph = model.model._unwrapped_model.otf_graph
-        assert not self.traj_dir or (
-            traj_dir and len(traj_names)
-        ), "Trajectory names should be specified to save trajectories"
+        assert not self.traj_dir or (traj_dir and len(traj_names)), (
+            "Trajectory names should be specified to save trajectories"
+        )
         logging.info("Step   Fmax(eV/A)")
 
         if not self.otf_graph and "edge_index" not in batch:

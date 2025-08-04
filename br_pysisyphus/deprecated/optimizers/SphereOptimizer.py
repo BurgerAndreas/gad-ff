@@ -7,7 +7,6 @@ from pysisyphus.optimizers.Optimizer import Optimizer
 
 
 class SphereOptimizer(Optimizer):
-
     def __init__(self, geometry, radius=0.3, **kwargs):
         super().__init__(geometry, **kwargs)
 
@@ -113,8 +112,7 @@ def run():
         pdb.set_trace()
 
         print(
-            f"\tnorm(f)={norm_forces:.6f} "
-            f"norm(fm)={norm_forces_mod:.6f} dR={diff:.6f}"
+            f"\tnorm(f)={norm_forces:.6f} norm(fm)={norm_forces_mod:.6f} dR={diff:.6f}"
         )
         # if norm_forces_mod < alpha:
         # # Increase radius

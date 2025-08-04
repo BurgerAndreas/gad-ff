@@ -42,7 +42,6 @@ from nets.equiformer_v2.transformer_block import (
 from gadff.equiformer_torch_calculator import compute_hessian
 
 if __name__ == "__main__":
-
     project_root = os.path.dirname(os.path.dirname(__file__))
 
     config_path = os.path.join(project_root, "configs/equiformer_v2.yaml")
@@ -69,7 +68,6 @@ if __name__ == "__main__":
 
     print("\n")
     for batch in tqdm(dataloader, desc="Evaluating", total=len(dataloader)):
-
         batch = batch.to(model.device)
         batch = compute_extra_props(batch, pos_require_grad=True)
         energy, forces, out = model.forward(batch)

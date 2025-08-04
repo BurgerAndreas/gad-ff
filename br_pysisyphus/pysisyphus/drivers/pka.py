@@ -26,7 +26,6 @@ def direct_cycle(
     T=T_DEFAULT,
     p=p_DEFAULT,
 ):
-
     G_aq_acid = G_aq_from_h5_hessian(acid_h5, acid_solv_en, T=T, p=p)
     G_aq_base = G_aq_from_h5_hessian(base_h5, base_solv_en, T=T, p=p)
 

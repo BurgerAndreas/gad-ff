@@ -4,7 +4,6 @@ from pysisyphus.calculators.AnaPotBase import AnaPotBase
 
 
 class AnaPot3(AnaPotBase):
-
     def __init__(self):
         V_str = "(1 - x**2 - y**2)**2 + (y**2) / (x**2 + y**2)"
         super(AnaPot3, self).__init__(V_str=V_str)

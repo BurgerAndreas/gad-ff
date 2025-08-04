@@ -18,17 +18,17 @@ from pyGSM.molecule import Molecule
 
 
 def main(geom):
-    nifty.printcool(" Building the LOT")
+    nifty.printcool(' Building the LOT')
     lot = ASELoT.from_options(MorsePotential(), geom=geom)
 
-    nifty.printcool(" Building the PES")
+    nifty.printcool(' Building the PES')
     pes = PES.from_options(
         lot=lot,
         ad_idx=0,
         multiplicity=1,
     )
 
-    nifty.printcool("Building the topology")
+    nifty.printcool('Building the topology')
     atom_symbols = manage_xyz.get_atoms(geom)
     ELEMENT_TABLE = elements.ElementData()
     atoms = [ELEMENT_TABLE.from_symbol(atom) for atom in atom_symbols]
@@ -45,14 +45,14 @@ def main(geom):
     #     topology=top,
     # )
 
-    nifty.printcool("Building Delocalized Internal Coordinates")
+    nifty.printcool('Building Delocalized Internal Coordinates')
     coord_obj1 = DelocalizedInternalCoordinates.from_options(
         xyz=xyz,
         atoms=atoms,
         addtr=False,  # Add TRIC
     )
 
-    nifty.printcool("Building Molecule")
+    nifty.printcool('Building Molecule')
     reactant = Molecule.from_options(
         geom=geom,
         PES=pes,
@@ -60,16 +60,16 @@ def main(geom):
         Form_Hessian=True,
     )
 
-    nifty.printcool("Creating optimizer")
+    nifty.printcool('Creating optimizer')
     optimizer = eigenvector_follow.from_options(
-        Linesearch="backtrack",
+        Linesearch='backtrack',
         OPTTHRESH=0.0005,
         DMAX=0.5,
         abs_max_step=0.5,
         conv_Ediff=0.5,
     )
 
-    nifty.printcool("initial energy is {:5.4f} kcal/mol".format(reactant.energy))
+    nifty.printcool('initial energy is {:5.4f} kcal/mol'.format(reactant.energy))
     geoms, energies = optimizer.optimize(
         molecule=reactant,
         refE=reactant.energy,
@@ -77,12 +77,12 @@ def main(geom):
         verbose=True,
     )
 
-    nifty.printcool("Final energy is {:5.4f}".format(reactant.energy))
-    manage_xyz.write_xyz("minimized.xyz", geoms[-1], energies[-1], scale=1.0)
+    nifty.printcool('Final energy is {:5.4f}'.format(reactant.energy))
+    manage_xyz.write_xyz('minimized.xyz', geoms[-1], energies[-1], scale=1.0)
 
 
-if __name__ == "__main__":
-    diels_adler = ase.io.read("diels_alder.xyz", ":")
+if __name__ == '__main__':
+    diels_adler = ase.io.read('diels_alder.xyz', ':')
     xyz = diels_adler[0].positions
 
     # this is a hack

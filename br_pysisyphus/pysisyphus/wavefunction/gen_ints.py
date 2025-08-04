@@ -253,7 +253,7 @@ class CartGTO3d(Function):
 class CartGTOShell(Function):
     @classmethod
     def eval(cls, La_tot, a, Xa, Ya, Za):
-        exprs = [CartGTO3d(*La, a, Xa, Ya, Za) for La, in shell_iter((La_tot,))]
+        exprs = [CartGTO3d(*La, a, Xa, Ya, Za) for (La,) in shell_iter((La_tot,))]
         # print(CartGTO3d.eval.cache_info())
         return exprs
 

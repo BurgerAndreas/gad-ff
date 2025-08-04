@@ -12,7 +12,6 @@ from pysisyphus.interpolate import interpolate
 
 
 class AdaptiveNEB(NEB):
-
     def __init__(
         self,
         images,

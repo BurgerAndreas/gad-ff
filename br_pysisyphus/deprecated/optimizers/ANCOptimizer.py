@@ -6,7 +6,6 @@ from pysisyphus.optimizers.HessianOptimizer import HessianOptimizer
 
 
 class ANCOptimizer(HessianOptimizer):
-
     def __init__(self, geometry, **kwargs):
         super().__init__(geometry, **kwargs)
         assert not self.is_cos and self.geometry.coord_type == "cart", (

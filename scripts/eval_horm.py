@@ -7,6 +7,7 @@ from tqdm import tqdm
 import argparse
 import wandb
 
+
 def _get_derivatives(x, y, retain_graph=None, create_graph=False):
     """Helper function to compute derivatives"""
     grad = torch.autograd.grad(
@@ -48,20 +49,19 @@ def hess2eigenvalues(hess):
 
 
 def evaluate(lmdb_path, checkpoint_path, max_samples=None):
-
     ckpt = torch.load(checkpoint_path)
     model_name = ckpt["hyper_parameters"]["model_config"]["name"]
     print(f"Model name: {model_name}")
 
-    _name = "hormeval" 
-    _name += "_" + checkpoint_path.split("/")[-1].split(".")[0] 
+    _name = "hormeval"
+    _name += "_" + checkpoint_path.split("/")[-1].split(".")[0]
     _name += "_" + lmdb_path.split("/")[-1].split(".")[0]
     wandb.init(
-        project="reactbench", 
-        name=_name, 
+        project="reactbench",
+        name=_name,
         config={
-            "checkpoint": checkpoint_path, 
-            "dataset": lmdb_path, 
+            "checkpoint": checkpoint_path,
+            "dataset": lmdb_path,
             "max_samples": max_samples,
             "model_name": model_name,
         },
@@ -95,7 +95,6 @@ def evaluate(lmdb_path, checkpoint_path, max_samples=None):
     total_eigvec2_cos = 0.0
 
     for batch in tqdm(dataloader, desc="Evaluating", total=len(dataloader)):
-
         batch = batch.to("cuda")
         batch.pos.requires_grad_()
         batch = compute_extra_props(batch)
@@ -126,7 +125,7 @@ def evaluate(lmdb_path, checkpoint_path, max_samples=None):
         eigen_true_hartree_bohr = hess2eigenvalues(hessian_true)
         eigen_error = torch.mean(
             torch.abs(eigenvalues_hartree_bohr - eigen_true_hartree_bohr)
-        ) # Hartree/Bohr^2
+        )  # Hartree/Bohr^2
 
         # Asymmetry error
         asymmetry_error = torch.mean(torch.abs(hess - hess.T))
@@ -136,7 +135,7 @@ def evaluate(lmdb_path, checkpoint_path, max_samples=None):
         total_e_error += e_error.item()
         total_f_error += f_error.item()
         total_h_error += h_error.item()
-        total_eigen_error += eigen_error.item() # Hartree/Bohr^2
+        total_eigen_error += eigen_error.item()  # Hartree/Bohr^2
         n_samples += 1
 
         # Added Andreas
@@ -147,7 +146,7 @@ def evaluate(lmdb_path, checkpoint_path, max_samples=None):
         eigvec2_mae = torch.mean(torch.abs(eigvecs[:, 1] - eigvecs_true[:, 1]))
         eigvec1_cos = torch.abs(torch.dot(eigvecs[:, 0], eigvecs_true[:, 0]))
         eigvec2_cos = torch.abs(torch.dot(eigvecs[:, 1], eigvecs_true[:, 1]))
-        total_eigval_mae += eigval_mae.item() # eV/Angstrom^2
+        total_eigval_mae += eigval_mae.item()  # eV/Angstrom^2
         total_eigval1_mae += eigval1_mae.item()
         total_eigval2_mae += eigval2_mae.item()
         total_eigvec1_mae += eigvec1_mae.item()
@@ -183,33 +182,49 @@ def evaluate(lmdb_path, checkpoint_path, max_samples=None):
     print(f"Eigenvector 2 MAE: {total_eigvec2_mae / n_samples:.6f}")
     print(f"Eigenvector 1 Cosine: {total_eigvec1_cos / n_samples:.6f}")
     print(f"Eigenvector 2 Cosine: {total_eigvec2_cos / n_samples:.6f}")
-    
-    wandb.log({
-        "energy_mae": mae_e,
-        "forces_mae": mae_f,
-        "hessian_mae": mae_h,
-        "eigenvalue_mae_hartree_bohr2": mae_eigen,
-        "asymmetry_mae": mae_asymmetry,
-        "eigval_mae": total_eigval_mae / n_samples,
-        "eigval1_mae": total_eigval1_mae / n_samples,
-        "eigval2_mae": total_eigval2_mae / n_samples,
-        "eigvec1_mae": total_eigvec1_mae / n_samples,
-        "eigvec2_mae": total_eigvec2_mae / n_samples,
-        "eigvec1_cos": total_eigvec1_cos / n_samples,
-        "eigvec2_cos": total_eigvec2_cos / n_samples,
-    })
+
+    wandb.log(
+        {
+            "energy_mae": mae_e,
+            "forces_mae": mae_f,
+            "hessian_mae": mae_h,
+            "eigenvalue_mae_hartree_bohr2": mae_eigen,
+            "asymmetry_mae": mae_asymmetry,
+            "eigval_mae": total_eigval_mae / n_samples,
+            "eigval1_mae": total_eigval1_mae / n_samples,
+            "eigval2_mae": total_eigval2_mae / n_samples,
+            "eigvec1_mae": total_eigvec1_mae / n_samples,
+            "eigvec2_mae": total_eigvec2_mae / n_samples,
+            "eigvec1_cos": total_eigvec1_cos / n_samples,
+            "eigvec2_cos": total_eigvec2_cos / n_samples,
+        }
+    )
 
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser(description="Evaluate HORM model on dataset")
-    parser.add_argument("--checkpoint", "-c", type=str, default="ckpt/eqv2.ckpt",
-                       help="Path to checkpoint file")
-    parser.add_argument("--dataset", "-d", type=str, default="ts1x-val.lmdb",
-                       help="Dataset file name (e.g., ts1x-val.lmdb, ts1x_hess_train_big.lmdb, RGD1.lmdb)")
-    parser.add_argument("--max_samples", "-m", type=int, default=None,
-                       help="Maximum number of samples to evaluate (default: all samples)")
-    
+    parser.add_argument(
+        "--checkpoint",
+        "-c",
+        type=str,
+        default="ckpt/eqv2.ckpt",
+        help="Path to checkpoint file",
+    )
+    parser.add_argument(
+        "--dataset",
+        "-d",
+        type=str,
+        default="ts1x-val.lmdb",
+        help="Dataset file name (e.g., ts1x-val.lmdb, ts1x_hess_train_big.lmdb, RGD1.lmdb)",
+    )
+    parser.add_argument(
+        "--max_samples",
+        "-m",
+        type=int,
+        default=None,
+        help="Maximum number of samples to evaluate (default: all samples)",
+    )
+
     args = parser.parse_args()
 
     torch.manual_seed(42)

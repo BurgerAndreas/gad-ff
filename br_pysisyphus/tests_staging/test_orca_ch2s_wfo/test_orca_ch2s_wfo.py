@@ -14,7 +14,6 @@ GEOM = geom_from_library("ch2s_bp86def2sv_opt.xyz")
 
 
 def self_compare_base(geom, wfo_basis):
-
     calc_kwargs = {
         "keywords": "B3LYP def2-TZVP",
         "blocks": "%tddft nroots 2 maxdim 5 end",

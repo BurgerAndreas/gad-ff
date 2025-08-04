@@ -94,9 +94,9 @@ class Wavefunction:
         calc_occ_b = np.trace(Pb_mo)
         assert np.isclose((calc_occ_a, calc_occ_b), self.occ).all()
 
-        assert (
-            self.ecp_electrons >= 0
-        ).all(), "All entries in 'ecp_electrons' must be >= 0!"
+        assert (self.ecp_electrons >= 0).all(), (
+            "All entries in 'ecp_electrons' must be >= 0!"
+        )
         # We can't use self.nuc_charges, as it already contains ecp_electrons
         electrons_expected = (
             nuc_charges_for_atoms(self.atoms).sum()
@@ -346,9 +346,9 @@ class Wavefunction:
         return self.S_with_shells(other_shells)
 
     def S_MO_with(self, other):
-        assert (not self.unrestricted) and (
-            self.mult == 1
-        ), "Currently only Cα is considered!"
+        assert (not self.unrestricted) and (self.mult == 1), (
+            "Currently only Cα is considered!"
+        )
         S_AO = self.S_with(other)
         C = self.C[0]
         C_other = other.C[0]

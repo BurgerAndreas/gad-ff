@@ -5,7 +5,6 @@ from pysisyphus.calculators.Calculator import Calculator
 
 
 class AnaPotBase2D(Calculator):
-
     def __init__(self, V_str):
         super(AnaPotBase2D, self).__init__()
         x, y = symbols("x y")

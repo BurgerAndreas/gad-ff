@@ -13,7 +13,7 @@ funny_quotes = [
     '"[points to an alarm on the control panel] What\'s that flashing?" ~ Han Solo',
     '"How long before you make the jump to lightspeed?" ~Ben Kenobi',
     '"[frantic] Are you kidding? At the rate they\'re gaining—" ~Luke Skywaker',
-    "\"I don't like sand It's all coarse, and rough, and irritating. And it gets everywhere\" ~Anakin Skywalker",
+    '"I don\'t like sand It\'s all coarse, and rough, and irritating. And it gets everywhere" ~Anakin Skywalker',
 ]
 
 

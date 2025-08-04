@@ -103,7 +103,6 @@ def test_do_endopt_ts_barriers(
     right_geoms,
     ts_geom,
 ):
-
     left_fns = ["forward_end_frag_000.xyz"]
     right_fns = ["backward_end_frag_000.xyz", "backward_end_frag_001.xyz"]
     do_endopt_ts_barriers(

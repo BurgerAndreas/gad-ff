@@ -3,7 +3,6 @@ from pysisyphus.calculators.LEPSExpr import LEPSExpr
 
 
 class LEPSBase(AnaPotBase):
-
     def __init__(self, pot_type="leps"):
         leps_expr = LEPSExpr()
         V_expr, xlim, ylim, levels = leps_expr.get_expr(pot_type)

@@ -149,7 +149,6 @@ def compute_hessian(coords, energy, forces=None):
 
 
 class MLFF(Calculator):
-
     conf_key = "mlff"
 
     def __init__(
@@ -191,9 +190,9 @@ class MLFF(Calculator):
             "matter",
             "equiformerv2",
         )
-        assert (
-            self.method in valid_method
-        ), f"Invalid method argument. Allowed arguments are: {', '.join(valid_method)}!"
+        assert self.method in valid_method, (
+            f"Invalid method argument. Allowed arguments are: {', '.join(valid_method)}!"
+        )
 
         # load model
         # self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -303,7 +302,6 @@ class MLFF(Calculator):
             raise ValueError(f"Invalid method: {self.method}")
 
     def prepare_mol(self, atoms, coords):
-
         coords = coords * BOHR2ANG
         string = make_xyz_str(atoms, coords.reshape((-1, 3)))
         with open("mlff.xyz", "w") as f:

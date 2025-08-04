@@ -38,11 +38,11 @@ class Gaussian16(OverlapCalculator):
         self.route = route.lower()
         invalid_keywords = ("symmetry", "nosymm", "force", "opt", "freq", "irc")
         invalid_kws_given = [kw for kw in invalid_keywords if kw in self.route]
-        assert (
-            not invalid_kws_given
-        ), f"Invalid keywords given in route: {invalid_kws_given}. Please remove them."
+        assert not invalid_kws_given, (
+            f"Invalid keywords given in route: {invalid_kws_given}. Please remove them."
+        )
         self.gbs = gbs
-        assert "@" not in gbs, "Give only the path to the .gbs file, " "without the @!"
+        assert "@" not in gbs, "Give only the path to the .gbs file, without the @!"
         self.gen = gen
         self.keep_chk = keep_chk
         self.stable = stable
@@ -471,7 +471,7 @@ class Gaussian16(OverlapCalculator):
 
         NMOs = namedtuple(
             "NMOs",
-            "a_core, a_occ a_act a_vir " "b_core b_occ b_act b_vir " "restricted",
+            "a_core, a_occ a_act a_vir b_core b_occ b_act b_vir restricted",
         )
 
         nmos = NMOs(

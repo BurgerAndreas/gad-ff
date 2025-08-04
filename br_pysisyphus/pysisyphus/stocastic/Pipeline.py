@@ -17,7 +17,6 @@ from pysisyphus.xyzloader import make_trj_str_from_geoms
 
 
 class Pipeline:
-
     def __init__(
         self,
         geom,

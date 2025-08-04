@@ -21,46 +21,44 @@ from .slots import *
 
 
 class DelocalizedInternalCoordinates(InternalCoordinates):
-
     def __init__(self, options):
-
         super(DelocalizedInternalCoordinates, self).__init__(options)
 
         # Cache  some useful attributes
         self.options = options
-        constraints = options["constraints"]
-        cvals = options["cVals"]
-        self.atoms = options["atoms"]
+        constraints = options['constraints']
+        cvals = options['cVals']
+        self.atoms = options['atoms']
         self.natoms = len(self.atoms)
 
         # The DLC contains an instance of primitive internal coordinates.
-        if self.options["primitives"] is None:
-            nifty.logger.debug(" making primitives ")
+        if self.options['primitives'] is None:
+            nifty.logger.debug(' making primitives ')
             t1 = time()
             self.Prims = PrimitiveInternalCoordinates(options.copy())
             dt = time() - t1
-            nifty.logger.debug(" Time to make prims %.3f" % dt)
-            self.options["primitives"] = self.Prims
+            nifty.logger.debug(' Time to make prims %.3f' % dt)
+            self.options['primitives'] = self.Prims
         else:
-            nifty.logger.debug(" setting primitives from options!")
+            nifty.logger.debug(' setting primitives from options!')
             # nifty.logger.debug(" warning: not sure if a deep copy prims")
             # self.Prims=self.options['primitives']
             t0 = time()
-            self.Prims = PrimitiveInternalCoordinates.copy(self.options["primitives"])
+            self.Prims = PrimitiveInternalCoordinates.copy(self.options['primitives'])
 
             nifty.logger.debug(
-                " num of primitives {}".format(len(self.Prims.Internals))
+                ' num of primitives {}'.format(len(self.Prims.Internals))
             )
             dt = time() - t0
-            nifty.logger.debug(" Time to copy prims %.3f" % dt)
+            nifty.logger.debug(' Time to copy prims %.3f' % dt)
             self.Prims.clearCache()
         # print "in constructor",len(self.Prims.Internals)
 
-        xyz = options["xyz"]
+        xyz = options['xyz']
         xyz = xyz.flatten()
-        connect = options["connect"]
-        addcart = options["addcart"]
-        addtr = options["addtr"]
+        connect = options['connect']
+        addcart = options['addcart']
+        addtr = options['addtr']
         if addtr:
             if connect:
                 raise RuntimeError(
@@ -94,7 +92,7 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
         return self.Prims.join(other.Prims)
 
     def copy(self, xyz):
-        return type(self)(self.options.copy().set_values({"xyz": xyz}))
+        return type(self)(self.options.copy().set_values({'xyz': xyz}))
 
     def addConstraint(self, cPrim, cVal, xyz):
         self.Prims.addConstraint(cPrim, cVal, xyz)
@@ -336,9 +334,9 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
         # nifty.logger.debug(self.Vecs.shape)
 
         time_eig = nifty.click()
-        nifty.logger.debug(" Timings: Build G: %.3f Eig: %.3f" % (time_G, time_eig))
+        nifty.logger.debug(' Timings: Build G: %.3f Eig: %.3f' % (time_G, time_eig))
 
-        self.Internals = ["DLC %i" % (i + 1) for i in range(self.Vecs.shape[1])]
+        self.Internals = ['DLC %i' % (i + 1) for i in range(self.Vecs.shape[1])]
 
         # Vecs has number of rows equal to the number of primitives, and
         # number of columns equal to the number of delocalized internal coordinates.
@@ -366,7 +364,7 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
                 cVecs = math_utils.orthogonalize(cVecs)
             except:
                 nifty.logger.debug(cVecs)
-                nifty.logger.debug("error forming cVec")
+                nifty.logger.debug('error forming cVec')
                 exit(-1)
 
             # project constraints into vectors
@@ -399,11 +397,11 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
                 Float array containing difference in primitive coordinates
         """
 
-        nifty.logger.debug(" starting to build G prim")
+        nifty.logger.debug(' starting to build G prim')
         nifty.click()
         G = self.Prims.GMatrix(xyz)  # in primitive coords
         time_G = nifty.click()
-        nifty.logger.debug(" Timings: Build G: %.3f " % (time_G))
+        nifty.logger.debug(' Timings: Build G: %.3f ' % (time_G))
 
         tmpvecs = []
         for A in G.matlist:
@@ -421,7 +419,7 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
         time_eig = nifty.click()
         # nifty.logger.debug(" Timings: Build G: %.3f Eig: %.3f" % (time_G, time_eig))
 
-        self.Internals = ["DLC %i" % (i + 1) for i in range(len(LargeIdx))]
+        self.Internals = ['DLC %i' % (i + 1) for i in range(len(LargeIdx))]
 
         # Vecs has number of rows equal to the number of primitives, and
         # number of columns equal to the number of delocalized internal coordinates.
@@ -449,7 +447,7 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
                 cVecs = math_utils.conjugate_orthogonalize(cVecs, G)
             except:
                 nifty.logger.debug(cVecs)
-                nifty.logger.debug("error forming cVec")
+                nifty.logger.debug('error forming cVec')
                 exit(-1)
 
             # project constraints into vectors
@@ -545,7 +543,7 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
                     break
                 elif len(U) < self.Vecs.shape[1]:
                     raise RuntimeError(
-                        "Gram-Schmidt orthogonalization has failed (expect %i length %i)"
+                        'Gram-Schmidt orthogonalization has failed (expect %i length %i)'
                         % (self.Vecs.shape[1], len(U))
                     )
             # print "Gram-Schmidt completed with thre=%.0e" % thre
@@ -555,7 +553,7 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
         # Now self.Internals is no longer a list of InternalCoordinate objects but only a list of strings.
         # We do not create objects for individual DLCs but
         self.Internals = [
-            "Constraint-DLC" if i < ncon else "DLC" + " %i" % (i + 1)
+            'Constraint-DLC' if i < ncon else 'DLC' + ' %i' % (i + 1)
             for i in range(self.Vecs.shape[1])
         ]
 
@@ -613,7 +611,7 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
             ncon = len(self.Prims.cPrims)
             if cPrimIdx != list(range(ncon)):
                 raise RuntimeError(
-                    "The constraint primitives should be at the start of the list"
+                    'The constraint primitives should be at the start of the list'
                 )
             # Form a sub-G-matrix that doesn't include the constrained primitives and diagonalize it to form DLCs.
             Gsub = G[ncon:, ncon:]
@@ -637,7 +635,7 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
 
             if (ncon + len(LargeIdx)) < Expect:
                 raise RuntimeError(
-                    "Expected at least %i delocalized coordinates, but got only %i"
+                    'Expected at least %i delocalized coordinates, but got only %i'
                     % (Expect, ncon + len(LargeIdx))
                 )
             # nifty.logger.debug("%i atoms (expect %i coordinates); %i/%i singular values are > 1e-6" % (self.na, Expect, LargeVals, len(L)))
@@ -670,7 +668,7 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
                     Unorms[ic] = np.sqrt(ov(ui, ui))
                     if Unorms[ic] / Vnorms[ic] < 0.1:
                         nifty.logger.debug(
-                            "Constraint %i is almost redundant; after projection norm is %.3f of original\n"
+                            'Constraint %i is almost redundant; after projection norm is %.3f of original\n'
                             % (ic, Unorms[ic] / Vnorms[ic])
                         )
                     # Project out newest U column from all remaining V columns.
@@ -698,7 +696,7 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
                 self.cDLC = [i for i in range(len(self.Prims.cPrims))]
 
             self.Internals = [
-                "Constraint" if i < ncon else "DLC" + " %i" % (i + 1)
+                'Constraint' if i < ncon else 'DLC' + ' %i' % (i + 1)
                 for i in range(self.Vecs.shape[1])
             ]
             # # LPW: Coefficients of DLC's are in each column and DLCs corresponding to constraints should basically be like (0 1 0 0 0 ..)
@@ -922,7 +920,6 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
         for xrow, yrow in zip(xv, yv):
             cc = 0
             for xx, yy in zip(xrow, yrow):
-
                 # first form the vector in the grid as the linear comb of the projected vectors
                 dq = xx * proj_xvec + yy * proj_yvec
                 nifty.logger.debug(dq.T)
@@ -936,5 +933,5 @@ class DelocalizedInternalCoordinates(InternalCoordinates):
         return xyzgrid
 
 
-if __name__ == "__main__" and __package__ is None:
+if __name__ == '__main__' and __package__ is None:
     pass

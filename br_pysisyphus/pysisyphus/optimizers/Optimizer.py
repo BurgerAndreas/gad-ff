@@ -298,12 +298,12 @@ class Optimizer(metaclass=abc.ABCMeta):
         self.fragments = fragments
         self.monitor_frag_dists = monitor_frag_dists
         if self.monitor_frag_dists:
-            assert (
-                len(self.fragments) == 2
-            ), "Interfragment monitoring requires two fragments!"
-            assert all(
-                [len(frag) > 0 for frag in self.fragments]
-            ), "Fragments must not be empty!"
+            assert len(self.fragments) == 2, (
+                "Interfragment monitoring requires two fragments!"
+            )
+            assert all([len(frag) > 0 for frag in self.fragments]), (
+                "Fragments must not be empty!"
+            )
         # Setting some default values
         self.monitor_frag_dists_counter = self.monitor_frag_dists
         self.interfrag_dists = list()
@@ -385,8 +385,7 @@ class Optimizer(metaclass=abc.ABCMeta):
             threshs = CONV_THRESHS[key]
         else:
             print(
-                "Deriving convergence threshold from supplied "
-                f"rms_force={rms_force}."
+                f"Deriving convergence threshold from supplied rms_force={rms_force}."
             )
             threshs = (
                 1.5 * rms_force,
@@ -425,7 +424,7 @@ class Optimizer(metaclass=abc.ABCMeta):
 
         # Overachieved
         def oa(val):
-            return f", ({val/oaf:.6f})" if oaf > 0.0 else ""
+            return f", ({val / oaf:.6f})" if oaf > 0.0 else ""
 
         internal_coords = self.geometry.coord_type not in (
             "cart",
@@ -564,8 +563,7 @@ class Optimizer(metaclass=abc.ABCMeta):
                 desired_eigval_structure = (
                     # Acutally all eigenvalues would have to be checked, but
                     # currently they are not stored anywhere.
-                    self.ts_mode_eigvals
-                    < self.small_eigval_thresh
+                    self.ts_mode_eigvals < self.small_eigval_thresh
                 ).sum() == len(self.roots)
             except AttributeError:
                 self.log(

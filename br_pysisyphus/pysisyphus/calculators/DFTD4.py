@@ -36,7 +36,7 @@ class DFTD4(Calculator):
         method: Optional[str] = None,
         damp_params: Optional[D4Params] = None,
         model_params: Optional[dict] = None,
-        **kwargs
+        **kwargs,
     ):
         assert HAS_DFTD4, "DFTD4 python package is not installed!"
         super().__init__(**kwargs)

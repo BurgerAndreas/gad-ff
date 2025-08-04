@@ -21,7 +21,6 @@ OptResult = namedtuple("OptResult", "opt_geom opt_log")
 
 
 class XTB(Calculator):
-
     conf_key = "xtb"
     _set_plans = (
         "charges",
@@ -86,9 +85,9 @@ class XTB(Calculator):
         self.retry_etemp = retry_etemp
         self.restart = restart
         if self.etemp is not None:
-            assert (
-                self.retry_etemp is None
-            ), "Using 'etemp' and 'retry_etemp' simultaneously is not possible!"
+            assert self.retry_etemp is None, (
+                "Using 'etemp' and 'retry_etemp' simultaneously is not possible!"
+            )
         self.topo = topo
         self.topo_update = topo_update
         self.quiet = quiet
@@ -96,9 +95,9 @@ class XTB(Calculator):
         self.topo_used = 0
         self.xtbrestart = None
         valid_gfns = (0, 1, 2, "ff")
-        assert (
-            self.gfn in valid_gfns
-        ), f"Invalid gfn argument. Allowed arguments are: {', '.join(valid_gfns)}!"
+        assert self.gfn in valid_gfns, (
+            f"Invalid gfn argument. Allowed arguments are: {', '.join(valid_gfns)}!"
+        )
         self.uhf = self.mult - 1
 
         self.inp_fn = "xtb.xyz"
@@ -293,9 +292,9 @@ class XTB(Calculator):
         if velocities is not None:
             coords3d = coords.reshape(-1, 3)
             velocities3d = velocities.reshape(-1, 3) * BOHRPERFS2AU
-            assert (
-                coords3d.shape == velocities3d.shape
-            ), "Shape of coordinates and velocities doesn't match!"
+            assert coords3d.shape == velocities3d.shape, (
+                "Shape of coordinates and velocities doesn't match!"
+            )
             mdrestart_str = self.get_mdrestart_str(coords3d, velocities3d)
             self.write_mdrestart(path, mdrestart_str)
             restart = "true"

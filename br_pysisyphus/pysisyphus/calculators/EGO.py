@@ -19,9 +19,9 @@ class EGO(Calculator):
         self.calculator = calculator
         self.ref_geom = ref_geom
         self.max_force = max_force
-        assert (
-            self.max_force > 0.0
-        ), f"Maximum force must be positve bug to max_force={self.max_force:.4f} au"
+        assert self.max_force > 0.0, (
+            f"Maximum force must be positve bug to max_force={self.max_force:.4f} au"
+        )
 
         self._ref_hessian = None
         self._s = None

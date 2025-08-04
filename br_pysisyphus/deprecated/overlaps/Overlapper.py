@@ -242,9 +242,9 @@ class Overlapper:
             "tden": tden_ovlp,
         }
         valid_ovlps = "/".join([str(k) for k in ovlp_dict.keys()])
-        assert (
-            ovlp_type in ovlp_dict.keys()
-        ), f"Invalid ovlp_type! Valid keys are {valid_ovlps}."
+        assert ovlp_type in ovlp_dict.keys(), (
+            f"Invalid ovlp_type! Valid keys are {valid_ovlps}."
+        )
 
         ovlp_func_ = ovlp_dict[ovlp_type]
 
@@ -262,7 +262,7 @@ class Overlapper:
                     self.logger.info(f"Using true AO overlaps from {true_ovlp_mat_fn}.")
                 except:
                     self.logger.info(
-                        "Doing double molecule calculation to get " "AO overlaps."
+                        "Doing double molecule calculation to get AO overlaps."
                     )
                     ao_ovlp = jth_geom.calc_double_ao_overlap(ith_geom)
                     np.savetxt(f"ao_ovlp_true_{icn:03d}_{jcn:03d}", ao_ovlp)
@@ -287,7 +287,7 @@ class Overlapper:
                 )
             if recursive and similar and (i > 0) and depth > 0:
                 self.log(
-                    f"Comparing {icn-1:03d} and {jcn:03d} now, "
+                    f"Comparing {icn - 1:03d} and {jcn:03d} now, "
                     f"because steps {icn:03d} and {jcn:03d} were "
                     "too similar."
                 )
@@ -314,7 +314,7 @@ class Overlapper:
 
         if double_mol:
             assert hasattr(geoms[0].calculator, "run_double_mol_calculation"), (
-                "Double molecule calculation not implemented for " f"{self.calc_key}."
+                f"Double molecule calculation not implemented for {self.calc_key}."
             )
 
         self.log(f"Doing {ovlp_type.upper()}-overlaps.")

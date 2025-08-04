@@ -8,7 +8,6 @@ from pysisyphus.irc.IRC import IRC
 
 
 class IMKMod(IRC):
-
     def __init__(
         self,
         geometry,
@@ -166,7 +165,7 @@ class IMKMod(IRC):
             corr_min = self.fit_parabola(x, y)
         else:
             self.log(
-                "Minimum search along D, by fitting energy_1, " "grad_1 and energy_2."
+                "Minimum search along D, by fitting energy_1, grad_1 and energy_2."
             )
             corr_min = self.fit_grad_and_energies(energy_1, grad_1, energy_2, D)
 

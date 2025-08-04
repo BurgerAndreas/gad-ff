@@ -602,7 +602,6 @@ class EdgeBlock(torch.nn.Module):
         edge_index,
         cutoff_index,
     ):
-
         ###############################################################
         # Update spherical node embeddings
         ###############################################################
@@ -703,7 +702,6 @@ class MessageBlock(torch.nn.Module):
         x_edge,
         edge_index,
     ):
-
         ###############################################################
         # Compute messages
         ###############################################################

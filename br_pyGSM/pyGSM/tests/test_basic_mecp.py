@@ -14,7 +14,7 @@ from pyGSM.utilities import elements, manage_xyz, nifty
 
 
 def test_basic_penalty_opt():
-    geom = manage_xyz.read_xyzs("pyGSM/data/diels_alder.xyz")[0]
+    geom = manage_xyz.read_xyzs('pyGSM/data/diels_alder.xyz')[0]
 
     coupling_states = []
 
@@ -48,7 +48,7 @@ def test_basic_penalty_opt():
 
     pes = Penalty_PES(PES1=pes1, PES2=pes2, lot=lot1)
 
-    nifty.printcool("Building the topology")
+    nifty.printcool('Building the topology')
     atom_symbols = manage_xyz.get_atoms(geom)
     ELEMENT_TABLE = elements.ElementData()
     atoms = [ELEMENT_TABLE.from_symbol(atom) for atom in atom_symbols]
@@ -59,7 +59,7 @@ def test_basic_penalty_opt():
         bondlistfile=None,
     )
 
-    nifty.printcool("Building Primitive Internal Coordinates")
+    nifty.printcool('Building Primitive Internal Coordinates')
     connect = False
     addtr = True
     addcart = False
@@ -72,7 +72,7 @@ def test_basic_penalty_opt():
         topology=top1,
     )
 
-    nifty.printcool("Building Delocalized Internal Coordinates")
+    nifty.printcool('Building Delocalized Internal Coordinates')
     coord_obj1 = DelocalizedInternalCoordinates.from_options(
         xyz=xyz1,
         atoms=atoms,
@@ -82,7 +82,7 @@ def test_basic_penalty_opt():
         primitives=p1,
     )
 
-    nifty.printcool("Building the molecule")
+    nifty.printcool('Building the molecule')
 
     Form_Hessian = True
     initial = Molecule.from_options(
@@ -93,7 +93,7 @@ def test_basic_penalty_opt():
     )
 
     optimizer = eigenvector_follow.from_options(
-        Linesearch="backtrack",  # a step size algorithm
+        Linesearch='backtrack',  # a step size algorithm
         OPTTHRESH=0.0005,  # The gradrms threshold, this is generally easy to reach for large systems
         DMAX=0.01,  # The initial max step size, will be adjusted if optimizer is doing well. Max is 0.5
         conv_Ediff=0.1,  # convergence of difference energy
@@ -102,16 +102,16 @@ def test_basic_penalty_opt():
         opt_cross=True,  # use difference energy criteria to determine if you are at crossing
     )
 
-    nifty.logger.debug(" MECP optimization")
+    nifty.logger.debug(' MECP optimization')
     geoms, energies = optimizer.optimize(
         molecule=initial,
         refE=initial.energy,
         opt_steps=150,  # The max number of optimization steps, use a small number until you have your final sigma
         verbose=True,
-        opt_type="UNCONSTRAINED",
+        opt_type='UNCONSTRAINED',
         xyzframerate=1,
     )
 
-    nifty.logger.debug(f"{energies = }")
+    nifty.logger.debug(f'{energies = }')
     assert energies[-1] == pytest.approx(-1.1495296961093118)
-    nifty.logger.debug("Finished!")
+    nifty.logger.debug('Finished!')

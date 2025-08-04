@@ -217,7 +217,7 @@ class Geometry:
         # self._coords always holds cartesian coordinates.
         self._coords = np.array(coords, dtype=float).flatten()
         assert self._coords.size == (3 * len(self.atoms)), (
-            f"Expected 3N={3*len(self.atoms)} cartesian coordinates but got "
+            f"Expected 3N={3 * len(self.atoms)} cartesian coordinates but got "
             f"{self._coords.size}. Did you accidentally supply internal "
             "coordinates?"
         )
@@ -541,9 +541,9 @@ class Geometry:
         coord : float
             Coordinate value.
         """
-        assert (
-            self.coord_type == "cart" and len(self.freeze_atoms) == 0
-        ), "set_coord was not yet tested with coord_type != 'cart' and frozen atoms!"
+        assert self.coord_type == "cart" and len(self.freeze_atoms) == 0, (
+            "set_coord was not yet tested with coord_type != 'cart' and frozen atoms!"
+        )
         self.coords[ind] = coord
         self.clear()
 

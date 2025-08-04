@@ -76,7 +76,7 @@ def extract_zip_and_list_contents(zip_path: str, extract_dir: str = "rgd1_raw"):
         print(f"Found {len(file_list)} files in archive:")
 
         for i, filename in enumerate(file_list[:20]):  # Show first 20 files
-            print(f"  {i+1}: {filename}")
+            print(f"  {i + 1}: {filename}")
 
         if len(file_list) > 20:
             print(f"  ... and {len(file_list) - 20} more files")
@@ -162,7 +162,7 @@ def load_rgd1_data(raw_data_dir="rgd1_raw", method="all_ts", val_frac=0.1):
 
     val_start_idx = val_start_idx[method]
     print(
-        f"Validation start index: {val_start_idx} out of {len(reaction_ids_to_process)} ({val_start_idx/len(reaction_ids_to_process):.2%})"
+        f"Validation start index: {val_start_idx} out of {len(reaction_ids_to_process)} ({val_start_idx / len(reaction_ids_to_process):.2%})"
     )
 
     return RXN_ind2geometry, reaction_ids_to_process, val_start_idx

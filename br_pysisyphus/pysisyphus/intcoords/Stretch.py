@@ -6,7 +6,6 @@ from pysisyphus.linalg import norm3
 
 
 class Stretch(Primitive):
-
     @staticmethod
     def _weight(atoms, coords3d, indices, f_damping):
         return Stretch.rho(atoms, coords3d, indices)

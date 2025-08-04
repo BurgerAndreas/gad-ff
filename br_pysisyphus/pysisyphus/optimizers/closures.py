@@ -90,9 +90,9 @@ def bfgs_multiply(
 
     Based on algorithm 7.4 Nocedal, Num. Opt., p. 178."""
 
-    assert len(s_list) == len(
-        y_list
-    ), "lengths of step list 's_list' and gradient list 'y_list' differ!"
+    assert len(s_list) == len(y_list), (
+        "lengths of step list 's_list' and gradient list 'y_list' differ!"
+    )
 
     cycles = len(s_list)
     q = vector.copy()

@@ -5,7 +5,6 @@ from pysisyphus.Geometry import Geometry
 
 
 class GrowingChainOfStates(ChainOfStates):
-
     def __init__(self, images, calc_getter, max_nodes=10, **kwargs):
         super().__init__(images, **kwargs)
 

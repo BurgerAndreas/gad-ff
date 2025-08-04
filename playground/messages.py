@@ -36,7 +36,7 @@ j = 1  # atom2
 coord_i = 0  # x
 coord_j = 2  # z
 print(
-    f"hessian atom{i+1}_x to atom{j+1}_z = {hessian_strings[i, coord_i, j, coord_j]}"
+    f"hessian atom{i + 1}_x to atom{j + 1}_z = {hessian_strings[i, coord_i, j, coord_j]}"
 )  # atom1_x to atom2_z
 
 # reshape to N*3, N*3

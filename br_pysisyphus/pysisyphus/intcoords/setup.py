@@ -108,7 +108,7 @@ def connect_fragments(
         if below_max_aux:
             log(
                 logger,
-                f"\tAux. interfrag bonds below {max_aux*BOHR2ANG:.2f} Å:\n"
+                f"\tAux. interfrag bonds below {max_aux * BOHR2ANG:.2f} Å:\n"
                 + "\n".join(
                     [f"\t\t{ind}: {dist_mat[ind]:.4f} au" for ind in below_max_aux]
                 ),
@@ -593,8 +593,7 @@ def get_dihedral_inds(coords3d, bond_inds, bend_inds, max_deg, logger=None):
             set_dihedral_index(improp, proper=False)
         log(
             logger,
-            "Permutational symmetry not considerd in generation of "
-            "improper dihedrals.",
+            "Permutational symmetry not considerd in generation of improper dihedrals.",
         )
 
     return proper_dihedral_inds, improper_dihedral_inds

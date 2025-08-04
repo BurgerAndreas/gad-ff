@@ -7,7 +7,6 @@ from pysisyphus.calculators.Calculator import Calculator
 
 
 class Psi4(Calculator):
-
     conf_key = "psi4"
 
     def __init__(
@@ -72,7 +71,7 @@ class Psi4(Calculator):
         if self.write_fchk:
             fchk_fn = self.make_fn("wfn.fchk")
             fchk_str = (
-                "fchk_writer = psi4.FCHKWriter(wfn)\n" f"fchk_writer.write('{fchk_fn}')"
+                f"fchk_writer = psi4.FCHKWriter(wfn)\nfchk_writer.write('{fchk_fn}')"
             )
         return fchk_str
 

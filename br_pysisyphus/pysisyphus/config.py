@@ -82,7 +82,7 @@ def get_cmd(section, key="cmd", use_defaults=True):
 
     if cmd is None:
         logger.warning(
-            f"Failed to load '{key}' from [{section}] " f"in ~/.pysisyphusrc{msg}"
+            f"Failed to load '{key}' from [{section}] in ~/.pysisyphusrc{msg}"
         )
         cmd = None
     return cmd

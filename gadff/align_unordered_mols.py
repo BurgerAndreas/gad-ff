@@ -952,7 +952,6 @@ def reorder_similarity(
     view_reorder = np.zeros(q_atoms.shape, dtype=int)
 
     for atom in elements:
-
         (p_atom_idx,) = np.where(p_atoms == atom)
         (q_atom_idx,) = np.where(q_atoms == atom)
 
@@ -998,7 +997,6 @@ def reorder_distance(
     view_reorder = np.zeros(q_atoms.shape, dtype=int)
 
     for atom in unique_atoms:
-
         (p_atom_idx,) = np.where(p_atoms == atom)
         (q_atom_idx,) = np.where(q_atoms == atom)
 
@@ -1146,7 +1144,6 @@ def reorder_inertia_hungarian(
     best_review = np.arange(len(p_atoms))
 
     for mirror in AXIS_REFLECTIONS:
-
         tmp_eigvec = eigvec_q * mirror.T
         tmp_coord = np.dot(q_coord, tmp_eigvec)
 
@@ -1211,7 +1208,6 @@ def brute_permutation(A: ndarray, B: ndarray) -> ndarray:
     initial_order = list(range(num_atoms))
 
     for reorder_indices in generate_permutations(initial_order, num_atoms):
-
         # Re-order the atom array and coordinate matrix
         coords_ordered = B[reorder_indices]
 
@@ -1313,9 +1309,9 @@ def check_reflections(
     """
 
     if reorder_method is None:
-        assert (
-            p_atoms == q_atoms
-        ).all(), "No reorder method selected, but atoms are not ordered"
+        assert (p_atoms == q_atoms).all(), (
+            "No reorder method selected, but atoms are not ordered"
+        )
 
     min_rmsd = np.inf
     min_swap: ndarray
@@ -1327,7 +1323,6 @@ def check_reflections(
 
     for swap, i in zip(AXIS_SWAPS, swap_mask):
         for reflection, j in zip(AXIS_REFLECTIONS, reflection_mask):
-
             # skip enantiomers
             if keep_stereo and i * j == -1:
                 continue
@@ -1770,7 +1765,6 @@ def get_coordinates_pdb(
     with openfunc(filename, openarg) as f:
         lines = f.readlines()
         for line in lines:
-
             if line.startswith("TER") or line.startswith("END"):
                 break
 
@@ -1820,7 +1814,6 @@ def get_coordinates_pdb(
 def get_coordinates_xyz_lines(
     lines: List[str], return_atoms_as_int: bool = False
 ) -> Tuple[ndarray, ndarray]:
-
     V: Union[List[ndarray], ndarray] = list()
     atoms: Union[List[str], ndarray] = list()
     n_atoms = 0
@@ -1837,7 +1830,6 @@ def get_coordinates_xyz_lines(
     # Skip the title line
     # Use the number of atoms to not read beyond the end of a file
     for lines_read, line in enumerate(lines[2:]):
-
         line = line.strip()
 
         if lines_read == n_atoms:
@@ -2239,7 +2231,6 @@ def print_pairwise_rmsd(structures, atom_types):
 def parse_arguments(
     arguments: Optional[Union[str, List[str]]] = None,
 ) -> argparse.Namespace:
-
     sep = ", "
 
     parser = argparse.ArgumentParser(
@@ -2460,7 +2451,6 @@ def parse_arguments(
 
 
 def example_file(args: Optional[List[str]] = None) -> str:
-
     # Parse arguments
     settings = parse_arguments(args)
 
@@ -2588,7 +2578,6 @@ def example_file(args: Optional[List[str]] = None) -> str:
     q_review = None
 
     if settings.use_reflections:
-
         result_rmsd, q_swap, q_reflection, q_review = check_reflections(
             p_atoms_sub,
             q_atoms_sub,
@@ -2599,7 +2588,6 @@ def example_file(args: Optional[List[str]] = None) -> str:
         )
 
     elif settings.use_reflections_keep_stereo:
-
         result_rmsd, q_swap, q_reflection, q_review = check_reflections(
             p_atoms_sub,
             q_atoms_sub,
@@ -2611,21 +2599,19 @@ def example_file(args: Optional[List[str]] = None) -> str:
         )
 
     elif settings.reorder:
-
-        assert (
-            reorder_method is not None
-        ), "Cannot reorder without selecting --reorder method"
+        assert reorder_method is not None, (
+            "Cannot reorder without selecting --reorder method"
+        )
         q_review = reorder_method(p_atoms_sub, q_atoms_sub, p_coord_sub, q_coord_sub)
 
     # If there is a reorder, then apply before print
     if q_review is not None:
-
         q_atoms_sub = q_atoms_sub[q_review]
         q_coord_sub = q_coord_sub[q_review]
 
-        assert all(
-            p_atoms_sub == q_atoms_sub
-        ), "error: Structure not aligned. Please submit bug report at http://github.com/charnley/rmsd"
+        assert all(p_atoms_sub == q_atoms_sub), (
+            "error: Structure not aligned. Please submit bug report at http://github.com/charnley/rmsd"
+        )
 
     # Calculate the RMSD value
     if result_rmsd is None:
@@ -2633,7 +2619,6 @@ def example_file(args: Optional[List[str]] = None) -> str:
 
     # print result
     if settings.output:
-
         if q_swap is not None:
             q_coord_sub = q_coord_sub[:, q_swap]
 

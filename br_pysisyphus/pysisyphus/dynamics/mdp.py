@@ -205,8 +205,8 @@ def mdp(
         )
         return mdp_result
 
-    print(f"E_excess={E_excess:.6f} au, ({E_excess*AU2KJPERMOL:.1f} kJ/mol)")
-    print(f"E_pot,desired=E_TS + {E_pot_diff*AU2KJPERMOL:.1f} kJ/mol")
+    print(f"E_excess={E_excess:.6f} au, ({E_excess * AU2KJPERMOL:.1f} kJ/mol)")
+    print(f"E_pot,desired=E_TS + {E_pot_diff * AU2KJPERMOL:.1f} kJ/mol")
     print()
 
     # Generate random vector perpendicular to transition vector
@@ -313,7 +313,7 @@ def mdp(
         dump_coords(geom.atoms, md_init_plus.coords, "mdp_ee_init_plus.trj")
         dump_coords(geom.atoms, md_init_minus.coords, "mdp_ee_init_minus.trj")
     assert init_trajs_converged
-    print(f"Ran 2*{i+1} initialization trajectories.")
+    print(f"Ran 2*{i + 1} initialization trajectories.")
     print()
 
     # Run actual trajectories, using the supplied termination functions if possible.

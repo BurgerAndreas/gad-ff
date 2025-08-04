@@ -893,7 +893,6 @@ compute_cartesian_modes = compute_modes_eckart_frame
 
 
 if __name__ == "__main__":
-
     project_root = os.path.dirname(os.path.dirname(__file__))
 
     # Example 1: load a dataset file and predict the first batch

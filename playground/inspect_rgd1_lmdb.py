@@ -186,7 +186,7 @@ if __name__ == "__main__":
         sample_idx, natoms = smallest_samples[i]
         sample = dataset[sample_idx]
 
-        print(f"\nPlotting molecule {i+1}/5 (Sample {sample_idx}, {natoms} atoms)")
+        print(f"\nPlotting molecule {i + 1}/5 (Sample {sample_idx}, {natoms} atoms)")
 
         # Compute linearity for each structure
         linearity_reactant = compute_molecular_linearity(
@@ -279,7 +279,7 @@ if __name__ == "__main__":
             linearity_results_avg[:5]
         ):
             print(
-                f"  {i+1}. Sample {idx} ({natoms} atoms): avg={avg_linearity:.1f} (R={lr:.1f}, P={lp:.1f}, T={lt:.1f})"
+                f"  {i + 1}. Sample {idx} ({natoms} atoms): avg={avg_linearity:.1f} (R={lr:.1f}, P={lp:.1f}, T={lt:.1f})"
             )
 
         print(f"\nLeast linear molecules (bottom 5):")
@@ -287,7 +287,7 @@ if __name__ == "__main__":
             linearity_results_avg[-5:]
         ):
             print(
-                f"  {i+1}. Sample {idx} ({natoms} atoms): avg={avg_linearity:.1f} (R={lr:.1f}, P={lp:.1f}, T={lt:.1f})"
+                f"  {i + 1}. Sample {idx} ({natoms} atoms): avg={avg_linearity:.1f} (R={lr:.1f}, P={lp:.1f}, T={lt:.1f})"
             )
 
         # Also sort by maximum linearity change during reaction
@@ -300,5 +300,5 @@ if __name__ == "__main__":
         print(f"\nLargest linearity changes during reaction (top 5):")
         for i, (idx, change, lr, lp, lt, natoms) in enumerate(linearity_changes[:5]):
             print(
-                f"  {i+1}. Sample {idx} ({natoms} atoms): Δ={change:.1f} (R={lr:.1f}, P={lp:.1f}, T={lt:.1f})"
+                f"  {i + 1}. Sample {idx} ({natoms} atoms): Δ={change:.1f} (R={lr:.1f}, P={lp:.1f}, T={lt:.1f})"
             )

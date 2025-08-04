@@ -75,12 +75,12 @@ class ChainOfStates:
         img0 = self.images[0]
         self.image_atoms = copy(img0.atoms)
         self.coord_type = img0.coord_type
-        assert (
-            self.coord_type in self.valid_coord_types
-        ), f"Invalid coord_type! Supported types are: {self.valid_coord_types}"
-        assert all(
-            [img.coord_type == self.coord_type for img in self.images]
-        ), "coord_type of images differ!"
+        assert self.coord_type in self.valid_coord_types, (
+            f"Invalid coord_type! Supported types are: {self.valid_coord_types}"
+        )
+        assert all([img.coord_type == self.coord_type for img in self.images]), (
+            "coord_type of images differ!"
+        )
         try:
             self.typed_prims = img0.internal.typed_prims
         except AttributeError:
@@ -95,7 +95,7 @@ class ChainOfStates:
         return calc
 
     def log(self, message):
-        self.logger.debug(f"Counter {self.counter+1:03d}, {message}")
+        self.logger.debug(f"Counter {self.counter + 1:03d}, {message}")
 
     def get_fixed_indices(self):
         fixed = list()

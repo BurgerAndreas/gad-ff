@@ -175,8 +175,7 @@ class EnergyMin(Calculator):
             # When the actual difference is above to minimum differences
             # or
             # no calculator is fixed yet
-            (energy_diff > self.min_energy_diff)
-            or (self.fixed_calc is None)
+            (energy_diff > self.min_energy_diff) or (self.fixed_calc is None)
         ):
             self.fixed_calc = (self.calc1, self.calc2)[min_ind]
             self.recalc_in = self.check_after

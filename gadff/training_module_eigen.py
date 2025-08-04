@@ -133,7 +133,7 @@ class EigenPotentialModule(PotentialModule):
         )
         total_params = sum(p.numel() for p in self.potential.parameters())
         print(
-            f"Trainable parameters: {trainable_params:,} / {total_params:,} ({trainable_params/total_params*100:.2f}%)"
+            f"Trainable parameters: {trainable_params:,} / {total_params:,} ({trainable_params / total_params * 100:.2f}%)"
         )
 
     def configure_optimizers(self):
@@ -445,7 +445,6 @@ class EigenPotentialModule(PotentialModule):
         self.val_step_outputs.append(outputs)
 
     def on_validation_epoch_end(self):
-
         val_epoch_metrics = average_over_batch_metrics(self.val_step_outputs)
 
         # print all keys and values

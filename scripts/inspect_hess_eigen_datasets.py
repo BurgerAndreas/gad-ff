@@ -5,6 +5,7 @@ Script to inspect and visualize the distribution of Hessian eigenvalues in the H
 Creates histograms for eigenvalue 1, eigenvalue 2, and their joint distribution.
 Analyzes index-1 saddle point statistics across different datasets.
 """
+
 import os
 import argparse
 import numpy as np
@@ -400,7 +401,7 @@ def print_statistics_table(all_stats):
 
     # Data rows
     for stats in all_stats:
-        row = f"{stats['dataset']:<20} {stats['n_samples']:<10} {stats['ev1_mean']:<12.4f} {stats['ev1_std']:<12.4f} {stats['ev2_mean']:<12.4f} {stats['ev2_std']:<12.4f} {stats['index1_saddle_fraction']*100:<10.2f}"
+        row = f"{stats['dataset']:<20} {stats['n_samples']:<10} {stats['ev1_mean']:<12.4f} {stats['ev1_std']:<12.4f} {stats['ev2_mean']:<12.4f} {stats['ev2_std']:<12.4f} {stats['index1_saddle_fraction'] * 100:<10.2f}"
         print(row)
 
     print("\n" + "=" * 100)
@@ -424,13 +425,13 @@ def print_statistics_table(all_stats):
         )
         print(f"  Critical point types:")
         print(
-            f"    Index-1 saddles: {stats['index1_saddle_count']} ({stats['index1_saddle_fraction']*100:.2f}%)"
+            f"    Index-1 saddles: {stats['index1_saddle_count']} ({stats['index1_saddle_fraction'] * 100:.2f}%)"
         )
         print(
-            f"    Local minima (both pos): {stats['both_positive_count']} ({stats['both_positive_fraction']*100:.2f}%)"
+            f"    Local minima (both pos): {stats['both_positive_count']} ({stats['both_positive_fraction'] * 100:.2f}%)"
         )
         print(
-            f"    Local maxima (both neg): {stats['both_negative_count']} ({stats['both_negative_fraction']*100:.2f}%)"
+            f"    Local maxima (both neg): {stats['both_negative_count']} ({stats['both_negative_fraction'] * 100:.2f}%)"
         )
 
 
@@ -491,9 +492,9 @@ def main():
             ".lmdb", ""
         )
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Processing: {dataset_name}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         # Check if file exists
         if not os.path.exists(dataset_path):

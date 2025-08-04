@@ -95,7 +95,7 @@ def plot_cycle(cart_coords, energies):
     ax.plot(xs, last_energies, "o-")
     ax.set_xlabel("Image")
     ax.set_ylabel(DE_LABEL)
-    ax.set_title(f"COS image energies, (last) cycle {len(energies)-1}")
+    ax.set_title(f"COS image energies, (last) cycle {len(energies) - 1}")
 
     first_image_en = last_energies[0]
     last_image_en = last_energies[-1]
@@ -108,7 +108,7 @@ def plot_cycle(cart_coords, energies):
         )
     print(
         "Barrier heights using actual energies (not splined) from "
-        f"cycle {energies.shape[0]-1}."
+        f"cycle {energies.shape[0] - 1}."
     )
     print(f"\tHighest energy image (HEI) at index {max_en_ind} (0-based)")
 
@@ -334,7 +334,7 @@ def plot_all_energies(h5):
     steps = list()
     for i, root_flip in enumerate(flips[:-1]):
         if root_flip:
-            print(f"Root flip occured between {i} and {i+1}.")
+            print(f"Root flip occured between {i} and {i + 1}.")
             continue
         print(f"Using step {i}")
         energies_.append(energies[i])
@@ -413,9 +413,9 @@ def plot_md(h5_group="run"):
 def plot_gau(gau_fns, num=50):
     print("Assuming constant Gaussian s & w!")
 
-    assert (
-        0 < len(gau_fns) < 3
-    ), "Currently, only plotting of 1 or 2 collective variables is possible!"
+    assert 0 < len(gau_fns) < 3, (
+        "Currently, only plotting of 1 or 2 collective variables is possible!"
+    )
 
     gaussians = list()
     centers = list()
@@ -632,7 +632,7 @@ def render_cdds(h5):
     print(f"Rendering {len(cdd_cubes)} CDD cubes.")
 
     for i, cube in enumerate(cdd_cubes):
-        print(f"Rendering cube {i+1:03d}/{len(cdd_cubes):03d}")
+        print(f"Rendering cube {i + 1:03d}/{len(cdd_cubes):03d}")
         _ = render_cdd_cube(cube, orient=orient)
     joined = "\n".join([str(fn) for fn in png_fns])
     with open(CDD_PNG_FNS, "w") as handle:
@@ -643,7 +643,6 @@ def render_cdds(h5):
 
 
 def plot_afir(h5_fn="afir.h5", h5_group="afir"):
-
     h5_fns = (h5_fn, Path(OUT_DIR_DEFAULT) / h5_fn)
     for h5_fn in h5_fns:
         print(f"Trying to open '{h5_fn}' ... ", end="")
@@ -767,7 +766,7 @@ def parse_args(args):
     group.add_argument("--gau", nargs="*")
     group.add_argument("--scan", action="store_true")
     group.add_argument(
-        "--trj", help="Plot energy values from the comments of a " ".trj file."
+        "--trj", help="Plot energy values from the comments of a .trj file."
     )
 
     return parser.parse_args(args)

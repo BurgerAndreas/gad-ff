@@ -7,7 +7,6 @@ from pysisyphus.xyzloader import make_trj_str
 
 
 class ChainOfStates:
-
     def __init__(self, images):
         self.images = images
 

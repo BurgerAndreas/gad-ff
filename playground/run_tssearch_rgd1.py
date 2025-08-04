@@ -105,7 +105,6 @@ def test_gad_ts_search(sample, torchcalc, asecalc, x_lininter_rp, x_geointer_rp,
         "eckartsvd",
         "eckartqr",
     ]:
-
         torchcalc.eigen_dof_method = eigen_method
 
         results = {}

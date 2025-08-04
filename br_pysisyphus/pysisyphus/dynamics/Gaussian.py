@@ -3,9 +3,9 @@ import numpy as np
 
 class DummyColvar:
     def eval(self, x):
-        assert np.isscalar(
-            x
-        ), f"DummyColvar can only be used for scalar inputs, but got {x}!"
+        assert np.isscalar(x), (
+            f"DummyColvar can only be used for scalar inputs, but got {x}!"
+        )
         return x, 1
 
 

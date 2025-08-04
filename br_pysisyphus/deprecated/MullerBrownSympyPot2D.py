@@ -4,7 +4,6 @@ from pysisyphus.calculators.AnaPotBase2D import AnaPotBase2D
 
 
 class MullerBrownSympyPot2D(AnaPotBase2D):
-
     def __init__(self):
         A = (-200, -100, -170, 15)
         x0 = (1.0, 0.0, -0.5, -1.0)

@@ -50,14 +50,14 @@ def minimal_wrapper_de_gsm(
     # 'RESTRAINTS': None,
 
     # optimizer
-    optimizer_method = "eigenvector_follow"  # OR "lbfgs"
-    line_search = "NoLineSearch"  # OR: 'backtrack'
+    optimizer_method = 'eigenvector_follow'  # OR "lbfgs"
+    line_search = 'NoLineSearch'  # OR: 'backtrack'
     only_climb = True
     # 'opt_print_level': args.opt_print_level,
     step_size_cap = 0.1  # DMAX in the other wrapper
 
     # molecule
-    coordinate_type = "TRIC"
+    coordinate_type = 'TRIC'
     # 'hybrid_coord_idx_file': args.hybrid_coord_idx_file,
     # 'frozen_coord_idx_file': args.frozen_coord_idx_file,
     # 'prim_idx_file': args.prim_idx_file,
@@ -81,7 +81,7 @@ def minimal_wrapper_de_gsm(
     # 'use_multiprocessing': args.use_multiprocessing,
     # 'sigma': args.sigma,
 
-    nifty.printcool("Parsed GSM")
+    nifty.printcool('Parsed GSM')
 
     # LOT
     lot = ASELoT.from_options(
@@ -92,7 +92,7 @@ def minimal_wrapper_de_gsm(
     pes_obj = PES.from_options(lot=lot, ad_idx=0, multiplicity=1)
 
     # Build the topology
-    nifty.printcool("Building the topologies")
+    nifty.printcool('Building the topologies')
     element_table = ElementData()
     elements = [
         element_table.from_symbol(sym) for sym in atoms_reactant.get_chemical_symbols()
@@ -113,50 +113,50 @@ def minimal_wrapper_de_gsm(
             or (bond[1], bond[0]) in topology_reactant.edges()
         ):
             continue
-        print(" Adding bond {} to reactant topology".format(bond))
+        print(' Adding bond {} to reactant topology'.format(bond))
         if bond[0] > bond[1]:
             topology_reactant.add_edge(bond[0], bond[1])
         else:
             topology_reactant.add_edge(bond[1], bond[0])
 
     # primitive internal coordinates
-    nifty.printcool("Building Primitive Internal Coordinates")
+    nifty.printcool('Building Primitive Internal Coordinates')
 
     prim_reactant = PrimitiveInternalCoordinates.from_options(
         xyz=atoms_reactant.get_positions(),
         atoms=elements,
         topology=topology_reactant,
-        connect=coordinate_type == "DLC",
-        addtr=coordinate_type == "TRIC",
-        addcart=coordinate_type == "HDLC",
+        connect=coordinate_type == 'DLC',
+        addtr=coordinate_type == 'TRIC',
+        addcart=coordinate_type == 'HDLC',
     )
 
     prim_product = PrimitiveInternalCoordinates.from_options(
         xyz=atoms_product.get_positions(),
         atoms=elements,
         topology=topology_product,
-        connect=coordinate_type == "DLC",
-        addtr=coordinate_type == "TRIC",
-        addcart=coordinate_type == "HDLC",
+        connect=coordinate_type == 'DLC',
+        addtr=coordinate_type == 'TRIC',
+        addcart=coordinate_type == 'HDLC',
     )
 
     # add product coords to reactant coords
     prim_reactant.add_union_primitives(prim_product)
 
     # Delocalised internal coordinates
-    nifty.printcool("Building Delocalized Internal Coordinates")
+    nifty.printcool('Building Delocalized Internal Coordinates')
     deloc_coords_reactant = DelocalizedInternalCoordinates.from_options(
         xyz=atoms_reactant.get_positions(),
         atoms=elements,
-        connect=coordinate_type == "DLC",
-        addtr=coordinate_type == "TRIC",
-        addcart=coordinate_type == "HDLC",
+        connect=coordinate_type == 'DLC',
+        addtr=coordinate_type == 'TRIC',
+        addcart=coordinate_type == 'HDLC',
         primitives=prim_reactant,
     )
 
     # Molecules
-    nifty.printcool("Building the reactant object with {}".format(coordinate_type))
-    from_hessian = optimizer_method == "eigenvector_follow"
+    nifty.printcool('Building the reactant object with {}'.format(coordinate_type))
+    from_hessian = optimizer_method == 'eigenvector_follow'
 
     molecule_reactant = Molecule.from_options(
         geom=[[x.symbol, *x.position] for x in atoms_reactant],
@@ -173,25 +173,25 @@ def minimal_wrapper_de_gsm(
     )
 
     # optimizer
-    nifty.printcool("Building the Optimizer object")
+    nifty.printcool('Building the Optimizer object')
     opt_options = dict(
         print_level=1,
         Linesearch=line_search,
-        update_hess_in_bg=not (only_climb or optimizer_method == "lbfgs"),
+        update_hess_in_bg=not (only_climb or optimizer_method == 'lbfgs'),
         conv_Ediff=conv_Ediff,
         conv_gmax=conv_gmax,
         DMAX=step_size_cap,
         opt_climb=only_climb,
     )
-    if optimizer_method == "eigenvector_follow":
+    if optimizer_method == 'eigenvector_follow':
         optimizer_object = eigenvector_follow.from_options(**opt_options)
-    elif optimizer_method == "lbfgs":
+    elif optimizer_method == 'lbfgs':
         optimizer_object = lbfgs.from_options(**opt_options)
     else:
         raise NotImplementedError
 
     # GSM
-    nifty.printcool("Building the GSM object")
+    nifty.printcool('Building the GSM object')
     gsm = DE_GSM.from_options(
         reactant=molecule_reactant,
         product=molecule_product,
@@ -205,13 +205,13 @@ def minimal_wrapper_de_gsm(
         ID=ID,
         print_level=1,
         mp_cores=1,  # parallelism not tested yet with the ASE calculators
-        interp_method="DLC",
+        interp_method='DLC',
     )
 
     # optimize reactant and product if needed
     if not fixed_reactant:
-        nifty.printcool("REACTANT GEOMETRY NOT FIXED!!! OPTIMIZING")
-        path = os.path.join(os.getcwd(), "scratch", f"{ID:03}", "0")
+        nifty.printcool('REACTANT GEOMETRY NOT FIXED!!! OPTIMIZING')
+        path = os.path.join(os.getcwd(), 'scratch', f'{ID:03}', '0')
         optimizer_object.optimize(
             molecule=molecule_reactant,
             refE=molecule_reactant.energy,
@@ -219,8 +219,8 @@ def minimal_wrapper_de_gsm(
             path=path,
         )
     if not fixed_product:
-        nifty.printcool("PRODUCT GEOMETRY NOT FIXED!!! OPTIMIZING")
-        path = os.path.join(os.getcwd(), "scratch", f"{ID:03}", str(num_nodes - 1))
+        nifty.printcool('PRODUCT GEOMETRY NOT FIXED!!! OPTIMIZING')
+        path = os.path.join(os.getcwd(), 'scratch', f'{ID:03}', str(num_nodes - 1))
         optimizer_object.optimize(
             molecule=molecule_product,
             refE=molecule_product.energy,
@@ -237,13 +237,13 @@ def minimal_wrapper_de_gsm(
         rtype = 2
 
     # do GSM
-    nifty.printcool("Main GSM Calculation")
+    nifty.printcool('Main GSM Calculation')
     gsm.go_gsm(max_gsm_iterations, max_opt_steps, rtype=rtype)
 
     # write the results into an extended xyz file
     string_ase, ts_ase = gsm_to_ase_atoms(gsm)
-    ase.io.write(f"opt_converged_{gsm.ID:03d}_ase.xyz", string_ase)
-    ase.io.write(f"TSnode_{gsm.ID}.xyz", string_ase)
+    ase.io.write(f'opt_converged_{gsm.ID:03d}_ase.xyz', string_ase)
+    ase.io.write(f'TSnode_{gsm.ID}.xyz', string_ase)
 
     # post processing taken from the main wrapper, plots as well
     post_processing(gsm, have_TS=True)
@@ -257,7 +257,7 @@ def gsm_to_ase_atoms(gsm: DE_GSM):
     frames = []
     for energy, geom in zip(gsm.energies, gsm.geometries):
         at = Atoms(symbols=[x[0] for x in geom], positions=[x[1:4] for x in geom])
-        at.info["energy"] = energy
+        at.info['energy'] = energy
         frames.append(at)
 
     # TS

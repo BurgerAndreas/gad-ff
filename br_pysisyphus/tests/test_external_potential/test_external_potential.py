@@ -288,5 +288,5 @@ def test_torsion_restraint(ref_val):
     val = geom.coords[-1]
     val = np.rad2deg(val)
     ref_val = np.rad2deg(ref_val)
-    print(f"@@@ ref={ref_val:.4f} val={val:.4f} Δ={val-ref_val:.4f})")
+    print(f"@@@ ref={ref_val:.4f} val={val:.4f} Δ={val - ref_val:.4f})")
     # assert val == pytest.approx(ref_val, abs=0.08)

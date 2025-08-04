@@ -7,7 +7,6 @@ from pysisyphus.line_searches.interpol import interpol_alpha_quad, interpol_alph
 
 
 class StrongWolfe(LineSearch):
-
     def __init__(self, *args, alpha_max=10.0, fac=2, **kwargs):
         """Wolfe line search.
 

@@ -57,7 +57,7 @@ def compress(inds, check=True):
     for i, ind in enumerate(rest):
         if ind != prev_ind + 1:
             if len(cur_range) > 1:
-                compressed += f"..{cur_range[-1]+1},{ind}"
+                compressed += f"..{cur_range[-1] + 1},{ind}"
             else:
                 compressed += f",{ind}"
             cur_range = [
@@ -68,7 +68,7 @@ def compress(inds, check=True):
         prev_ind = ind
     else:
         if len(cur_range) > 1:
-            compressed += f"..{cur_range[-1]+1}"
+            compressed += f"..{cur_range[-1] + 1}"
     if check:
         expd = full_expand(compressed)
         assert len(expd) == len(inds)

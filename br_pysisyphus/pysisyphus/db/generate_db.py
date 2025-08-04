@@ -53,9 +53,9 @@ def generate_db():
             hess_res = do_final_hessian(geom, save_hessian=False)
             neg_eigvals = hess_res.neg_eigvals
             if neg_eigvals.size > 0:
-                assert all(
-                    np.abs(neg_eigvals) <= 2e-5
-                ), f"Calculation at level '{level_name}' failed for {mol.name}"
+                assert all(np.abs(neg_eigvals) <= 2e-5), (
+                    f"Calculation at level '{level_name}' failed for {mol.name}"
+                )
 
             geom.standard_orientation()
             geom.comment += f", {OPT_FLAG}"

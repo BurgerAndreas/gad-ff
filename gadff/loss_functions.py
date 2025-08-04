@@ -29,9 +29,9 @@ def compute_loss_blockdiagonal_hessian(pred_hessian, true_hessian, loss_fn, data
     test_mask = torch.zeros_like(pred_hessian)
     for b in range(B):
         n_atoms_batch = data.natoms[b].item()
-        assert (
-            atom_offset == data.ptr[b].item()
-        ), f"Atom offset {atom_offset} does not match batch {b} ptr {data.ptr[b].item()}"
+        assert atom_offset == data.ptr[b].item(), (
+            f"Atom offset {atom_offset} does not match batch {b} ptr {data.ptr[b].item()}"
+        )
         # Extract the block from the full hessian
         block_start = atom_offset
         block_end = atom_offset + n_atoms_batch
@@ -39,9 +39,9 @@ def compute_loss_blockdiagonal_hessian(pred_hessian, true_hessian, loss_fn, data
         test_mask[block_start:block_end, :, block_start:block_end, :] = 1
         # from the flat block
         n_entries_batch = (n_atoms_batch * 3) ** 2
-        assert (
-            n_entries_batch == pred_block.numel()
-        ), f"Number of entries in batch {b} does not match"
+        assert n_entries_batch == pred_block.numel(), (
+            f"Number of entries in batch {b} does not match"
+        )
         true_block = true_hessian[past_entries : past_entries + n_entries_batch]
         # Compare the blocks
         pred_block = pred_block.reshape(true_block.shape)
@@ -578,7 +578,7 @@ if __name__ == "__main__":
     loss1_flipped = cosine_squared_loss(v_pred, -v_true)
     print(f"cosine_squared_loss (sign flipped): {loss1_flipped}")
     print(
-        f"cosine_squared_loss (shape B, N*3): {cosine_squared_loss(v_pred.reshape(B, N*3), v_true.reshape(B, N*3))}"
+        f"cosine_squared_loss (shape B, N*3): {cosine_squared_loss(v_pred.reshape(B, N * 3), v_true.reshape(B, N * 3))}"
     )
 
     print(f"\nShould be the same:")
@@ -587,7 +587,7 @@ if __name__ == "__main__":
     loss2_flipped = L_ang_loss(v_pred, -v_true)
     print(f"L_ang_loss (sign flipped): {loss2_flipped}")
     print(
-        f"L_ang_loss (shape B, N*3): {L_ang_loss(v_pred.reshape(B, N*3), v_true.reshape(B, N*3))}"
+        f"L_ang_loss (shape B, N*3): {L_ang_loss(v_pred.reshape(B, N * 3), v_true.reshape(B, N * 3))}"
     )
 
     print(f"\nShould be the same:")
@@ -596,7 +596,7 @@ if __name__ == "__main__":
     loss3_flipped = cosine_loss(v_pred, -v_true)
     print(f"_cosine_loss (sign flipped): {loss3_flipped}")
     print(
-        f"_cosine_loss (shape B, N*3): {cosine_loss(v_pred.reshape(B, N*3), v_true.reshape(B, N*3))}"
+        f"_cosine_loss (shape B, N*3): {cosine_loss(v_pred.reshape(B, N * 3), v_true.reshape(B, N * 3))}"
     )
 
     print(f"\nShould be the same:")
@@ -605,7 +605,7 @@ if __name__ == "__main__":
     loss4_flipped = min_l2_loss(v_pred, -v_true)
     print(f"_min_l2_loss (sign flipped): {loss4_flipped}")
     print(
-        f"_min_l2_loss (shape B, N*3): {min_l2_loss(v_pred.reshape(B, N*3), v_true.reshape(B, N*3))}"
+        f"_min_l2_loss (shape B, N*3): {min_l2_loss(v_pred.reshape(B, N * 3), v_true.reshape(B, N * 3))}"
     )
 
     print(f"\nShould be the same:")
@@ -614,7 +614,7 @@ if __name__ == "__main__":
     loss5_flipped = min_l1_loss(v_pred, -v_true)
     print(f"_min_l1_loss (sign flipped): {loss5_flipped}")
     print(
-        f"_min_l1_loss (shape B, N*3): {min_l1_loss(v_pred.reshape(B, N*3), v_true.reshape(B, N*3))}"
+        f"_min_l1_loss (shape B, N*3): {min_l1_loss(v_pred.reshape(B, N * 3), v_true.reshape(B, N * 3))}"
     )
 
     ######################################################################

@@ -8,7 +8,6 @@ from pysisyphus.calculators.LEPSExpr import LEPSExpr
 
 
 class FreeEndNEBPot(AnaPotBase):
-
     def __init__(self):
         """Analyitcal potential as described in [1] Appendix A"""
         leps_expr = LEPSExpr()

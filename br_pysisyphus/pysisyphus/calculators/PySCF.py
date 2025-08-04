@@ -121,9 +121,7 @@ class PySCF(OverlapCalculator):
         if self.method == "tddft":
             assert self.nstates, "nstates must be set with method='tddft'!"
         if self.track:
-            assert self.root <= self.nstates, (
-                "'root' must be smaller " "than 'nstates'!"
-            )
+            assert self.root <= self.nstates, "'root' must be smaller than 'nstates'!"
         self.auxbasis = auxbasis
         self.keep_chk = keep_chk
         self.verbose = int(verbose)
@@ -363,7 +361,7 @@ class PySCF(OverlapCalculator):
                     mf = qmmm.mm_charge(mf, point_charges[:, :3], point_charges[:, 3])
                     self.log(
                         f"Added {len(point_charges)} point charges with "
-                        f"sum(q)={sum(point_charges[:,3]):.4f}."
+                        f"sum(q)={sum(point_charges[:, 3]):.4f}."
                     )
             else:
                 mf = self.get_driver(step, mf=prev_mf)  # noqa: F821

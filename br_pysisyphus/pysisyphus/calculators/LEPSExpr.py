@@ -14,7 +14,6 @@ from sympy import symbols, exp
 
 
 class LEPSExpr:
-
     def __init__(self):
         """Generates sympy expression for various LEPS potentials."""
         # V_harmonic uses b = 0.80
@@ -76,7 +75,7 @@ class LEPSExpr:
         return d / 4 * (exp(-2 * alpha * (r - r0)) - 6 * exp(-alpha * (r - r0)))
 
     def G(self, a, b):
-        "Gaussian function." ""
+        "Gaussian function."
         return exp(-0.5 * ((a / 0.1) ** 2 + (b / 0.35) ** 2))
 
     def Gdimer(self, x, y, A, x0, y0, sx, sy):

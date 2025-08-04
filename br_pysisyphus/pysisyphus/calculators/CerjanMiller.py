@@ -5,7 +5,6 @@ from pysisyphus.calculators.AnaPotBase import AnaPotBase
 
 
 class CerjanMiller(AnaPotBase):
-
     def __init__(self, a=1, b=1, c=1):
         # Eq. (3.1) in [1]
         V_str = f"({a}-{b}*y**2)*x**2*exp(-x**2)+{c}/2*y**2"

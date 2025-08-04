@@ -211,7 +211,7 @@ class HessianPotentialModule(PotentialModule):
         )
         total_params = sum(p.numel() for p in self.potential.parameters())
         print(
-            f"Trainable parameters: {trainable_params:,} / {total_params:,} ({trainable_params/total_params*100:.2f}%)"
+            f"Trainable parameters: {trainable_params:,} / {total_params:,} ({trainable_params / total_params * 100:.2f}%)"
         )
 
     def configure_optimizers(self):

@@ -9,14 +9,12 @@ from pysisyphus.tsoptimizers.TSHessianOptimizer import TSHessianOptimizer
 
 
 class TRIM(TSHessianOptimizer):
-
     def optimize(self):
         energy, gradient, H, eigvals, eigvecs, resetted = self.housekeeping()
         self.update_ts_mode(eigvals, eigvecs)
 
         self.log(
-            f"Signs of eigenvalue and -vector of root(s) {self.roots} "
-            "will be reversed!"
+            f"Signs of eigenvalue and -vector of root(s) {self.roots} will be reversed!"
         )
         # Transform gradient to basis of eigenvectors
         gradient_ = eigvecs.T.dot(gradient)

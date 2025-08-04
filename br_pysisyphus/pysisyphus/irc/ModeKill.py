@@ -7,7 +7,6 @@ from pysisyphus.optimizers.hessian_updates import bofill_update
 
 
 class ModeKill(IRC):
-
     def __init__(
         self,
         geometry,

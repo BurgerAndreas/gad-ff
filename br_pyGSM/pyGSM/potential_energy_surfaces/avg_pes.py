@@ -25,14 +25,14 @@ class Avg_PES(PES):
         self.PES1 = PES(
             PES1.options.copy().set_values(
                 {
-                    "lot": lot,
+                    'lot': lot,
                 }
             )
         )
         self.PES2 = PES(
             PES2.options.copy().set_values(
                 {
-                    "lot": lot,
+                    'lot': lot,
                 }
             )
         )
@@ -48,7 +48,7 @@ class Avg_PES(PES):
 
     def get_energy(self, xyz):
         if self.PES1.multiplicity == self.PES2.multiplicity:
-            assert self.PES2.ad_idx > self.PES1.ad_idx, "dgrad wrong direction"
+            assert self.PES2.ad_idx > self.PES1.ad_idx, 'dgrad wrong direction'
         self.dE = self.PES2.get_energy(xyz) - self.PES1.get_energy(xyz)
         return 0.5 * (self.PES1.get_energy(xyz) + self.PES2.get_energy(xyz))
 
@@ -59,8 +59,8 @@ class Avg_PES(PES):
         )
 
     def get_coupling(self, xyz, frozen_atoms=None):
-        assert self.PES1.multiplicity == self.PES2.multiplicity, "coupling is 0"
-        assert self.PES1.ad_idx != self.PES2.ad_idx, "coupling is 0"
+        assert self.PES1.multiplicity == self.PES2.multiplicity, 'coupling is 0'
+        assert self.PES1.ad_idx != self.PES2.ad_idx, 'coupling is 0'
         return np.reshape(
             self.lot.get_coupling(
                 xyz,
@@ -74,14 +74,14 @@ class Avg_PES(PES):
 
     def get_dgrad(self, xyz, frozen_atoms=None):
         if self.PES1.multiplicity == self.PES2.multiplicity:
-            assert self.PES2.ad_idx > self.PES1.ad_idx, "dgrad wrong direction"
+            assert self.PES2.ad_idx > self.PES1.ad_idx, 'dgrad wrong direction'
         return self.PES2.get_gradient(xyz, frozen_atoms) - self.PES1.get_gradient(
             xyz, frozen_atoms
         )
 
     def get_average_gradient(self, xyz, frozen_atoms=None):
         if self.PES1.multiplicity == self.PES2.multiplicity:
-            assert self.PES2.ad_idx > self.PES1.ad_idx, "dgrad wrong direction"
+            assert self.PES2.ad_idx > self.PES1.ad_idx, 'dgrad wrong direction'
         return 0.5 * (
             self.PES2.get_gradient(xyz, frozen_atoms)
             + self.PES1.get_gradient(xyz, frozen_atoms)
@@ -91,7 +91,7 @@ class Avg_PES(PES):
     def symmetric_orthogonalization(self, xyz):
         def get_beta(g, h):
             gdoth = np.dot(g.T, h)
-            nifty.logger.debug(" g*h = %1.4f" % gdoth)
+            nifty.logger.debug(' g*h = %1.4f' % gdoth)
             dotg = np.dot(g.T, g)
             doth = np.dot(h.T, h)
             arg = (2 * gdoth) / (dotg - doth)
@@ -112,12 +112,12 @@ class Avg_PES(PES):
         dgrad = 0.5 * self.get_dgrad(xyz)
         dvec = self.get_coupling(xyz)
         sab = self.get_average_gradient(xyz)
-        nifty.logger.debug(" dE is %5.4f" % self.dE)
+        nifty.logger.debug(' dE is %5.4f' % self.dE)
 
         # non-adiabatic coupling is derivative coupling times dE
         nac = dvec * self.dE / units.KCAL_MOL_PER_AU
         beta = get_beta(dgrad, nac)
-        nifty.logger.debug(" beta = %1.6f" % beta)
+        nifty.logger.debug(' beta = %1.6f' % beta)
 
         # rotate nac and dgrad to be orthonormal
         save_nac = nac.copy()
@@ -147,14 +147,14 @@ class Avg_PES(PES):
         sab_y = doty / pitch
 
         # flip direction of dgrad,nac
-        nifty.logger.debug(" sab_x %1.2f sab_y %1.2f" % (sab_x, sab_y))
+        nifty.logger.debug(' sab_x %1.2f sab_y %1.2f' % (sab_x, sab_y))
         if sab_x < 0.0 and sab_y > 0.0:
-            nifty.logger.debug(" flipping dgrad")
+            nifty.logger.debug(' flipping dgrad')
             dgrad = -dgrad
             dotx = np.dot(sab.T, dgrad) / norm_dg
             sab_x = dotx / pitch
         elif sab_x > 0.0 and sab_y < 0.0:
-            nifty.logger.debug(" flipping nac")
+            nifty.logger.debug(' flipping nac')
             nac = -nac
             doty = np.dot(sab.T, nac) / norm_nac
             sab_y = doty / pitch
@@ -162,7 +162,7 @@ class Avg_PES(PES):
         sigma = np.sqrt(sab_x * sab_x + sab_y * sab_y)
         theta_s = np.arctan(sab_y / sab_x)
         nifty.logger.debug(
-            " pitch  %1.5f, asymmetry %1.5f, sigma %1.5f theta_s %1.5f sx %1.2f sy %1.2f"
+            ' pitch  %1.5f, asymmetry %1.5f, sigma %1.5f theta_s %1.5f sx %1.2f sy %1.2f'
             % (pitch, asymmetry, sigma, theta_s, sab_x, sab_y)
         )
 
@@ -173,38 +173,37 @@ class Avg_PES(PES):
             ((1.0 + asymmetry) * (np.cos(theta_s)) ** 2) ** (1.0 / 3)
             + ((1 - asymmetry) * (np.sin(theta_s)) ** 2) ** (1.0 / 3)
         )
-        nifty.logger.debug(" P %2.5f B %2.5f" % (P, B))
+        nifty.logger.debug(' P %2.5f B %2.5f' % (P, B))
 
         if P < 1.0:
-            nifty.logger.debug(" Your conical intersection is peaked")
+            nifty.logger.debug(' Your conical intersection is peaked')
         elif P > 1.0:
-            nifty.logger.debug(" Your conical intersection is sloped")
+            nifty.logger.debug(' Your conical intersection is sloped')
         if B < 1.0:
-            nifty.logger.debug(" Your conical intersection is bifurcating")
+            nifty.logger.debug(' Your conical intersection is bifurcating')
         if B > 1.0:
-            nifty.logger.debug(" Your conical intersection is single path")
+            nifty.logger.debug(' Your conical intersection is single path')
 
         return {
-            "x": dgrad / norm_dg,
-            "y": nac / norm_nac,
-            "pitch": pitch,
-            "asymmetry": asymmetry,
-            "sigma": sigma,
-            "theta_s": theta_s,
-            "sab_x": sab_x,
-            "sab_y": sab_y,
+            'x': dgrad / norm_dg,
+            'y': nac / norm_nac,
+            'pitch': pitch,
+            'asymmetry': asymmetry,
+            'sigma': sigma,
+            'theta_s': theta_s,
+            'sab_x': sab_x,
+            'sab_y': sab_y,
         }
 
     def critical_points_bp(self, xyz, radius=0.2, num_slices=40):
-
         # get data
         data = self.symmetric_orthogonalization(xyz)
-        theta_s = data["theta_s"]
-        asymmetry = data["asymmetry"]
-        pitch = data["pitch"]
-        x = data["x"]
-        y = data["y"]
-        sigma = data["sigma"]
+        theta_s = data['theta_s']
+        asymmetry = data['asymmetry']
+        pitch = data['pitch']
+        x = data['x']
+        y = data['y']
+        sigma = data['sigma']
 
         # discretize branching plane and find critical points
         # theta = np.linspace(0,2*np.pi,num_slices)
@@ -224,8 +223,8 @@ class Avg_PES(PES):
 
         EA = np.asarray(EA)
         EB = np.asarray(EB)
-        np.savetxt("model_EA.txt", EA)
-        np.savetxt("model_EB.txt", EB)
+        np.savetxt('model_EA.txt', EA)
+        np.savetxt('model_EB.txt', EB)
         # for n in range(num_slices):
         #    nifty.logger.debug(" EA[%2i] = %2.8f" %(n,EA[n]))
         # for n in range(num_slices):
@@ -241,10 +240,10 @@ class Avg_PES(PES):
                 theta_min.append(i)
         # check endpoints
         if EB[0] < EB[-1] and EB[1] > EB[0]:
-            nifty.logger.debug("Min at 0")
+            nifty.logger.debug('Min at 0')
             theta_min.append(0)
         if EB[-1] < EB[-2] and EB[0] > EB[-1]:
-            nifty.logger.debug("Min at -1")
+            nifty.logger.debug('Min at -1')
             theta_min.append(num_slices - 1)
 
         # determine maxima
@@ -254,15 +253,15 @@ class Avg_PES(PES):
                 theta_max.append(i)
         # check endpoints
         if EB[0] > EB[-1] and EB[1] < EB[0]:
-            nifty.logger.debug(" Max at 0")
+            nifty.logger.debug(' Max at 0')
             theta_max.append(0)
         if EB[-1] > EB[-2] and EB[0] < EB[-1]:
-            nifty.logger.debug(" Max at 39")
+            nifty.logger.debug(' Max at 39')
             theta_max.append(num_slices - 1)
 
-        nifty.logger.debug("mins")
+        nifty.logger.debug('mins')
         nifty.logger.debug(theta_min)
-        nifty.logger.debug("max")
+        nifty.logger.debug('max')
         nifty.logger.debug(theta_max)
         # geometries of max and min
         mxyz = []
@@ -275,11 +274,10 @@ class Avg_PES(PES):
         return mxyz
 
     def fill_energy_grid2d(self, xyz_grid):
-
-        assert (
-            xyz_grid.shape[-1] == len(self.lot.geom) * 3
-        ), "xyz nneds to be 3*natoms long"
-        assert xyz_grid.ndim == 3, " xyzgrid needs to be a tensor with 3 dimensions"
+        assert xyz_grid.shape[-1] == len(self.lot.geom) * 3, (
+            'xyz nneds to be 3*natoms long'
+        )
+        assert xyz_grid.ndim == 3, ' xyzgrid needs to be a tensor with 3 dimensions'
 
         E1 = np.zeros((xyz_grid.shape[0], xyz_grid.shape[1]))
         E2 = np.zeros((xyz_grid.shape[0], xyz_grid.shape[1]))
@@ -292,10 +290,10 @@ class Avg_PES(PES):
                 # E1[rc,cc] = self.PES1.get_energy(xyz)
                 # E2[rc,cc] = self.PES2.get_energy(xyz)
                 E1[rc, cc] = self.lot.get_energy(
-                    xyz, self.PES1.multiplicity, self.PES1.ad_idx, runtype="energy"
+                    xyz, self.PES1.multiplicity, self.PES1.ad_idx, runtype='energy'
                 )
                 E2[rc, cc] = self.lot.get_energy(
-                    xyz, self.PES2.multiplicity, self.PES2.ad_idx, runtype="energy"
+                    xyz, self.PES2.multiplicity, self.PES2.ad_idx, runtype='energy'
                 )
                 cc += 1
             rc += 1
@@ -303,25 +301,24 @@ class Avg_PES(PES):
         return E1, E2
 
 
-if __name__ == "__main__":
-
+if __name__ == '__main__':
     from level_of_theories.pytc import PyTC
     import psiw
     import lightspeed as ls
 
-    filepath = "../../data/ethylene.xyz"
+    filepath = '../../data/ethylene.xyz'
     geom = manage_xyz.read_xyz(filepath, scale=1)
     # => Job Data <= #####
     states = [(1, 0), (1, 1)]
     charge = 0
     nocc = 7
     nactive = 2
-    basis = "6-31gs"
+    basis = '6-31gs'
 
     # => PSIW Obj <= ######
-    nifty.printcool("Build resources")
+    nifty.printcool('Build resources')
     resources = ls.ResourceList.build()
-    nifty.printcool("{}".format(resources))
+    nifty.printcool('{}'.format(resources))
 
     molecule = ls.Molecule.from_xyz_file(filepath)
     geom = psiw.geometry.Geometry.build(
@@ -329,13 +326,13 @@ if __name__ == "__main__":
         molecule=molecule,
         basisname=basis,
     )
-    nifty.printcool("{}".format(geom))
+    nifty.printcool('{}'.format(geom))
 
     ref = psiw.RHF.from_options(
         geometry=geom,
         g_convergence=1.0e-6,
         fomo=True,
-        fomo_method="gaussian",
+        fomo_method='gaussian',
         fomo_temp=0.3,
         fomo_nocc=nocc,
         fomo_nact=nactive,
@@ -357,14 +354,14 @@ if __name__ == "__main__":
         casci=casci,
         rhf_guess=True,
         rhf_mom=True,
-        orbital_coincidence="core",
-        state_coincidence="full",
+        orbital_coincidence='core',
+        state_coincidence='full',
     )
 
-    nifty.printcool("Build the pyGSM Level of Theory object (LOT)")
+    nifty.printcool('Build the pyGSM Level of Theory object (LOT)')
     lot = PyTC.from_options(
         states=[(1, 0), (1, 1)],
-        job_data={"psiw": psiw},
+        job_data={'psiw': psiw},
         do_coupling=False,
         fnm=filepath,
     )

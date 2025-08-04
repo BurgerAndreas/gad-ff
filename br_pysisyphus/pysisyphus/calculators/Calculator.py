@@ -37,7 +37,6 @@ class SetPlan:
 
 
 class Calculator:
-
     conf_key = None
     _set_plans = []
 

@@ -19,7 +19,6 @@ THIS_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
 
 
 def run_distributed(scheduler=None):
-
     init_logging(THIS_DIR, scheduler)
     atoms = ("H", "H")
     geoms = list()

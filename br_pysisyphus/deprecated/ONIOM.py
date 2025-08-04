@@ -111,7 +111,6 @@ def cap(geom, high_frag):
 
 
 class ONIOM(Calculator):
-
     def __init__(self, calc_dict, model_inds):
         super().__init__()
 

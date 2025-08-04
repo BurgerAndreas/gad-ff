@@ -9,7 +9,6 @@ from pysisyphus.cos.GrowingChainOfStates import GrowingChainOfStates
 
 
 class GrowingString(GrowingChainOfStates):
-
     def __init__(self, images, calc_getter, max_cycles=75, **kwargs):
         assert len(images) >= 2, "Need at least 2 images for GrowingString."
         if len(images) >= 2:

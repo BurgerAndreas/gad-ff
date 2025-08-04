@@ -30,7 +30,6 @@ PrimitiveCoord = namedtuple(
 
 
 class RedundantCoords:
-
     RAD_175 = 3.05432619
     BEND_MIN_DEG = 15
     BEND_MAX_DEG = 180
@@ -137,7 +136,7 @@ class RedundantCoords:
         try:
             index = indices[0]
         except IndexError:
-            self.log(f"Primitive internal with indices {prim_ind} " "is not defined!")
+            self.log(f"Primitive internal with indices {prim_ind} is not defined!")
         return index
 
     @property

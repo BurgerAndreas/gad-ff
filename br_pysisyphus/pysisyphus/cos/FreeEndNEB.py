@@ -21,6 +21,6 @@ class FreeEndNEB(AdaptiveNEB):
         kwargs["adapt"] = False
         super().__init__(*args, fix_first=fix_first, fix_last=fix_last, **kwargs)
 
-        assert (not self.fix_first) or (
-            not self.fix_last
-        ), "FreeEndNEB without moving end-image(s) is useless!"
+        assert (not self.fix_first) or (not self.fix_last), (
+            "FreeEndNEB without moving end-image(s) is useless!"
+        )

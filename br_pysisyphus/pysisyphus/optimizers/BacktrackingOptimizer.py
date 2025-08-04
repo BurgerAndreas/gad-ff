@@ -4,7 +4,6 @@ from pysisyphus.optimizers.Optimizer import Optimizer
 
 
 class BacktrackingOptimizer(Optimizer):
-
     def __init__(
         self,
         geometry,

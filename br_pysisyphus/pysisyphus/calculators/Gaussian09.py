@@ -2,7 +2,6 @@ from pysisyphus.calculators.Gaussian16 import Gaussian16
 
 
 class Gaussian09(Gaussian16):
-
     conf_key = "gaussian09"
 
     def __init__(self, *args, **kwargs):

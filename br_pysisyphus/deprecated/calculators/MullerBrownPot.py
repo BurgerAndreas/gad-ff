@@ -6,7 +6,6 @@ from pysisyphus.calculators.Calculator import Calculator
 
 
 class MullerBrownPot(Calculator):
-
     def __init__(self):
         super(MullerBrownPot, self).__init__()
 

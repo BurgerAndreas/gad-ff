@@ -40,7 +40,7 @@ class lbfgs(base_optimizer):
         self,
         molecule,
         refE=0.0,
-        opt_type="UNCONSTRAINED",
+        opt_type='UNCONSTRAINED',
         opt_steps=20,
         maxcor=10,
         ictan=None,
@@ -48,9 +48,8 @@ class lbfgs(base_optimizer):
         verbose=False,
         path=os.getcwd(),
     ):
-
         # stash/initialize some useful attributes
-        nifty.logger.debug(" initial E %5.4f" % (molecule.energy - refE))
+        nifty.logger.debug(' initial E %5.4f' % (molecule.energy - refE))
         geoms = []
         energies = []
         geoms.append(molecule.geometry)
@@ -63,7 +62,7 @@ class lbfgs(base_optimizer):
         constraints = self.get_constraint_vectors(molecule, opt_type, ictan)
         molecule.update_coordinate_basis(constraints=constraints)
 
-        if opt_type == "SEAM" or opt_type == "MECI":
+        if opt_type == 'SEAM' or opt_type == 'MECI':
             self.opt_cross = True
 
         # get coordinates
@@ -101,7 +100,7 @@ class lbfgs(base_optimizer):
 
         # # reset k in principle k does not have to reset but . . .
         # TRY Turning off Feb 2020
-        if opt_type != "CLIMB":
+        if opt_type != 'CLIMB':
             self.k = 0
             self.end = 0
 
@@ -114,11 +113,11 @@ class lbfgs(base_optimizer):
                 self.lm.append(iterationData(0.0, s_prim.flatten(), y_prim.flatten()))
 
         for ostep in range(opt_steps):
-            nifty.logger.debug(" On opt step {} ".format(ostep + 1))
+            nifty.logger.debug(' On opt step {} '.format(ostep + 1))
 
-            SCALE = self.options["SCALEQN"]
+            SCALE = self.options['SCALEQN']
             if molecule.newHess > 0:
-                SCALE = self.options["SCALEQN"] * molecule.newHess
+                SCALE = self.options['SCALEQN'] * molecule.newHess
 
             if self.k != 0:
                 # update vectors s and y:
@@ -150,11 +149,11 @@ class lbfgs(base_optimizer):
 
             # normalize the direction
             actual_step = np.linalg.norm(d)
-            nifty.logger.debug(" actual_step= %1.5f" % actual_step)
+            nifty.logger.debug(' actual_step= %1.5f' % actual_step)
             d = d / actual_step  # normalize
             if actual_step > self.DMAX:
                 step = self.DMAX
-                nifty.logger.debug(" reducing step, new step = %1.5f" % step)
+                nifty.logger.debug(' reducing step, new step = %1.5f' % step)
             else:
                 step = actual_step
 
@@ -186,11 +185,11 @@ class lbfgs(base_optimizer):
             )
 
             # save new values from linesearch
-            molecule = ls["molecule"]
-            step = ls["step"]
-            x = ls["x"]
-            fx = ls["fx"]
-            g = ls["g"]
+            molecule = ls['molecule']
+            step = ls['step']
+            x = ls['x']
+            fx = ls['fx']
+            g = ls['g']
 
             dEstep = fx - fxp
             dq = x - xp
@@ -198,21 +197,21 @@ class lbfgs(base_optimizer):
             # TODO dEpre is missing second order effects or is it?
             dEpre = np.dot(gc.T, dq) * units.KCAL_MOL_PER_AU
             constraint_energy = np.dot(gp.T, constraint_steps) * units.KCAL_MOL_PER_AU
-            if opt_type not in ["UNCONSTRAINED", "ICTAN"]:
-                nifty.logger.debug("constraint_energy: %1.4f" % constraint_energy)
+            if opt_type not in ['UNCONSTRAINED', 'ICTAN']:
+                nifty.logger.debug('constraint_energy: %1.4f' % constraint_energy)
             dEpre += constraint_energy
 
             # if abs(dEpre)<0.05:
             #    dEpre = np.sign(dEpre)*0.05
             ratio = dEstep / dEpre
-            nifty.logger.debug(" dEstep=%5.4f" % dEstep)
-            nifty.logger.debug(" dEpre=%5.4f" % dEpre)
-            nifty.logger.debug(" ratio=%5.4f" % ratio)
+            nifty.logger.debug(' dEstep=%5.4f' % dEstep)
+            nifty.logger.debug(' dEpre=%5.4f' % dEpre)
+            nifty.logger.debug(' ratio=%5.4f' % ratio)
 
             # revert to the privious point
-            if ls["status"] < 0 or (ratio < 0.0 and opt_type != "CLIMB"):
+            if ls['status'] < 0 or (ratio < 0.0 and opt_type != 'CLIMB'):
                 if ratio < 0.0:
-                    ls["status"] = -1
+                    ls['status'] = -1
                 x = xp.copy()
                 molecule.xyz = self.xyzp.copy()
                 g = gp.copy()
@@ -221,7 +220,7 @@ class lbfgs(base_optimizer):
                 ratio = 0.0
                 dEstep = 0.0
 
-                nifty.logger.debug("[ERROR] the point return to the previous point")
+                nifty.logger.debug('[ERROR] the point return to the previous point')
                 self.lm = []
                 for i in range(0, maxcor):
                     s_prim = np.zeros_like(g_prim)
@@ -233,12 +232,12 @@ class lbfgs(base_optimizer):
                 self.end = 0
                 molecule.newHess = 5
                 if self.DMAX <= self.DMIN:
-                    nifty.logger.debug(" Reached minimum step,exiting")
+                    nifty.logger.debug(' Reached minimum step,exiting')
                     geoms.append(molecule.geometry)
                     energies.append(molecule.energy - refE)
                     break
 
-                self.DMAX = ls["step"] / 2
+                self.DMAX = ls['step'] / 2
                 if self.DMAX < self.DMIN:
                     self.DMAX = self.DMIN
             else:
@@ -247,8 +246,8 @@ class lbfgs(base_optimizer):
 
             # if ratio is less than 0.3 than reduce DMAX
             flag = True
-            if ratio < 0.3 and ls["status"] == 0:  # and abs(dEpre)>0.05:
-                nifty.logger.debug(" Reducing DMAX")
+            if ratio < 0.3 and ls['status'] == 0:  # and abs(dEpre)>0.05:
+                nifty.logger.debug(' Reducing DMAX')
                 self.DMAX /= 1.5
                 if self.DMAX < self.DMIN:
                     self.DMAX = self.DMIN
@@ -256,15 +255,15 @@ class lbfgs(base_optimizer):
                     molecule.newHess += 1
                 flag = False
 
-                if opt_type == "CLIMB":
-                    if self.SCALE_CLIMB < 10.0 and opt_type == "CLIMB":
+                if opt_type == 'CLIMB':
+                    if self.SCALE_CLIMB < 10.0 and opt_type == 'CLIMB':
                         self.SCALE_CLIMB += 1.0
                         nifty.logger.debug(
-                            "SCALING CLIMB BY {}".format(self.SCALE_CLIMB)
+                            'SCALING CLIMB BY {}'.format(self.SCALE_CLIMB)
                         )
             elif ratio > 0.3:
                 molecule.newHess -= 1
-                if opt_type == "CLIMB":
+                if opt_type == 'CLIMB':
                     if self.SCALE_CLIMB > 1.0:
                         self.SCALE_CLIMB -= 1.0
 
@@ -276,32 +275,32 @@ class lbfgs(base_optimizer):
 
             dE = molecule.difference_energy
             if dE < 100.0:
-                nifty.logger.debug(" difference energy is %5.4f" % dE)
+                nifty.logger.debug(' difference energy is %5.4f' % dE)
             molecule.gradrms = np.sqrt(np.dot(gc.T, gc) / num_coords)
 
             # control step size  NEW FEB 2020
             if flag:
-                if ls["status"] == 0:  # passed
+                if ls['status'] == 0:  # passed
                     dgradrms = molecule.gradrms - pgradrms
-                    nifty.logger.debug("dgradrms ", dgradrms)
-                    if ls["step"] > self.DMAX:
-                        if ls["step"] <= self.options["abs_max_step"]:  # absolute max
+                    nifty.logger.debug('dgradrms ', dgradrms)
+                    if ls['step'] > self.DMAX:
+                        if ls['step'] <= self.options['abs_max_step']:  # absolute max
                             nifty.logger.debug(
-                                " Increasing DMAX to {}".format(ls["step"])
+                                ' Increasing DMAX to {}'.format(ls['step'])
                             )
-                            self.DMAX = ls["step"]
+                            self.DMAX = ls['step']
                         else:
-                            self.DMAX = self.options["abs_max_step"]
-                    elif ls["step"] < self.DMAX:
-                        if ls["step"] >= self.DMIN:  # absolute min
+                            self.DMAX = self.options['abs_max_step']
+                    elif ls['step'] < self.DMAX:
+                        if ls['step'] >= self.DMIN:  # absolute min
                             nifty.logger.debug(
-                                " Decreasing DMAX to {}".format(ls["step"])
+                                ' Decreasing DMAX to {}'.format(ls['step'])
                             )
-                            self.DMAX = ls["step"]
-                        elif ls["step"] <= self.DMIN:
+                            self.DMAX = ls['step']
+                        elif ls['step'] <= self.DMIN:
                             self.DMAX = self.DMIN
                             nifty.logger.debug(
-                                " Decreasing DMAX to {}".format(self.DMIN)
+                                ' Decreasing DMAX to {}'.format(self.DMIN)
                             )
                     elif (
                         ratio > 0.85
@@ -309,26 +308,26 @@ class lbfgs(base_optimizer):
                         and actual_step > self.DMAX
                         and dgradrms < -0.00005
                     ):
-                        nifty.logger.debug(" HERE increasing DMAX")
+                        nifty.logger.debug(' HERE increasing DMAX')
                         self.DMAX *= 1.1
-                        if self.DMAX > self.options["abs_max_step"]:
-                            self.DMAX = self.options["abs_max_step"]
+                        if self.DMAX > self.options['abs_max_step']:
+                            self.DMAX = self.options['abs_max_step']
                 else:
-                    nifty.logger.debug("status not zero")
+                    nifty.logger.debug('status not zero')
 
             if ostep % xyzframerate == 0:
                 geoms.append(molecule.geometry)
                 energies.append(molecule.energy - refE)
                 manage_xyz.write_xyzs_w_comments(
-                    "{}/opt_{}.xyz".format(path, molecule.node_id),
+                    '{}/opt_{}.xyz'.format(path, molecule.node_id),
                     geoms,
                     energies,
                     scale=1.0,
                 )
 
-            if self.options["print_level"] > 0:
+            if self.options['print_level'] > 0:
                 nifty.logger.debug(
-                    " Node: %d Opt step: %d E: %5.4f predE: %5.4f ratio: %1.3f gradrms: %1.5f ss: %1.3f DMAX: %1.3f"
+                    ' Node: %d Opt step: %d E: %5.4f predE: %5.4f ratio: %1.3f gradrms: %1.5f ss: %1.3f DMAX: %1.3f'
                     % (
                         molecule.node_id,
                         ostep + 1,
@@ -341,7 +340,7 @@ class lbfgs(base_optimizer):
                     )
                 )
             self.buf.write(
-                " Node: %d Opt step: %d E: %5.4f predE: %5.4f ratio: %1.3f gradrms: %1.5f ss: %1.3f DMAX: %1.3f\n"
+                ' Node: %d Opt step: %d E: %5.4f predE: %5.4f ratio: %1.3f gradrms: %1.5f ss: %1.3f DMAX: %1.3f\n'
                 % (
                     molecule.node_id,
                     ostep + 1,
@@ -357,7 +356,7 @@ class lbfgs(base_optimizer):
             gmax = float(np.max(np.absolute(gc)))
             disp = float(np.linalg.norm((xyz - self.xyzp).flatten()))
             nifty.logger.debug(
-                " gmax %5.4f disp %5.4f dEstep %5.4f gradrms %5.4f\n"
+                ' gmax %5.4f disp %5.4f dEstep %5.4f gradrms %5.4f\n'
                 % (gmax, disp, dEstep, molecule.gradrms)
             )
             self.converged = False
@@ -368,11 +367,10 @@ class lbfgs(base_optimizer):
                 and abs(gmax) < self.conv_gmax
                 and abs(dEstep) < self.conv_Ediff
                 and abs(disp) < self.conv_disp
-                and ls["status"] == 0
+                and ls['status'] == 0
             ):
-
                 # TODO Seam Climb
-                if opt_type == "TS-SEAM":
+                if opt_type == 'TS-SEAM':
                     gts = np.dot(g.T, molecule.constraints[:, 0])
                     if abs(gts) < self.conv_grms * 5:
                         self.converged = True
@@ -386,7 +384,7 @@ class lbfgs(base_optimizer):
                 and abs(dEstep) < self.conv_Ediff
                 and abs(disp) < self.conv_disp
             ):
-                if opt_type == "CLIMB":
+                if opt_type == 'CLIMB':
                     gts = np.dot(g.T, molecule.constraints[:, 0])
                     if abs(gts) < self.conv_grms * 5:
                         self.converged = True
@@ -394,12 +392,12 @@ class lbfgs(base_optimizer):
                     self.converged = True
 
             if self.converged:
-                nifty.logger.debug(" converged")
+                nifty.logger.debug(' converged')
                 if ostep % xyzframerate != 0:
                     geoms.append(molecule.geometry)
                     energies.append(molecule.energy - refE)
                     manage_xyz.write_xyzs_w_comments(
-                        "{}/opt_{}.xyz".format(path, molecule.node_id),
+                        '{}/opt_{}.xyz'.format(path, molecule.node_id),
                         geoms,
                         energies,
                         scale=1.0,
@@ -408,8 +406,8 @@ class lbfgs(base_optimizer):
             # print " ########## DONE WITH TOTAL STEP #########"
 
             # update DLC  --> this changes q, g, Hint
-            if not molecule.coord_obj.__class__.__name__ == "CartesianCoordinates":
-                if opt_type == "SEAM" or opt_type == "MECI":
+            if not molecule.coord_obj.__class__.__name__ == 'CartesianCoordinates':
+                if opt_type == 'SEAM' or opt_type == 'MECI':
                     constraints = self.get_constraint_vectors(molecule, opt_type, ictan)
                     molecule.update_coordinate_basis(constraints=constraints)
                     x = np.copy(molecule.coordinates)
@@ -421,6 +419,6 @@ class lbfgs(base_optimizer):
                     g_prim = block_matrix.dot(molecule.coord_basis, gc)
             sys.stdout.flush()
 
-        nifty.logger.debug(" opt-summary")
+        nifty.logger.debug(' opt-summary')
         nifty.logger.debug(self.buf.getvalue())
         return geoms, energies

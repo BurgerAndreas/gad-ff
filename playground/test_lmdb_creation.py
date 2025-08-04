@@ -3,6 +3,7 @@
 Script to load 10 samples from an LMDB dataset, predict forces using EquiformerV2,
 and save the updated data to a new LMDB file.
 """
+
 import os
 import pickle
 import copy
@@ -90,7 +91,7 @@ def main():
         for i, batch in enumerate(dataloader):
             if i >= 10:
                 break
-            print(f"Processing and writing sample {i+1}")
+            print(f"Processing and writing sample {i + 1}")
             data_object = copy.deepcopy(batch.to_data_list()[0])
 
             if i == 0:

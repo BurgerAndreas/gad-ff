@@ -11,7 +11,6 @@ from pysisyphus.optimizers.HessianOptimizer import HessianOptimizer
 
 
 class RSAlgorithm(HessianOptimizer):
-
     def optimize(self):
         g = self.geometry.gradient
         self.forces.append(-self.geometry.gradient.copy())

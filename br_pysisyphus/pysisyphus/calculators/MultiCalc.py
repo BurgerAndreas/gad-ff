@@ -60,7 +60,7 @@ class MultiCalc(Calculator):
             self.mem,
         )
         max_len = max([len(key) for key in self.keys_calcs.keys()])
-        self.max_fmt = f" >{max_len+2}"
+        self.max_fmt = f" >{max_len + 2}"
 
     def run_calculation(self, atoms, coords, **prepare_kwargs):
         all_results = {}

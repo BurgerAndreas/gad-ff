@@ -27,13 +27,11 @@ def get_pic_datasets(
     valid_dataset=None,
     test_dataset=None,
 ):
-
     if (
         train_dataset is not None
         and valid_dataset is not None
         and test_dataset is not None
     ):
-
         train_dataset = CustomPickleDataset(name=train_dataset, root=root)
         valid_dataset = CustomPickleDataset(name=valid_dataset, root=root)
         test_dataset = CustomPickleDataset(name=test_dataset, root=root)
@@ -54,7 +52,6 @@ def get_pic_datasets(
             )
             test_dataset = test_dataset[test_indices]
     else:
-
         dataset = CustomPickleDataset(name=name, root=root)
 
         split_idx = dataset.get_idx_split(
@@ -132,7 +129,6 @@ class CustomPickleDataset(InMemoryDataset):
             cell = data_dict["cell"]
             natoms = data_dict["natoms"]
             for i in tqdm(range(len(E))):
-
                 R_i = torch.tensor(R[i], dtype=torch.float32)
                 z_i = torch.tensor(z[i], dtype=torch.int64)
                 E_i = torch.tensor([E[i]], dtype=torch.float32)  # energy per atom

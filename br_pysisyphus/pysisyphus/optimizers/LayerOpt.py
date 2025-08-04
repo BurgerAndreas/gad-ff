@@ -106,9 +106,9 @@ class Layers:
             # Allow missing 'indices' key. Then it is assumed that this layer contains the
             # whole system.
             except KeyError:
-                assert (
-                    i != 0
-                ), "Found whole system in highest level layer. I don't like that!"
+                assert i != 0, (
+                    "Found whole system in highest level layer. I don't like that!"
+                )
                 indices = all_indices
             # Drop indices from layers below ...
             indices = sorted(set(indices) - indices_below)
@@ -408,5 +408,7 @@ class LayerOpt(Optimizer):
         print("\t", end="")
         pprint(self.micro_cycles)
         print(f"\t@@@ Σ {micro_sum},", ", ".join(coord_types))
-        print(f"\t@@@ Macrocycles: {self.cur_cycle+1}, converged? {self.is_converged}")
+        print(
+            f"\t@@@ Macrocycles: {self.cur_cycle + 1}, converged? {self.is_converged}"
+        )
         print("\t@@@")

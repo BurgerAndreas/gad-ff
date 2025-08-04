@@ -159,7 +159,7 @@ class EulerPC(IRC):
                 self.log(
                     "Predictor-Euler integration converged with "
                     f"Δs={cur_length:.4f} (desired Δs={self.step_length:.4f}) "
-                    f"after {i+1} steps!"
+                    f"after {i + 1} steps!"
                 )
                 break
             step_ = euler_step_length * -euler_mw_grad / np.linalg.norm(euler_mw_grad)
@@ -169,7 +169,7 @@ class EulerPC(IRC):
             euler_mw_grad = taylor_gradient(euler_step)
         else:
             self.log(
-                f"Predictor-Euler integration did not converge in {i+1} "
+                f"Predictor-Euler integration did not converge in {i + 1} "
                 f"steps. Δs={cur_length:.4f}."
             )
 

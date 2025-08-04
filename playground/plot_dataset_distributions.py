@@ -5,6 +5,7 @@ Script to plot data distributions across multiple LMDB datasets.
 Creates histograms of the number of atoms and atom type distributions for 1000 random samples from each dataset.
 FIXED VERSION: Handles one_hot encoding for atomic numbers and missing datasets.
 """
+
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt

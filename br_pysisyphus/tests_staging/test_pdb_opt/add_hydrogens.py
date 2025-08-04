@@ -80,7 +80,7 @@ def missing_hydrogens(G1, G2, subgraph):
         a2 = G2.nodes[g2]["atom"]
         h_missing[g2] = len(e1H)
         total += len(e1H)
-        print(f"G1: {g1+1},{a1}, G2: {g2+1},{a2}, missing {len(e1H)} hydrogens")
+        print(f"G1: {g1 + 1},{a1}, G2: {g2 + 1},{a2}, missing {len(e1H)} hydrogens")
     return h_missing, total
 
 

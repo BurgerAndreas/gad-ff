@@ -149,7 +149,6 @@ class HessianGraphTransform(BaseTransform):
         max_neighbors=None,
         use_pbc=None,
     ):
-
         if use_pbc:
             edge_index, cell_offsets, neighbors = radius_graph_pbc(
                 data, cutoff, max_neighbors

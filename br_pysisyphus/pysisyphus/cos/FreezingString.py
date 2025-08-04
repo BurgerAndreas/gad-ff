@@ -4,7 +4,6 @@ from pysisyphus.Geometry import Geometry
 
 
 class FreezingString:
-
     def __init__(self, images, calc_getter, max_nodes=10, opt_steps=3):
         self.images = images
         self.calc_getter = calc_getter

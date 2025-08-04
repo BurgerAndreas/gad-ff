@@ -173,7 +173,7 @@ def shells_with_basis(
     name=None,
     shells_cls=None,
     min_coeff=1e-8,
-    **kwargs
+    **kwargs,
 ):
     assert (basis is not None) or (name is not None)
     if shells_cls is None:

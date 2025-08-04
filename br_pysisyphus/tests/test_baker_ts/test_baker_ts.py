@@ -112,7 +112,7 @@ def test_diels_alder_ts(ref_cycle, proj):
     opt = RSIRFOptimizer(geom, **opt_kwargs)
     opt.run()
 
-    print(f"\t@Converged: {opt.is_converged}, {opt.cur_cycle+1} cycles")
+    print(f"\t@Converged: {opt.is_converged}, {opt.cur_cycle + 1} cycles")
 
     ref_energy = -231.60320857
     assert geom.energy == pytest.approx(ref_energy)

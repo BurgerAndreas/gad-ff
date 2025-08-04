@@ -40,9 +40,9 @@ class MOPAC(Calculator):
         super().__init__(**kwargs)
 
         self.method = method
-        assert (
-            self.method.lower() in self.METHODS
-        ), f"Invalid method={self.method}! Supported methods are ({self.METHODS})"
+        assert self.method.lower() in self.METHODS, (
+            f"Invalid method={self.method}! Supported methods are ({self.METHODS})"
+        )
 
         self.uhf = "UHF" if self.mult != 1 else ""
 

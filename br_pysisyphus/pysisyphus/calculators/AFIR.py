@@ -391,7 +391,7 @@ class AFIR(Calculator):
         self.log(
             f"\ntrue_energy={true_energy:.6f} au\n"
             f"afir_energy={afir_energy:.6f} au\n"
-            f" sum_energy={true_energy+afir_energy:.6f} au\n"
+            f" sum_energy={true_energy + afir_energy:.6f} au\n"
             f"norm(true_forces)={true_norm:.6f} au/bohr\n"
             f"norm(afir_forces)={afir_norm:.6f} au/bohr\n"
         )

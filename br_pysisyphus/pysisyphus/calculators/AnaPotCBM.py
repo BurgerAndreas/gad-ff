@@ -7,7 +7,6 @@ from pysisyphus.calculators.AnaPotBase import AnaPotBase
 
 
 class AnaPotCBM(AnaPotBase):
-
     def __init__(self):
         V_str = "x**4 + 4*x**2*y**2 - 2*x**2 + 2*y**2"
         xlim = (-1.25, 1.25)

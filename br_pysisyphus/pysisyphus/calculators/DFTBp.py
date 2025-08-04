@@ -41,7 +41,6 @@ def parse_xplusy(text):
 
 
 class DFTBp(OverlapCalculator):
-
     conf_key = "dftbp"
     _set_plans = (
         "out",

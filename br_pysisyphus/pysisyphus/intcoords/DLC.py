@@ -172,9 +172,9 @@ class DLC(RedundantCoords):
         not_defined = [
             tp for tp, prim_ind in zip(typed_prims, prim_indices) if prim_ind is None
         ]
-        assert (
-            None not in prim_indices
-        ), f"Some primitive internals are not defined ({not_defined})!"
+        assert None not in prim_indices, (
+            f"Some primitive internals are not defined ({not_defined})!"
+        )
         projected_primitives = np.array(
             [self.project_primitive_on_active_set(pi) for pi in prim_indices]
         ).T

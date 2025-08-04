@@ -11,7 +11,7 @@ try:
     from xtb.interface import Environment
     from xtb.libxtb import VERBOSITY_FULL
 except:
-    nifty.logger.debug("xtb is not imported")
+    nifty.logger.debug('xtb is not imported')
 
 # local application imports
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
@@ -35,7 +35,6 @@ class xTB_lot(Lot):
         self.numbers = np.asarray(numbers)
 
     def run(self, geom, multiplicity, state, verbose=False):
-
         # nifty.logger.debug('running!')
         # sys.stdout.flush()
         coords = manage_xyz.xyz_to_np(geom)
@@ -55,16 +54,16 @@ class xTB_lot(Lot):
         if self.solvent is not None:
             calc.set_solvent(get_solvent(self.solvent))
 
-        calc.set_output("lot_jobs_{}.txt".format(self.node_id))
+        calc.set_output('lot_jobs_{}.txt'.format(self.node_id))
         res = calc.singlepoint()  # energy printed is only the electronic part
         calc.release_output()
 
         # energy in hartree
-        self._Energies[(multiplicity, state)] = self.Energy(res.get_energy(), "Hartree")
+        self._Energies[(multiplicity, state)] = self.Energy(res.get_energy(), 'Hartree')
 
         # grad in Hatree/Bohr
         self._Gradients[(multiplicity, state)] = self.Gradient(
-            res.get_gradient(), "Hartree/Bohr"
+            res.get_gradient(), 'Hartree/Bohr'
         )
 
         # write E to scratch
@@ -73,9 +72,8 @@ class xTB_lot(Lot):
         return res
 
 
-if __name__ == "__main__":
-
-    geom = manage_xyz.read_xyz("../data/ethylene.xyz")
+if __name__ == '__main__':
+    geom = manage_xyz.read_xyz('../data/ethylene.xyz')
     # geoms=manage_xyz.read_xyzs('../../data/diels_alder.xyz')
     # geom = geoms[0]
     # geom=manage_xyz.read_xyz('xtbopt.xyz')

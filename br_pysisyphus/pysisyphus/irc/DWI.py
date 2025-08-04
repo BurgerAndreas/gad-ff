@@ -20,7 +20,6 @@ def taylor_grad(gradient, hessian, step):
 
 
 class DWI:
-
     def __init__(self, n=4, maxlen=2):
         """Distance weighted interpolation."""
 

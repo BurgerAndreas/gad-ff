@@ -85,7 +85,7 @@ def get_model_and_dataloader_for_hessian_prediction(
         batch_size=batch_size,
         shuffle=shuffle,
         follow_batch=follow_batch,
-        **dataloader_kwargs
+        **dataloader_kwargs,
     )
     return model, dataloader
 

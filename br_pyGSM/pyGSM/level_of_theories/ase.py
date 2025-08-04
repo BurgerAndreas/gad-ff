@@ -19,7 +19,7 @@ except ModuleNotFoundError:
     Calculator = None
     atomic_numbers = None
     units = None
-    nifty.logger.debug("ASE not installed, ASE-based calculators will not work")
+    nifty.logger.debug('ASE not installed, ASE-based calculators will not work')
 
 from .base_lot import Lot, LoTError
 
@@ -50,8 +50,8 @@ class ASELoT(Lot):
         cls, calculator_import: str, calculator_kwargs: dict = dict(), **kwargs
     ):
         # this imports the calculator
-        module_name = ".".join(calculator_import.split(".")[:-1])
-        class_name = calculator_import.split(".")[-1]
+        module_name = '.'.join(calculator_import.split('.')[:-1])
+        class_name = calculator_import.split('.')[-1]
 
         # import the module of the calculator
         try:
@@ -73,35 +73,35 @@ class ASELoT(Lot):
             )
 
         # make sure there is no calculator in the options
-        _ = kwargs.pop("calculator", None)
+        _ = kwargs.pop('calculator', None)
 
         # construct from the constructor
         return cls.from_options(calc_class(**calculator_kwargs), **kwargs)
 
-    def run(self, geom, mult, ad_idx, runtype="gradient"):
+    def run(self, geom, mult, ad_idx, runtype='gradient'):
         # run ASE
         mol = xyz_to_ase(geom, cell=self.cell)
         self.run_ase_atoms(mol, mult, ad_idx, runtype)
 
-    def run_ase_atoms(self, atoms: Atoms, mult, ad_idx, runtype="gradient"):
+    def run_ase_atoms(self, atoms: Atoms, mult, ad_idx, runtype='gradient'):
         # set the calculator
         atoms.calc = self.ase_calculator
 
         # perform gradient calculation if needed
-        if runtype == "gradient":
+        if runtype == 'gradient':
             self._Gradients[(mult, ad_idx)] = self.Gradient(
-                -atoms.get_forces() / units.Ha * units.Bohr, "Hartree/Bohr"
+                -atoms.get_forces() / units.Ha * units.Bohr, 'Hartree/Bohr'
             )
-        elif runtype == "energy":
+        elif runtype == 'energy':
             pass
         else:
             raise NotImplementedError(
-                f"Run type {runtype} is not implemented in the ASE calculator interface"
+                f'Run type {runtype} is not implemented in the ASE calculator interface'
             )
 
         # energy is always calculated -> cached if force calculation was done
         self._Energies[(mult, ad_idx)] = self.Energy(
-            atoms.get_potential_energy() / units.Ha, "Hartree"
+            atoms.get_potential_energy() / units.Ha, 'Hartree'
         )
 
         # write E to scratch

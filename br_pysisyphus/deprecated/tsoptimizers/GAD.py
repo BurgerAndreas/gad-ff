@@ -4,7 +4,6 @@ from pysisyphus.optimizers.HessianOptimizer import HessianOptimizer
 
 
 class GAD(HessianOptimizer):
-
     def __init__(self, geom, dt=0.1, **kwargs):
         super().__init__(geom, **kwargs)
 

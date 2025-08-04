@@ -268,7 +268,6 @@ class SO3_Embedding(torch.nn.Module):
     def _grid_act(self, SO3_grid, act, mappingReduced):
         offset = 0
         for i in range(self.num_resolutions):
-
             num_coefficients = mappingReduced.res_size[i]
 
             x_res = self.embedding[:, offset : offset + num_coefficients].contiguous()

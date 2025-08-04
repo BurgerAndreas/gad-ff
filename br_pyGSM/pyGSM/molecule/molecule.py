@@ -35,116 +35,115 @@ and spin multiplicities.
 
 
 class Molecule(object):
-
     @staticmethod
     def default_options():
-        if hasattr(Molecule, "_default_options"):
+        if hasattr(Molecule, '_default_options'):
             return Molecule._default_options.copy()
         opt = options.Options()
 
         opt.add_option(
-            key="fnm",
+            key='fnm',
             value=None,
             required=False,
             allowed_types=[str],
-            doc="File name to create the Molecule object from. Only used if geom is none.",
+            doc='File name to create the Molecule object from. Only used if geom is none.',
         )
         opt.add_option(
-            key="ftype",
+            key='ftype',
             value=None,
             required=False,
             allowed_types=[str],
-            doc="filetype (optional) will attempt to read filetype if not given",
+            doc='filetype (optional) will attempt to read filetype if not given',
         )
 
         opt.add_option(
-            key="coordinate_type",
+            key='coordinate_type',
             required=False,
-            value="Cartesian",
-            allowed_values=["Cartesian", "DLC", "HDLC", "TRIC"],
-            doc="The type of coordinate system to build",
+            value='Cartesian',
+            allowed_values=['Cartesian', 'DLC', 'HDLC', 'TRIC'],
+            doc='The type of coordinate system to build',
         )
 
         opt.add_option(
-            key="coord_obj",
+            key='coord_obj',
             required=False,
             value=None,
             # allowed_types=[DelocalizedInternalCoordinates,CartesianCoordinates],
-            doc="A coordinate object.",
+            doc='A coordinate object.',
         )
 
         opt.add_option(
-            key="geom",
+            key='geom',
             required=False,
             allowed_types=[list],
-            doc="geometry including atomic symbols",
+            doc='geometry including atomic symbols',
         )
 
         opt.add_option(
-            key="xyz",
+            key='xyz',
             required=False,
             allowed_types=[np.ndarray],
-            doc="The Cartesian coordinates in Angstrom",
+            doc='The Cartesian coordinates in Angstrom',
         )
 
         opt.add_option(
-            key="PES",
+            key='PES',
             required=True,
             # allowed_types=[PES,Avg_PES,Penalty_PES,potential_energy_surfaces.pes.PES,potential_energy_surfaces.Penalty_PES,potential_energy_surfaces.Avg_PES],
-            doc="potential energy surface object to evaulate energies, gradients, etc. Pes is defined by charge, state, multiplicity,etc. ",
+            doc='potential energy surface object to evaulate energies, gradients, etc. Pes is defined by charge, state, multiplicity,etc. ',
         )
         opt.add_option(
-            key="copy_wavefunction",
+            key='copy_wavefunction',
             value=True,
-            doc="When copying the level of theory object, sometimes it is not helpful to copy the lot data as this will over write data \
-                        (e.g. at the beginning of DE-GSM)",
+            doc='When copying the level of theory object, sometimes it is not helpful to copy the lot data as this will over write data \
+                        (e.g. at the beginning of DE-GSM)',
         )
 
         opt.add_option(
-            key="Primitive_Hessian",
+            key='Primitive_Hessian',
             value=None,
             required=False,
-            doc="Primitive hessian save file for doing optimization.",
+            doc='Primitive hessian save file for doing optimization.',
         )
 
         opt.add_option(
-            key="Hessian",
+            key='Hessian',
             value=None,
             required=False,
-            doc="Hessian save file in the basis of coordinate_type.",
+            doc='Hessian save file in the basis of coordinate_type.',
         )
 
         opt.add_option(
-            key="Form_Hessian",
+            key='Form_Hessian',
             value=True,
-            doc="Form the Hessian in the current basis -- takes time for large molecules.",
+            doc='Form the Hessian in the current basis -- takes time for large molecules.',
         )
 
         opt.add_option(
-            key="top_settings",
+            key='top_settings',
             value={},
-            doc="some extra kwargs for forming coordinate object.",
+            doc='some extra kwargs for forming coordinate object.',
         )
 
         opt.add_option(
-            key="comment",
+            key='comment',
             required=False,
-            value="",
-            doc="A string that is saved on the molecule, used for descriptive purposes",
+            value='',
+            doc='A string that is saved on the molecule, used for descriptive purposes',
         )
 
         opt.add_option(
-            key="node_id",
+            key='node_id',
             required=False,
             value=0,
-            doc="used to specify level of theory node identification",
+            doc='used to specify level of theory node identification',
         )
 
         opt.add_option(
-            key="frozen_atoms",
+            key='frozen_atoms',
             required=False,
             value=None,
-            doc="frozen atoms",
+            doc='frozen atoms',
         )
 
         Molecule._default_options = opt
@@ -156,30 +155,30 @@ class Molecule(object):
         return Molecule(Molecule.default_options().set_values(kwargs))
 
     def __repr__(self):
-        lines = [" molecule object"]
+        lines = [' molecule object']
         lines.append(self.Data.__str__())
-        return "\n".join(lines)
+        return '\n'.join(lines)
 
     @staticmethod
     def copy_from_options(
         MoleculeA, xyz=None, fnm=None, new_node_id=1, copy_wavefunction=True
     ):
         """Create a copy of MoleculeA"""
-        nifty.logger.debug(" Copying from MoleculA {}".format(MoleculeA.node_id))
+        nifty.logger.debug(' Copying from MoleculA {}'.format(MoleculeA.node_id))
         PES = type(MoleculeA.PES).create_pes_from(
-            PES=MoleculeA.PES, options={"node_id": new_node_id}
+            PES=MoleculeA.PES, options={'node_id': new_node_id}
         )
 
         if xyz is not None:
             new_geom = manage_xyz.np_to_xyz(MoleculeA.geometry, xyz)
             coord_obj = type(MoleculeA.coord_obj)(
-                MoleculeA.coord_obj.options.copy().set_values({"xyz": xyz})
+                MoleculeA.coord_obj.options.copy().set_values({'xyz': xyz})
             )
         elif fnm is not None:
             new_geom = manage_xyz.read_xyz(fnm, scale=1.0)
             xyz = manage_xyz.xyz_to_np(new_geom)
             coord_obj = type(MoleculeA.coord_obj)(
-                MoleculeA.coord_obj.options.copy().set_values({"xyz": xyz})
+                MoleculeA.coord_obj.options.copy().set_values({'xyz': xyz})
             )
         else:
             new_geom = MoleculeA.geometry
@@ -188,35 +187,34 @@ class Molecule(object):
         return Molecule(
             MoleculeA.Data.copy().set_values(
                 {
-                    "PES": PES,
-                    "coord_obj": coord_obj,
-                    "geom": new_geom,
-                    "node_id": new_node_id,
-                    "copy_wavefunction": copy_wavefunction,
+                    'PES': PES,
+                    'coord_obj': coord_obj,
+                    'geom': new_geom,
+                    'node_id': new_node_id,
+                    'copy_wavefunction': copy_wavefunction,
                 }
             )
         )
 
     def __init__(self, options, **kwargs):
-
         self.Data = options
 
         # => Read in the coordinates <= #
         # important first try to read in geom
 
         t0 = time()
-        if self.Data["geom"] is not None:
-            nifty.logger.debug(" getting cartesian coordinates from geom")
-            atoms = manage_xyz.get_atoms(self.Data["geom"])
-            xyz = manage_xyz.xyz_to_np(self.Data["geom"])
-        elif self.Data["fnm"] is not None:
-            nifty.logger.debug(" reading cartesian coordinates from file")
-            if self.Data["ftype"] is None:
-                self.Data["ftype"] = os.path.splitext(self.Data["fnm"])[1][1:]
-            if not os.path.exists(self.Data["fnm"]):
+        if self.Data['geom'] is not None:
+            nifty.logger.debug(' getting cartesian coordinates from geom')
+            atoms = manage_xyz.get_atoms(self.Data['geom'])
+            xyz = manage_xyz.xyz_to_np(self.Data['geom'])
+        elif self.Data['fnm'] is not None:
+            nifty.logger.debug(' reading cartesian coordinates from file')
+            if self.Data['ftype'] is None:
+                self.Data['ftype'] = os.path.splitext(self.Data['fnm'])[1][1:]
+            if not os.path.exists(self.Data['fnm']):
                 # logger.error('Tried to create Molecule object from a file that does not exist: %s\n' % self.Data['fnm'])
                 raise IOError
-            geom = manage_xyz.read_xyz(self.Data["fnm"], scale=1.0)
+            geom = manage_xyz.read_xyz(self.Data['fnm'], scale=1.0)
             xyz = manage_xyz.xyz_to_np(geom)
             atoms = manage_xyz.get_atoms(geom)
 
@@ -224,7 +222,7 @@ class Molecule(object):
             raise RuntimeError
 
         t1 = time()
-        nifty.logger.debug(" Time to get coords= %.3f" % (t1 - t0))
+        nifty.logger.debug(' Time to get coords= %.3f' % (t1 - t0))
         # resid=[]
         # for a in ob.OBMolAtomIter(mol.OBMol):
         #    res = a.GetResidue()
@@ -234,42 +232,42 @@ class Molecule(object):
         # Perform all the sanity checks and cache some useful attributes
 
         # TODO make PES property
-        self.PES = type(self.Data["PES"]).create_pes_from(
-            PES=self.Data["PES"],
-            options={"node_id": self.Data["node_id"]},
-            copy_wavefunction=self.Data["copy_wavefunction"],
+        self.PES = type(self.Data['PES']).create_pes_from(
+            PES=self.Data['PES'],
+            options={'node_id': self.Data['node_id']},
+            copy_wavefunction=self.Data['copy_wavefunction'],
         )
-        if not hasattr(atoms, "__getitem__"):
-            raise TypeError("atoms must be a sequence of atomic symbols")
+        if not hasattr(atoms, '__getitem__'):
+            raise TypeError('atoms must be a sequence of atomic symbols')
 
         for a in atoms:
             if not isinstance(a, str):
-                raise TypeError("atom symbols must be strings")
+                raise TypeError('atom symbols must be strings')
 
         if type(xyz) is not np.ndarray:
-            raise TypeError("xyz must be a numpy ndarray")
+            raise TypeError('xyz must be a numpy ndarray')
         if xyz.shape != (len(atoms), 3):
-            raise ValueError("xyz must have shape natoms x 3")
-        self.Data["xyz"] = xyz.copy()
+            raise ValueError('xyz must have shape natoms x 3')
+        self.Data['xyz'] = xyz.copy()
 
         # create a dictionary from atoms
         # atoms contain info you need to know about the atoms
         self.atoms = [ELEMENT_TABLE.from_symbol(atom) for atom in atoms]
 
         tx = time()
-        nifty.logger.debug(" Time to create PES,elements %.3f" % (tx - t1))
+        nifty.logger.debug(' Time to create PES,elements %.3f' % (tx - t1))
         t1 = tx
 
-        if not isinstance(self.Data["comment"], str):
-            raise TypeError("comment for a Molecule must be a string")
+        if not isinstance(self.Data['comment'], str):
+            raise TypeError('comment for a Molecule must be a string')
 
         # Create the coordinate system
-        if self.Data["coord_obj"] is not None:
-            nifty.logger.debug(" getting coord_object from options")
-            self.coord_obj = self.Data["coord_obj"]
+        if self.Data['coord_obj'] is not None:
+            nifty.logger.debug(' getting coord_object from options')
+            self.coord_obj = self.Data['coord_obj']
         else:
             nifty.logger.debug(
-                " Disabling this feature, Molecule cannot create coordinate system"
+                ' Disabling this feature, Molecule cannot create coordinate system'
             )
             raise NotImplementedError
         # elif self.Data['coordinate_type'] == "Cartesian":
@@ -281,10 +279,10 @@ class Molecule(object):
         #    self.coord_obj = DelocalizedInternalCoordinates.from_options(xyz=self.xyz,atoms=self.atoms,addcart=True,extra_kwargs =self.Data['top_settings'])
         # elif self.Data['coordinate_type'] == "TRIC":
         #    self.coord_obj = DelocalizedInternalCoordinates.from_options(xyz=self.xyz,atoms=self.atoms,addtr=True,extra_kwargs =self.Data['top_settings'])
-        self.Data["coord_obj"] = self.coord_obj
+        self.Data['coord_obj'] = self.coord_obj
 
         t2 = time()
-        nifty.logger.debug(" Time  to build coordinate system= %.3f" % (t2 - t1))
+        nifty.logger.debug(' Time  to build coordinate system= %.3f' % (t2 - t1))
 
         # TODO
         self.gradrms = 0.0
@@ -292,23 +290,23 @@ class Molecule(object):
         self.bdist = 0.0
         self.newHess = 5
 
-        if self.Data["Hessian"] is None and self.Data["Form_Hessian"]:
+        if self.Data['Hessian'] is None and self.Data['Form_Hessian']:
             if (
-                self.Data["Primitive_Hessian"] is None
+                self.Data['Primitive_Hessian'] is None
                 and type(self.coord_obj) is not CartesianCoordinates
             ):
                 self.form_Primitive_Hessian()
             t3 = time()
-            nifty.logger.debug(" Time to build Prim Hessian %.3f" % (t3 - t2))
-            if self.Data["Primitive_Hessian"] is not None:
-                nifty.logger.debug(" forming Hessian in basis")
+            nifty.logger.debug(' Time to build Prim Hessian %.3f' % (t3 - t2))
+            if self.Data['Primitive_Hessian'] is not None:
+                nifty.logger.debug(' forming Hessian in basis')
                 self.form_Hessian_in_basis()
             else:
                 self.form_Hessian()
 
         # logger.info("Molecule %s constructed.", repr(self))
         # logger.debug("Molecule %s constructed.", repr(self))
-        nifty.logger.debug(" molecule constructed")
+        nifty.logger.debug(' molecule constructed')
 
     def __add__(self, other):
         """add method for molecule objects. Concatenates"""
@@ -317,7 +315,7 @@ class Molecule(object):
     def reorder(self, new_order):
         """Reorder atoms in the molecule"""
         # TODO doesn't work probably CRA 3/2019
-        for field in ["atoms", "xyz"]:
+        for field in ['atoms', 'xyz']:
             self.__dict__[field] = self.__dict__[field][list(new_order)]
         self.atoms = [self.atoms[i] for i in new_order]
 
@@ -463,33 +461,33 @@ class Molecule(object):
 
     @property
     def Primitive_Hessian(self):
-        return self.Data["Primitive_Hessian"]
+        return self.Data['Primitive_Hessian']
 
     @Primitive_Hessian.setter
     def Primitive_Hessian(self, value):
-        self.Data["Primitive_Hessian"] = value
+        self.Data['Primitive_Hessian'] = value
 
     def form_Primitive_Hessian(self):
-        nifty.logger.debug(" making primitive Hessian")
-        self.Data["Primitive_Hessian"] = self.coord_obj.Prims.guess_hessian(self.xyz)
+        nifty.logger.debug(' making primitive Hessian')
+        self.Data['Primitive_Hessian'] = self.coord_obj.Prims.guess_hessian(self.xyz)
         self.newHess = 10
 
     def update_Primitive_Hessian(self, change=None):
-        nifty.logger.debug(" updating prim hess")
+        nifty.logger.debug(' updating prim hess')
         if change is not None:
             self.Primitive_Hessian += change
         return self.Primitive_Hessian
 
     @property
     def Hessian(self):
-        return self.Data["Hessian"]
+        return self.Data['Hessian']
 
     @Hessian.setter
     def Hessian(self, value):
-        self.Data["Hessian"] = value
+        self.Data['Hessian'] = value
 
     def form_Hessian(self):
-        self.Data["Hessian"] = self.coord_obj.guess_hessian(self.xyz)
+        self.Data['Hessian'] = self.coord_obj.guess_hessian(self.xyz)
         self.newHess = 5
 
     def update_Hessian(self, change=None):
@@ -510,16 +508,16 @@ class Molecule(object):
 
     @property
     def xyz(self):
-        return self.Data["xyz"]
+        return self.Data['xyz']
 
     @xyz.setter
     def xyz(self, newxyz=None):
         if newxyz is not None:
-            self.Data["xyz"] = newxyz
+            self.Data['xyz'] = newxyz
 
     @property
     def frozen_atoms(self):
-        return self.Data["frozen_atoms"]
+        return self.Data['frozen_atoms']
 
     @property
     def num_frozen_atoms(self):
@@ -561,7 +559,7 @@ class Molecule(object):
     def num_bonds(self):
         count = 0
         for ic in self.coord_obj.Prims.Internals:
-            if type(ic) == "Distance":
+            if type(ic) == 'Distance':
                 count += 1
         return count
 
@@ -579,12 +577,12 @@ class Molecule(object):
         self.coord_obj.Vecs = value
 
     def update_coordinate_basis(self, constraints=None):
-        if self.coord_obj.__class__.__name__ == "CartesianCoordinates":
+        if self.coord_obj.__class__.__name__ == 'CartesianCoordinates':
             return
         # if constraints is not None:
         #     assert constraints.shape[0] == self.coord_basis.shape[0], '{} does not equal {} dimensions'.format(constraints.shape[0],self.coord_basis.shape[0])
 
-        nifty.logger.debug(" updating coord basis")
+        nifty.logger.debug(' updating coord basis')
         self.coord_obj.clearCache()
         self.coord_obj.build_dlc(self.xyz, constraints)
         return self.coord_basis
@@ -632,26 +630,26 @@ class Molecule(object):
 
     @property
     def node_id(self):
-        return self.Data["node_id"]
+        return self.Data['node_id']
 
     @node_id.setter
     def node_id(self, value):
-        self.Data["node_id"] = value
+        self.Data['node_id'] = value
         self.PES.lot.node_id = value
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     from level_of_theories import Molpro
 
-    filepath = "../../data/ethylene.xyz"
+    filepath = '../../data/ethylene.xyz'
     molpro = Molpro.from_options(
-        states=[(1, 0)], fnm=filepath, lot_inp_file="../../data/ethylene_molpro.com"
+        states=[(1, 0)], fnm=filepath, lot_inp_file='../../data/ethylene_molpro.com'
     )
 
     pes = PES.from_options(lot=molpro, ad_idx=0, multiplicity=1)
 
     reactant = Molecule.from_options(
-        fnm=filepath, PES=pes, coordinate_type="TRIC", Form_Hessian=False
+        fnm=filepath, PES=pes, coordinate_type='TRIC', Form_Hessian=False
     )
 
     nifty.logger.debug(reactant.coord_basis)

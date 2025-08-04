@@ -551,7 +551,6 @@ def run_sella(
     if internal:
         title += " | Internal"
     else:
-
         title += " | Cartesian"
     if diag_every_n is not None:
         title += f" | diag_every_n={diag_every_n}"
@@ -700,7 +699,6 @@ def run_irc(
     opt_kwargs={},
     run_kwargs={},
 ):
-
     atoms, initsummary = before_ase_opt(start_pos, z, true_pos, calc)
 
     _opt_kwargs = dict(
@@ -740,7 +738,6 @@ def _run_relaxation(
     run_kwargs={},
     do_freq=False,
 ):
-
     _run_kwargs = dict(steps=10_000)
     _run_kwargs.update(run_kwargs)
     if method == "bfgs":
@@ -1008,9 +1005,9 @@ def run_geodesic_interpolate(
         **_opt_kwargs,
     )
     if return_middle_image:
-        assert (
-            _opt_kwargs["n_images"] % 2 == 1
-        ), "n_images must be odd for return_middle_image"
+        assert _opt_kwargs["n_images"] % 2 == 1, (
+            "n_images must be odd for return_middle_image"
+        )
         return atoms_list[math.floor(_opt_kwargs["n_images"] / 2)]
     else:
         return atoms_list

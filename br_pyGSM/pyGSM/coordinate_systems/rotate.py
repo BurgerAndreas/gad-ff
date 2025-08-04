@@ -70,7 +70,7 @@ def build_correlation(x, y):
         and x.shape[0] == y.shape[0]
     ):
         raise ValueError(
-            "Input dimensions not (any_same_value, 3): x ({}), y ({})".format(
+            'Input dimensions not (any_same_value, 3): x ({}), y ({})'.format(
                 x.shape, y.shape
             )
         )
@@ -522,11 +522,11 @@ def get_q_der(x, y, second=False, fdcheck=False, use_loops=False):
         else:
             # t0 = time.time()
             # LPW 2019-03-09: Setting optimize=True gives a 15x speedup for trp-cage (200 atoms, 0.02 vs. 0.3 s)
-            dl = np.einsum("p,uwpr,r->uw", q, dF, q, optimize=True)
-            dM = np.einsum("uw,pr->uwpr", dl, np.eye(4), optimize=True) - dF
-            dinv = -np.einsum("ps,uwst,tr->uwpr", Minv, dM, Minv, optimize=True)
+            dl = np.einsum('p,uwpr,r->uw', q, dF, q, optimize=True)
+            dM = np.einsum('uw,pr->uwpr', dl, np.eye(4), optimize=True) - dF
+            dinv = -np.einsum('ps,uwst,tr->uwpr', Minv, dM, Minv, optimize=True)
             dinv += np.einsum(
-                "ps,ts,uwvt,vr->uwpr",
+                'ps,ts,uwvt,vr->uwpr',
                 Minv,
                 Minv,
                 dM,
@@ -534,22 +534,22 @@ def get_q_der(x, y, second=False, fdcheck=False, use_loops=False):
                 optimize=True,
             )
             dinv += np.einsum(
-                "ps,uwts,vt,vr->uwpr",
+                'ps,uwts,vt,vr->uwpr',
                 np.eye(4) - np.dot(Minv, mat),
                 dM,
                 Minv,
                 Minv,
                 optimize=True,
             )
-            dq2 = np.einsum("uwpr,abrs,s->uwabp", dinv, dF, q, optimize=True)
-            dq2 += np.einsum("pr,abrs,uws->uwabp", Minv, dF, dq, optimize=True)
+            dq2 = np.einsum('uwpr,abrs,s->uwabp', dinv, dF, q, optimize=True)
+            dq2 += np.einsum('pr,abrs,uws->uwabp', Minv, dF, dq, optimize=True)
             # nifty.logger.debug(time.time()-t0)
 
     if fdcheck:
         # If fdcheck = True, then return finite difference derivatives
         h = 1e-6
         logger.info(
-            "-=# Now checking first derivatives of superposition quaternion w/r.t. Cartesians #=-\n"
+            '-=# Now checking first derivatives of superposition quaternion w/r.t. Cartesians #=-\n'
         )
         FDiffQ = np.zeros((x.shape[0], 3, 4), dtype=float)
         for u in range(x.shape[0]):
@@ -562,14 +562,14 @@ def get_q_der(x, y, second=False, fdcheck=False, use_loops=False):
                 FDiffQ[u, w] = (QPlus - QMinus) / (2 * h)
                 maxerr = np.max(np.abs(dq[u, w] - FDiffQ[u, w]))
                 logger.info(
-                    "atom %3i %s : maxerr = %.3e %s\n"
-                    % (u, "xyz"[w], maxerr, "X" if maxerr > 1e-6 else "")
+                    'atom %3i %s : maxerr = %.3e %s\n'
+                    % (u, 'xyz'[w], maxerr, 'X' if maxerr > 1e-6 else '')
                 )
         dq = FDiffQ
         if second:
             h = 1.0e-3
             logger.info(
-                "-=# Now checking second derivatives of superposition quaternion w/r.t. Cartesians #=-\n"
+                '-=# Now checking second derivatives of superposition quaternion w/r.t. Cartesians #=-\n'
             )
             Q0 = get_quat(x, y)
             FDiffQ2 = np.zeros((x.shape[0], 3, y.shape[0], 3, 4), dtype=float)
@@ -602,14 +602,14 @@ def get_q_der(x, y, second=False, fdcheck=False, use_loops=False):
                             )
                             if maxerr > 1e-8:
                                 logger.info(
-                                    "atom %3i %s, %3i %s : maxerr = %.3e %s\n"
+                                    'atom %3i %s, %3i %s : maxerr = %.3e %s\n'
                                     % (
                                         u,
-                                        "xyz"[w],
+                                        'xyz'[w],
                                         a,
-                                        "xyz"[b],
+                                        'xyz'[b],
                                         maxerr,
-                                        "X" if maxerr > 1e-6 else "",
+                                        'X' if maxerr > 1e-6 else '',
                                     )
                                 )
             dq2 = FDiffQ2
@@ -726,7 +726,7 @@ def get_expmap_der(x, y, second=False, fdcheck=False, use_loops=False):
         fac, _ = calc_fac_dfac(q[0])
         V0 = fac * q[1:]
         nifty.logger.debug(
-            "-=# Now checking first derivatives of exponential map w/r.t. quaternion #=-\n"
+            '-=# Now checking first derivatives of exponential map w/r.t. quaternion #=-\n'
         )
         for p in range(4):
             # Do backwards difference only, because arccos of q[0] > 1 is undefined
@@ -737,13 +737,13 @@ def get_expmap_der(x, y, second=False, fdcheck=False, use_loops=False):
             FDiffV = (V0 - VMinus) / h
             maxerr = np.max(np.abs(dvdq[p] - FDiffV))
             nifty.logger.debug(
-                "q %3i : maxerr = %.3e %s\n" % (i, maxerr, "X" if maxerr > 1e-6 else "")
+                'q %3i : maxerr = %.3e %s\n' % (i, maxerr, 'X' if maxerr > 1e-6 else '')
             )
             # logger.info(i, dvdq[i], FDiffV, np.max(np.abs(dvdq[i]-FDiffV)))
         if second:
             h = 1e-5
             nifty.logger.debug(
-                "-=# Now checking second derivatives of exponential map w/r.t. quaternion #=-\n"
+                '-=# Now checking second derivatives of exponential map w/r.t. quaternion #=-\n'
             )
 
             def V_(q_):
@@ -774,8 +774,8 @@ def get_expmap_der(x, y, second=False, fdcheck=False, use_loops=False):
                     maxerr = np.max(np.abs(dvdq2[p, r] - FDiffV2))
                     if maxerr > 1e-7:
                         logger.info(
-                            "q %3i %3i : maxerr = %.3e %s\n"
-                            % (p, r, maxerr, "X" if maxerr > 1e-5 else "")
+                            'q %3i %3i : maxerr = %.3e %s\n'
+                            % (p, r, maxerr, 'X' if maxerr > 1e-5 else '')
                         )
                     # logger.info("q %3i %3i : analytic %s numerical %s maxerr = %.3e %s" % (i, j, str(dvdq2[i, j]), str(FDiffV2), maxerr, 'X' if maxerr > 1e-4 else ''))
 
@@ -815,15 +815,15 @@ def get_expmap_der(x, y, second=False, fdcheck=False, use_loops=False):
                                         dvdq[p, i] * dqdx2[u, w, a, b, p]
                                     )
         else:
-            dvdqx = np.einsum("pri,uwr->puwi", dvdq2, dqdx, optimize=True)
-            dvdx2 = np.einsum("pabi,uwp->uwabi", dvdqx, dqdx, optimize=True)
-            dvdx2 += np.einsum("pi,uwabp->uwabi", dvdq, dqdx2, optimize=True)
+            dvdqx = np.einsum('pri,uwr->puwi', dvdq2, dqdx, optimize=True)
+            dvdx2 = np.einsum('pabi,uwp->uwabi', dvdqx, dqdx, optimize=True)
+            dvdx2 += np.einsum('pi,uwabp->uwabi', dvdq, dqdx2, optimize=True)
     # LPW 2019-03-09: Using einsum gives 166x speedup over for loops for trp-cage (200 atoms); 0.06 vs. 10.1 s
     # nifty.logger.debug(time.time()-t0)
     if fdcheck:
         h = 1e-3
         logger.info(
-            "-=# Now checking first derivatives of exponential map w/r.t. Cartesians #=-\n"
+            '-=# Now checking first derivatives of exponential map w/r.t. Cartesians #=-\n'
         )
         FDiffV = np.zeros((x.shape[0], 3, 3), dtype=float)
         for u in range(x.shape[0]):
@@ -836,13 +836,13 @@ def get_expmap_der(x, y, second=False, fdcheck=False, use_loops=False):
                 FDiffV[u, w] = (VPlus - VMinus) / (2 * h)
                 maxerr = np.max(np.abs(dvdx[u, w] - FDiffV[u, w]))
                 logger.info(
-                    "atom %3i %s : maxerr = %.3e %s\n"
-                    % (u, "xyz"[w], maxerr, "X" if maxerr > 1e-6 else "")
+                    'atom %3i %s : maxerr = %.3e %s\n'
+                    % (u, 'xyz'[w], maxerr, 'X' if maxerr > 1e-6 else '')
                 )
         dvdx = FDiffV
         if second:
             logger.info(
-                "-=# Now checking second derivatives of exponential map w/r.t. Cartesians #=-\n"
+                '-=# Now checking second derivatives of exponential map w/r.t. Cartesians #=-\n'
             )
             FDiffV2 = np.zeros((x.shape[0], 3, y.shape[0], 3, 3), dtype=float)
             for u in range(x.shape[0]):
@@ -874,14 +874,14 @@ def get_expmap_der(x, y, second=False, fdcheck=False, use_loops=False):
                             )
                             if maxerr > 1e-8:
                                 logger.info(
-                                    "atom %3i %s, %3i %s : maxerr = %.3e %s\n"
+                                    'atom %3i %s, %3i %s : maxerr = %.3e %s\n'
                                     % (
                                         u,
-                                        "xyz"[w],
+                                        'xyz'[w],
                                         a,
-                                        "xyz"[b],
+                                        'xyz'[b],
                                         maxerr,
-                                        "X" if maxerr > 1e-6 else "",
+                                        'X' if maxerr > 1e-6 else '',
                                     )
                                 )
             dvdx2 = FDiffV2
@@ -942,7 +942,6 @@ def eckart_frame(
 
 
 def eckart_align(geom1, geom2, masses, rfrac, max_iter=200):
-
     COMreact = np.sum(
         manage_xyz.xyz_to_np(geom1) * np.outer(masses, [1.0] * 3), 0
     ) / np.sum(masses)
@@ -967,7 +966,6 @@ def eckart_align(geom1, geom2, masses, rfrac, max_iter=200):
         max_iter = 1
 
     for i in range(maxiter):
-
         # get gradmag
         grad = np.zeros(3)
         for atom1, atom2 in zip(mwcreact, mwcproduct):
@@ -975,7 +973,7 @@ def eckart_align(geom1, geom2, masses, rfrac, max_iter=200):
             grad[1] += 2 * (atom1[2] * atom2[0] - atom1[0] * atom2[2])
             grad[2] += 2 * (atom1[0] * atom2[1] - atom1[1] * atom2[0])
         gradmag = np.linalg(grad)
-        nifty.logger.debug(" the gradient of the Eckart distance is %5.4f" % gradmag)
+        nifty.logger.debug(' the gradient of the Eckart distance is %5.4f' % gradmag)
 
         # get hessian
         dot = np.dot(mwcreact.flatten(), mwcproduct.flatten())
@@ -1151,5 +1149,5 @@ def main():
     get_expmap_der(X, Y)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

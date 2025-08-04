@@ -63,9 +63,10 @@ def plot_multipole_expansion(interior_points, external_point):
         )
 
     # Draw arrow from center to external point
-    dx_ext, dy_ext = (external_point[0] - center[0]) * 0.98, (
-        external_point[1] - center[1]
-    ) * 0.98
+    dx_ext, dy_ext = (
+        (external_point[0] - center[0]) * 0.98,
+        (external_point[1] - center[1]) * 0.98,
+    )
     ax.arrow(
         center[0],
         center[1],

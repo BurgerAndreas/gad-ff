@@ -20,17 +20,17 @@ from torch.optim.swa_utils import AveragedModel, get_ema_multi_avg_fn
 class EMACallback(Callback):
     """
     Exponential Moving Average callback using PyTorch's AveragedModel.
-    
+
     This callback maintains exponential moving averages of model parameters
     using PyTorch's official implementation for optimal performance and reliability.
-    
+
     Args:
         decay: EMA decay factor (0.999 is typical, higher = slower EMA updates)
         validate_with_ema: Whether to use EMA weights during validation
         save_ema_state: Whether to save EMA state in checkpoints
         use_buffers: Whether to apply EMA to model buffers (BatchNorm stats, etc.)
     """
-    
+
     def __init__(
         self,
         decay: float = 0.999,
@@ -40,13 +40,13 @@ class EMACallback(Callback):
     ):
         if not 0.0 <= decay <= 1.0:
             raise ValueError(f"EMA decay must be between 0 and 1, got {decay}")
-            
+
         self.decay = decay
         self.validate_with_ema = validate_with_ema
         self.save_ema_state = save_ema_state
         self.use_buffers = use_buffers
         self.ema_model: Optional[AveragedModel] = None
-        
+
         # rank_zero_info(f"EMA Callback initialized with decay={decay}, use_buffers={use_buffers}")
 
     def setup(self, trainer: Trainer, pl_module: LightningModule, stage: str) -> None:
@@ -103,12 +103,12 @@ class EMACallback(Callback):
 
     def _store_original_params(self, pl_module: LightningModule) -> None:
         """Store current model parameters."""
-        if not hasattr(self, '_original_state_dict'):
+        if not hasattr(self, "_original_state_dict"):
             self._original_state_dict = {}
-        
+
         for name, param in pl_module.named_parameters():
             self._original_state_dict[name] = param.data.clone()
-            
+
         if self.use_buffers:
             for name, buffer in pl_module.named_buffers():
                 self._original_state_dict[name] = buffer.data.clone()
@@ -116,11 +116,11 @@ class EMACallback(Callback):
     def _copy_ema_to_model(self, pl_module: LightningModule) -> None:
         """Copy EMA parameters to the model."""
         ema_state_dict = self.ema_model.state_dict()
-        
+
         for name, param in pl_module.named_parameters():
             if name in ema_state_dict:
                 param.data.copy_(ema_state_dict[name])
-                
+
         if self.use_buffers:
             for name, buffer in pl_module.named_buffers():
                 if name in ema_state_dict:
@@ -128,11 +128,11 @@ class EMACallback(Callback):
 
     def _restore_original_params(self, pl_module: LightningModule) -> None:
         """Restore original model parameters."""
-        if hasattr(self, '_original_state_dict'):
+        if hasattr(self, "_original_state_dict"):
             for name, param in pl_module.named_parameters():
                 if name in self._original_state_dict:
                     param.data.copy_(self._original_state_dict[name])
-                    
+
             if self.use_buffers:
                 for name, buffer in pl_module.named_buffers():
                     if name in self._original_state_dict:

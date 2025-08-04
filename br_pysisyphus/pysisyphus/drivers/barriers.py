@@ -241,7 +241,7 @@ def do_endopt_ts_barriers(
     print(f"Pressure: {p:.1f} Pa\n")
 
     print("Corrections:")
-    print(f"Change of standard-state: {do_ssc}, {ssc*AU2KJPERMOL:.2} kJ mol⁻¹")
+    print(f"Change of standard-state: {do_ssc}, {ssc * AU2KJPERMOL:.2} kJ mol⁻¹")
     print(f"                 Solvent: {solv_calc_getter is not None}")
     print(f"         Thermochemistry: {do_thermo}")
     print()

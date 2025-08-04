@@ -19,7 +19,6 @@ def test_increment_fn(org_fn, suffix, ref_fn):
 
 
 def test_estimate():
-
     def gen(size):
         for i in range(size):
             time.sleep(1)

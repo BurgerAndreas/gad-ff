@@ -235,7 +235,7 @@ class GraphParallelGemNetT(BaseModel):
                     num_concat=num_concat,
                     num_atom=num_atom,
                     activation=activation,
-                    name=f"IntBlock_{i+1}",
+                    name=f"IntBlock_{i + 1}",
                 )
             )
 

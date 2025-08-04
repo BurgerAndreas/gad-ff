@@ -17,7 +17,6 @@ def interpolate_extrapolate(
     gediis_thresh=1e-2,
     gdiis_thresh=2.5e-3,
 ):
-
     can_gediis = np.sqrt(np.mean(forces[-1] ** 2)) < gediis_thresh
     can_diis = (ref_step is not None) and (np.sqrt(np.mean(ref_step**2)) < gdiis_thresh)
 

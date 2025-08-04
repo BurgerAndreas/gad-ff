@@ -88,7 +88,7 @@ class Redund(Interpolator):
         interpolations = interpolate_only if interpolate_only else self.between
         ip_ex = "Extrapolating" if extrapolate else "Interpolating"
         for i in range(interpolations):
-            print(f"{ip_ex} {i+1:03d}/{interpolations:03d}")
+            print(f"{ip_ex} {i + 1:03d}/{interpolations:03d}")
             new_geom = geoms[-1].copy()
             # Try to use the target primtive internals (final_prims) to calculate
             # a tangent at the current, new geometry. As some primitives may be

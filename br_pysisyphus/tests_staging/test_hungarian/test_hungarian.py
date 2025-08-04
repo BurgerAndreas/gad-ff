@@ -70,7 +70,7 @@ def test_arbitrary_shuffles():
         org_rmsd = rmsd.rmsd(benz.coords3d, shuffled_geom.coords3d)
         matched_geom = match_geom_atoms(benz, shuffled_geom, hydrogen=True)
         matched_rmsd = rmsd.rmsd(benz.coords3d, matched_geom.coords3d)
-        print(f"RMSD(shuffled) {org_rmsd:.2f} " f"RMSD(matched) {matched_rmsd:.2f}")
+        print(f"RMSD(shuffled) {org_rmsd:.2f} RMSD(matched) {matched_rmsd:.2f}")
         assert np.allclose(matched_rmsd, 0.0)
 
 

@@ -79,8 +79,7 @@ def block_davidson(
             step = trial_step_size * mode.l
             S_full[:, from_ + j] = (
                 # Convert to mass-weighted coordinates
-                forces_fin_diff(forces_getter, cart_coords, step, mw_step_size)
-                / msqrt
+                forces_fin_diff(forces_getter, cart_coords, step, mw_step_size) / msqrt
             )
 
         # Views on columns that are actually set
@@ -169,7 +168,7 @@ def block_davidson(
         modes_converged = all(converged[mode_inds])
         if modes_converged:
             if print_level > 0:
-                print(f"\tDavidson procedure converged in {i+1} cycles!")
+                print(f"\tDavidson procedure converged in {i + 1} cycles!")
                 if lowest is not None:
                     nus_str = np.array2string(nus[mode_inds], precision=2)
                     print(f"\tLowest {lowest} wavenumbers: {nus_str} cm⁻¹")

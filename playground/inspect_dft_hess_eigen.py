@@ -5,6 +5,7 @@ Script to inspect and compare eigenvalue computations on DFT Hessians.
 Computes eigenvalues of the Hessian for the first 100 samples using both torch.linalg.eig and torch.linalg.eigh.
 Checks ordering, compares differences between methods, and analyzes Hessian asymmetry errors.
 """
+
 import argparse
 import numpy as np
 import time
@@ -163,10 +164,10 @@ def inspect_dft_hess_eigen(
     positive_second_smallest_eigh = np.sum(np.array(second_smallest_eigenvals_eigh) > 0)
     total_samples = len(smallest_eigenvals_eigh)
     print(
-        f"Positive smallest eigenvalues: {positive_smallest_eigh}/{total_samples} ({positive_smallest_eigh/total_samples*100:.1f}%)"
+        f"Positive smallest eigenvalues: {positive_smallest_eigh}/{total_samples} ({positive_smallest_eigh / total_samples * 100:.1f}%)"
     )
     print(
-        f"Positive second smallest eigenvalues: {positive_second_smallest_eigh}/{total_samples} ({positive_second_smallest_eigh/total_samples*100:.1f}%)"
+        f"Positive second smallest eigenvalues: {positive_second_smallest_eigh}/{total_samples} ({positive_second_smallest_eigh / total_samples * 100:.1f}%)"
     )
 
     # Analysis for torch.linalg.eig - smallest eigenvalues only
@@ -186,10 +187,10 @@ def inspect_dft_hess_eigen(
     positive_smallest_eig = np.sum(np.array(smallest_eigenvals_eig) > 0)
     positive_second_smallest_eig = np.sum(np.array(second_smallest_eigenvals_eig) > 0)
     print(
-        f"Positive smallest eigenvalues: {positive_smallest_eig}/{total_samples} ({positive_smallest_eig/total_samples*100:.1f}%)"
+        f"Positive smallest eigenvalues: {positive_smallest_eig}/{total_samples} ({positive_smallest_eig / total_samples * 100:.1f}%)"
     )
     print(
-        f"Positive second smallest eigenvalues: {positive_second_smallest_eig}/{total_samples} ({positive_second_smallest_eig/total_samples*100:.1f}%)"
+        f"Positive second smallest eigenvalues: {positive_second_smallest_eig}/{total_samples} ({positive_second_smallest_eig / total_samples * 100:.1f}%)"
     )
 
     # ---- Critical Point Classification ----
@@ -215,16 +216,16 @@ def inspect_dft_hess_eigen(
             higher_saddles_eigh += 1
 
     print(
-        f"Local minima (all eigenvalues > 0): {local_minima_eigh}/{total_samples} ({local_minima_eigh/total_samples*100:.1f}%)"
+        f"Local minima (all eigenvalues > 0): {local_minima_eigh}/{total_samples} ({local_minima_eigh / total_samples * 100:.1f}%)"
     )
     print(
-        f"Local maxima (all eigenvalues < 0): {local_maxima_eigh}/{total_samples} ({local_maxima_eigh/total_samples*100:.1f}%)"
+        f"Local maxima (all eigenvalues < 0): {local_maxima_eigh}/{total_samples} ({local_maxima_eigh / total_samples * 100:.1f}%)"
     )
     print(
-        f"Index-1 saddle points (1 negative eigenvalue): {index1_saddles_eigh}/{total_samples} ({index1_saddles_eigh/total_samples*100:.1f}%)"
+        f"Index-1 saddle points (1 negative eigenvalue): {index1_saddles_eigh}/{total_samples} ({index1_saddles_eigh / total_samples * 100:.1f}%)"
     )
     print(
-        f"Higher-order saddle points (>1 negative eigenvalues): {higher_saddles_eigh}/{total_samples} ({higher_saddles_eigh/total_samples*100:.1f}%)"
+        f"Higher-order saddle points (>1 negative eigenvalues): {higher_saddles_eigh}/{total_samples} ({higher_saddles_eigh / total_samples * 100:.1f}%)"
     )
 
     # Classification for torch.linalg.eig
@@ -248,16 +249,16 @@ def inspect_dft_hess_eigen(
             higher_saddles_eig += 1
 
     print(
-        f"Local minima (all eigenvalues > 0): {local_minima_eig}/{total_samples} ({local_minima_eig/total_samples*100:.1f}%)"
+        f"Local minima (all eigenvalues > 0): {local_minima_eig}/{total_samples} ({local_minima_eig / total_samples * 100:.1f}%)"
     )
     print(
-        f"Local maxima (all eigenvalues < 0): {local_maxima_eig}/{total_samples} ({local_maxima_eig/total_samples*100:.1f}%)"
+        f"Local maxima (all eigenvalues < 0): {local_maxima_eig}/{total_samples} ({local_maxima_eig / total_samples * 100:.1f}%)"
     )
     print(
-        f"Index-1 saddle points (1 negative eigenvalue): {index1_saddles_eig}/{total_samples} ({index1_saddles_eig/total_samples*100:.1f}%)"
+        f"Index-1 saddle points (1 negative eigenvalue): {index1_saddles_eig}/{total_samples} ({index1_saddles_eig / total_samples * 100:.1f}%)"
     )
     print(
-        f"Higher-order saddle points (>1 negative eigenvalues): {higher_saddles_eig}/{total_samples} ({higher_saddles_eig/total_samples*100:.1f}%)"
+        f"Higher-order saddle points (>1 negative eigenvalues): {higher_saddles_eig}/{total_samples} ({higher_saddles_eig / total_samples * 100:.1f}%)"
     )
 
     # ---- Timing ----

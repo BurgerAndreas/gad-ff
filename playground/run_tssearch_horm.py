@@ -976,7 +976,7 @@ def run_horm_ts_search(
                 x=ts_initial_guess.info["node_id"],
                 color="red",
                 linestyle="--",
-                label=f'TS node {ts_initial_guess.info["node_id"]}',
+                label=f"TS node {ts_initial_guess.info['node_id']}",
             )
             plt.xlabel("Node Index")
             plt.ylabel("Energy (eV)")

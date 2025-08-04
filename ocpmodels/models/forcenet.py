@@ -247,7 +247,6 @@ class ForceNet(BaseModel):
         otf_graph=False,
         use_pbc=True,
     ):
-
         super(ForceNet, self).__init__()
         self.training = training
         self.ablation = ablation

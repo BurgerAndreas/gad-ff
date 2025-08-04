@@ -10276,9 +10276,7 @@ def q_lb(m0, m1, m2, o0, o1, o2, n0, n1, n2, p0, p1, p2):
 
     return (
         p0 * (x3 * x8 - x5 * x7) + p1 * (-x1 * x8 + x5 * x6) + p2 * (x1 * x7 - x3 * x6)
-    ) / (
-        mpmath.sqrt(x1**2 + x3**2 + x5**2) * mpmath.sqrt(x6**2 + x7**2 + x8**2)
-    )
+    ) / (mpmath.sqrt(x1**2 + x3**2 + x5**2) * mpmath.sqrt(x6**2 + x7**2 + x8**2))
 
 
 def dq_lb(m0, m1, m2, o0, o1, o2, n0, n1, n2, p0, p1, p2):

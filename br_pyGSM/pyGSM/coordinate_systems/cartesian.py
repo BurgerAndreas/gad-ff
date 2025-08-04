@@ -16,11 +16,11 @@ class CartesianCoordinates(InternalCoordinates):
         self.Internals = []
         self.cPrims = []
         self.cVals = []
-        self.atoms = options["atoms"]
+        self.atoms = options['atoms']
         self.natoms = len(self.atoms)
-        top_settings = {"make_primitives": False}
+        top_settings = {'make_primitives': False}
         self.Prims = PrimitiveInternalCoordinates(
-            options.copy().set_values({"extra_kwargs": top_settings})
+            options.copy().set_values({'extra_kwargs': top_settings})
         )
         # self.Prims = PrimitiveInternalCoordinates(options.copy())
 

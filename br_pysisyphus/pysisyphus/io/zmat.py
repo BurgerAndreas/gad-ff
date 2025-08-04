@@ -18,7 +18,7 @@ def geom_from_zmat(
     geom=None,
     start_at=None,
     drop_dummy=True,
-    **geom_kwargs
+    **geom_kwargs,
 ):
     """Adapted from https://github.com/robashaw/geomConvert by Robert Shaw."""
 

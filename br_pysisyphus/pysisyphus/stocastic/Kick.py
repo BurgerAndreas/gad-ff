@@ -5,7 +5,6 @@ from pysisyphus.stocastic.Pipeline import Pipeline
 
 
 class Kick(Pipeline):
-
     def __init__(self, geom, radius=0.5, **kwargs):
         super().__init__(geom, **kwargs)
 

@@ -128,9 +128,9 @@ class OverlapCalculator(Calculator):
 
         self.track = track
         self.ovlp_type = ovlp_type
-        assert (
-            self.ovlp_type in self.OVLP_TYPE_VERBOSE.keys()
-        ), f"Valid overlap types are {self.VALID_KEYS}"
+        assert self.ovlp_type in self.OVLP_TYPE_VERBOSE.keys(), (
+            f"Valid overlap types are {self.VALID_KEYS}"
+        )
         self.double_mol = double_mol
         assert ovlp_with in ("previous", "first", "adapt")
         self.ovlp_with = ovlp_with

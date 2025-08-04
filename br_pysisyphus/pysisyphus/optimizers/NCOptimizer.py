@@ -8,7 +8,6 @@ from pysisyphus.helpers_pure import eigval_to_wavenumber
 
 
 class NCOptimizer(HessianOptimizer):
-
     def __init__(self, geometry, *args, freeze_modes=None, **kwargs):
         super().__init__(geometry, **kwargs)
 

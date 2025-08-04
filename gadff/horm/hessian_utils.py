@@ -78,9 +78,9 @@ def get_smallest_eigen_from_full_hessian(
 
         atom_start = atom_end
 
-    assert (
-        len(smallest_eigenvals) == B
-    ), f"Number of eigenvalues does not match number of batches: {len(smallest_eigenvals)} != {B}"
+    assert len(smallest_eigenvals) == B, (
+        f"Number of eigenvalues does not match number of batches: {len(smallest_eigenvals)} != {B}"
+    )
 
     return smallest_eigenvals, smallest_eigenvecs
 
@@ -138,9 +138,9 @@ def compute_hessian_batches(batch, coords, energy, forces=None) -> list[torch.Te
             coord_start = coord_end
             coord_end = coord_start + atoms_in_batch * 3
 
-    assert (
-        len(hessians) == B
-    ), f"Number of hessians does not match number of batches: {len(hessians)} != {B}"
+    assert len(hessians) == B, (
+        f"Number of hessians does not match number of batches: {len(hessians)} != {B}"
+    )
 
     # Stack hessian
     return hessians

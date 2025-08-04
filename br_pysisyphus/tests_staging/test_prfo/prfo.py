@@ -57,7 +57,6 @@ def plot(f, g, H, xs, ys):
 
 
 def prfo(x, H_getter, grad_getter):
-
     fg = lambda x: -np.array(grad_getter(*x))
     Hg = lambda x: np.array(H_getter(*x))
     f = fg(x)

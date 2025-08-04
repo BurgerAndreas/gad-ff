@@ -127,7 +127,6 @@ class SphericalHarmonicsHelper:
         wigner_inv = torch.tensor([], device=self.device)
 
         for y_rot in self.y_rotations:
-
             # Compute rotation about y-axis
             y_rot_mat = self.RotationMatrix(0, y_rot, 0)
             y_rot_mat = y_rot_mat.repeat(len(edge_rot_mat), 1, 1)
@@ -178,14 +177,12 @@ class SphericalHarmonicsHelper:
     # If num_taps is greater than 1, calculate how to combine the different samples.
     # Note the e3nn code flips the y-axis with the z-axis in the SCN paper description.
     def InitYRotMapping(self):
-
         if self.mmax == 0:
             y_rotations = torch.tensor([0.0], device=self.device)
             num_y_rotations = 1
             mapping_y_rot = torch.eye(self.sphere_basis_reduce, device=self.device)
 
         if self.mmax == 1:
-
             if self.num_taps == 1:
                 y_rotations = torch.tensor([0.0], device=self.device)
                 num_y_rotations = len(y_rotations)
@@ -225,7 +222,7 @@ class SphericalHarmonicsHelper:
                         )
                         mapping_y_rot[
                             (offset + 2) + y * self.sphere_basis_reduce, offset
-                        ] = (math.sin(y_rotations[y]) / num_y_rotations)
+                        ] = math.sin(y_rotations[y]) / num_y_rotations
 
                 # m = 1
                 for l in range(1, self.lmax + 1):  # noqa: E741
@@ -236,7 +233,7 @@ class SphericalHarmonicsHelper:
                         )
                         mapping_y_rot[
                             offset - 2 + y * self.sphere_basis_reduce, offset
-                        ] = (-math.sin(y_rotations[y]) / num_y_rotations)
+                        ] = -math.sin(y_rotations[y]) / num_y_rotations
 
         return mapping_y_rot.detach(), y_rotations
 

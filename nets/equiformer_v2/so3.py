@@ -127,7 +127,6 @@ class CoefficientMappingModule(torch.nn.Module):
 
     # Return mask containing coefficients less than or equal to degree (l) and order (m)
     def coefficient_idx(self, lmax, mmax):
-
         if (self.lmax_cache is not None) and (self.mmax_cache is not None):
             if (self.lmax_cache == lmax) and (self.mmax_cache == mmax):
                 if self.mask_indices_cache is not None:
@@ -144,7 +143,6 @@ class CoefficientMappingModule(torch.nn.Module):
     # Return the re-scaling for rotating back to original frame
     # this is required since we only use a subset of m components for SO(2) convolution
     def get_rotate_inv_rescale(self, lmax, mmax):
-
         if (self.lmax_cache is not None) and (self.mmax_cache is not None):
             if (self.lmax_cache == lmax) and (self.mmax_cache == mmax):
                 if self.rotate_inv_rescale_cache is not None:
@@ -276,7 +274,6 @@ class SO3_Embedding:
 
     # Rotate the embedding
     def _rotate(self, SO3_rotation, lmax_list, mmax_list):
-
         if self.num_resolutions == 1:
             embedding_rotate = SO3_rotation[0].rotate(
                 self.embedding, lmax_list[0], mmax_list[0]
@@ -301,7 +298,6 @@ class SO3_Embedding:
 
     # Rotate the embedding by the inverse of the rotation matrix
     def _rotate_inv(self, SO3_rotation, mappingReduced):
-
         if self.num_resolutions == 1:
             embedding_rotate = SO3_rotation[0].rotate_inv(
                 self.embedding, self.lmax_list[0], self.mmax_list[0]
@@ -333,7 +329,6 @@ class SO3_Embedding:
     def _grid_act(self, SO3_grid, act, mappingReduced):
         offset = 0
         for i in range(self.num_resolutions):
-
             num_coefficients = mappingReduced.res_size[i]
 
             if self.num_resolutions == 1:
@@ -657,7 +652,6 @@ class SO3_LinearV2(torch.nn.Module):
         self.register_buffer("expand_index", expand_index)
 
     def forward(self, input_embedding):
-
         weight = torch.index_select(
             self.weight, dim=0, index=self.expand_index
         )  # [(L_max + 1) ** 2, C_out, C_in]

@@ -69,14 +69,12 @@ CacheWarning = False
 
 
 class PrimitiveInternalCoordinates(InternalCoordinates):
-
     def __init__(self, options):
-
         super(PrimitiveInternalCoordinates, self).__init__(options)
 
         # Cache some useful attributes
         self.options = options
-        self.atoms = options["atoms"]
+        self.atoms = options['atoms']
 
         # initialize
         self.Internals = []
@@ -96,18 +94,18 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         #                     }
         # bondfile = extra_kwargs.get('bondfile',None)
 
-        xyz = options["xyz"]
-        self.topology = self.options["topology"]
+        xyz = options['xyz']
+        self.topology = self.options['topology']
         # make_prims = self.top_settings['make_primitives']
 
         # setup
-        if self.options["form_topology"]:
+        if self.options['form_topology']:
             if self.topology is None:
                 nifty.logger.debug(
                     " Warning it's better to build the topology before calling PrimitiveInternals\n Only the most basic option is enabled here \n You get better control of the topology by controlling extra bonds, angles etc."
                 )
                 self.topology = Topology.build_topology(xyz, self.atoms)
-                nifty.logger.debug(" done making topology")
+                nifty.logger.debug(' done making topology')
 
             self.fragments = [
                 self.topology.subgraph(c).copy()
@@ -120,7 +118,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             self.get_hybrid_indices(xyz)
             # nifty.click()
             self.newMakePrimitives(xyz)
-            nifty.logger.debug(" done making primitives")
+            nifty.logger.debug(' done making primitives')
             # time_build = nifty.click()
             # nifty.logger.debug(" make prim %.3f" % time_build)
 
@@ -133,13 +131,13 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
 
     @classmethod
     def copy(cls, Prims):
-        newPrims = cls(Prims.options.copy().set_values({"form_topology": False}))
+        newPrims = cls(Prims.options.copy().set_values({'form_topology': False}))
         newPrims.hybrid_idx_start_stop = Prims.hybrid_idx_start_stop
         newPrims.topology = deepcopy(Prims.topology)
         newPrims.Internals = deepcopy(Prims.Internals)
         newPrims.block_info = deepcopy(Prims.block_info)
         newPrims.prim_only_block_info = copy(Prims.prim_only_block_info)
-        newPrims.atoms = newPrims.options["atoms"]
+        newPrims.atoms = newPrims.options['atoms']
         newPrims.fragments = [
             Prims.topology.subgraph(c).copy()
             for c in nx.connected_components(Prims.topology)
@@ -150,11 +148,10 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         return newPrims
 
     def makePrimitives(self, xyz):
-
         self.Internals = []
-        connect = self.options["connect"]
-        addcart = self.options["addcart"]
-        addtr = self.options["addtr"]
+        connect = self.options['connect']
+        addcart = self.options['addcart']
+        addtr = self.options['addtr']
 
         # LPW also uses resid from molecule . . .
         frags = [m.nodes() for m in self.fragments]
@@ -181,7 +178,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             for edge in mst:
                 if edge not in list(self.topology.edges()):
                     nifty.logger.debug(
-                        "Adding %s from minimum spanning tree" % str(edge)
+                        'Adding %s from minimum spanning tree' % str(edge)
                     )
                     self.topology.add_edge(edge[0], edge[1])
                     noncov.append(edge)
@@ -212,7 +209,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             else:
                 if len(frags) > 1:
                     raise RuntimeError(
-                        "need someway to define the intermolecular interaction"
+                        'need someway to define the intermolecular interaction'
                     )
 
         # # Build a list of noncovalent distances
@@ -378,7 +375,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         """
         global CacheWarning
         t0 = time.time()
-        if hasattr(xyz, "tostring"):
+        if hasattr(xyz, 'tostring'):
             # old numpy method that was deprecated and removed in recent numpy versions (around numpy 1.19+)
             xhash = hash(xyz.tostring())
         else:
@@ -416,7 +413,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         self.stored_wilsonB[xhash] = ans
         if len(self.stored_wilsonB) > 1000 and not CacheWarning:
             nifty.logger.warning(
-                "\x1b[91mWarning: more than 100 B-matrices stored, memory leaks likely\x1b[0m"
+                '\x1b[91mWarning: more than 100 B-matrices stored, memory leaks likely\x1b[0m'
             )
             CacheWarning = True
         return ans
@@ -455,12 +452,12 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                 # time_svd = nifty.click()
             except np.linalg.LinAlgError:
                 nifty.logger.debug(
-                    "\x1b[1;91m SVD fails, perturbing coordinates and trying again\x1b[0m"
+                    '\x1b[1;91m SVD fails, perturbing coordinates and trying again\x1b[0m'
                 )
                 xyz = xyz + 1e-2 * np.random.random(xyz.shape)
                 loops += 1
                 if loops == 10:
-                    raise RuntimeError("SVD failed too many times")
+                    raise RuntimeError('SVD failed too many times')
                 continue
             break
         # nifty.logger.debug("Build G: %.3f SVD: %.3f" % (time_G, time_svd))
@@ -523,13 +520,13 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                 cvals.append(c.value(xyz))
             if len(constraints) != len(cvals):
                 raise RuntimeError(
-                    "List of constraints should be same length as constraint values"
+                    'List of constraints should be same length as constraint values'
                 )
             for cons, cval in zip(constraints, cvals):
                 self.addConstraint(cons, cval, xyz)
 
     def __repr__(self):
-        lines = ["Internal coordinate system (atoms numbered from 1):"]
+        lines = ['Internal coordinate system (atoms numbered from 1):']
         typedict = OrderedDict()
         for Internal in self.Internals:
             lines.append(Internal.__repr__())
@@ -541,18 +538,18 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             # Print only summary if too many
             lines = []
         for k, v in list(typedict.items()):
-            lines.append("%s : %i" % (k, v))
-        return "\n".join(lines)
+            lines.append('%s : %i' % (k, v))
+        return '\n'.join(lines)
 
     def __eq__(self, other):
         answer = True
         for i in self.Internals:
             if i not in other.Internals:
-                nifty.logger.debug("this prim is in p1 but not p2 ", i)
+                nifty.logger.debug('this prim is in p1 but not p2 ', i)
                 answer = False
         for i in other.Internals:
             if i not in self.Internals:
-                nifty.logger.debug("this prim is in p2 but not p1", i)
+                nifty.logger.debug('this prim is in p2 but not p1', i)
                 answer = False
         return answer
 
@@ -563,7 +560,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         Changed = False
         for i in self.Internals:
             if i not in other.Internals:
-                if hasattr(i, "inactive"):
+                if hasattr(i, 'inactive'):
                     i.inactive += 1
                 else:
                     i.inactive = 0
@@ -584,21 +581,21 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         Changed = False
         for i in other.Internals:
             if i not in self.Internals:
-                if bonds_only and type(i) != "Distance":
+                if bonds_only and type(i) != 'Distance':
                     pass
                 else:
                     # logger.info("Adding:  ", i)
-                    nifty.logger.debug(("Adding ", i))
+                    nifty.logger.debug(('Adding ', i))
                     self.Internals.append(i)
                     Changed = True
         return Changed
 
     def repr_diff(self, other):
-        alines = ["-- Added: --"]
+        alines = ['-- Added: --']
         for i in other.Internals:
             if i not in self.Internals:
                 alines.append(i.__repr__())
-        dlines = ["-- Deleted: --"]
+        dlines = ['-- Deleted: --']
         for i in self.Internals:
             if i not in other.Internals:
                 dlines.append(i.__repr__())
@@ -607,7 +604,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             output += alines
         if len(dlines) > 1:
             output += dlines
-        return "\n".join(output)
+        return '\n'.join(output)
 
     def resetRotations(self, xyz):
         for Internal in self.Internals:
@@ -666,17 +663,17 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         rotNorms = self.getRotatorNorms()
         if len(rotNorms) > 0:
             nifty.logger.debug(
-                "Rotator Norms: ", " ".join(["% .4f" % i for i in rotNorms])
+                'Rotator Norms: ', ' '.join(['% .4f' % i for i in rotNorms])
             )
         rotDots = self.getRotatorDots()
         if len(rotDots) > 0 and np.max(rotDots) > 1e-5:
             nifty.logger.debug(
-                "Rotator Dots : ", " ".join(["% .4f" % i for i in rotDots])
+                'Rotator Dots : ', ' '.join(['% .4f' % i for i in rotDots])
             )
         linAngs = [ic.value(xyz) for ic in self.Internals if type(ic) is LinearAngle]
         if len(linAngs) > 0:
             nifty.logger.debug(
-                "Linear Angles: ", " ".join(["% .4f" % i for i in linAngs])
+                'Linear Angles: ', ' '.join(['% .4f' % i for i in linAngs])
             )
 
     def derivatives(self, xyz):
@@ -700,26 +697,26 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         return self.GInverse_EIG(xyz)
 
     def add(self, dof, verbose=False):
-        if dof.__class__.__name__ in ["CartesianX", "CartesianY", "CartesianZ"]:
+        if dof.__class__.__name__ in ['CartesianX', 'CartesianY', 'CartesianZ']:
             if verbose:
-                nifty.logger.debug((" adding ", dof))
+                nifty.logger.debug((' adding ', dof))
             self.Internals.append(dof)
         elif dof not in self.Internals:
             if verbose:
-                nifty.logger.debug((" adding ", dof))
+                nifty.logger.debug((' adding ', dof))
             self.Internals.append(dof)
             return True
         else:
             return False
 
     def tmp_add(self, dof, verbose=False):
-        if dof.__class__.__name__ in ["CartesianX", "CartesianY", "CartesianZ"]:
+        if dof.__class__.__name__ in ['CartesianX', 'CartesianY', 'CartesianZ']:
             if verbose:
-                nifty.logger.debug((" adding ", dof))
+                nifty.logger.debug((' adding ', dof))
             self.tmp_Internals.append(dof)
         elif dof not in self.tmp_Internals:
             if verbose:
-                nifty.logger.debug((" adding ", dof))
+                nifty.logger.debug((' adding ', dof))
             self.tmp_Internals.append(dof)
             return True
         else:
@@ -728,17 +725,17 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
     # def dof_index(self, dof):
     #     return self.Internals.index(dof)
 
-    def dof_index(self, indice_tuple, dtype="Distance"):
-        if dtype == "Distance":
+    def dof_index(self, indice_tuple, dtype='Distance'):
+        if dtype == 'Distance':
             i, j = indice_tuple
             prim = Distance(i, j)
-        elif dtype == "Angle":
+        elif dtype == 'Angle':
             i, j, k = indice_tuple
             prim = Angle(i, j, k)
-        elif dtype == "Dihedral":
+        elif dtype == 'Dihedral':
             i, j, k, l = indice_tuple
             prim = Dihedral(i, j, k, l)
-        elif dtype == "OutOfPlane":
+        elif dtype == 'OutOfPlane':
             i, j, k, l = indice_tuple
             prim = OutOfPlane(i, j, k, l)
         else:
@@ -764,7 +761,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
 
     def addConstraint(self, cPrim, cVal=None, xyz=None):
         if cVal is None and xyz is None:
-            raise RuntimeError("Please provide either cval or xyz")
+            raise RuntimeError('Please provide either cval or xyz')
         if cVal is None:
             # If coordinates are provided instead of a constraint value,
             # then calculate the constraint value from the positions.
@@ -774,7 +771,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         if cPrim in self.cPrims:
             iPrim = self.cPrims.index(cPrim)
             if np.abs(cVal - self.cVals[iPrim]) > 1e-6:
-                nifty.logger.debug("Updating constraint value to %.4e" % cVal)
+                nifty.logger.debug('Updating constraint value to %.4e' % cVal)
             self.cVals[iPrim] = cVal
         else:
             if cPrim not in self.Internals:
@@ -809,33 +806,33 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                     newPrims.append(p)
         if len(newPrims) != len(self.Internals):
             raise RuntimeError(
-                "Not all internal coordinates have been accounted for. You may need to add something to reorderPrimitives()"
+                'Not all internal coordinates have been accounted for. You may need to add something to reorderPrimitives()'
             )
         self.Internals = newPrims
 
-        if not self.options["connect"]:
+        if not self.options['connect']:
             self.reorderPrimsByFrag()
         else:
             # all atoms are considered one "fragment"
-            self.block_info = [(1, self.natoms, len(newPrims), "P")]
+            self.block_info = [(1, self.natoms, len(newPrims), 'P')]
 
     def newMakePrimitives(self, xyz):
         self.Internals = []
         self.block_info = []
         # coordinates in Angstrom
         coords = xyz.flatten()
-        connect = self.options["connect"]
-        addcart = self.options["addcart"]
-        addtr = self.options["addtr"]
+        connect = self.options['connect']
+        addcart = self.options['addcart']
+        addtr = self.options['addtr']
 
-        nifty.logger.debug(" Creating block info")
+        nifty.logger.debug(' Creating block info')
         tmp_block_info = []
         # get primitive blocks
         for frag in self.fragments:
             nodes = frag.L()
-            tmp_block_info.append((nodes[0], nodes[-1] + 1, frag, "reg"))
+            tmp_block_info.append((nodes[0], nodes[-1] + 1, frag, 'reg'))
             # TODO can assert blocks are contiguous here
-        nifty.logger.debug(" number of primitive blocks is ", len(self.fragments))
+        nifty.logger.debug(' number of primitive blocks is ', len(self.fragments))
 
         # get hybrid blocks
         for tup in self.hybrid_idx_start_stop:
@@ -844,21 +841,21 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             ea = tup[1]
             leng = ea - sa
             for atom in range(sa, ea + 1):
-                tmp_block_info.append((atom, atom + 1, None, "hyb"))
+                tmp_block_info.append((atom, atom + 1, None, 'hyb'))
 
         # sort the blocks
         tmp_block_info.sort(key=lambda tup: tup[0])
         # nifty.logger.debug("block info")
         # nifty.logger.debug(tmp_block_info)
         nifty.logger.debug(
-            " Done creating block info,\n Now Making Primitives by block"
+            ' Done creating block info,\n Now Making Primitives by block'
         )
 
         sp = 0
         for info in tmp_block_info:
             nprims = 0
             # This corresponds to the primitive coordinate region
-            if info[-1] == "reg":
+            if info[-1] == 'reg':
                 frag = info[2]
                 noncov = []
                 if connect:
@@ -878,7 +875,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                     for edge in mst:
                         if edge not in list(self.topology.edges()):
                             nifty.logger.debug(
-                                "Adding %s from minimum spanning tree" % str(edge)
+                                'Adding %s from minimum spanning tree' % str(edge)
                             )
                             self.topology.add_edge(edge[0], edge[1])
                             noncov.append(edge)
@@ -1106,18 +1103,18 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         # nifty.logger.debug(self.Internals)
         self.prim_only_block_info = []
         for info1, info2 in zip(tmp_block_info, self.block_info):
-            if info1[-1] == "hyb":
+            if info1[-1] == 'hyb':
                 pass
             else:
                 self.prim_only_block_info.append(info2)
 
-        nifty.logger.debug(" Done making primitives")
-        nifty.logger.debug(" Made a total of {} primitives".format(len(self.Internals)))
+        nifty.logger.debug(' Done making primitives')
+        nifty.logger.debug(' Made a total of {} primitives'.format(len(self.Internals)))
         # nifty.logger.debug(self.Internals)
         # nifty.logger.debug(" block info")
         # nifty.logger.debug(self.block_info)
-        nifty.logger.debug(" num blocks ", len(self.block_info))
-        nifty.logger.debug(" num prim blocks ", len(self.prim_only_block_info))
+        nifty.logger.debug(' num blocks ', len(self.block_info))
+        nifty.logger.debug(' num prim blocks ', len(self.prim_only_block_info))
         # nifty.logger.debug(self.prim_only_block_info)
         # if len(newPrims) != len(self.Internals):
         #    #nifty.logger.debug(np.setdiff1d(self.Internals,newPrims))
@@ -1153,11 +1150,11 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
 
         tmp_block_info = []
 
-        nifty.logger.debug(" Creating block info")
+        nifty.logger.debug(' Creating block info')
         # get primitive blocks
         for frag in self.fragments:
             nodes = frag.L()
-            tmp_block_info.append((nodes[0], nodes[-1] + 1, frag, "reg"))
+            tmp_block_info.append((nodes[0], nodes[-1] + 1, frag, 'reg'))
             # TODO can assert blocks are contiguous here
 
         # get hybrid blocks
@@ -1166,13 +1163,13 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             sa = tup[0]
             ea = tup[1]
             for atom in range(sa, ea + 1):
-                tmp_block_info.append((atom, atom + 1, None, "hyb"))
+                tmp_block_info.append((atom, atom + 1, None, 'hyb'))
 
         # sort the blocks
         tmp_block_info.sort(key=lambda tup: tup[0])
 
         nifty.logger.debug(
-            " Done creating block info,\n Now Ordering Primitives by block"
+            ' Done creating block info,\n Now Ordering Primitives by block'
         )
 
         # Order primitives by block
@@ -1183,7 +1180,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
 
         for info in tmp_block_info:
             nprims = 0
-            if info[-1] == "reg":
+            if info[-1] == 'reg':
                 # TODO OLD
                 for p in self.Internals:
                     atoms = p.atoms
@@ -1251,7 +1248,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
 
     def printConstraints(self, xyz, thre=1e-5):
         out_lines = []
-        header = "Constraint                         Current      Target       Diff.\n"
+        header = 'Constraint                         Current      Target       Diff.\n'
         for ic, c in enumerate(self.cPrims):
             w = c.w if type(c) in [RotationA, RotationB, RotationC] else 1.0
             current = c.value(xyz) / w
@@ -1276,12 +1273,12 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                 factor = 180.0 / np.pi
             # if np.abs(diff*factor) > thre:
             out_lines.append(
-                "%-30s  % 10.5f  % 10.5f  % 10.5f\n"
+                '%-30s  % 10.5f  % 10.5f  % 10.5f\n'
                 % (str(c), current * factor, reference * factor, diff * factor)
             )
         if len(out_lines) > 0:
             nifty.logger.debug(header)
-            nifty.logger.debug("\n".join(out_lines))
+            nifty.logger.debug('\n'.join(out_lines))
             # if type(c) in [RotationA, RotationB, RotationC]:
             #     print c, c.value(xyz)
             #     logArray(c.x0)
@@ -1390,7 +1387,7 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                 Hdiag.append(0.05)
             else:
                 raise RuntimeError(
-                    "Failed to build guess Hessian matrix. Make sure all IC types are supported"
+                    'Failed to build guess Hessian matrix. Make sure all IC types are supported'
                 )
         return np.diag(Hdiag)
 
@@ -1588,11 +1585,10 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
         return
 
     def add_union_primitives(self, other):
-
         # Can make this faster if only check primitive indices
         # Need the primitive internal coordinates -- not the Cartesian internal coordinates
         nifty.logger.debug(
-            " Number of primitives before {}".format(len(self.Internals))
+            ' Number of primitives before {}'.format(len(self.Internals))
         )
         # nifty.logger.debug(' block info before')
         # nifty.logger.debug(self.block_info)
@@ -1631,14 +1627,14 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
                 if type(i) not in [CartesianX, CartesianY, CartesianZ]:
                     if i not in self.Internals[sp1:ep1]:
                         nifty.logger.debug(
-                            "Adding prim {} that is in Other to Internals".format(i)
+                            'Adding prim {} that is in Other to Internals'.format(i)
                         )
                         self.append_prim_to_block(i, count)
             count += 1
 
         # nifty.logger.debug(self.Internals)
         # nifty.logger.debug(len(self.Internals))
-        nifty.logger.debug(" Number of primitives after {}".format(len(self.Internals)))
+        nifty.logger.debug(' Number of primitives after {}'.format(len(self.Internals)))
         # nifty.logger.debug(' block info after')
         # nifty.logger.debug(self.block_info)
 
@@ -1652,29 +1648,29 @@ class PrimitiveInternalCoordinates(InternalCoordinates):
             if type(dc) != Distance:  # Already handled in topology
                 if dc not in self.Internals:
                     nifty.logger.debug(
-                        "Adding driving coord prim {} to Internals".format(dc)
+                        'Adding driving coord prim {} to Internals'.format(dc)
                     )
                     self.append_prim_to_block(dc)
 
 
 def get_driving_coord_prim(dc):
     prim = None
-    if "ADD" in dc or "BREAK" in dc:
+    if 'ADD' in dc or 'BREAK' in dc:
         if dc[1] < dc[2]:
             prim = Distance(dc[1] - 1, dc[2] - 1)
         else:
             prim = Distance(dc[2] - 1, dc[1] - 1)
-    elif "ANGLE" in dc:
+    elif 'ANGLE' in dc:
         if dc[1] < dc[3]:
             prim = Angle(dc[1] - 1, dc[2] - 1, dc[3] - 1)
         else:
             prim = Angle(dc[3] - 1, dc[2] - 1, dc[1] - 1)
-    elif "TORSION" in dc:
+    elif 'TORSION' in dc:
         if dc[1] < dc[4]:
             prim = Dihedral(dc[1] - 1, dc[2] - 1, dc[3] - 1, dc[4] - 1)
         else:
             prim = Dihedral(dc[4] - 1, dc[3] - 1, dc[2] - 1, dc[1] - 1)
-    elif "OOP" in dc:
+    elif 'OOP' in dc:
         # if dc[1]<dc[4]:
         prim = OutOfPlane(dc[1] - 1, dc[2] - 1, dc[3] - 1, dc[4] - 1)
         # else:
@@ -1682,15 +1678,15 @@ def get_driving_coord_prim(dc):
     return prim
 
 
-if __name__ == "__main__" and __package__ is None:
+if __name__ == '__main__' and __package__ is None:
     from os import sys, path
 
     sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
     # filepath='../../data/butadiene_ethene.xyz'
     # filepath='crystal.xyz'
-    filepath1 = "multi1.xyz"
-    filepath2 = "multi2.xyz"
+    filepath1 = 'multi1.xyz'
+    filepath2 = 'multi2.xyz'
     geom1 = manage_xyz.read_xyz(filepath1)
     geom2 = manage_xyz.read_xyz(filepath2)
     atom_symbols = manage_xyz.get_atoms(geom1)
@@ -1711,7 +1707,7 @@ if __name__ == "__main__" and __package__ is None:
         nifty.logger.debug(der.shape)
 
         # testing Translation
-        nifty.logger.debug("testing translation")
+        nifty.logger.debug('testing translation')
         i = list(range(10, 16))
         prim = TranslationX(i, w=np.ones(len(i)) / len(i))
         nifty.logger.debug(xyz[10:16, :])
@@ -1720,7 +1716,7 @@ if __name__ == "__main__" and __package__ is None:
         nifty.logger.debug(der)
         nifty.logger.debug(der.shape)
 
-        nifty.logger.debug("testing rotation")
+        nifty.logger.debug('testing rotation')
         Rotators = OrderedDict()
         i = list(range(10, 16))
         sel = xyz.reshape(-1, 3)[i, :]
@@ -1735,7 +1731,7 @@ if __name__ == "__main__" and __package__ is None:
         nifty.logger.debug(der2)
         nifty.logger.debug(der2.shape)
 
-        nifty.logger.debug("testing distance")
+        nifty.logger.debug('testing distance')
         prim = Distance(10, 11)
         nifty.logger.debug(prim)
         der1 = prim.derivative(xyz[10:16, :], start_idx=10)
@@ -1745,7 +1741,7 @@ if __name__ == "__main__" and __package__ is None:
         nifty.logger.debug(der2)
         nifty.logger.debug(der2.shape)
 
-        nifty.logger.debug("testing angle")
+        nifty.logger.debug('testing angle')
         prim = Angle(10, 11, 14)
         nifty.logger.debug(prim)
         der1 = prim.derivative(xyz[10:16, :], start_idx=10)
@@ -1755,7 +1751,7 @@ if __name__ == "__main__" and __package__ is None:
         nifty.logger.debug(der2)
         nifty.logger.debug(der2.shape)
 
-        nifty.logger.debug("testing dihedral")
+        nifty.logger.debug('testing dihedral')
         prim = Dihedral(12, 10, 11, 14)
         nifty.logger.debug(prim)
         der1 = prim.derivative(xyz[10:16, :], start_idx=10)
@@ -1774,7 +1770,7 @@ if __name__ == "__main__" and __package__ is None:
     # hybrid_indices = [int(x) for x in hybrid_indices]
     # nifty.logger.debug(hybrid_indices)
 
-    nifty.logger.debug(" Making topology")
+    nifty.logger.debug(' Making topology')
     G1 = Topology.build_topology(xyz1, atoms, hybrid_indices=hybrid_indices)
     G2 = Topology.build_topology(xyz2, atoms, hybrid_indices=hybrid_indices)
 
@@ -1784,13 +1780,13 @@ if __name__ == "__main__" and __package__ is None:
         elif (bond[1], bond[0]) in G1.edges():
             pass
         else:
-            nifty.logger.debug(" Adding bond {} to top1".format(bond))
+            nifty.logger.debug(' Adding bond {} to top1'.format(bond))
             if bond[0] > bond[1]:
                 G1.add_edge(bond[0], bond[1])
             else:
                 G1.add_edge(bond[1], bond[0])
 
-    nifty.logger.debug(" Making prim")
+    nifty.logger.debug(' Making prim')
     p1 = PrimitiveInternalCoordinates.from_options(
         xyz=xyz1,
         atoms=atoms,

@@ -19,15 +19,15 @@ class File_Options(object):
         # still need to read the file to build the dictionary
         if input_file is not None:
             for line in open(input_file).readlines():
-                line = sub("#.*$", "", line.strip())
+                line = sub('#.*$', '', line.strip())
                 s = line.split()
                 if len(s) > 0:
                     # Options are case insensitive
                     key = s[0].lower()
                     try:
-                        val = leval(line.replace(s[0], "", 1).strip())
+                        val = leval(line.replace(s[0], '', 1).strip())
                     except:
-                        val = str(line.replace(s[0], "", 1).strip())
+                        val = str(line.replace(s[0], '', 1).strip())
                     self.UserOptions[key] = val
 
     @staticmethod
@@ -54,16 +54,16 @@ class File_Options(object):
         clash   : A condition that must be False for the option to be activated.
         msg     : A warning that is printed out if the option is not activated.
         """
-        doc = sub("\.$", "", doc.strip()) + "."
+        doc = sub('\.$', '', doc.strip()) + '.'
         self.Documentation[key] = (
-            "%-8s " % ("(" + sub("'>", "", sub("<type '", "", str(typ))) + ")") + doc
+            '%-8s ' % ('(' + sub("'>", '', sub("<type '", '', str(typ))) + ')') + doc
         )
         if key in self.UserOptions:
             val = self.UserOptions[key]
         else:
             val = default
         if type(allowed) is list:
-            self.Documentation[key] += " Allowed values are %s" % str(allowed)
+            self.Documentation[key] += ' Allowed values are %s' % str(allowed)
             if val not in allowed:
                 raise Exception(
                     "Tried to set option \x1b[1;91m%s\x1b[0m to \x1b[94m%s\x1b[0m but it's not allowed (choose from \x1b[92m%s\x1b[0m)"
@@ -95,7 +95,7 @@ class File_Options(object):
         msg     : A warning that is printed out if the option is not activated.
         """
         if msg is None:
-            msg == "Option forced to active for no given reason."
+            msg == 'Option forced to active for no given reason.'
         if key not in self.ActiveOptions:
             if val is None:
                 val = self.InactiveOptions[key]
@@ -110,7 +110,7 @@ class File_Options(object):
         elif val is None:
             self.ForcedOptions[key] = self.ActiveOptions[key]
             self.ForcedWarnings[key] = (
-                msg + " (Warning: Forced active but it was already active.)"
+                msg + ' (Warning: Forced active but it was already active.)'
             )
 
     def deactivate(self, key, msg=None):
@@ -138,86 +138,85 @@ class File_Options(object):
         for key in self.ActiveOptions:
             if key in self.UserOptions and key not in self.ForcedOptions:
                 UserSupplied.append(
-                    "%-22s %20s # %s"
+                    '%-22s %20s # %s'
                     % (key, str(self.ActiveOptions[key]), self.Documentation[key])
                 )
         if len(UserSupplied) > 0:
             if TopBar:
-                out.append("#===========================================#")
+                out.append('#===========================================#')
             else:
                 TopBar = True
-            out.append("#|          User-supplied options:         |#")
-            out.append("#===========================================#")
+            out.append('#|          User-supplied options:         |#')
+            out.append('#===========================================#')
             out += UserSupplied
         Forced = []
         for key in self.ActiveOptions:
             if key in self.ForcedOptions:
                 Forced.append(
-                    "%-22s %20s # %s"
+                    '%-22s %20s # %s'
                     % (key, str(self.ActiveOptions[key]), self.Documentation[key])
                 )
                 Forced.append(
-                    "%-22s %20s # Reason : %s" % ("", "", self.ForcedWarnings[key])
+                    '%-22s %20s # Reason : %s' % ('', '', self.ForcedWarnings[key])
                 )
         if len(Forced) > 0:
             if TopBar:
-                out.append("#===========================================#")
+                out.append('#===========================================#')
             else:
                 TopBar = True
-            out.append("#|     Options enforced by the script:     |#")
-            out.append("#===========================================#")
+            out.append('#|     Options enforced by the script:     |#')
+            out.append('#===========================================#')
             out += Forced
         ActiveDefault = []
         for key in self.ActiveOptions:
             if key not in self.UserOptions and key not in self.ForcedOptions:
                 ActiveDefault.append(
-                    "%-22s %20s # %s"
+                    '%-22s %20s # %s'
                     % (key, str(self.ActiveOptions[key]), self.Documentation[key])
                 )
         if len(ActiveDefault) > 0:
             if TopBar:
-                out.append("#===========================================#")
+                out.append('#===========================================#')
             else:
                 TopBar = True
-            out.append("#|   Active options at default values:     |#")
-            out.append("#===========================================#")
+            out.append('#|   Active options at default values:     |#')
+            out.append('#===========================================#')
             out += ActiveDefault
         # out.append("")
-        out.append("#===========================================#")
-        out.append("#|           End of Input File             |#")
-        out.append("#===========================================#")
+        out.append('#===========================================#')
+        out.append('#|           End of Input File             |#')
+        out.append('#===========================================#')
         Deactivated = []
         for key in self.InactiveOptions:
             Deactivated.append(
-                "%-22s %20s # %s"
+                '%-22s %20s # %s'
                 % (key, str(self.InactiveOptions[key]), self.Documentation[key])
             )
             Deactivated.append(
-                "%-22s %20s # Reason : %s" % ("", "", self.InactiveWarnings[key])
+                '%-22s %20s # Reason : %s' % ('', '', self.InactiveWarnings[key])
             )
         if len(Deactivated) > 0:
-            out.append("")
-            out.append("#===========================================#")
-            out.append("#|   Deactivated or conflicting options:   |#")
-            out.append("#===========================================#")
+            out.append('')
+            out.append('#===========================================#')
+            out.append('#|   Deactivated or conflicting options:   |#')
+            out.append('#===========================================#')
             out += Deactivated
         Unrecognized = []
         for key in self.UserOptions:
             if key not in self.ActiveOptions and key not in self.InactiveOptions:
-                Unrecognized.append("%-22s %20s" % (key, self.UserOptions[key]))
+                Unrecognized.append('%-22s %20s' % (key, self.UserOptions[key]))
         if len(Unrecognized) > 0:
             # out.append("")
-            out.append("#===========================================#")
-            out.append("#|          Unrecognized options:          |#")
-            out.append("#===========================================#")
+            out.append('#===========================================#')
+            out.append('#|          Unrecognized options:          |#')
+            out.append('#===========================================#')
             out += Unrecognized
         return out
 
 
-if __name__ == "__main__":
-
-    fo = File_Options("tmp")
-    fo.set_active("crystal", "not-stupid", str, "is crystal stupid")
+if __name__ == '__main__':
+    fo = File_Options('tmp')
+    fo.set_active('crystal', 'not-stupid', str, 'is crystal stupid')
 
     fo2 = File_Options.copy(fo)
 

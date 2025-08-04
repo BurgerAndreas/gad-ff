@@ -10,7 +10,6 @@ from pysisyphus.optimizers.BacktrackingOptimizer import BacktrackingOptimizer
 
 
 class BFGS(BacktrackingOptimizer):
-
     def __init__(self, geometry, alpha=1.0, bt_force=20, **kwargs):
         super(BFGS, self).__init__(geometry, alpha=alpha, bt_force=bt_force, **kwargs)
 

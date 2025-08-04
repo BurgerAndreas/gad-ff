@@ -52,7 +52,7 @@ def get_state_couplings(ad_ens, dia_ens, ind_a, ind_b, x=None):
     grey = "#aaaaaa"
 
     fig, (ax_ad, ax_dia, ax_Vd) = plt.subplots(nrows=3)
-    title = f"Couplings between State {ind_a+1} and {ind_b+1}"
+    title = f"Couplings between State {ind_a + 1} and {ind_b + 1}"
     ax_ad.plot(x_fine, ad_fine, c=grey)
     ax_ad.plot(x_fine, a_ad_fine)
     ax_ad.plot(x_fine, b_ad_fine)

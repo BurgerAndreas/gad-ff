@@ -540,9 +540,9 @@ def run_calculations(
         geom.calc = calc_getter()
 
     if assert_track:
-        assert all(
-            [geom.calculator.track for geom in geoms]
-        ), "'track: True' must be present in calc section."
+        assert all([geom.calculator.track for geom in geoms]), (
+            "'track: True' must be present in calc section."
+        )
 
     if scheduler:
         client = Client(scheduler, pure=False, silence_logs=False)
@@ -592,7 +592,7 @@ def run_calculations(
                     cur_calculator = geom.calculator
                     next_calculator = geoms[i + 1].calculator
                     next_calculator.set_chkfiles(cur_calculator.get_chkfiles())
-                    msg = f"Set chkfiles of calculator {i:{i_fmt}} on calculator {i+1:{i_fmt}}"
+                    msg = f"Set chkfiles of calculator {i:{i_fmt}} on calculator {i + 1:{i_fmt}}"
                 except AttributeError:
                     msg = "Calculator does not support set/get_chkfiles!"
                 print(msg)
@@ -663,9 +663,9 @@ def run_md(geom, calc_getter, md_kwargs):
 
 def run_scan(geom, calc_getter, scan_kwargs, callback=None):
     print(highlight_text("Relaxed Scan") + "\n")
-    assert (
-        geom.coord_type != "cart"
-    ), "Internal coordinates are required for coordinate scans."
+    assert geom.coord_type != "cart", (
+        "Internal coordinates are required for coordinate scans."
+    )
 
     type_ = scan_kwargs["type"]
     indices = scan_kwargs["indices"]
@@ -681,13 +681,13 @@ def run_scan(geom, calc_getter, scan_kwargs, callback=None):
     #
     # So we always require steps and either end or step_size.
     # bool(a) != bool(b) amounts to an logical XOR.
-    assert (steps > 0) and (
-        bool(end) != bool(step_size)
-    ), "Please specify either 'end' or 'step_size'!"
+    assert (steps > 0) and (bool(end) != bool(step_size)), (
+        "Please specify either 'end' or 'step_size'!"
+    )
     if symmetric:
-        assert step_size and (
-            start is None
-        ), "'symmetric: True' requires 'step_size' and 'start == None'!"
+        assert step_size and (start is None), (
+            "'symmetric: True' requires 'step_size' and 'start == None'!"
+        )
 
     constrain_prims = normalize_prim_inputs(((type_, *indices),))
     constr_prim = constrain_prims[0]
@@ -1299,9 +1299,9 @@ def setup_run_dict(run_dict):
     # Update nested entries that are dicts by themselves
     # Take care to insert a , after the string!
     key_set = set(org_dict.keys())
-    assert (
-        key_set <= VALID_KEYS
-    ), f"Found invalid keys in YAML input: {key_set - VALID_KEYS}"
+    assert key_set <= VALID_KEYS, (
+        f"Found invalid keys in YAML input: {key_set - VALID_KEYS}"
+    )
     for key in key_set & VALID_KEYS:
         try:
             # Recursive update, because there may be nested dicts
@@ -1329,7 +1329,6 @@ RunResult = namedtuple(
 
 
 def main(run_dict, restart=False, yaml_dir="./", scheduler=None):
-
     # Dump run_dict
     run_dict_copy = run_dict.copy()
     run_dict_copy["version"] = __version__
@@ -1514,7 +1513,6 @@ def main(run_dict, restart=False, yaml_dir="./", scheduler=None):
     elif any(
         [run_dict[key] is not None for key in ("opt", "tsopt", "irc", "mdp", "endopt")]
     ):
-
         #######
         # OPT #
         #######
@@ -1595,7 +1593,6 @@ def main(run_dict, restart=False, yaml_dir="./", scheduler=None):
         # if ran_irc and run_dict["endopt"]:
         if run_dict["endopt"]:
             if not ran_irc:
-
                 _, irc_geom, _ = geoms  # IRC geom should correspond to the TS
 
                 class DummyIRC:
@@ -1722,7 +1719,7 @@ def do_clean(force=False):
         "wfoverlap.log",
         "host_*.calculator.log",
         "host_*.wfoverlap.log",
-        "wfo_*.out" "optimization.trj",
+        "wfo_*.outoptimization.trj",
         "cos.log",
         "*.gradient",
         "optimizer_results.yaml",

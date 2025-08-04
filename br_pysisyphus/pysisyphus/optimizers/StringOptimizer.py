@@ -27,9 +27,9 @@ class StringOptimizer(Optimizer):
     ):
         super().__init__(geometry, max_step=max_step, **kwargs)
 
-        assert (
-            self.is_cos
-        ), "StringOptimizer is only intended to be used with COS objects."
+        assert self.is_cos, (
+            "StringOptimizer is only intended to be used with COS objects."
+        )
 
         self.stop_in_when_full = int(stop_in_when_full)
         self.keep_last = int(keep_last)

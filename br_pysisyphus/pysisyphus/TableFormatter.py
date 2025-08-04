@@ -4,7 +4,6 @@ import numpy as np
 
 
 class TableFormatter:
-
     def __init__(self, header, fmts, min_width=7, space=3):
         self.min_width = min_width + (space - 1)
         self.space = space

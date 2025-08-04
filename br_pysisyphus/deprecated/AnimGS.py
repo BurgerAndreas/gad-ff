@@ -6,7 +6,6 @@ import numpy as np
 
 
 class AnimGS:
-
     def __init__(self, gs, calc_getter):
         self.gs = gs
         self.calc = calc_getter()

@@ -491,7 +491,6 @@ class FeedForwardNetwork(torch.nn.Module):
         )
 
     def forward(self, input_embedding):
-
         gating_scalars = None
         if self.use_grid_mlp:
             if self.use_sep_s2_act:
@@ -704,7 +703,6 @@ class TransBlockV2(torch.nn.Module):
         edge_index,
         batch,  # for GraphDropPath
     ):
-
         output_embedding = x
 
         x_res = output_embedding.embedding

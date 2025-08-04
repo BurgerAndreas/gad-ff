@@ -27,7 +27,7 @@ def read_xyz(filename, scale=1.0):
     lines = lines[2:]
     geom = []
     for line in lines:
-        mobj = re.match(r"^\s*(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s*$", line)
+        mobj = re.match(r'^\s*(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s*$', line)
         geom.append(
             (
                 mobj.group(1),
@@ -61,7 +61,7 @@ def read_xyzs(filename, scale=1.0):
         ea = sa + natoms
         geom = []
         for line in lines[sa:ea]:
-            mobj = re.match(r"^\s*(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s*$", line)
+            mobj = re.match(r'^\s*(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s*$', line)
             geom.append(
                 (
                     mobj.group(1),
@@ -76,7 +76,6 @@ def read_xyzs(filename, scale=1.0):
 
 
 def read_molden_geoms(filename, scale=1.0):
-
     lines = open(filename).readlines()
     natoms = int(lines[2])
     nlines = len(lines)
@@ -92,7 +91,7 @@ def read_molden_geoms(filename, scale=1.0):
         ea = sa + natoms
         geom = []
         for line in lines[sa:ea]:
-            mobj = re.match(r"^\s*(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s*$", line)
+            mobj = re.match(r'^\s*(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s*$', line)
             geom.append(
                 (
                     mobj.group(1),
@@ -156,13 +155,13 @@ def write_molden_geoms(
     gradrms,
     dEs,
 ):
-    with open(filename, "w") as f:
-        f.write("[Molden Format]\n[Geometries] (XYZ)\n")
+    with open(filename, 'w') as f:
+        f.write('[Molden Format]\n[Geometries] (XYZ)\n')
         for geom in geoms:
-            f.write("%d\n\n" % len(geom))
+            f.write('%d\n\n' % len(geom))
             for atom in geom:
                 f.write(
-                    "%-2s %14.6f %14.6f %14.6f\n"
+                    '%-2s %14.6f %14.6f %14.6f\n'
                     % (
                         atom[0],
                         atom[1],
@@ -170,24 +169,23 @@ def write_molden_geoms(
                         atom[3],
                     )
                 )
-        f.write("[GEOCONV]\n")
-        f.write("energy\n")
+        f.write('[GEOCONV]\n')
+        f.write('energy\n')
         V0 = energies[0]
         for energy in energies:
-            f.write("{}\n".format(energy - V0))
-        f.write("max-force\n")
+            f.write('{}\n'.format(energy - V0))
+        f.write('max-force\n')
         for grad in gradrms:
-            f.write("{}\n".format(float(grad)))
+            f.write('{}\n'.format(float(grad)))
         # rint(" WARNING: Printing dE as max-step in molden output ")
-        f.write("max-step\n")
+        f.write('max-step\n')
         for dE in dEs:
-            f.write("{}\n".format(float(dE)))
+            f.write('{}\n'.format(float(dE)))
 
 
 def get_atoms(
     geom,
 ):
-
     atoms = []
     for atom in geom:
         atoms.append(atom[0])
@@ -202,12 +200,12 @@ def write_xyz(filename, geom, comment=0, scale=1.0):  # (1.0/units.ANGSTROM_TO_A
         geom ((natoms,4) np.ndarray) - system geometry (atom symbol, x,y,z)
 
     """
-    fh = open(filename, "w")
-    fh.write("%d\n" % len(geom))
-    fh.write("{}\n".format(comment))
+    fh = open(filename, 'w')
+    fh.write('%d\n' % len(geom))
+    fh.write('{}\n'.format(comment))
     for atom in geom:
         fh.write(
-            "%-2s %14.6f %14.6f %14.6f\n"
+            '%-2s %14.6f %14.6f %14.6f\n'
             % (
                 atom[0],
                 scale * atom[1],
@@ -232,12 +230,12 @@ def write_xyzs(
 
     """
 
-    fh = open(filename, "w")
+    fh = open(filename, 'w')
     for geom in geoms:
-        fh.write("%d\n\n" % len(geom))
+        fh.write('%d\n\n' % len(geom))
         for atom in geom:
             fh.write(
-                "%-2s %14.6f %14.6f %14.6f\n"
+                '%-2s %14.6f %14.6f %14.6f\n'
                 % (
                     atom[0],
                     scale * atom[1],
@@ -254,13 +252,13 @@ def write_std_multixyz(
     gradrms,
     dEs,
 ):
-    with open(filename, "w") as f:
+    with open(filename, 'w') as f:
         for E, geom in zip(energies, geoms):
-            f.write("%d\n" % len(geom))
-            f.write("%.6f\n" % (E * units.KJ_MOL_TO_AU))
+            f.write('%d\n' % len(geom))
+            f.write('%.6f\n' % (E * units.KJ_MOL_TO_AU))
             for atom in geom:
                 f.write(
-                    "%-2s %14.6f %14.6f %14.6f\n"
+                    '%-2s %14.6f %14.6f %14.6f\n'
                     % (
                         atom[0],
                         atom[1],
@@ -274,21 +272,23 @@ def write_amber_xyz(
     filename,
     geom,
 ):
-
     count = 0
-    fh = open(filename, "w")
-    fh.write("default name\n")
-    fh.write("  %d\n" % len(geom))
+    fh = open(filename, 'w')
+    fh.write('default name\n')
+    fh.write('  %d\n' % len(geom))
     for line in geom:
         for elem in line[1:]:
-            fh.write(" {:11.7f}".format(float(elem)))
+            fh.write(' {:11.7f}'.format(float(elem)))
             count += 1
         if count % 6 == 0:
-            fh.write("\n")
+            fh.write('\n')
 
 
 def write_xyzs_w_comments(
-    filename, geoms, comments, scale=1.0  # (1.0/units.ANGSTROM_TO_AU),
+    filename,
+    geoms,
+    comments,
+    scale=1.0,  # (1.0/units.ANGSTROM_TO_AU),
 ):
     """Writes xyz trajectory file with multiple frames
 
@@ -300,13 +300,13 @@ def write_xyzs_w_comments(
 
     """
 
-    fh = open(filename, "w")
+    fh = open(filename, 'w')
     for geom, comment in zip(geoms, comments):
-        fh.write("%d\n" % len(geom))
-        fh.write("%s\n" % comment)
+        fh.write('%d\n' % len(geom))
+        fh.write('%s\n' % comment)
         for atom in geom:
             fh.write(
-                "%-2s %14.6f %14.6f %14.6f\n"
+                '%-2s %14.6f %14.6f %14.6f\n'
                 % (
                     atom[0],
                     scale * atom[1],
@@ -409,12 +409,12 @@ def write_fms90(
 
     """
 
-    fh = open(filename, "w")
-    fh.write("UNITS=BOHR\n")
-    fh.write("%d\n" % len(geomx))
+    fh = open(filename, 'w')
+    fh.write('UNITS=BOHR\n')
+    fh.write('%d\n' % len(geomx))
     for atom in geomx:
         fh.write(
-            "%-2s %14.6f %14.6f %14.6f\n"
+            '%-2s %14.6f %14.6f %14.6f\n'
             % (
                 atom[0],
                 atom[1],
@@ -423,10 +423,10 @@ def write_fms90(
             )
         )
     if geomp:
-        fh.write("# momenta\n")
+        fh.write('# momenta\n')
         for atom in geomp:
             fh.write(
-                "  %14.6f %14.6f %14.6f\n"
+                '  %14.6f %14.6f %14.6f\n'
                 % (
                     atom[1],
                     atom[2],
@@ -436,6 +436,6 @@ def write_fms90(
 
 
 XYZ_WRITERS = {
-    "molden": write_molden_geoms,
-    "multixyz": write_std_multixyz,
+    'molden': write_molden_geoms,
+    'multixyz': write_std_multixyz,
 }

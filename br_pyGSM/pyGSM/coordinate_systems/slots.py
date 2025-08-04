@@ -36,13 +36,13 @@ class PrimitiveCoordinate(object):
             If provided, this is the value to subtract
         """
         if xyz2 is None and val2 is None:
-            raise RuntimeError("Provide exactly one of xyz2 and val2")
+            raise RuntimeError('Provide exactly one of xyz2 and val2')
         elif xyz2 is not None and val2 is not None:
-            raise RuntimeError("Provide exactly one of xyz2 and val2")
+            raise RuntimeError('Provide exactly one of xyz2 and val2')
         if xyz2 is not None:
             val2 = self.value(xyz2)
         diff = self.value(xyz1) - val2
-        if hasattr(self, "w"):
+        if hasattr(self, 'w'):
             w = self.w
         else:
             w = 1.0
@@ -50,7 +50,7 @@ class PrimitiveCoordinate(object):
         diff /= w
         # Subtract out any differences of 2*pi for periodic degrees of freedom
         # (rotation ICs handled separately)
-        if hasattr(self, "isPeriodic") and self.isPeriodic:
+        if hasattr(self, 'isPeriodic') and self.isPeriodic:
             Plus2Pi = diff + 2 * np.pi
             Minus2Pi = diff - 2 * np.pi
             if np.abs(diff) > np.abs(Plus2Pi):
@@ -62,7 +62,7 @@ class PrimitiveCoordinate(object):
 
 
 class CartesianX(PrimitiveCoordinate):
-    __slots__ = ["a", "w", "isAngular", "isPeriodic"]
+    __slots__ = ['a', 'w', 'isAngular', 'isPeriodic']
 
     def __init__(self, a, w=1.0):
         self.a = a
@@ -71,7 +71,7 @@ class CartesianX(PrimitiveCoordinate):
         self.isPeriodic = False
 
     def __repr__(self):
-        return "Cartesian-X %i" % (self.a + 1)
+        return 'Cartesian-X %i' % (self.a + 1)
 
     @property
     def atoms(self):
@@ -83,7 +83,7 @@ class CartesianX(PrimitiveCoordinate):
         eq = self.a == other.a
         if eq and self.w != other.w:
             nifty.logger.warning(
-                "Warning: CartesianX same atoms, different weights (%.4f %.4f)"
+                'Warning: CartesianX same atoms, different weights (%.4f %.4f)'
                 % (self.w, other.w)
             )
         return eq
@@ -114,7 +114,7 @@ class CartesianX(PrimitiveCoordinate):
 
 
 class CartesianY(PrimitiveCoordinate):
-    __slots__ = ["a", "w", "isAngular", "isPeriodic"]
+    __slots__ = ['a', 'w', 'isAngular', 'isPeriodic']
 
     def __init__(self, a, w=1.0):
         self.a = a
@@ -124,7 +124,7 @@ class CartesianY(PrimitiveCoordinate):
 
     def __repr__(self):
         # return "Cartesian-Y %i : Weight %.3f" % (self.a+1, self.w)
-        return "Cartesian-Y %i" % (self.a + 1)
+        return 'Cartesian-Y %i' % (self.a + 1)
 
     @property
     def atoms(self):
@@ -136,7 +136,7 @@ class CartesianY(PrimitiveCoordinate):
         eq = self.a == other.a
         if eq and self.w != other.w:
             nifty.logger.warning(
-                "Warning: CartesianY same atoms, different weights (%.4f %.4f)"
+                'Warning: CartesianY same atoms, different weights (%.4f %.4f)'
                 % (self.w, other.w)
             )
         return eq
@@ -171,7 +171,7 @@ class CartesianY(PrimitiveCoordinate):
 
 
 class CartesianZ(PrimitiveCoordinate):
-    __slots__ = ["a", "w", "isAngular", "isPeriodic"]
+    __slots__ = ['a', 'w', 'isAngular', 'isPeriodic']
 
     def __init__(self, a, w=1.0):
         self.a = a
@@ -181,7 +181,7 @@ class CartesianZ(PrimitiveCoordinate):
 
     def __repr__(self):
         # return "Cartesian-Z %i : Weight %.3f" % (self.a+1, self.w)
-        return "Cartesian-Z %i" % (self.a + 1)
+        return 'Cartesian-Z %i' % (self.a + 1)
 
     @property
     def atoms(self):
@@ -193,7 +193,7 @@ class CartesianZ(PrimitiveCoordinate):
         eq = self.a == other.a
         if eq and self.w != other.w:
             nifty.logger.warning(
-                "Warning: CartesianZ same atoms, different weights (%.4f %.4f)"
+                'Warning: CartesianZ same atoms, different weights (%.4f %.4f)'
                 % (self.w, other.w)
             )
         return eq
@@ -228,7 +228,7 @@ class CartesianZ(PrimitiveCoordinate):
 
 
 class TranslationX(PrimitiveCoordinate):
-    __slots__ = ["a", "w", "isAngular", "isPeriodic"]
+    __slots__ = ['a', 'w', 'isAngular', 'isPeriodic']
 
     def __init__(self, a, w):
         self.a = a
@@ -239,7 +239,7 @@ class TranslationX(PrimitiveCoordinate):
 
     def __repr__(self):
         # return "Translation-X %s : Weights %s" % (' '.join([str(i+1) for i in self.a]), ' '.join(['%.2e' % i for i in self.w]))
-        return "Translation-X %s" % (nifty.commadash(self.a))
+        return 'Translation-X %s' % (nifty.commadash(self.a))
 
     @property
     def atoms(self):
@@ -250,7 +250,7 @@ class TranslationX(PrimitiveCoordinate):
             return False
         eq = set(self.a) == set(other.a)
         if eq and np.sum((self.w - other.w) ** 2) > 1e-6:
-            nifty.logger.warning("Warning: TranslationX same atoms, different weights")
+            nifty.logger.warning('Warning: TranslationX same atoms, different weights')
             eq = False
         return eq
 
@@ -266,9 +266,9 @@ class TranslationX(PrimitiveCoordinate):
         # Translation ICs require an explicit implementation of calcDiff
         # because self.w is not a float but an array
         if xyz2 is None and val2 is None:
-            raise RuntimeError("Provide exactly one of xyz2 and val2")
+            raise RuntimeError('Provide exactly one of xyz2 and val2')
         elif xyz2 is not None and val2 is not None:
-            raise RuntimeError("Provide exactly one of xyz2 and val2")
+            raise RuntimeError('Provide exactly one of xyz2 and val2')
         if xyz2 is not None:
             val2 = self.value(xyz2)
         diff = self.value(xyz1) - val2
@@ -289,7 +289,7 @@ class TranslationX(PrimitiveCoordinate):
 
 
 class TranslationY(PrimitiveCoordinate):
-    __slots__ = ["a", "w", "isAngular", "isPeriodic"]
+    __slots__ = ['a', 'w', 'isAngular', 'isPeriodic']
 
     def __init__(self, a, w):
         self.a = a
@@ -300,7 +300,7 @@ class TranslationY(PrimitiveCoordinate):
 
     def __repr__(self):
         # return "Translation-Y %s : Weights %s" % (' '.join([str(i+1) for i in self.a]), ' '.join(['%.2e' % i for i in self.w]))
-        return "Translation-Y %s" % (nifty.commadash(self.a))
+        return 'Translation-Y %s' % (nifty.commadash(self.a))
 
     @property
     def atoms(self):
@@ -311,7 +311,7 @@ class TranslationY(PrimitiveCoordinate):
             return False
         eq = set(self.a) == set(other.a)
         if eq and np.sum((self.w - other.w) ** 2) > 1e-6:
-            nifty.logger.warning("Warning: TranslationY same atoms, different weights")
+            nifty.logger.warning('Warning: TranslationY same atoms, different weights')
             eq = False
         return eq
 
@@ -327,9 +327,9 @@ class TranslationY(PrimitiveCoordinate):
         # Translation ICs require an explicit implementation of calcDiff
         # because self.w is not a float but an array
         if xyz2 is None and val2 is None:
-            raise RuntimeError("Provide exactly one of xyz2 and val2")
+            raise RuntimeError('Provide exactly one of xyz2 and val2')
         elif xyz2 is not None and val2 is not None:
-            raise RuntimeError("Provide exactly one of xyz2 and val2")
+            raise RuntimeError('Provide exactly one of xyz2 and val2')
         if xyz2 is not None:
             val2 = self.value(xyz2)
         diff = self.value(xyz1) - val2
@@ -350,7 +350,7 @@ class TranslationY(PrimitiveCoordinate):
 
 
 class TranslationZ(PrimitiveCoordinate):
-    __slots__ = ["a", "w", "isAngular", "isPeriodic"]
+    __slots__ = ['a', 'w', 'isAngular', 'isPeriodic']
 
     def __init__(self, a, w):
         self.a = a
@@ -361,7 +361,7 @@ class TranslationZ(PrimitiveCoordinate):
 
     def __repr__(self):
         # return "Translation-Z %s : Weights %s" % (' '.join([str(i+1) for i in self.a]), ' '.join(['%.2e' % i for i in self.w]))
-        return "Translation-Z %s" % (nifty.commadash(self.a))
+        return 'Translation-Z %s' % (nifty.commadash(self.a))
 
     @property
     def atoms(self):
@@ -372,7 +372,7 @@ class TranslationZ(PrimitiveCoordinate):
             return False
         eq = set(self.a) == set(other.a)
         if eq and np.sum((self.w - other.w) ** 2) > 1e-6:
-            nifty.logger.warning("Warning: TranslationZ same atoms, different weights")
+            nifty.logger.warning('Warning: TranslationZ same atoms, different weights')
             eq = False
         return eq
 
@@ -388,9 +388,9 @@ class TranslationZ(PrimitiveCoordinate):
         # Translation ICs require an explicit implementation of calcDiff
         # because self.w is not a float but an array
         if xyz2 is None and val2 is None:
-            raise RuntimeError("Provide exactly one of xyz2 and val2")
+            raise RuntimeError('Provide exactly one of xyz2 and val2')
         elif xyz2 is not None and val2 is not None:
-            raise RuntimeError("Provide exactly one of xyz2 and val2")
+            raise RuntimeError('Provide exactly one of xyz2 and val2')
         if xyz2 is not None:
             val2 = self.value(xyz2)
         diff = self.value(xyz1) - val2
@@ -412,20 +412,20 @@ class TranslationZ(PrimitiveCoordinate):
 
 class Rotator(object):
     __slots__ = [
-        "a",
-        "x0",
-        "stored_value",
-        "stored_value2",
-        "stored_valxyz",
-        "stored_valxyz2",
-        "stored_deriv",
-        "stored_derxyz",
-        "stored_deriv2",
-        "stored_deriv2xyz",
-        "stored_norm",
-        "e0",
-        "stored_dot2",
-        "linear",
+        'a',
+        'x0',
+        'stored_value',
+        'stored_value2',
+        'stored_valxyz',
+        'stored_valxyz2',
+        'stored_deriv',
+        'stored_derxyz',
+        'stored_deriv2',
+        'stored_deriv2xyz',
+        'stored_norm',
+        'e0',
+        'stored_dot2',
+        'linear',
     ]
 
     def __init__(self, a, x0):
@@ -471,12 +471,12 @@ class Rotator(object):
         eq = set(self.a) == set(other.a)
         if eq and np.sum((self.x0 - other.x0) ** 2) > 1e-6:
             nifty.logger.warning(
-                "Warning: Rotator same atoms, different reference positions"
+                'Warning: Rotator same atoms, different reference positions'
             )
         return eq
 
     def __repr__(self):
-        return "Rotator %s" % nifty.commadash(self.a)
+        return 'Rotator %s' % nifty.commadash(self.a)
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -547,9 +547,9 @@ class Rotator(object):
         calculated for (xyz1 - xyz2).
         """
         if xyz2 is None and val2 is None:
-            raise RuntimeError("Provide exactly one of xyz2 and val2")
+            raise RuntimeError('Provide exactly one of xyz2 and val2')
         elif xyz2 is not None and val2 is not None:
-            raise RuntimeError("Provide exactly one of xyz2 and val2")
+            raise RuntimeError('Provide exactly one of xyz2 and val2')
         val1 = self.value(xyz1)
         if xyz2 is not None:
             # The "second" coordinate set is cached separately
@@ -804,16 +804,16 @@ class Rotator(object):
             # =====
 
             deriv2_raw[:-1, :, :-1, :] += np.einsum(
-                "jmpi,knp->jmkni", deriv2_raw[:-1, :, -1, :, :], ddum1, optimize=True
+                'jmpi,knp->jmkni', deriv2_raw[:-1, :, -1, :, :], ddum1, optimize=True
             )
             deriv2_raw[:-1, :, :-1, :] += np.einsum(
-                "pkni,jmp->jmkni", deriv2_raw[-1, :, :-1, :, :], ddum1, optimize=True
+                'pkni,jmp->jmkni', deriv2_raw[-1, :, :-1, :, :], ddum1, optimize=True
             )
             deriv2_raw[:-1, :, :-1, :] += np.einsum(
-                "pi,jmknp->jmkni", deriv_raw[-1, :, :], ddum2, optimize=True
+                'pi,jmknp->jmkni', deriv_raw[-1, :, :], ddum2, optimize=True
             )
             deriv2_raw[:-1, :, :-1, :] += np.einsum(
-                "pqi,jmp,knq->jmkni",
+                'pqi,jmp,knq->jmkni',
                 deriv2_raw[-1, :, -1, :, :],
                 ddum1,
                 ddum1,
@@ -833,7 +833,7 @@ class Rotator(object):
 
 
 class RotationA(PrimitiveCoordinate):
-    __slots__ = ["a", "x0", "w", "Rotator", "isAngular", "isPeriodic"]
+    __slots__ = ['a', 'x0', 'w', 'Rotator', 'isAngular', 'isPeriodic']
 
     def __init__(self, a, x0, Rotators, w=1.0):
         self.a = tuple(sorted(a))
@@ -847,7 +847,7 @@ class RotationA(PrimitiveCoordinate):
 
     def __repr__(self):
         # return "Rotation-A %s : Weight %.3f" % (' '.join([str(i+1) for i in self.a]), self.w)
-        return "Rotation-A %s" % (nifty.commadash(self.a))
+        return 'Rotation-A %s' % (nifty.commadash(self.a))
 
     @property
     def atoms(self):
@@ -884,7 +884,7 @@ class RotationA(PrimitiveCoordinate):
 
 
 class RotationB(PrimitiveCoordinate):
-    __slots__ = ["a", "x0", "w", "Rotator", "isAngular", "isPeriodic"]
+    __slots__ = ['a', 'x0', 'w', 'Rotator', 'isAngular', 'isPeriodic']
 
     def __init__(self, a, x0, Rotators, w=1.0):
         self.a = tuple(sorted(a))
@@ -898,7 +898,7 @@ class RotationB(PrimitiveCoordinate):
 
     def __repr__(self):
         # return "Rotation-B %s : Weight %.3f" % (' '.join([str(i+1) for i in self.a]), self.w)
-        return "Rotation-B %s" % (nifty.commadash(self.a))
+        return 'Rotation-B %s' % (nifty.commadash(self.a))
 
     @property
     def atoms(self):
@@ -935,7 +935,7 @@ class RotationB(PrimitiveCoordinate):
 
 
 class RotationC(PrimitiveCoordinate):
-    __slots__ = ["a", "x0", "w", "Rotator", "isAngular", "isPeriodic"]
+    __slots__ = ['a', 'x0', 'w', 'Rotator', 'isAngular', 'isPeriodic']
 
     def __init__(self, a, x0, Rotators, w=1.0):
         self.a = tuple(sorted(a))
@@ -949,7 +949,7 @@ class RotationC(PrimitiveCoordinate):
 
     def __repr__(self):
         # return "Rotation-C %s : Weight %.3f" % (' '.join([str(i+1) for i in self.a]), self.w)
-        return "Rotation-C %s" % (nifty.commadash(self.a))
+        return 'Rotation-C %s' % (nifty.commadash(self.a))
 
     @property
     def atoms(self):
@@ -986,18 +986,18 @@ class RotationC(PrimitiveCoordinate):
 
 
 class Distance(PrimitiveCoordinate):
-    __slots__ = ["a", "b", "isAngular", "isPeriodic"]
+    __slots__ = ['a', 'b', 'isAngular', 'isPeriodic']
 
     def __init__(self, a, b):
         self.a = a
         self.b = b
         if a == b:
-            raise RuntimeError("a and b must be different")
+            raise RuntimeError('a and b must be different')
         self.isAngular = False
         self.isPeriodic = False
 
     def __repr__(self):
-        return "Distance %i-%i" % (self.a + 1, self.b + 1)
+        return 'Distance %i-%i' % (self.a + 1, self.b + 1)
 
     @property
     def atoms(self):
@@ -1051,7 +1051,7 @@ class Distance(PrimitiveCoordinate):
 
 
 class Angle(PrimitiveCoordinate):
-    __slots__ = ["a", "b", "c", "isAngular", "isPeriodic"]
+    __slots__ = ['a', 'b', 'c', 'isAngular', 'isPeriodic']
 
     def __init__(self, a, b, c):
         self.a = a
@@ -1060,10 +1060,10 @@ class Angle(PrimitiveCoordinate):
         self.isAngular = True
         self.isPeriodic = False
         if len({a, b, c}) != 3:
-            raise RuntimeError("a, b, and c must be different")
+            raise RuntimeError('a, b, and c must be different')
 
     def __repr__(self):
-        return "Angle %i-%i-%i" % (self.a + 1, self.b + 1, self.c + 1)
+        return 'Angle %i-%i-%i' % (self.a + 1, self.b + 1, self.c + 1)
 
     @property
     def atoms(self):
@@ -1100,11 +1100,11 @@ class Angle(PrimitiveCoordinate):
         # Catch the edge case that very rarely this number is -1.
         if dot / (norm1 * norm2) <= -1.0:
             if (np.abs(dot / (norm1 * norm2)) + 1.0) < -1e-6:
-                raise RuntimeError("Encountered invalid value in angle")
+                raise RuntimeError('Encountered invalid value in angle')
             return np.pi
         if dot / (norm1 * norm2) >= 1.0:
             if (np.abs(dot / (norm1 * norm2)) - 1.0) > 1e-6:
-                raise RuntimeError("Encountered invalid value in angle")
+                raise RuntimeError('Encountered invalid value in angle')
             return 0.0
         return np.arccos(dot / (norm1 * norm2))
 
@@ -1206,7 +1206,7 @@ class Angle(PrimitiveCoordinate):
 
 
 class LinearAngle(PrimitiveCoordinate):
-    __slots__ = ["a", "b", "c", "axis", "e0", "stored_dot2", "isAngular", "isPeriodic"]
+    __slots__ = ['a', 'b', 'c', 'axis', 'e0', 'stored_dot2', 'isAngular', 'isPeriodic']
 
     def __init__(self, a, b, c, axis):
         self.a = a
@@ -1216,7 +1216,7 @@ class LinearAngle(PrimitiveCoordinate):
         self.isAngular = False
         self.isPeriodic = False
         if len({a, b, c}) != 3:
-            raise RuntimeError("a, b, and c must be different")
+            raise RuntimeError('a, b, and c must be different')
         self.e0 = None
         self.stored_dot2 = 0.0
 
@@ -1246,15 +1246,15 @@ class LinearAngle(PrimitiveCoordinate):
         self.stored_dot2 = 0.0
 
     def __repr__(self):
-        return "LinearAngle%s %i-%i-%i" % (
-            ["X", "Y"][self.axis],
+        return 'LinearAngle%s %i-%i-%i' % (
+            ['X', 'Y'][self.axis],
             self.a + 1,
             self.b + 1,
             self.c + 1,
         )
 
     def __eq__(self, other):
-        if not hasattr(other, "axis"):
+        if not hasattr(other, 'axis'):
             return False
         if self.axis is not other.axis:
             return False
@@ -1384,7 +1384,7 @@ class LinearAngle(PrimitiveCoordinate):
 
 
 class MultiAngle(PrimitiveCoordinate):
-    __slots__ = ["a", "b", "c", "isAngular", "isPeriodic"]
+    __slots__ = ['a', 'b', 'c', 'isAngular', 'isPeriodic']
 
     def __init__(self, a, b, c):
         if type(a) is int:
@@ -1397,21 +1397,21 @@ class MultiAngle(PrimitiveCoordinate):
         self.isAngular = True
         self.isPeriodic = False
         if len({a, b, c}) != 3:
-            raise RuntimeError("a, b, and c must be different")
+            raise RuntimeError('a, b, and c must be different')
 
     def __repr__(self):
         stra = (
-            ("(" + ",".join(["%i" % (i + 1) for i in self.a]) + ")")
+            ('(' + ','.join(['%i' % (i + 1) for i in self.a]) + ')')
             if len(self.a) > 1
-            else "%i" % (self.a[0] + 1)
+            else '%i' % (self.a[0] + 1)
         )
         strc = (
-            ("(" + ",".join(["%i" % (i + 1) for i in self.c]) + ")")
+            ('(' + ','.join(['%i' % (i + 1) for i in self.c]) + ')')
             if len(self.c) > 1
-            else "%i" % (self.c[0] + 1)
+            else '%i' % (self.c[0] + 1)
         )
-        return "%sAngle %s-%i-%s" % (
-            "Multi" if (len(self.a) > 1 or len(self.c) > 1) else "",
+        return '%sAngle %s-%i-%s' % (
+            'Multi' if (len(self.a) > 1 or len(self.c) > 1) else '',
             stra,
             self.b + 1,
             strc,
@@ -1450,7 +1450,7 @@ class MultiAngle(PrimitiveCoordinate):
         # Catch the edge case that very rarely this number is -1.
         if dot / (norm1 * norm2) <= -1.0:
             if (np.abs(dot / (norm1 * norm2)) + 1.0) < -1e-6:
-                raise RuntimeError("Encountered invalid value in angle")
+                raise RuntimeError('Encountered invalid value in angle')
             return np.pi
         return np.arccos(dot / (norm1 * norm2))
 
@@ -1512,13 +1512,13 @@ class MultiAngle(PrimitiveCoordinate):
 
     def second_derivative(self, xyz, start_idx):
         raise NotImplementedError(
-            "Second derivatives have not been implemented for IC type %s"
+            'Second derivatives have not been implemented for IC type %s'
             % self.__name__
         )
 
 
 class Dihedral(PrimitiveCoordinate):
-    __slots__ = ["a", "b", "c", "d", "isAngular", "isPeriodic"]
+    __slots__ = ['a', 'b', 'c', 'd', 'isAngular', 'isPeriodic']
 
     def __init__(self, a, b, c, d):
         self.a = a
@@ -1528,10 +1528,10 @@ class Dihedral(PrimitiveCoordinate):
         self.isAngular = True
         self.isPeriodic = True
         if len({a, b, c, d}) != 4:
-            raise RuntimeError("a, b, c and d must be different")
+            raise RuntimeError('a, b, c and d must be different')
 
     def __repr__(self):
-        return "Dihedral %i-%i-%i-%i" % (self.a + 1, self.b + 1, self.c + 1, self.d + 1)
+        return 'Dihedral %i-%i-%i-%i' % (self.a + 1, self.b + 1, self.c + 1, self.d + 1)
 
     @property
     def atoms(self):
@@ -1698,7 +1698,7 @@ class Dihedral(PrimitiveCoordinate):
 
 
 class MultiDihedral(PrimitiveCoordinate):
-    __slots__ = ["a", "b", "c", "d", "isAngular", "isPeriodic"]
+    __slots__ = ['a', 'b', 'c', 'd', 'isAngular', 'isPeriodic']
 
     def __init__(self, a, b, c, d):
         if type(a) is int:
@@ -1712,21 +1712,21 @@ class MultiDihedral(PrimitiveCoordinate):
         self.isAngular = True
         self.isPeriodic = True
         if len({a, b, c, d}) != 4:
-            raise RuntimeError("a, b, c and d must be different")
+            raise RuntimeError('a, b, c and d must be different')
 
     def __repr__(self):
         stra = (
-            ("(" + ",".join(["%i" % (i + 1) for i in self.a]) + ")")
+            ('(' + ','.join(['%i' % (i + 1) for i in self.a]) + ')')
             if len(self.a) > 1
-            else "%i" % (self.a[0] + 1)
+            else '%i' % (self.a[0] + 1)
         )
         strd = (
-            ("(" + ",".join(["%i" % (i + 1) for i in self.d]) + ")")
+            ('(' + ','.join(['%i' % (i + 1) for i in self.d]) + ')')
             if len(self.d) > 1
-            else "%i" % (self.d[0] + 1)
+            else '%i' % (self.d[0] + 1)
         )
-        return "%sDihedral %s-%i-%i-%s" % (
-            "Multi" if (len(self.a) > 1 or len(self.d) > 1) else "",
+        return '%sDihedral %s-%i-%i-%s' % (
+            'Multi' if (len(self.a) > 1 or len(self.d) > 1) else '',
             stra,
             self.b + 1,
             self.c + 1,
@@ -1815,13 +1815,13 @@ class MultiDihedral(PrimitiveCoordinate):
 
     def second_derivative(self, xyz, start_idx=0):
         raise NotImplementedError(
-            "Second derivatives have not been implemented for IC type %s"
+            'Second derivatives have not been implemented for IC type %s'
             % self.__name__
         )
 
 
 class OutOfPlane(PrimitiveCoordinate):
-    __slots__ = ["a", "b", "c", "d", "isAngular", "isPeriodic"]
+    __slots__ = ['a', 'b', 'c', 'd', 'isAngular', 'isPeriodic']
 
     def __init__(self, a, b, c, d):
         self.a = a
@@ -1831,10 +1831,10 @@ class OutOfPlane(PrimitiveCoordinate):
         self.isAngular = True
         self.isPeriodic = True
         if len({a, b, c, d}) != 4:
-            raise RuntimeError("a, b, c and d must be different")
+            raise RuntimeError('a, b, c and d must be different')
 
     def __repr__(self):
-        return "Out-of-Plane %i-%i-%i-%i" % (
+        return 'Out-of-Plane %i-%i-%i-%i' % (
             self.a + 1,
             self.b + 1,
             self.c + 1,
@@ -1852,7 +1852,7 @@ class OutOfPlane(PrimitiveCoordinate):
             if {self.b, self.c, self.d} == {other.b, other.c, other.d}:
                 if [self.b, self.c, self.d] != [other.b, other.c, other.d]:
                     nifty.logger.warning(
-                        "Warning: OutOfPlane atoms are the same, ordering is different"
+                        'Warning: OutOfPlane atoms are the same, ordering is different'
                     )
                 return True
         #     if self.b == other.b:
@@ -1948,16 +1948,16 @@ class OutOfPlane(PrimitiveCoordinate):
         return deriv2
 
 
-def logArray(mat, precision=3, fmt="f"):
-    fmt = "%% .%i%s" % (precision, fmt)
+def logArray(mat, precision=3, fmt='f'):
+    fmt = '%% .%i%s' % (precision, fmt)
     if len(mat.shape) == 1:
         for i in range(mat.shape[0]):
-            nifty.logger.info(fmt % mat[i]),
-        nifty.logger.debug("")
+            (nifty.logger.info(fmt % mat[i]),)
+        nifty.logger.debug('')
     elif len(mat.shape) == 2:
         for i in range(mat.shape[0]):
             for j in range(mat.shape[1]):
-                nifty.logger.info(fmt % mat[i, j]),
-            nifty.logger.debug("")
+                (nifty.logger.info(fmt % mat[i, j]),)
+            nifty.logger.debug('')
     else:
-        raise RuntimeError("One or two dimensional arrays only")
+        raise RuntimeError('One or two dimensional arrays only')

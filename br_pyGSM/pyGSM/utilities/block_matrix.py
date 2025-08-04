@@ -4,11 +4,10 @@ from .math_utils import orthogonalize, conjugate_orthogonalize
 
 
 def isblock(obj):
-    return hasattr(obj, "matlist")
+    return hasattr(obj, 'matlist')
 
 
 class block_matrix(object):
-
     def __init__(self, matlist, cnorms=None):
         self.matlist = matlist
         if cnorms is None:
@@ -16,15 +15,15 @@ class block_matrix(object):
         self.cnorms = cnorms
 
     def __repr__(self):
-        lines = [" block matrix: # blocks = {}".format(self.num_blocks)]
+        lines = [' block matrix: # blocks = {}'.format(self.num_blocks)]
         count = 0
         for m in self.matlist:
             lines.append(str(m))
             count += 1
             if count > 10:
-                nifty.logger.debug("truncating printout")
+                nifty.logger.debug('truncating printout')
                 break
-        return "\n".join(lines)
+        return '\n'.join(lines)
 
     @staticmethod
     def full_matrix(A):
@@ -77,7 +76,6 @@ class block_matrix(object):
             flag = False
             tmpc = []
             for count, constraint in enumerate(constraints.T):
-
                 # CRA 81219 what to do here? mag of real or g-space?
                 # mag = np.linalg.norm(constraint[sr:er])
                 mag = np.sqrt(
@@ -180,7 +178,7 @@ class block_matrix(object):
             sr = er
             sc = ec
 
-        assert len(newblocks) == len(BM.matlist), "not proper lengths for zipping"
+        assert len(newblocks) == len(BM.matlist), 'not proper lengths for zipping'
 
         # NEW
         # orthogonalize each sub block
@@ -211,12 +209,12 @@ class block_matrix(object):
                     a = orthogonalize(nb, num_c)
                     # nifty.logger.debug("result {}".format(a.shape))
                 except:
-                    nifty.logger.debug(" what is happening")
-                    nifty.logger.debug("nb")
+                    nifty.logger.debug(' what is happening')
+                    nifty.logger.debug('nb')
                     nifty.logger.debug(nb)
                     nifty.logger.debug(nb.shape)
                     nifty.logger.debug(num_c)
-                    nifty.logger.debug("ob")
+                    nifty.logger.debug('ob')
                     nifty.logger.debug(ob)
                 ans.append(a)
                 # ans.append(orthogonalize(nb,num_c))
@@ -268,7 +266,7 @@ class block_matrix(object):
             indep = np.where(np.abs(R.diagonal()) > min_tol)[0]
             ans.append(Q[:, indep])
             if len(indep) > A.shape[1]:
-                nifty.logger.debug(" the basis dimensions are too large.")
+                nifty.logger.debug(' the basis dimensions are too large.')
                 raise RuntimeError
             # tmp = np.dot(Q,R)
             # nifty.logger.debug(tmp.shape)
@@ -302,10 +300,10 @@ class block_matrix(object):
                 if any(c[sc:ec] != 0.0):
                     num_c += 1
                     nifty.logger.debug(
-                        "block %d mag %.4f" % (i, np.linalg.norm(c[sc:ec]))
+                        'block %d mag %.4f' % (i, np.linalg.norm(c[sc:ec]))
                     )
                     nifty.logger.debug(c[sc:ec])
-                    nifty.logger.debug("num_c=%d" % num_c)
+                    nifty.logger.debug('num_c=%d' % num_c)
             ans.append(orthogonalize(block, num_c))
             sc = ec
         return block_matrix(ans, BM.cnorms)
@@ -325,9 +323,9 @@ class block_matrix(object):
         return block_matrix([np.zeros_like(A) for A in BM.matlist])
 
     def __add__(self, rhs):
-        nifty.logger.debug("adding")
+        nifty.logger.debug('adding')
         if isinstance(rhs, self.__class__):
-            nifty.logger.debug("adding block matrices!")
+            nifty.logger.debug('adding block matrices!')
             assert self.shape == rhs.shape
             return block_matrix([A + B for A, B in zip(self.matlist, rhs.matlist)])
         elif isinstance(rhs, float) or isinstance(rhs, int):

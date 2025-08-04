@@ -297,9 +297,9 @@ class GrowingNT:
             img_num = len(self.images)
             str_ = f"Grew Newton trajectory to {img_num} images."
             if self.passed_min:
-                str_ += f" Passed minimum geometry at image {img_num-1}."
+                str_ += f" Passed minimum geometry at image {img_num - 1}."
             elif self.passed_ts:
-                str_ += f" Passed transition state geometry at image {img_num-1}."
+                str_ += f" Passed transition state geometry at image {img_num - 1}."
         else:
             str_ = None
 

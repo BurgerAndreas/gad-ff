@@ -8,7 +8,6 @@ from pysisyphus.intcoords.derivatives import q_a2, dq_a2, d2q_a2
 
 
 class Bend2(Bend):
-
     @staticmethod
     def _calculate(coords3d, indices, gradient=False):
         args = coords3d[indices].flatten()

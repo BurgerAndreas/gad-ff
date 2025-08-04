@@ -62,7 +62,6 @@ def myprint(batch):
 
 
 if __name__ == "__main__":
-
     project_root = os.path.dirname(os.path.dirname(__file__))
 
     config_path = os.path.join(project_root, "configs/equiformer_v2.yaml")

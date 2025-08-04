@@ -8,7 +8,6 @@ from pysisyphus.linalg import cross3, norm3
 
 
 class Bend(Primitive):
-
     @staticmethod
     def _weight(atoms, coords3d, indices, f_damping):
         m, o, n = indices

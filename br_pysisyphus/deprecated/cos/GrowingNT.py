@@ -11,7 +11,6 @@ from pysisyphus.Geometry import Geometry
 
 
 class GrowingNT(ChainOfStates):
-
     def __init__(
         self, images, calc_getter, eps, damp, max_nodes=10, readjust=True, **kwargs
     ):

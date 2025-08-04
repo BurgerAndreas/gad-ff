@@ -51,26 +51,26 @@ class MyG(nx.Graph):
 
     def AStr(self):
         """Return a string of atoms, which serves as a rudimentary 'fingerprint' : '99,100,103,151' ."""
-        return ",".join(["%i" % i for i in self.L()])
+        return ','.join(['%i' % i for i in self.L()])
 
     def e(self):
         """Return an array of the elements.  For instance ['H' 'C' 'C' 'H']."""
-        elems = nx.get_node_attributes(self, "e")
+        elems = nx.get_node_attributes(self, 'e')
         return [elems[i] for i in self.L()]
 
     def ef(self):
         """Create an Empirical Formula"""
         Formula = list(self.e())
-        return "".join(
+        return ''.join(
             [
-                ("%s%i" % (k, Formula.count(k)) if Formula.count(k) > 1 else "%s" % k)
+                ('%s%i' % (k, Formula.count(k)) if Formula.count(k) > 1 else '%s' % k)
                 for k in sorted(set(Formula))
             ]
         )
 
     def x(self):
         """Get a list of the coordinates."""
-        coors = nx.get_node_attributes(self, "x")
+        coors = nx.get_node_attributes(self, 'x')
         return np.array([coors[i] for i in self.L()])
 
 
@@ -145,7 +145,6 @@ def AtomContact(xyz, pairs, box=None, displace=False):
 
 class Topology:
     def __init__(self, **kwargs):
-
         return
 
     @staticmethod
@@ -157,7 +156,7 @@ class Topology:
         bondlistfile=None,
         prim_idx_start_stop=None,
         verbose=False,
-        **kwargs
+        **kwargs,
     ):
         """
         Create topology and fragments; these are graph
@@ -184,7 +183,7 @@ class Topology:
         # can do an assert for xyz here CRA TODO
         if natoms > 100000:
             nifty.logger.warning(
-                "Warning: Large number of atoms (%i), topology building may take a long time"
+                'Warning: Large number of atoms (%i), topology building may take a long time'
                 % natoms
             )
 
@@ -217,7 +216,7 @@ class Topology:
 
         if not bondlistfile:
             if verbose:
-                nifty.printcool(" building bonds")
+                nifty.printcool(' building bonds')
                 nifty.logger.debug(prim_idx_start_stop)
             bonds = Topology.build_bonds(
                 xyz, atoms, primitive_indices, prim_idx_start_stop
@@ -236,7 +235,7 @@ class Topology:
 
         if add_bond:
             if verbose:
-                nifty.logger.debug(" adding extra bonds")
+                nifty.logger.debug(' adding extra bonds')
             for bond in add_bond:
                 bonds.append(bond)
             # nifty.logger.debug(bonds)
@@ -248,12 +247,12 @@ class Topology:
             element = atoms[i]
             a = element.symbol
             G.add_node(i)
-            if parse_version(nx.__version__) >= parse_version("2.0"):
-                nx.set_node_attributes(G, {i: a}, name="e")
-                nx.set_node_attributes(G, {i: xyz[i]}, name="x")
+            if parse_version(nx.__version__) >= parse_version('2.0'):
+                nx.set_node_attributes(G, {i: a}, name='e')
+                nx.set_node_attributes(G, {i: xyz[i]}, name='x')
             else:
-                nx.set_node_attributes(G, "e", {i: a})
-                nx.set_node_attributes(G, "x", {i: xyz[i]})
+                nx.set_node_attributes(G, 'e', {i: a})
+                nx.set_node_attributes(G, 'x', {i: xyz[i]})
         for i, j in bonds:
             G.add_edge(i, j)
 
@@ -318,18 +317,18 @@ class Topology:
     def build_bonds(xyz, atoms, primitive_indices, prim_idx_start_stop=None, **kwargs):
         """Build the bond connectivity graph."""
 
-        nifty.logger.debug(" In build bonds")
+        nifty.logger.debug(' In build bonds')
         top_settings = {
-            "toppbc": kwargs.get("toppbc", False),
-            "topframe": kwargs.get("topframe", 0),
-            "Fac": kwargs.get("Fac", 1.2),
-            "radii": kwargs.get("radii", {}),
+            'toppbc': kwargs.get('toppbc', False),
+            'topframe': kwargs.get('topframe', 0),
+            'Fac': kwargs.get('Fac', 1.2),
+            'radii': kwargs.get('radii', {}),
         }
 
         # leftover from LPW code
-        sn = top_settings["topframe"]
-        toppbc = top_settings["toppbc"]
-        Fac = top_settings["Fac"]
+        sn = top_settings['topframe']
+        toppbc = top_settings['toppbc']
+        Fac = top_settings['Fac']
         natoms = len(xyz)
 
         mindist = 1.0  # Any two atoms that are closer than this distance are bonded.
@@ -343,7 +342,7 @@ class Topology:
         # Grid size in Angstrom.  This number is optimized for speed in a 15,000 atom system (united atom pentadecane).
         gsz = 6.0
         boxes = None
-        if top_settings["toppbc"]:
+        if top_settings['toppbc']:
             raise NotImplementedError
             xmin = 0.0
             ymin = 0.0
@@ -355,7 +354,7 @@ class Topology:
                 [i != 90.0 for i in [boxes[sn].alpha, boxes[sn].beta, boxes[sn].gamma]]
             ):
                 nifty.logger.warning(
-                    "Warning: Topology building will not work with broken molecules in nonorthogonal cells."
+                    'Warning: Topology building will not work with broken molecules in nonorthogonal cells.'
                 )
                 toppbc = False
         else:
@@ -384,7 +383,7 @@ class Topology:
         # Decide if we want to use the grid algorithm.
         use_grid = toppbc or (np.min([xext, yext, zext]) > 2.0 * gsz)
         if use_grid and prim_idx_start_stop is None:
-            nifty.logger.debug(" Using grid")
+            nifty.logger.debug(' Using grid')
             # Inside the grid algorithm.
             # 1) Determine the left edges of the grid cells.
             # Note that we leave out the rightmost grid cell,
@@ -492,7 +491,7 @@ class Topology:
                             new = True
                             prim_idx_start_stop.append((start, end))
             else:
-                nifty.logger.debug(" using user defined primitive start stop values")
+                nifty.logger.debug(' using user defined primitive start stop values')
 
             # nifty.logger.debug(prim_idx_start_stop)
             first_list = []
@@ -535,7 +534,7 @@ class Topology:
             dxij = AtomContact(xyz, AtomIterator)
 
         # Update topology settings with what we learned
-        top_settings["toppbc"] = toppbc
+        top_settings['toppbc'] = toppbc
 
         # Create a list of atoms that each atom is bonded to.
         atom_bonds = [[] for i in range(natoms)]
@@ -573,7 +572,7 @@ class Topology:
 
     @staticmethod
     def read_bonds_from_file(filename):
-        nifty.logger.debug("reading bonds")
+        nifty.logger.debug('reading bonds')
         bondlist = np.loadtxt(filename)
 
         bonds = []
@@ -629,8 +628,8 @@ class Topology:
         angles in the system.  Verified for lysine and tryptophan
         dipeptide when comparing to TINKER's analyze program."""
 
-        if not hasattr(self, "topology"):
-            nifty.logger.debug("Need to have built a topology to find angles\n")
+        if not hasattr(self, 'topology'):
+            nifty.logger.debug('Need to have built a topology to find angles\n')
             raise RuntimeError
 
         angidx = []
@@ -656,8 +655,8 @@ class Topology:
         tryptophan dipeptide when comparing to TINKER's analyze
         program."""
 
-        if not hasattr(self, "topology"):
-            nifty.logger.debug("Need to have built a topology to find dihedrals\n")
+        if not hasattr(self, 'topology'):
+            nifty.logger.debug('Need to have built a topology to find dihedrals\n')
             raise RuntimeError
 
         dihidx = []
@@ -705,15 +704,15 @@ class Topology:
         return AtomIterator, drij
 
 
-if __name__ == "__main__" and __package__ is None:
+if __name__ == '__main__' and __package__ is None:
     from os import sys, path
 
     sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
     # filepath='../../data/butadiene_ethene.xyz'
     # filepath='crystal.xyz'
-    filepath1 = "multi1.xyz"
-    filepath2 = "multi2.xyz"
+    filepath1 = 'multi1.xyz'
+    filepath2 = 'multi2.xyz'
 
     geom1 = manage_xyz.read_xyz(filepath1)
     geom2 = manage_xyz.read_xyz(filepath2)
@@ -737,7 +736,7 @@ if __name__ == "__main__" and __package__ is None:
         elif (bond[1], bond[0]) in G1.edges():
             pass
         else:
-            nifty.logger.debug(" Adding bond {} to top1".format(bond))
+            nifty.logger.debug(' Adding bond {} to top1'.format(bond))
             if bond[0] > bond[1]:
                 G1.add_edge(bond[0], bond[1])
             else:

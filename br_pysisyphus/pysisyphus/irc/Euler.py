@@ -5,7 +5,6 @@ from pysisyphus.TableFormatter import TableFormatter
 
 
 class Euler(IRC):
-
     def __init__(self, geometry, step_length=0.01, **kwargs):
         super(Euler, self).__init__(geometry, step_length, **kwargs)
 

@@ -16,13 +16,11 @@ from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 
 
 def expand_stress_components(stress_6):
-
     xx, yy, zz, yz, xz, xy = stress_6
     return torch.tensor([xx, xy, xz, xy, yy, yz, xz, yz, zz])
 
 
 def reshape_stress_tensor(stress_tensor):
-
     reshaped = stress_tensor.view(-1, 6)
 
     expanded = torch.stack([expand_stress_components(row) for row in reshaped])

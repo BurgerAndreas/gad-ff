@@ -21,7 +21,6 @@ import numpy as np
 
 
 class SE_GSM(MainGSM):
-
     def __init__(
         self,
         options,
@@ -29,12 +28,12 @@ class SE_GSM(MainGSM):
         super(SE_GSM, self).__init__(options)
         self.current_nnodes = 1
 
-        nifty.logger.debug(" Assuming the isomers are initialized!")
-        nifty.logger.debug(" Primitive Internal Coordinates")
+        nifty.logger.debug(' Assuming the isomers are initialized!')
+        nifty.logger.debug(' Primitive Internal Coordinates')
         nifty.logger.debug(self.nodes[0].primitive_internal_coordinates[0:50])
-        nifty.logger.debug(" number of primitives is", self.nodes[0].num_primitives)
+        nifty.logger.debug(' number of primitives is', self.nodes[0].num_primitives)
 
-        nifty.logger.debug("Driving Coordinates: ")
+        nifty.logger.debug('Driving Coordinates: ')
         nifty.logger.debug(self.driving_coords)
         sys.stdout.flush()
 
@@ -65,7 +64,7 @@ class SE_GSM(MainGSM):
         # TODO first check if there is any add/break then rebuild topology and makePrimitives
 
         for i in self.driving_coords:
-            if "ADD" in i or "BREAK" in i:
+            if 'ADD' in i or 'BREAK' in i:
                 # order
                 if i[1] < i[2]:
                     bond = Distance(i[1] - 1, i[2] - 1)
@@ -73,19 +72,19 @@ class SE_GSM(MainGSM):
                     bond = Distance(i[2] - 1, i[1] - 1)
                 self.nodes[0].coord_obj.Prims.add(bond, verbose=True)
                 changed_top = True
-            if "ANGLE" in i:
+            if 'ANGLE' in i:
                 if i[1] < i[3]:
                     angle = Angle(i[1] - 1, i[2] - 1, i[3] - 1)
                 else:
                     angle = Angle(i[3] - 1, i[2] - 1, i[1] - 1)
                 self.nodes[0].coord_obj.Prims.add(angle, verbose=True)
-            if "TORSION" in i:
+            if 'TORSION' in i:
                 if i[1] < i[4]:
                     torsion = Dihedral(i[1] - 1, i[2] - 1, i[3] - 1, i[4] - 1)
                 else:
                     torsion = Dihedral(i[4] - 1, i[3] - 1, i[2] - 1, i[1] - 1)
                 self.nodes[0].coord_obj.Prims.add(torsion, verbose=True)
-            if "OOP" in i:
+            if 'OOP' in i:
                 if i[1] < i[4]:
                     oop = OutOfPlane(i[1] - 1, i[2] - 1, i[3] - 1, i[4] - 1)
                 else:
@@ -111,12 +110,12 @@ class SE_GSM(MainGSM):
         if self.isRestarted is False:
             self.nodes[0].gradrms = 0.0
             self.nodes[0].V0 = self.nodes[0].energy
-            nifty.logger.debug(" Initial energy is %1.4f" % self.nodes[0].energy)
+            nifty.logger.debug(' Initial energy is %1.4f' % self.nodes[0].energy)
             self.add_GSM_nodeR()
             self.grow_string(max_iters=max_iters, max_opt_steps=opt_steps)
             if self.tscontinue:
                 self.pastts = self.past_ts()
-                nifty.logger.debug("pastts {}".format(self.pastts))
+                nifty.logger.debug('pastts {}'.format(self.pastts))
                 try:
                     if self.pastts == 1:  # normal over the hill
                         self.add_GSM_nodeR(1)
@@ -125,13 +124,13 @@ class SE_GSM(MainGSM):
                         self.add_last_node(1)
                         if (
                             self.nodes[self.nR - 1].gradrms
-                            > 5.0 * self.options["CONV_TOL"]
+                            > 5.0 * self.options['CONV_TOL']
                         ):
                             self.add_last_node(1)
                     elif self.pastts == 3:  # product detected by bonding
                         self.add_last_node(1)
                 except:
-                    nifty.logger.debug("Failed to add last node, continuing.")
+                    nifty.logger.debug('Failed to add last node, continuing.')
                     # probably need to make sure last node is optimized
 
             self.nnodes = self.nR
@@ -139,39 +138,39 @@ class SE_GSM(MainGSM):
             energies = self.energies
 
             if self.TSnode == self.nR - 1:
-                nifty.logger.debug(" The highest energy node is the last")
-                nifty.logger.debug(" not continuing with TS optimization.")
+                nifty.logger.debug(' The highest energy node is the last')
+                nifty.logger.debug(' not continuing with TS optimization.')
                 self.tscontinue = False
 
-            nifty.logger.debug(" Number of nodes is ", self.nnodes)
-            nifty.logger.debug(" Warning last node still not optimized fully")
+            nifty.logger.debug(' Number of nodes is ', self.nnodes)
+            nifty.logger.debug(' Warning last node still not optimized fully')
             self.xyz_writer(
-                "grown_string_{:03}.xyz".format(self.ID),
+                'grown_string_{:03}.xyz'.format(self.ID),
                 self.geometries,
                 self.energies,
                 self.gradrmss,
                 self.dEs,
             )
-            nifty.logger.debug(" SSM growth phase over")
+            nifty.logger.debug(' SSM growth phase over')
             self.done_growing = True
 
-            nifty.logger.debug(" beginning opt phase")
-            nifty.logger.debug("Setting all interior nodes to active")
+            nifty.logger.debug(' beginning opt phase')
+            nifty.logger.debug('Setting all interior nodes to active')
             for n in range(1, self.nnodes - 1):
                 self.active[n] = True
             self.active[self.nnodes - 1] = False
             self.active[0] = False
 
         if not self.isRestarted:
-            nifty.logger.debug(" initial ic_reparam")
+            nifty.logger.debug(' initial ic_reparam')
             self.reparameterize(ic_reparam_steps=25)
-            nifty.logger.debug(" V_profile (after reparam): ", end=" ")
+            nifty.logger.debug(' V_profile (after reparam): ', end=' ')
             energies = self.energies
             for n in range(self.nnodes):
-                nifty.logger.debug(" {:7.3f}".format(float(energies[n])), end=" ")
-            nifty.logger.debug("")
+                nifty.logger.debug(' {:7.3f}'.format(float(energies[n])), end=' ')
+            nifty.logger.debug('')
             self.xyz_writer(
-                "grown_string1_{:03}.xyz".format(self.ID),
+                'grown_string1_{:03}.xyz'.format(self.ID),
                 self.geometries,
                 self.energies,
                 self.gradrmss,
@@ -183,36 +182,36 @@ class SE_GSM(MainGSM):
                 max_iter=max_iters, opt_steps=3, rtype=rtype
             )  # opt steps fixed at 3 for rtype=1 and 2, else set it to be the large number :) muah hahaahah
         else:
-            nifty.logger.debug("Exiting early")
+            nifty.logger.debug('Exiting early')
             self.end_early = True
 
-        filename = "opt_converged_{:03d}.xyz".format(self.ID)
-        nifty.logger.debug(" Printing string to " + filename)
+        filename = 'opt_converged_{:03d}.xyz'.format(self.ID)
+        nifty.logger.debug(' Printing string to ' + filename)
         self.xyz_writer(
             filename, self.geometries, self.energies, self.gradrmss, self.dEs
         )
-        nifty.logger.debug("Finished GSM!")
+        nifty.logger.debug('Finished GSM!')
 
     def add_last_node(self, rtype):
-        assert rtype == 1 or rtype == 2, "rtype must be 1 or 2"
+        assert rtype == 1 or rtype == 2, 'rtype must be 1 or 2'
         noptsteps = 100
         if self.nodes[self.nR - 1].PES.lot.do_coupling:
-            opt_type = "MECI"
+            opt_type = 'MECI'
         else:
-            opt_type = "UNCONSTRAINED"
+            opt_type = 'UNCONSTRAINED'
 
         if rtype == 1:
-            nifty.logger.debug(" copying last node, opting")
+            nifty.logger.debug(' copying last node, opting')
             self.nodes[self.nR] = Molecule.copy_from_options(
                 self.nodes[self.nR - 1], new_node_id=self.nR
             )
-            nifty.logger.debug(" Optimizing node %i" % self.nR)
-            self.optimizer[self.nR].conv_grms = self.options["CONV_TOL"]
-            self.optimizer[self.nR].conv_gmax = self.options["CONV_gmax"]
-            self.optimizer[self.nR].conv_Ediff = self.options["CONV_Ediff"]
-            self.optimizer[self.nR].conv_dE = self.options["CONV_dE"]
+            nifty.logger.debug(' Optimizing node %i' % self.nR)
+            self.optimizer[self.nR].conv_grms = self.options['CONV_TOL']
+            self.optimizer[self.nR].conv_gmax = self.options['CONV_gmax']
+            self.optimizer[self.nR].conv_Ediff = self.options['CONV_Ediff']
+            self.optimizer[self.nR].conv_dE = self.options['CONV_dE']
             path = os.path.join(
-                os.getcwd(), "scratch/{:03d}/{}".format(self.ID, self.nR)
+                os.getcwd(), 'scratch/{:03d}/{}'.format(self.ID, self.nR)
             )
             self.optimizer[self.nR].optimize(
                 molecule=self.nodes[self.nR],
@@ -223,17 +222,17 @@ class SE_GSM(MainGSM):
             )
             self.active[self.nR] = True
             if (self.nodes[self.nR].xyz == self.nodes[self.nR - 1].xyz).all():
-                nifty.logger.debug(" Opt did not produce new geometry")
+                nifty.logger.debug(' Opt did not produce new geometry')
             else:
                 self.nR += 1
         elif rtype == 2:
-            nifty.logger.debug(" already created node, opting")
-            self.optimizer[self.nR - 1].conv_grms = self.options["CONV_TOL"]
-            self.optimizer[self.nR - 1].conv_gmax = self.options["CONV_gmax"]
-            self.optimizer[self.nR - 1].conv_Ediff = self.options["CONV_Ediff"]
-            self.optimizer[self.nR - 1].conv_dE = self.options["CONV_dE"]
+            nifty.logger.debug(' already created node, opting')
+            self.optimizer[self.nR - 1].conv_grms = self.options['CONV_TOL']
+            self.optimizer[self.nR - 1].conv_gmax = self.options['CONV_gmax']
+            self.optimizer[self.nR - 1].conv_Ediff = self.options['CONV_Ediff']
+            self.optimizer[self.nR - 1].conv_dE = self.options['CONV_dE']
             path = os.path.join(
-                os.getcwd(), "scratch/{:03d}/{}".format(self.ID, self.nR - 1)
+                os.getcwd(), 'scratch/{:03d}/{}'.format(self.ID, self.nR - 1)
             )
             self.optimizer[self.nR - 1].optimize(
                 molecule=self.nodes[self.nR - 1],
@@ -247,21 +246,21 @@ class SE_GSM(MainGSM):
         return
 
     def grow_nodes(self):
-        if self.nodes[self.nR - 1].gradrms < self.options["ADD_NODE_TOL"]:
+        if self.nodes[self.nR - 1].gradrms < self.options['ADD_NODE_TOL']:
             if self.nR == self.nnodes:
-                nifty.logger.debug(" Ran out of nodes, exiting GSM")
+                nifty.logger.debug(' Ran out of nodes, exiting GSM')
                 raise ValueError
             if self.nodes[self.nR] is None:
                 self.add_GSM_nodeR()
                 nifty.logger.debug(
-                    " getting energy for node %d: %5.4f"
+                    ' getting energy for node %d: %5.4f'
                     % (self.nR - 1, self.nodes[self.nR - 1].energy - self.nodes[0].V0)
                 )
         return
 
     def add_GSM_nodes(self, newnodes=1):
         if self.nn + newnodes > self.nnodes:
-            nifty.logger.debug("Adding too many nodes, cannot interpolate")
+            nifty.logger.debug('Adding too many nodes, cannot interpolate')
         for i in range(newnodes):
             self.add_GSM_nodeR()
 
@@ -275,18 +274,18 @@ class SE_GSM(MainGSM):
 
     def set_frontier_convergence(self, nR):
         # set
-        self.optimizer[nR].conv_grms = self.options["ADD_NODE_TOL"]
-        self.optimizer[nR].conv_gmax = (
-            100.0  # self.options['ADD_NODE_TOL'] # could use some multiplier times CONV_GMAX...
-        )
+        self.optimizer[nR].conv_grms = self.options['ADD_NODE_TOL']
+        self.optimizer[
+            nR
+        ].conv_gmax = 100.0  # self.options['ADD_NODE_TOL'] # could use some multiplier times CONV_GMAX...
         self.optimizer[nR].conv_Ediff = 1000.0  # 2.5
         nifty.logger.debug(
-            " conv_tol of node %d is %.4f" % (nR, self.optimizer[nR].conv_grms)
+            ' conv_tol of node %d is %.4f' % (nR, self.optimizer[nR].conv_grms)
         )
 
     def set_active(self, nR, nP=None):
         # nifty.logger.debug(" Here is active:",self.active)
-        nifty.logger.debug((" setting active node to %i " % nR))
+        nifty.logger.debug((' setting active node to %i ' % nR))
 
         for i in range(self.nnodes):
             if self.nodes[i] is not None:
@@ -340,14 +339,14 @@ class SE_GSM(MainGSM):
         if ns < nodemax:
             ns = nodemax
 
-        nifty.logger.debug(" Energies", end=" ")
+        nifty.logger.debug(' Energies', end=' ')
         energies = self.energies
         for n in range(ns, self.nR):
-            nifty.logger.debug(" {:4.3f}".format(energies[n]), end=" ")
+            nifty.logger.debug(' {:4.3f}'.format(energies[n]), end=' ')
             if energies[n] > emax:
                 nodemax = n
                 emax = energies[n]
-        nifty.logger.debug("\n nodemax ", nodemax)
+        nifty.logger.debug('\n nodemax ', nodemax)
 
         for n in range(nodemax, self.nR):
             if energies[n] < emax - THRESH1:
@@ -358,9 +357,9 @@ class SE_GSM(MainGSM):
                 ispast3 += 1
             if ispast1 > 1:
                 break
-        nifty.logger.debug(" ispast1", ispast1)
-        nifty.logger.debug(" ispast2", ispast2)
-        nifty.logger.debug(" ispast3", ispast3)
+        nifty.logger.debug(' ispast1', ispast1)
+        nifty.logger.debug(' ispast2', ispast2)
+        nifty.logger.debug(' ispast3', ispast3)
 
         # TODO 5/9/2019 what about multiple constraints
         # Done 6/23/2019
@@ -373,7 +372,7 @@ class SE_GSM(MainGSM):
         cgrad = np.linalg.norm(cgrad) * np.sign(overlap)
 
         nifty.logger.debug(
-            (" cgrad: %4.3f nodemax: %i nR: %i" % (cgrad, nodemax, self.nR))
+            (' cgrad: %4.3f nodemax: %i nR: %i' % (cgrad, nodemax, self.nR))
         )
 
         # 6/17 THIS should check if the last node is high in energy
@@ -382,13 +381,13 @@ class SE_GSM(MainGSM):
             and not self.nodes[self.nR - 1].PES.lot.do_coupling
             and nodemax != self.TSnode
         ):
-            nifty.logger.debug(" constraint gradient positive")
+            nifty.logger.debug(' constraint gradient positive')
             ispast = 2
         elif ispast1 > 0 and cgrad > OTHRESH:
-            nifty.logger.debug(" over the hill(1)")
+            nifty.logger.debug(' over the hill(1)')
             ispast = 1
         elif ispast2 > 1:
-            nifty.logger.debug(" over the hill(2)")
+            nifty.logger.debug(' over the hill(2)')
             ispast = 1
         else:
             ispast = 0
@@ -396,9 +395,9 @@ class SE_GSM(MainGSM):
         if ispast == 0:
             bch = self.check_for_reaction_g(1, self.driving_coords)
             if ispast3 > 1 and bch:
-                nifty.logger.debug("over the hill(3) connection changed %r " % bch)
+                nifty.logger.debug('over the hill(3) connection changed %r ' % bch)
                 ispast = 3
-        nifty.logger.debug(" ispast=", ispast)
+        nifty.logger.debug(' ispast=', ispast)
         return ispast
 
     def check_if_grown(self):
@@ -413,31 +412,31 @@ class SE_GSM(MainGSM):
         condition1 = abs(self.nodes[self.nR - 1].bdist) <= (1 - self.BDIST_RATIO) * abs(
             self.nodes[0].bdist
         )
-        nifty.logger.debug(" bdist %.3f" % self.nodes[self.nR - 1].bdist)
+        nifty.logger.debug(' bdist %.3f' % self.nodes[self.nR - 1].bdist)
 
-        fp = self.find_peaks("growing")
+        fp = self.find_peaks('growing')
         if (
             self.pastts and self.current_nnodes > 3 and condition1
         ):  # TODO extra criterion here
-            nifty.logger.debug(" pastts is ", self.pastts)
+            nifty.logger.debug(' pastts is ', self.pastts)
             if self.TSnode == self.nR - 1:
-                nifty.logger.debug(" The highest energy node is the last")
-                nifty.logger.debug(" not continuing with TS optimization.")
+                nifty.logger.debug(' The highest energy node is the last')
+                nifty.logger.debug(' not continuing with TS optimization.')
                 self.tscontinue = False
-            nifty.printcool("Over the hill")
+            nifty.printcool('Over the hill')
             isDone = True
         elif (
             fp == -1
             and self.energies[self.nR - 1] > 200.0
-            and self.nodes[self.nR - 1].gradrms > self.options["CONV_TOL"] * 5
+            and self.nodes[self.nR - 1].gradrms > self.options['CONV_TOL'] * 5
         ):
-            nifty.logger.debug("growth_iters over: all uphill and high energy")
+            nifty.logger.debug('growth_iters over: all uphill and high energy')
             self.end_early = 2
             self.tscontinue = False
             self.nnodes = self.nR
             isDone = True
         elif fp == -2:
-            nifty.logger.debug("growth_iters over: all uphill and flattening out")
+            nifty.logger.debug('growth_iters over: all uphill and flattening out')
             self.end_early = 2
             self.tscontinue = False
             self.nnodes = self.nR
@@ -447,15 +446,14 @@ class SE_GSM(MainGSM):
         return isDone
 
     def is_converged(self, totalgrad, fp, rtype, ts_cgradq):
-
         if (
             self.TSnode == self.nnodes - 2
             and (self.find or totalgrad < 0.2)
             and fp == 1
         ):
-            if self.nodes[self.nR - 1].gradrms > self.options["CONV_TOL"]:
+            if self.nodes[self.nR - 1].gradrms > self.options['CONV_TOL']:
                 nifty.logger.debug(
-                    "TS node is second to last node, adding one more node"
+                    'TS node is second to last node, adding one more node'
                 )
                 self.add_last_node(1)
                 self.nnodes = self.nR
@@ -465,21 +463,21 @@ class SE_GSM(MainGSM):
                 self.active[self.nnodes - 2] = (
                     True  # GSM makes self.active[self.nnodes-1]=True as well
                 )
-                nifty.logger.debug("done adding node")
-                nifty.logger.debug("nnodes = ", self.nnodes)
+                nifty.logger.debug('done adding node')
+                nifty.logger.debug('nnodes = ', self.nnodes)
                 self.ictan, self.dqmaga = self.get_tangents(self.nodes)
                 self.refresh_coordinates()
             return False
 
         # => check string profile <= #
         if fp == -1:  # total string is uphill
-            nifty.logger.debug("fp == -1, check V_profile")
-            nifty.logger.debug("total dissociation")
+            nifty.logger.debug('fp == -1, check V_profile')
+            nifty.logger.debug('total dissociation')
             self.endearly = True  # bools
             self.tscontinue = False
             return True
         elif fp == -2:
-            nifty.logger.debug("termination due to dissociation")
+            nifty.logger.debug('termination due to dissociation')
             self.tscontinue = False
             self.endearly = True  # bools
             return True
@@ -488,11 +486,11 @@ class SE_GSM(MainGSM):
             self.endearly = True  # bools
             return True
         elif self.climb and fp > 0 and self.finder:
-            fp = self.find_peaks("opting")
+            fp = self.find_peaks('opting')
             if fp > 1:
                 rxnocc, wint = self.check_for_reaction()
             if fp > 1 and rxnocc and wint < self.nnodes - 1:
-                nifty.logger.debug("Need to trim string")
+                nifty.logger.debug('Need to trim string')
                 self.tscontinue = False
                 self.endearly = True  # bools
                 return True
@@ -521,7 +519,7 @@ class SE_GSM(MainGSM):
                     maxnodes.append(n)
         if len(minnodes) > 2 and len(maxnodes) > 1:
             wint = minnodes[1]  # the real reaction ends at first minimum
-            nifty.logger.debug(" wint ", wint)
+            nifty.logger.debug(' wint ', wint)
 
         return isrxn, wint
 
@@ -529,8 +527,8 @@ class SE_GSM(MainGSM):
         """ """
 
         c = Counter(elem[0] for elem in driving_coords)
-        nadds = c["ADD"]
-        nbreaks = c["BREAK"]
+        nadds = c['ADD']
+        nbreaks = c['BREAK']
         isrxn = False
 
         if (nadds + nbreaks) < 1:
@@ -542,14 +540,14 @@ class SE_GSM(MainGSM):
         atoms = self.nodes[nnR].atoms
 
         for i in driving_coords:
-            if "ADD" in i:
+            if 'ADD' in i:
                 index = [i[1] - 1, i[2] - 1]
                 bond = Distance(index[0], index[1])
                 d = bond.value(xyz)
                 d0 = (atoms[index[0]].vdw_radius + atoms[index[1]].vdw_radius) / 2
                 if d < d0:
                     nadded += 1
-            if "BREAK" in i:
+            if 'BREAK' in i:
                 index = [i[1] - 1, i[2] - 1]
                 bond = Distance(index[0], index[1])
                 d = bond.value(xyz)
@@ -564,7 +562,7 @@ class SE_GSM(MainGSM):
             isrxn = True
             # isrxn=nadded+nbroken
         nifty.logger.debug(
-            " check_for_reaction_g isrxn: %r nadd+nbrk: %i" % (isrxn, nadds + nbreaks)
+            ' check_for_reaction_g isrxn: %r nadd+nbrk: %i' % (isrxn, nadds + nbreaks)
         )
         return isrxn
 
@@ -591,7 +589,7 @@ class SE_GSM(MainGSM):
         #        isDone=True
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     from .qchem import QChem
     from .pes import PES
     from .dlc_new import DelocalizedInternalCoordinates
@@ -599,10 +597,10 @@ if __name__ == "__main__":
     from ._linesearch import backtrack, NoLineSearch
     from .molecule import Molecule
 
-    basis = "6-31G"
+    basis = '6-31G'
     nproc = 8
-    functional = "B3LYP"
-    filepath1 = "examples/tests/butadiene_ethene.xyz"
+    functional = 'B3LYP'
+    filepath1 = 'examples/tests/butadiene_ethene.xyz'
     lot1 = QChem.from_options(
         states=[(1, 0)],
         charge=0,
@@ -612,7 +610,7 @@ if __name__ == "__main__":
         fnm=filepath1,
     )
     pes1 = PES.from_options(lot=lot1, ad_idx=0, multiplicity=1)
-    M1 = Molecule.from_options(fnm=filepath1, PES=pes1, coordinate_type="DLC")
+    M1 = Molecule.from_options(fnm=filepath1, PES=pes1, coordinate_type='DLC')
     optimizer = eigenvector_follow.from_options(
         print_level=1
     )  # default parameters fine here/opt_type will get set by GSM
@@ -620,7 +618,7 @@ if __name__ == "__main__":
     gsm = SE_GSM.from_options(
         reactant=M1,
         nnodes=20,
-        driving_coords=[("ADD", 6, 4), ("ADD", 5, 1)],
+        driving_coords=[('ADD', 6, 4), ('ADD', 5, 1)],
         optimizer=optimizer,
         print_level=1,
     )

@@ -112,9 +112,9 @@ class OverlapCalculator(Calculator):
 
         self.track = track
         self.ovlp_type = ovlp_type
-        assert (
-            self.ovlp_type in self.OVLP_TYPE_VERBOSE.keys()
-        ), f"Valid overlap types are {self.VALID_KEYS}"
+        assert self.ovlp_type in self.OVLP_TYPE_VERBOSE.keys(), (
+            f"Valid overlap types are {self.VALID_KEYS}"
+        )
         self.double_mol = double_mol
         assert ovlp_with in ("previous", "first", "adapt")
         self.ovlp_with = ovlp_with
@@ -606,7 +606,7 @@ class OverlapCalculator(Calculator):
         ntos_for_cycle = list()
         for root in range(roots):
             sn_ci_coeffs = ci_coeffs[root]
-            self.log(f"Calculating NTOs for root {root+1}")
+            self.log(f"Calculating NTOs for root {root + 1}")
             occ_ntos, vir_ntos, lambdas = self.calculate_state_ntos(
                 sn_ci_coeffs,
                 mo_coeffs,
@@ -725,7 +725,7 @@ class OverlapCalculator(Calculator):
             ao_ovlp = self.run_double_mol_calculation(self.atoms, *two_coords)
         elif (self.double_mol is False) and (self.ovlp_type == "wf"):
             ao_ovlp = self.get_sao_from_mo_coeffs(self.mo_coeff_list[-1])
-            self.log("Creating S_AO by myself to avoid its creation in " "WFOverlap.")
+            self.log("Creating S_AO by myself to avoid its creation in WFOverlap.")
 
         if ovlp_type == "wf":
             overlap_mats = self.get_wf_overlaps(ao_ovlp=ao_ovlp)

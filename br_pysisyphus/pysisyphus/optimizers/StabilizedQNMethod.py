@@ -36,9 +36,7 @@ class StabilizedQNMethod(Optimizer):
         self.trust_radius = trust_radius
         self.linesearch = linesearch
 
-        self.log(
-            f"Keeping at most information from {self.hist_max} " "previous cycles."
-        )
+        self.log(f"Keeping at most information from {self.hist_max} previous cycles.")
 
         self.alpha_start = self.alpha
         self.alpha_stretch_start = self.alpha_stretch
@@ -202,7 +200,7 @@ class StabilizedQNMethod(Optimizer):
 
             self.log(
                 "Preconditioning gradient with information from "
-                f"{len(steps)+1} previous cycles."
+                f"{len(steps) + 1} previous cycles."
             )
             precon_grad = self.precondition_gradient(
                 gradient, steps, grad_diffs, self.eps

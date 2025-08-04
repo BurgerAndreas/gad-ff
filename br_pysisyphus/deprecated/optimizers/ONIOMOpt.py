@@ -51,7 +51,6 @@ class ONIOMOpt(Optimizer):
         self.micro_opt_cycles = list()
 
     def optimize(self):
-
         #######################
         # Relax real geometry #
         #######################
@@ -108,7 +107,7 @@ class ONIOMOpt(Optimizer):
         tot_micro_cycs = sum(self.micro_opt_cycles)
         msg = (
             f"\nMicro-cycle optimizations:\n"
-            f"\t        Attempted: {self.cur_cycle+1}\n"
+            f"\t        Attempted: {self.cur_cycle + 1}\n"
             f"\t        Converged: {self.micros_converged}\n"
             f"\t     Total cycles: {tot_micro_cycs}\n"
         )

@@ -35,152 +35,151 @@ def worker(arg):
 
 
 class GSM(object):
-
     @staticmethod
     def default_options():
-        if hasattr(GSM, "_default_options"):
+        if hasattr(GSM, '_default_options'):
             return GSM._default_options.copy()
 
         opt = options.Options()
 
         opt.add_option(
-            key="reactant",
+            key='reactant',
             required=True,
             # allowed_types=[Molecule,wrappers.Molecule],
-            doc="Molecule object as the initial reactant structure",
+            doc='Molecule object as the initial reactant structure',
         )
 
         opt.add_option(
-            key="product",
+            key='product',
             required=False,
             # allowed_types=[Molecule,wrappers.Molecule],
-            doc="Molecule object for the product structure (not required for single-ended methods.",
+            doc='Molecule object for the product structure (not required for single-ended methods.',
         )
 
         opt.add_option(
-            key="nnodes",
+            key='nnodes',
             required=False,
             value=1,
             allowed_types=[int],
-            doc="number of string nodes",
+            doc='number of string nodes',
         )
 
         opt.add_option(
-            key="optimizer",
+            key='optimizer',
             required=True,
-            doc="Optimzer object  to use e.g. eigenvector_follow, conjugate_gradient,etc. \
-                        most of the default options are okay for here since GSM will change them anyway",
+            doc='Optimzer object  to use e.g. eigenvector_follow, conjugate_gradient,etc. \
+                        most of the default options are okay for here since GSM will change them anyway',
         )
 
         opt.add_option(
-            key="driving_coords",
+            key='driving_coords',
             required=False,
             value=[],
             allowed_types=[list],
-            doc="Provide a list of tuples to select coordinates to modify atoms\
-                 indexed at 1",
+            doc='Provide a list of tuples to select coordinates to modify atoms\
+                 indexed at 1',
         )
 
         opt.add_option(
-            key="CONV_TOL",
+            key='CONV_TOL',
             value=0.0005,
             required=False,
             allowed_types=[float],
-            doc="Convergence threshold",
+            doc='Convergence threshold',
         )
 
         opt.add_option(
-            key="CONV_gmax",
+            key='CONV_gmax',
             value=0.001,
             required=False,
             allowed_types=[float],
-            doc="Convergence threshold",
+            doc='Convergence threshold',
         )
 
         opt.add_option(
-            key="CONV_Ediff",
+            key='CONV_Ediff',
             value=0.1,
             required=False,
             allowed_types=[float],
-            doc="Convergence threshold",
+            doc='Convergence threshold',
         )
 
         opt.add_option(
-            key="CONV_dE",
+            key='CONV_dE',
             value=0.5,
             required=False,
             allowed_types=[float],
-            doc="Convergence threshold",
+            doc='Convergence threshold',
         )
 
         opt.add_option(
-            key="ADD_NODE_TOL",
+            key='ADD_NODE_TOL',
             value=0.1,
             required=False,
             allowed_types=[float],
-            doc="Convergence threshold",
+            doc='Convergence threshold',
         )
 
         opt.add_option(
-            key="growth_direction",
+            key='growth_direction',
             value=0,
             required=False,
-            doc="how to grow string,0=Normal,1=from reactant",
+            doc='how to grow string,0=Normal,1=from reactant',
         )
 
         opt.add_option(
-            key="DQMAG_MAX",
+            key='DQMAG_MAX',
             value=0.8,
             required=False,
-            doc="max step along tangent direction for SSM",
+            doc='max step along tangent direction for SSM',
         )
-        opt.add_option(key="DQMAG_MIN", value=0.2, required=False, doc="")
+        opt.add_option(key='DQMAG_MIN', value=0.2, required=False, doc='')
 
-        opt.add_option(key="print_level", value=1, required=False)
+        opt.add_option(key='print_level', value=1, required=False)
 
         opt.add_option(
-            key="xyz_writer",
+            key='xyz_writer',
             value=write_molden_geoms,
             required=False,
-            doc="Function to be used to format and write XYZ files",
+            doc='Function to be used to format and write XYZ files',
         )
 
         opt.add_option(
-            key="mp_cores",
+            key='mp_cores',
             value=1,
-            doc="multiprocessing cores for parallel programming. Use this with caution.",
+            doc='multiprocessing cores for parallel programming. Use this with caution.',
         )
 
         opt.add_option(
-            key="BDIST_RATIO",
+            key='BDIST_RATIO',
             value=0.5,
             required=False,
-            doc="SE-Crossing uses this \
+            doc='SE-Crossing uses this \
                         bdist must be less than 1-BDIST_RATIO of initial bdist in order to be \
-                        to be considered grown.",
+                        to be considered grown.',
         )
 
         opt.add_option(
-            key="ID",
+            key='ID',
             value=0,
             required=False,
-            doc="A number for identification of Strings",
+            doc='A number for identification of Strings',
         )
 
         opt.add_option(
-            key="interp_method",
-            value="DLC",
-            allowed_values=["Geodesic", "DLC"],
+            key='interp_method',
+            value='DLC',
+            allowed_values=['Geodesic', 'DLC'],
             required=False,
-            doc="Which reparameterization method to use",
+            doc='Which reparameterization method to use',
         )
 
         opt.add_option(
-            key="noise",
+            key='noise',
             value=100.0,
             allowed_types=[float],
             required=False,
-            doc="Noise to check for intermediate",
+            doc='Noise to check for intermediate',
         )
 
         GSM._default_options = opt
@@ -194,7 +193,7 @@ class GSM(object):
     def copy_from_options(cls, gsm_obj, reactant, product):
         new_gsm = cls.from_options(
             gsm_obj.options.copy().set_values(
-                {"reactant": reactant, "product": product}
+                {'reactant': reactant, 'product': product}
             )
         )
         return new_gsm
@@ -206,31 +205,31 @@ class GSM(object):
         """Constructor"""
         self.options = options
 
-        os.system("mkdir -p scratch")
+        os.system('mkdir -p scratch')
 
         # Cache attributes
-        self.nnodes = self.options["nnodes"]
+        self.nnodes = self.options['nnodes']
         self.nodes = [None] * self.nnodes
-        self.nodes[0] = self.options["reactant"]
-        self.nodes[-1] = self.options["product"]
-        self.driving_coords = self.options["driving_coords"]
-        self.growth_direction = self.options["growth_direction"]
+        self.nodes[0] = self.options['reactant']
+        self.nodes[-1] = self.options['product']
+        self.driving_coords = self.options['driving_coords']
+        self.growth_direction = self.options['growth_direction']
         self.isRestarted = False
-        self.DQMAG_MAX = self.options["DQMAG_MAX"]
-        self.DQMAG_MIN = self.options["DQMAG_MIN"]
-        self.BDIST_RATIO = self.options["BDIST_RATIO"]
-        self.ID = self.options["ID"]
+        self.DQMAG_MAX = self.options['DQMAG_MAX']
+        self.DQMAG_MIN = self.options['DQMAG_MIN']
+        self.BDIST_RATIO = self.options['BDIST_RATIO']
+        self.ID = self.options['ID']
         self.optimizer = []
-        self.interp_method = self.options["interp_method"]
-        self.CONV_TOL = self.options["CONV_TOL"]
-        self.noise = self.options["noise"]
-        self.mp_cores = self.options["mp_cores"]
-        self.xyz_writer = self.options["xyz_writer"]
+        self.interp_method = self.options['interp_method']
+        self.CONV_TOL = self.options['CONV_TOL']
+        self.noise = self.options['noise']
+        self.mp_cores = self.options['mp_cores']
+        self.xyz_writer = self.options['xyz_writer']
 
-        optimizer = options["optimizer"]
+        optimizer = options['optimizer']
         for count in range(self.nnodes):
             self.optimizer.append(optimizer.__class__(optimizer.options.copy()))
-        self.print_level = options["print_level"]
+        self.print_level = options['print_level']
 
         # Set initial values
         self.current_nnodes = 2
@@ -247,9 +246,9 @@ class GSM(object):
         self.found_ts = False
         self.rn3m6 = np.sqrt(3.0 * self.nodes[0].natoms - 6.0)
         self.gaddmax = self.options[
-            "ADD_NODE_TOL"
+            'ADD_NODE_TOL'
         ]  # self.options['ADD_NODE_TOL']/self.rn3m6;
-        nifty.logger.debug(" gaddmax:", self.gaddmax)
+        nifty.logger.debug(' gaddmax:', self.gaddmax)
         self.ictan = [None] * self.nnodes
         self.active = [False] * self.nnodes
         self.climber = False  # is this string a climber?
@@ -281,8 +280,8 @@ class GSM(object):
         # Treat GSM with penalty a little different since penalty will increase energy based on energy
         # differences, which might not be great for Climbing Image
         if (
-            self.__class__.__name__ != "SE_Cross"
-            and self.nodes[0].PES.__class__.__name__ == "Penalty_PES"
+            self.__class__.__name__ != 'SE_Cross'
+            and self.nodes[0].PES.__class__.__name__ == 'Penalty_PES'
         ):
             energies = np.asarray([0.0] * self.nnodes)
             for i, node in enumerate(self.nodes):
@@ -394,12 +393,11 @@ class GSM(object):
         """
 
         # get driving coord
-        driving_coords = kwargs.get("driving_coords", None)
-        DQMAG_MAX = kwargs.get("DQMAG_MAX", 0.8)
-        DQMAG_MIN = kwargs.get("DQMAG_MIN", 0.2)
+        driving_coords = kwargs.get('driving_coords', None)
+        DQMAG_MAX = kwargs.get('DQMAG_MAX', 0.8)
+        DQMAG_MIN = kwargs.get('DQMAG_MIN', 0.2)
 
         if nodeP is None:
-
             if driving_coords is None:
                 raise RuntimeError(
                     "You didn't supply a driving coordinate and product node is None!"
@@ -409,7 +407,7 @@ class GSM(object):
             ictan, bdist = GSM.get_tangent(nodeR, None, driving_coords=driving_coords)
 
             if bdist < BDISTMIN:
-                nifty.logger.debug("bdist too small %.3f" % bdist)
+                nifty.logger.debug('bdist too small %.3f' % bdist)
                 return None
             new_node = Molecule.copy_from_options(nodeR, new_node_id=node_id)
             new_node.update_coordinate_basis(constraints=ictan)
@@ -424,10 +422,10 @@ class GSM(object):
             dqmag = sign * (DQMAG_MIN + minmax * a)
             if dqmag > DQMAG_MAX:
                 dqmag = DQMAG_MAX
-            nifty.logger.debug(" dqmag: %4.3f from bdist: %4.3f" % (dqmag, bdist))
+            nifty.logger.debug(' dqmag: %4.3f from bdist: %4.3f' % (dqmag, bdist))
 
             dq0 = dqmag * constraint
-            nifty.logger.debug(" dq0[constraint]: %1.3f" % dqmag)
+            nifty.logger.debug(' dq0[constraint]: %1.3f' % dqmag)
 
             new_node.update_xyz(dq0)
             new_node.bdist = bdist
@@ -437,11 +435,11 @@ class GSM(object):
             nodeR.update_coordinate_basis(constraints=ictan)
             constraint = nodeR.constraints[:, 0]
             dqmag = np.linalg.norm(ictan)
-            nifty.logger.debug(" dqmag: %1.3f" % dqmag)
+            nifty.logger.debug(' dqmag: %1.3f' % dqmag)
             # sign=-1
             sign = 1.0
             dqmag *= sign * stepsize
-            nifty.logger.debug(" scaled dqmag: %1.3f" % dqmag)
+            nifty.logger.debug(' scaled dqmag: %1.3f' % dqmag)
 
             dq0 = dqmag * constraint
             old_xyz = nodeR.xyz.copy()
@@ -462,11 +460,11 @@ class GSM(object):
         constraint = nodeR.constraints[:, 0]
         prim_constraint = block_matrix.dot(Vecs, constraint)
         dqmag = np.dot(prim_constraint.T, ictan)
-        nifty.logger.debug(" dqmag: %1.3f" % dqmag)
+        nifty.logger.debug(' dqmag: %1.3f' % dqmag)
         # sign=-1
         sign = 1.0
         dqmag *= sign * stepsize
-        nifty.logger.debug(" scaled dqmag: %1.3f" % dqmag)
+        nifty.logger.debug(' scaled dqmag: %1.3f' % dqmag)
 
         dq0 = dqmag * constraint
         old_xyz = nodeR.xyz.copy()
@@ -477,7 +475,7 @@ class GSM(object):
     @staticmethod
     def interpolate(start_node, end_node, num_interp):
         """ """
-        nifty.printcool(" interpolate")
+        nifty.printcool(' interpolate')
 
         num_nodes = num_interp + 2
         nodes = [None] * (num_nodes)
@@ -537,10 +535,10 @@ class GSM(object):
 
         if node2 is not None and node1.node_id != node2.node_id:
             nifty.logger.debug(
-                " getting tangent from between %i %i pointing towards %i"
+                ' getting tangent from between %i %i pointing towards %i'
                 % (node2.node_id, node1.node_id, node2.node_id)
             )
-            assert node2 != None, "node n2 is None"
+            assert node2 != None, 'node n2 is None'
 
             PMDiff = np.zeros(node2.num_primitives)
             for k, prim in enumerate(node2.primitive_internal_coordinates):
@@ -551,16 +549,16 @@ class GSM(object):
 
             return np.reshape(PMDiff, (-1, 1)), None
         else:
-            nifty.logger.debug(" getting tangent from node ", node1.node_id)
+            nifty.logger.debug(' getting tangent from node ', node1.node_id)
 
-            driving_coords = kwargs.get("driving_coords", None)
-            assert driving_coords is not None, " Driving coord is None!"
+            driving_coords = kwargs.get('driving_coords', None)
+            assert driving_coords is not None, ' Driving coord is None!'
 
             c = Counter(elem[0] for elem in driving_coords)
-            nadds = c["ADD"]
-            nbreaks = c["BREAK"]
-            nangles = c["nangles"]
-            ntorsions = c["ntorsions"]
+            nadds = c['ADD']
+            nbreaks = c['BREAK']
+            nangles = c['nangles']
+            ntorsions = c['ntorsions']
 
             ictan = np.zeros((node1.num_primitives, 1), dtype=float)
             # breakdq = 0.3
@@ -569,8 +567,7 @@ class GSM(object):
             xyz = node1.xyz.copy()
 
             for i in driving_coords:
-                if "ADD" in i:
-
+                if 'ADD' in i:
                     # order indices to avoid duplicate bonds
                     if i[1] < i[2]:
                         index = [i[1] - 1, i[2] - 1]
@@ -578,7 +575,7 @@ class GSM(object):
                         index = [i[2] - 1, i[1] - 1]
 
                     bond = Distance(index[0], index[1])
-                    prim_idx = node1.coord_obj.Prims.dof_index(index, "Distance")
+                    prim_idx = node1.coord_obj.Prims.dof_index(index, 'Distance')
                     if len(i) == 3:
                         # TODO why not just use the covalent radii?
                         d0 = (
@@ -597,18 +594,18 @@ class GSM(object):
                         bdist += np.dot(ictan[prim_idx], ictan[prim_idx])
                     if print_level > 0:
                         nifty.logger.debug(
-                            " bond %s target (less than): %4.3f current d: %4.3f diff: %4.3f "
+                            ' bond %s target (less than): %4.3f current d: %4.3f diff: %4.3f '
                             % ((i[1], i[2]), d0, current_d, ictan[prim_idx])
                         )
 
-                elif "BREAK" in i:
+                elif 'BREAK' in i:
                     # order indices to avoid duplicate bonds
                     if i[1] < i[2]:
                         index = [i[1] - 1, i[2] - 1]
                     else:
                         index = [i[2] - 1, i[1] - 1]
                     bond = Distance(index[0], index[1])
-                    prim_idx = node1.coord_obj.Prims.dof_index(index, "Distance")
+                    prim_idx = node1.coord_obj.Prims.dof_index(index, 'Distance')
                     if len(i) == 3:
                         d0 = atoms[index[0]].vdw_radius + atoms[index[1]].vdw_radius
                     elif len(i) == 4:
@@ -623,17 +620,16 @@ class GSM(object):
 
                     if print_level > 0:
                         nifty.logger.debug(
-                            " bond %s target (greater than): %4.3f, current d: %4.3f diff: %4.3f "
+                            ' bond %s target (greater than): %4.3f, current d: %4.3f diff: %4.3f '
                             % ((i[1], i[2]), d0, current_d, ictan[prim_idx])
                         )
-                elif "ANGLE" in i:
-
+                elif 'ANGLE' in i:
                     if i[1] < i[3]:
                         index = [i[1] - 1, i[2] - 1, i[3] - 1]
                     else:
                         index = [i[3] - 1, i[2] - 1, i[1] - 1]
                     angle = Angle(index[0], index[1], index[2])
-                    prim_idx = node1.coord_obj.Prims.dof_index(index, "Angle")
+                    prim_idx = node1.coord_obj.Prims.dof_index(index, 'Angle')
                     anglet = i[4]
                     ang_value = angle.value(xyz)
                     ang_diff = anglet * np.pi / 180.0 - ang_value
@@ -641,7 +637,7 @@ class GSM(object):
                     if print_level > 0:
                         nifty.logger.debug(
                             (
-                                " anglev: %4.3f align to %4.3f diff(rad): %4.3f"
+                                ' anglev: %4.3f align to %4.3f diff(rad): %4.3f'
                                 % (ang_value, anglet, ang_diff)
                             )
                         )
@@ -649,14 +645,13 @@ class GSM(object):
                     # TODO need to come up with an adist
                     # if abs(ang_diff)>0.1:
                     #    bdist+=ictan[ICoord1.BObj.nbonds+ang_idx]*ictan[ICoord1.BObj.nbonds+ang_idx]
-                elif "TORSION" in i:
-
+                elif 'TORSION' in i:
                     if i[1] < i[4]:
                         index = [i[1] - 1, i[2] - 1, i[3] - 1, i[4] - 1]
                     else:
                         index = [i[4] - 1, i[3] - 1, i[2] - 1, i[1] - 1]
                     torsion = Dihedral(index[0], index[1], index[2], index[3])
-                    prim_idx = node1.coord_obj.Prims.dof_index(index, "Dihedral")
+                    prim_idx = node1.coord_obj.Prims.dof_index(index, 'Dihedral')
                     tort = i[5]
                     torv = torsion.value(xyz)
                     tor_diff = tort - torv * 180.0 / np.pi
@@ -671,15 +666,15 @@ class GSM(object):
                     if print_level > 0:
                         nifty.logger.debug(
                             (
-                                " current torv: %4.3f align to %4.3f diff(deg): %4.3f"
+                                ' current torv: %4.3f align to %4.3f diff(deg): %4.3f'
                                 % (torv * 180.0 / np.pi, tort, tor_diff)
                             )
                         )
 
-                elif "OOP" in i:
+                elif 'OOP' in i:
                     index = [i[1] - 1, i[2] - 1, i[3] - 1, i[4] - 1]
                     oop = OutOfPlane(index[0], index[1], index[2], index[3])
-                    prim_idx = node1.coord_obj.Prims.dof_index(index, "OutOfPlane")
+                    prim_idx = node1.coord_obj.Prims.dof_index(index, 'OutOfPlane')
                     oopt = i[5]
                     oopv = oop.value(xyz)
                     oop_diff = oopt - oopv * 180.0 / np.pi
@@ -694,14 +689,14 @@ class GSM(object):
                     if print_level > 0:
                         nifty.logger.debug(
                             (
-                                " current oopv: %4.3f align to %4.3f diff(deg): %4.3f"
+                                ' current oopv: %4.3f align to %4.3f diff(deg): %4.3f'
                                 % (oopv * 180.0 / np.pi, oopt, oop_diff)
                             )
                         )
 
             bdist = np.sqrt(bdist)
             if np.all(ictan == 0.0):
-                raise RuntimeError(" All elements are zero")
+                raise RuntimeError(' All elements are zero')
             return ictan, bdist
 
     @staticmethod
@@ -715,8 +710,8 @@ class GSM(object):
 
         for n in range(n0 + 1, nnodes):
             # print "getting tangent between %i %i" % (n,n-1)
-            assert nodes[n] is not None, "n is bad"
-            assert nodes[n - 1] is not None, "n-1 is bad"
+            assert nodes[n] is not None, 'n is bad'
+            assert nodes[n - 1] is not None, 'n-1 is bad'
             ictan[n] = GSM.get_tangent_xyz(
                 nodes[n - 1].xyz, nodes[n].xyz, nodes[0].primitive_internal_coordinates
             )
@@ -748,17 +743,17 @@ class GSM(object):
         # dqmaga = [ Process(target=get_dqmag,args=(n,ictan[n])) for n in range(n0+1,self.nnodes)]
 
         if print_level > 1:
-            nifty.logger.debug("------------printing ictan[:]-------------")
+            nifty.logger.debug('------------printing ictan[:]-------------')
             for n in range(n0 + 1, nnodes):
-                nifty.logger.debug("ictan[%i]" % n)
+                nifty.logger.debug('ictan[%i]' % n)
                 nifty.logger.debug(ictan[n].T)
         if print_level > 0:
-            nifty.logger.debug("------------printing dqmaga---------------")
+            nifty.logger.debug('------------printing dqmaga---------------')
             for n in range(n0 + 1, nnodes):
-                nifty.logger.debug(" {:5.4}".format(dqmaga[n]), end="")
+                nifty.logger.debug(' {:5.4}'.format(dqmaga[n]), end='')
                 if (n) % 5 == 0:
-                    nifty.logger.debug("")
-            nifty.logger.debug("")
+                    nifty.logger.debug('')
+            nifty.logger.debug('')
         return ictan, dqmaga
 
     @staticmethod
@@ -778,16 +773,16 @@ class GSM(object):
         first_node_max = TSnode == 0
         if first_node_max or last_node_max:
             nifty.logger.debug(
-                "*********** This will cause a range error in the following for loop *********"
+                '*********** This will cause a range error in the following for loop *********'
             )
             nifty.logger.debug(
-                "** Setting the middle of the string to be TS node to get proper directions **"
+                '** Setting the middle of the string to be TS node to get proper directions **'
             )
             TSnode = nnodes // 2
 
         for n in range(n0, nnodes):
             do3 = False
-            nifty.logger.debug("getting tan[{" + str(n) + "}]")
+            nifty.logger.debug('getting tan[{' + str(n) + '}]')
             if n < TSnode:
                 # The order is very important here
                 # the way it should be ;(
@@ -812,7 +807,7 @@ class GSM(object):
                 if first_node_max or last_node_max:
                     t1, _ = GSM.get_tangent(nodes[intic_n], nodes[newic_n])
                     t2, _ = GSM.get_tangent(nodes[newic_n], nodes[int2ic_n])
-                    nifty.logger.debug(" done 3 way tangent")
+                    nifty.logger.debug(' done 3 way tangent')
                     ictan0 = t1 + t2
                 else:
                     f1 = 0.0
@@ -825,11 +820,11 @@ class GSM(object):
                     else:
                         f1 = 1 - dEmax / (dEmax + dEmin + 0.00000001)
 
-                    nifty.logger.debug(" 3 way tangent ({}): f1:{:3.2}".format(n, f1))
+                    nifty.logger.debug(' 3 way tangent ({}): f1:{:3.2}'.format(n, f1))
 
                     t1, _ = GSM.get_tangent(nodes[intic_n], nodes[newic_n])
                     t2, _ = GSM.get_tangent(nodes[newic_n], nodes[int2ic_n])
-                    nifty.logger.debug(" done 3 way tangent")
+                    nifty.logger.debug(' done 3 way tangent')
                     ictan0 = f1 * t1 + (1.0 - f1) * t2
             else:
                 ictan0, _ = GSM.get_tangent(nodes[newic_n], nodes[intic_n])
@@ -860,7 +855,7 @@ class GSM(object):
         ic_reparam_steps : int max number of reparameterization steps
         print_level : int verbosity
         """
-        nifty.printcool("reparametrizing string nodes")
+        nifty.printcool('reparametrizing string nodes')
 
         nnodes = len(nodes)
         rpart = np.zeros(nnodes)
@@ -884,7 +879,6 @@ class GSM(object):
                 ideal_progress_gained[n] = 1.0 / (nnodes - 1)
 
         for i in range(ic_reparam_steps):
-
             ictan, dqmaga = GSM.get_tangents(nodes)
             totaldqmag = np.sum(dqmaga)
 
@@ -895,7 +889,7 @@ class GSM(object):
                 h2dqmag = np.sum(dqmaga[TSnode + 1 : nnodes])
                 if print_level > 0:
                     nifty.logger.debug(
-                        " h1dqmag, h2dqmag: %3.2f %3.2f" % (h1dqmag, h2dqmag)
+                        ' h1dqmag, h2dqmag: %3.2f %3.2f' % (h1dqmag, h2dqmag)
                     )
                 progress_gained[:TSnode] = dqmaga[:TSnode] / h1dqmag
                 progress_gained[TSnode + 1 :] = dqmaga[TSnode + 1 :] / h2dqmag
@@ -922,35 +916,35 @@ class GSM(object):
                 deltadqs = difference * totaldqmag
 
             if print_level > 1:
-                nifty.logger.debug(" ideal progress gained per step", end=" ")
+                nifty.logger.debug(' ideal progress gained per step', end=' ')
                 for n in range(nnodes):
                     nifty.logger.debug(
-                        " step [{}]: {:1.3f}".format(n, ideal_progress_gained[n]),
-                        end=" ",
+                        ' step [{}]: {:1.3f}'.format(n, ideal_progress_gained[n]),
+                        end=' ',
                     )
-                nifty.logger.debug("")
-                nifty.logger.debug(" path progress                 ", end=" ")
+                nifty.logger.debug('')
+                nifty.logger.debug(' path progress                 ', end=' ')
                 for n in range(nnodes):
                     nifty.logger.debug(
-                        " step [{}]: {:1.3f}".format(n, progress_gained[n]), end=" "
+                        ' step [{}]: {:1.3f}'.format(n, progress_gained[n]), end=' '
                     )
-                nifty.logger.debug("")
-                nifty.logger.debug(" difference                    ", end=" ")
+                nifty.logger.debug('')
+                nifty.logger.debug(' difference                    ', end=' ')
                 for n in range(nnodes):
                     nifty.logger.debug(
-                        " step [{}]: {:1.3f}".format(n, difference[n]), end=" "
+                        ' step [{}]: {:1.3f}'.format(n, difference[n]), end=' '
                     )
-                nifty.logger.debug("")
-                nifty.logger.debug(" deltadqs                      ", end=" ")
+                nifty.logger.debug('')
+                nifty.logger.debug(' deltadqs                      ', end=' ')
                 for n in range(nnodes):
                     nifty.logger.debug(
-                        " step [{}]: {:1.3f}".format(n, deltadqs[n]), end=" "
+                        ' step [{}]: {:1.3f}'.format(n, deltadqs[n]), end=' '
                     )
-                nifty.logger.debug("")
+                nifty.logger.debug('')
 
             # disprms = np.linalg.norm(deltadqs)/np.sqrt(nnodes-1)
             disprms = np.linalg.norm(deltadqs) / np.sqrt(nnodes - 1)
-            nifty.logger.debug(" disprms: {:1.3}\n".format(disprms))
+            nifty.logger.debug(' disprms: {:1.3}\n'.format(disprms))
 
             if disprms < 0.02:
                 break
@@ -971,7 +965,6 @@ class GSM(object):
                         deltadqs[n] = np.sign(deltadqs[n]) * MAXRE
 
                 if NUM_CORE > 1:
-
                     # 5/14/2021 TS node this up?!
                     tans = [
                         ictan[n] if deltadqs[n] < 0 else ictan[n + 1]
@@ -981,7 +974,7 @@ class GSM(object):
                     Vecs = pool.map(
                         worker,
                         (
-                            (nodes[0].coord_obj, "build_dlc", node.xyz, tan)
+                            (nodes[0].coord_obj, 'build_dlc', node.xyz, tan)
                             for node, tan in zip(
                                 nodes[1:TSnode] + nodes[TSnode + 1 : nnodes - 1], tans
                             )
@@ -1003,7 +996,7 @@ class GSM(object):
                     newXyzs = pool.map(
                         worker,
                         (
-                            (node.coord_obj, "newCartesian", node.xyz, dq)
+                            (node.coord_obj, 'newCartesian', node.xyz, dq)
                             for node, dq in zip(
                                 nodes[1:TSnode] + nodes[TSnode + 1 : nnodes - 1], dqs
                             )
@@ -1020,7 +1013,7 @@ class GSM(object):
                         if deltadqs[n] < 0:
                             # nifty.logger.debug(f" Moving node {n} along tan[{n}] this much {deltadqs[n]}")
                             nifty.logger.debug(
-                                " Moving node {} along tan[{}] this much {}".format(
+                                ' Moving node {} along tan[{}] this much {}'.format(
                                     n, n, deltadqs[n]
                                 )
                             )
@@ -1030,7 +1023,7 @@ class GSM(object):
                             nodes[n].update_xyz(dq, verbose=(print_level > 1))
                         elif deltadqs[n] > 0:
                             nifty.logger.debug(
-                                " Moving node {} along tan[{}] this much {}".format(
+                                ' Moving node {} along tan[{}] this much {}'.format(
                                     n, n + 1, deltadqs[n]
                                 )
                             )
@@ -1060,7 +1053,7 @@ class GSM(object):
                     Vecs = pool.map(
                         worker,
                         (
-                            (nodes[0].coord_obj, "build_dlc", node.xyz, tan)
+                            (nodes[0].coord_obj, 'build_dlc', node.xyz, tan)
                             for node, tan in zip(nodes[1 : nnodes - 1], tans)
                         ),
                     )
@@ -1077,7 +1070,7 @@ class GSM(object):
                     newXyzs = pool.map(
                         worker,
                         (
-                            (node.coord_obj, "newCartesian", node.xyz, dq)
+                            (node.coord_obj, 'newCartesian', node.xyz, dq)
                             for node, dq in zip(nodes[1 : nnodes - 1], dqs)
                         ),
                     )
@@ -1090,7 +1083,7 @@ class GSM(object):
                         if deltadqs[n] < 0:
                             # nifty.logger.debug(f" Moving node {n} along tan[{n}] this much {deltadqs[n]}")
                             nifty.logger.debug(
-                                " Moving node {} along tan[{}] this much {}".format(
+                                ' Moving node {} along tan[{}] this much {}'.format(
                                     n, n, deltadqs[n]
                                 )
                             )
@@ -1100,7 +1093,7 @@ class GSM(object):
                             nodes[n].update_xyz(dq, verbose=(print_level > 1))
                         elif deltadqs[n] > 0:
                             nifty.logger.debug(
-                                " Moving node {} along tan[{}] this much {}".format(
+                                ' Moving node {} along tan[{}] this much {}'.format(
                                     n, n + 1, deltadqs[n]
                                 )
                             )
@@ -1115,7 +1108,7 @@ class GSM(object):
             h2dqmag = np.sum(dqmaga[TSnode + 1 : nnodes])
             if print_level > 0:
                 nifty.logger.debug(
-                    " h1dqmag, h2dqmag: %3.2f %3.2f" % (h1dqmag, h2dqmag)
+                    ' h1dqmag, h2dqmag: %3.2f %3.2f' % (h1dqmag, h2dqmag)
                 )
             progress_gained[:TSnode] = dqmaga[:TSnode] / h1dqmag
             progress_gained[TSnode + 1 :] = dqmaga[TSnode + 1 :] / h2dqmag
@@ -1126,38 +1119,38 @@ class GSM(object):
             totaldqmag = np.sum(dqmaga)
             progress = np.cumsum(dqmaga) / totaldqmag
             progress_gained = dqmaga / totaldqmag
-        nifty.logger.debug("")
+        nifty.logger.debug('')
         if print_level > 0:
-            nifty.logger.debug(" ideal progress gained per step", end=" ")
+            nifty.logger.debug(' ideal progress gained per step', end=' ')
             for n in range(nnodes):
                 nifty.logger.debug(
-                    " step [{}]: {:1.3f}".format(n, ideal_progress_gained[n]), end=" "
+                    ' step [{}]: {:1.3f}'.format(n, ideal_progress_gained[n]), end=' '
                 )
-            nifty.logger.debug("")
-            nifty.logger.debug(" original path progress        ", end=" ")
+            nifty.logger.debug('')
+            nifty.logger.debug(' original path progress        ', end=' ')
             for n in range(nnodes):
                 nifty.logger.debug(
-                    " step [{}]: {:1.3f}".format(n, orig_progress_gained[n]), end=" "
+                    ' step [{}]: {:1.3f}'.format(n, orig_progress_gained[n]), end=' '
                 )
-            nifty.logger.debug("")
-            nifty.logger.debug(" reparameterized path progress ", end=" ")
+            nifty.logger.debug('')
+            nifty.logger.debug(' reparameterized path progress ', end=' ')
             for n in range(nnodes):
                 nifty.logger.debug(
-                    " step [{}]: {:1.3f}".format(n, progress_gained[n]), end=" "
+                    ' step [{}]: {:1.3f}'.format(n, progress_gained[n]), end=' '
                 )
-            nifty.logger.debug("")
+            nifty.logger.debug('')
 
-        nifty.logger.debug(" spacings (begin ic_reparam, steps", end=" ")
+        nifty.logger.debug(' spacings (begin ic_reparam, steps', end=' ')
         for n in range(nnodes):
-            nifty.logger.debug(" {:1.2}".format(orig_dqmaga[n]), end=" ")
-        nifty.logger.debug("")
+            nifty.logger.debug(' {:1.2}'.format(orig_dqmaga[n]), end=' ')
+        nifty.logger.debug('')
         nifty.logger.debug(
-            " spacings (end ic_reparam, steps: {}/{}):".format(i + 1, ic_reparam_steps),
-            end=" ",
+            ' spacings (end ic_reparam, steps: {}/{}):'.format(i + 1, ic_reparam_steps),
+            end=' ',
         )
         for n in range(nnodes):
-            nifty.logger.debug(" {:1.2}".format(dqmaga[n]), end=" ")
-        nifty.logger.debug("\n  disprms: {:1.3}".format(disprms))
+            nifty.logger.debug(' {:1.2}'.format(dqmaga[n]), end=' ')
+        nifty.logger.debug('\n  disprms: {:1.3}'.format(disprms))
 
         return
 
@@ -1236,15 +1229,15 @@ class GSM(object):
         for i, ico in enumerate(nodes[1 : nnodes - 1]):
             if ico != None:
                 nifty.logger.debug(
-                    " node: {:02d} gradrms: {:.6f}".format(i, float(ico.gradrms)),
-                    end="",
+                    ' node: {:02d} gradrms: {:.6f}'.format(i, float(ico.gradrms)),
+                    end='',
                 )
                 if i % 5 == 0:
-                    nifty.logger.debug("")
+                    nifty.logger.debug('')
                 totalgrad += ico.gradrms * rn3m6
                 gradrms += ico.gradrms * ico.gradrms
                 sum_gradrms += ico.gradrms
-        nifty.logger.debug("")
+        nifty.logger.debug('')
         # TODO wrong for growth
         gradrms = np.sqrt(gradrms / (nnodes - 2))
         return totalgrad, gradrms, sum_gradrms

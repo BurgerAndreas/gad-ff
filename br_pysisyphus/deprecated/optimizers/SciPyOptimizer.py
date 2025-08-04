@@ -14,7 +14,6 @@ class StopOptException(Exception):
 
 
 class SciPyOptimizer(Optimizer):
-
     def __init__(self, geometry, method="l-bfgs-b", **kwargs):
         super(SciPyOptimizer, self).__init__(geometry, **kwargs)
 

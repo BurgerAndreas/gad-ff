@@ -66,15 +66,15 @@ class MLP(nn.Module):
         if isinstance(activation, str) or activation is None:
             activation = [activation] * len(out_dims)
         else:
-            assert len(activation) == len(
-                out_dims
-            ), "activation and out_dims must have the same length"
+            assert len(activation) == len(out_dims), (
+                "activation and out_dims must have the same length"
+            )
         if last_layer_no_activation:
             activation[-1] = None
         for _activation in activation:
-            assert (_activation is None) or (
-                _activation in ACTIVATION_MAPPING
-            ), f"activation {activation} not avail."
+            assert (_activation is None) or (_activation in ACTIVATION_MAPPING), (
+                f"activation {activation} not avail."
+            )
 
         module_list = []
         for ii in range(len(out_dims)):

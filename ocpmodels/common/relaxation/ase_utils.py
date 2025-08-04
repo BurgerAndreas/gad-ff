@@ -210,6 +210,7 @@ class OCPCalculator(Calculator):
         elif self.trainer.name == "is2re":
             self.results["energy"] = predictions["energy"].item()
 
+
 def ase_atoms_to_torch_geometric(atoms):
     """
     Convert ASE Atoms object to torch_geometric Data format expected by Equiformer.
@@ -237,10 +238,15 @@ def ase_atoms_to_torch_geometric(atoms):
 
     return data
 
+
 # by Andreas. We do not care about the graph, because connectivity is computed on the fly?
-def ase_atoms_to_torch_geometric_hessian(atoms, cutoff, max_neighbors, use_pbc):
+def ase_atoms_to_torch_geometric_hessian(
+    atoms, cutoff, max_neighbors, use_pbc, with_grad=False
+):
     """
     Convert ASE Atoms object to torch_geometric Data format expected by Equiformer.
+    with_grad=True ensures there are gradients of the energy and forces w.r.t. the positions,
+    through the graph generation.
 
     Args:
         atoms: ASE Atoms object
@@ -261,11 +267,22 @@ def ase_atoms_to_torch_geometric_hessian(atoms, cutoff, max_neighbors, use_pbc):
         cell=torch.tensor(atoms.get_cell().astype(np.float32), dtype=torch.float32),
         pbc=torch.tensor(False, dtype=torch.bool),
     )
-    data = HessianGraphTransform(
-        cutoff=cutoff,
-        max_neighbors=max_neighbors,
-        use_pbc=use_pbc,
-    )(data)
-    data = Batch.from_data_list([data], follow_batch=["diag_ij", "edge_index", "message_idx_ij"])
+    if with_grad:
+        data.pos.requires_grad = True
+        with torch.enable_grad():
+            data = HessianGraphTransform(
+                cutoff=cutoff,
+                max_neighbors=max_neighbors,
+                use_pbc=use_pbc,
+            )(data)
+    else:
+        data = HessianGraphTransform(
+            cutoff=cutoff,
+            max_neighbors=max_neighbors,
+            use_pbc=use_pbc,
+        )(data)
+    data = Batch.from_data_list(
+        [data], follow_batch=["diag_ij", "edge_index", "message_idx_ij"]
+    )
 
     return data

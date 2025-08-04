@@ -120,9 +120,9 @@ def get_mwfn_exc_str(energies, Xa, Ya=None, Xb=None, Yb=None, thresh=1e-3):
 
     # We only use the spin label for unrestricted calculations, where Xb is present.
     spin_a = "A" if (Xb is not None) else ""
-    assert len(energies) == (
-        len(Xa) + 1
-    ), "Found too few energies. Is the GS energy missing?"
+    assert len(energies) == (len(Xa) + 1), (
+        "Found too few energies. Is the GS energy missing?"
+    )
     exc_energies = (energies[1:] - energies[0]) * AU2EV
     # states, occ, virt
     nstates, occ_mos, _ = Xa.shape

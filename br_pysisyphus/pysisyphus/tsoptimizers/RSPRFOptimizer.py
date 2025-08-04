@@ -84,7 +84,7 @@ class RSPRFOptimizer(TSHessianOptimizer):
             max_norm = np.linalg.norm(step_max)
             self.log(f"norm(step_max)={max_norm:.6f}")
             self.log(f"norm(step_min)={min_norm:.6f}")
-            self.log(f"norm(step_max)/norm(step_min)={max_norm/min_norm:.2%}")
+            self.log(f"norm(step_max)/norm(step_min)={max_norm / min_norm:.2%}")
             # Calculate overlaps with originally proposed step in mu == 0
             # TODO: convert back to original space
             # max_ovlp = ref_step_max @ step_max
@@ -105,12 +105,10 @@ class RSPRFOptimizer(TSHessianOptimizer):
             inside_trust = step_norm <= self.trust_radius
             if inside_trust:
                 self.log(
-                    "Restricted step satisfies trust radius of "
-                    f"{self.trust_radius:.6f}"
+                    f"Restricted step satisfies trust radius of {self.trust_radius:.6f}"
                 )
                 self.log(
-                    f"Micro-cycles converged in cycle {mu:02d} with "
-                    f"alpha={alpha:.6f}!"
+                    f"Micro-cycles converged in cycle {mu:02d} with alpha={alpha:.6f}!"
                 )
                 break
 

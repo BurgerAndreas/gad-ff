@@ -316,8 +316,8 @@ class Sella(Optimizer):
         buf = " " * len(name)
         if self.nsteps == 0:
             self.logfile.write(
-                buf + "{:>4s} {:>8s} {:>15s} {:>12s} {:>12s} "
-                "{:>12s} {:>12s}\n".format(
+                buf
+                + "{:>4s} {:>8s} {:>15s} {:>12s} {:>12s} {:>12s} {:>12s}\n".format(
                     "Step", "Time", "Energy", "fmax", "cmax", "rtrust", "rho"
                 )
             )

@@ -707,9 +707,7 @@ class ForcesTrainer(BaseTrainer):
                 )
                 gather_results["chunk_idx"] = np.cumsum(
                     np.array(gather_results["chunk_idx"])[idx]
-                )[
-                    :-1
-                ]  # np.split does not need last idx, assumes n-1:end
+                )[:-1]  # np.split does not need last idx, assumes n-1:end
 
                 logging.info(f"Writing results to {full_path}")
                 np.savez_compressed(full_path, **gather_results)

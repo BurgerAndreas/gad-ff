@@ -73,7 +73,6 @@ def get_step_func(key="sd", alpha=0.1, gdiis=False, line_search=False):
 
 
 class OptState:
-
     def __init__(self, key="sd", alpha=0.3, gdiis=False, line_search=True):
         self.key = key
         self.alpha = alpha

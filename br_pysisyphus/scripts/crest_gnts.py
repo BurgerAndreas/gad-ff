@@ -31,7 +31,6 @@ def dump_trj(geoms, fn):
 
 @dataclass
 class CGNTResult:
-
     atoms: tuple
     init_energy: float
     gnt_last_image_c3d: np.ndarray
@@ -255,7 +254,7 @@ def run():
         print()
     print(f"@@@ converged: {conv_num}/{len(geoms)}")
     dur = time.time() - start
-    print(f"@@@ crestnt.py run took {dur/60:.2f} min")
+    print(f"@@@ crestnt.py run took {dur / 60:.2f} min")
 
 
 if __name__ == "__main__":

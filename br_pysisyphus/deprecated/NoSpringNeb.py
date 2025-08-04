@@ -6,7 +6,6 @@ from pysisyphus.cos.NEB import NEB
 
 
 class NoSpringNEB(NEB):
-
     # def __init__(self, calculator, images):
     def __init__(self, calculator, images):
         super(NoSpringNEB, self).__init__(calculator, images)

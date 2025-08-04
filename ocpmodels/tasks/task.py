@@ -57,9 +57,9 @@ class TrainTask(BaseTask):
 @registry.register_task("predict")
 class PredictTask(BaseTask):
     def run(self):
-        assert (
-            self.trainer.test_loader is not None
-        ), "Test dataset is required for making predictions"
+        assert self.trainer.test_loader is not None, (
+            "Test dataset is required for making predictions"
+        )
         assert self.config["checkpoint"]
         results_file = "predictions"
         self.trainer.predict(
@@ -73,9 +73,9 @@ class PredictTask(BaseTask):
 class ValidateTask(BaseTask):
     def run(self):
         # Note that the results won't be precise on multi GPUs due to padding of extra images (although the difference should be minor)
-        assert (
-            self.trainer.val_loader is not None
-        ), "Val dataset is required for making predictions"
+        assert self.trainer.val_loader is not None, (
+            "Val dataset is required for making predictions"
+        )
         assert self.config["checkpoint"]
         self.trainer.validate(
             split="val",
@@ -86,11 +86,11 @@ class ValidateTask(BaseTask):
 @registry.register_task("run-relaxations")
 class RelxationTask(BaseTask):
     def run(self):
-        assert isinstance(
-            self.trainer, ForcesTrainer
-        ), "Relaxations are only possible for ForcesTrainer"
-        assert (
-            self.trainer.relax_dataset is not None
-        ), "Relax dataset is required for making predictions"
+        assert isinstance(self.trainer, ForcesTrainer), (
+            "Relaxations are only possible for ForcesTrainer"
+        )
+        assert self.trainer.relax_dataset is not None, (
+            "Relax dataset is required for making predictions"
+        )
         assert self.config["checkpoint"]
         self.trainer.run_relaxations()

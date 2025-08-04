@@ -6,7 +6,6 @@ from pysisyphus.calculators.AnaPotBase import AnaPotBase
 
 
 class FourWellAnaPot(AnaPotBase):
-
     def __init__(self):
         V_str = "x**4 + y**4 - 2*x**2 - 4*y**2 + x*y + 0.3*x + 0.1*y"
         xlim = (-1.75, 1.75)

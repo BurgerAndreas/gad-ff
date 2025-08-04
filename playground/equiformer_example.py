@@ -125,7 +125,7 @@ def main():
         if i >= 3:  # Only process first 3 batches
             break
 
-        print(f"\nBatch {i+1}:")
+        print(f"\nBatch {i + 1}:")
         print(f"  Number of molecules: {batch.batch.max().item() + 1}")
         print(f"  Total atoms: {batch.pos.shape[0]}")
 

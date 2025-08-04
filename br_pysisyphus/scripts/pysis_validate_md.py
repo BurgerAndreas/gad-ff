@@ -22,7 +22,6 @@ BOHR2NM = BOHR2ANG / 10
 
 
 def pysis_to_pv(h5_fn="md.h5", h5_group="run", remove_com_v=True):
-
     with h5py.File(h5_fn, "r") as handle:
         group = handle[h5_group]
 

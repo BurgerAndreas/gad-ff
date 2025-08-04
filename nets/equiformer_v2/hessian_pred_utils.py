@@ -28,10 +28,10 @@ def check_symmetry(hessian, N, nsamples=100):
         errors_abs.append(abs_error)
         errors_rel.append(rel_error)
     print(
-        f"Hessian symmetry check - Abs error: mean={sum(errors_abs)/len(errors_abs):.2e}, max={max(errors_abs):.2e}"
+        f"Hessian symmetry check - Abs error: mean={sum(errors_abs) / len(errors_abs):.2e}, max={max(errors_abs):.2e}"
     )
     print(
-        f"Hessian symmetry check - Rel error: mean={sum(errors_rel)/len(errors_rel):.2e}, max={max(errors_rel):.2e}"
+        f"Hessian symmetry check - Rel error: mean={sum(errors_rel) / len(errors_rel):.2e}, max={max(errors_rel):.2e}"
     )
 
 
@@ -311,12 +311,12 @@ def _flat_indexadd(edge_index, sym_message, data):
     messages_3x3_T = messages_3x3.transpose(-2, -1)  # Transpose last two dimensions
     messageflat_transposed = messages_3x3_T.reshape(-1)  # Flatten back
     # Add both contributions
-    assert (
-        indices_ij.max().item() < hessian1d.shape[0]
-    ), f"indices_ij.max()={indices_ij.max().item()} < hessian1d={hessian1d.shape[0]}"
-    assert (
-        indices_ji.max().item() < hessian1d.shape[0]
-    ), f"indices_ji.max()={indices_ji.max().item()} < hessian1d={hessian1d.shape[0]}"
+    assert indices_ij.max().item() < hessian1d.shape[0], (
+        f"indices_ij.max()={indices_ij.max().item()} < hessian1d={hessian1d.shape[0]}"
+    )
+    assert indices_ji.max().item() < hessian1d.shape[0], (
+        f"indices_ji.max()={indices_ji.max().item()} < hessian1d={hessian1d.shape[0]}"
+    )
     hessian1d.index_add_(0, indices_ij, messageflat)  # i->j direct
     hessian1d.index_add_(0, indices_ji, messageflat_transposed)  # j->i transposed
     return hessian1d
@@ -437,7 +437,7 @@ def test_hessian_methods_for_single_sample(
     hessian = _blockdiagonal_N_3_N_3_loop(N, edge_index, sym_message)
     torch.cuda.synchronize()
     end_time = time.time()
-    print(f"_blockdiagonal_N_3_N_3_loop: {(end_time - start_time)*1000:.2f}ms")
+    print(f"_blockdiagonal_N_3_N_3_loop: {(end_time - start_time) * 1000:.2f}ms")
 
     # Time method 2: _blockdiagonal_N3_N3_loop
     torch.cuda.synchronize()
@@ -445,7 +445,7 @@ def test_hessian_methods_for_single_sample(
     hessian2 = _blockdiagonal_N3_N3_loop(N, edge_index, sym_message)
     torch.cuda.synchronize()
     end_time = time.time()
-    print(f"_blockdiagonal_N3_N3_loop: {(end_time - start_time)*1000:.2f}ms")
+    print(f"_blockdiagonal_N3_N3_loop: {(end_time - start_time) * 1000:.2f}ms")
     assert torch.allclose(hessian.reshape(N * 3, N * 3), hessian2)
 
     # Time method 3: _blockdiagonal_N3_N3_loop_explicit
@@ -454,7 +454,7 @@ def test_hessian_methods_for_single_sample(
     hessian3 = _blockdiagonal_N3_N3_loop_explicit(N, edge_index, sym_message)
     torch.cuda.synchronize()
     end_time = time.time()
-    print(f"_blockdiagonal_N3_N3_loop_explicit: {(end_time - start_time)*1000:.2f}ms")
+    print(f"_blockdiagonal_N3_N3_loop_explicit: {(end_time - start_time) * 1000:.2f}ms")
     assert torch.allclose(hessian.reshape(N * 3, N * 3), hessian3)
 
     # # Time method 4: _flat_indexadd_explicit
@@ -472,7 +472,7 @@ def test_hessian_methods_for_single_sample(
     hessianflat2 = _flat_indexadd(edge_index, sym_message, data)
     torch.cuda.synchronize()
     end_time = time.time()
-    print(f"_flat_indexadd: {(end_time - start_time)*1000:.2f}ms")
+    print(f"_flat_indexadd: {(end_time - start_time) * 1000:.2f}ms")
     assert torch.allclose(hessian.reshape(N * 3 * N * 3), hessianflat2)
     # also test this
     indices_ij = data.message_idx_ij
@@ -492,7 +492,7 @@ def test_hessian_methods_for_single_sample(
     hessian_with_diag_2d = _add_node_diagonal_2d_loop(hessian, l012_node_features, N)
     torch.cuda.synchronize()
     end_time = time.time()
-    print(f"_add_node_diagonal_2d_loop: {(end_time - start_time)*1000:.2f}ms")
+    print(f"_add_node_diagonal_2d_loop: {(end_time - start_time) * 1000:.2f}ms")
 
     # Method 2: 1D indexing with loops
     torch.cuda.synchronize()
@@ -502,7 +502,7 @@ def test_hessian_methods_for_single_sample(
     )
     torch.cuda.synchronize()
     end_time = time.time()
-    print(f"_add_node_diagonal_1d_loop: {(end_time - start_time)*1000:.2f}ms")
+    print(f"_add_node_diagonal_1d_loop: {(end_time - start_time) * 1000:.2f}ms")
     assert torch.allclose(
         hessian_with_diag_2d.reshape(N * 3 * N * 3), hessianflat2_with_diag_1d
     )
@@ -515,7 +515,7 @@ def test_hessian_methods_for_single_sample(
     )
     torch.cuda.synchronize()
     end_time = time.time()
-    print(f"_add_node_diagonal_1d_indexadd: {(end_time - start_time)*1000:.2f}ms")
+    print(f"_add_node_diagonal_1d_indexadd: {(end_time - start_time) * 1000:.2f}ms")
     assert torch.allclose(hessianflat2_with_diag_1d, hessianflat2_with_diag_indexadd)
     if data.batch.max().item() == 0:  # single sample
         _diag_ij, _diag_ji, _node_transpose_idx = (
@@ -570,7 +570,7 @@ def test_blockdiagonal_hessian_methods_for_batching(
     torch.cuda.synchronize()
     end_time = time.time()
     print(
-        f"{_blockdiagfct.__name__} (individual batches): {(end_time - start_time)*1000:.2f}ms"
+        f"{_blockdiagfct.__name__} (individual batches): {(end_time - start_time) * 1000:.2f}ms"
     )
 
     # Time the computation of the Hessian on the whole batch
@@ -581,16 +581,16 @@ def test_blockdiagonal_hessian_methods_for_batching(
     torch.cuda.synchronize()
     end_time = time.time()
     print(
-        f"{_blockdiagfct.__name__} (full batch):         {(end_time - start_time)*1000:.2f}ms"
+        f"{_blockdiagfct.__name__} (full batch):         {(end_time - start_time) * 1000:.2f}ms"
     )
 
     # compare by extracting blocks from full hessian
     atom_offset = 0
     for b in range(B):
         n_atoms_batch = data.natoms[b].item()
-        assert (
-            atom_offset == data.ptr[b].item()
-        ), f"Atom offset {atom_offset} does not match batch {b} ptr {data.ptr[b].item()}"
+        assert atom_offset == data.ptr[b].item(), (
+            f"Atom offset {atom_offset} does not match batch {b} ptr {data.ptr[b].item()}"
+        )
         # Extract the block from the full hessian
         block_start = atom_offset
         block_end = atom_offset + n_atoms_batch
@@ -599,9 +599,9 @@ def test_blockdiagonal_hessian_methods_for_batching(
         # Compare the blocks
         is_close = torch.allclose(extracted_block, individual_hessian, atol=1e-6)
         max_diff = torch.max(torch.abs(extracted_block - individual_hessian)).item()
-        assert (
-            is_close
-        ), f"Batch {b} hessian doesn't match! Max difference: {max_diff:.2e}"
+        assert is_close, (
+            f"Batch {b} hessian doesn't match! Max difference: {max_diff:.2e}"
+        )
         atom_offset += n_atoms_batch
 
     return hessian
@@ -628,11 +628,11 @@ def test_flat_hessian_methods_same_as_loop_batching(
     torch.cuda.synchronize()
     end_time = time.time()
     print(
-        f"{_flat_indexaddfct.__name__} (full batch): {(end_time - start_time)*1000:.2f}ms"
+        f"{_flat_indexaddfct.__name__} (full batch): {(end_time - start_time) * 1000:.2f}ms"
     )
-    assert (
-        hessianflat.numel() == total_entries
-    ), f"Total entries {total_entries} does not match hessianflat.numel() {hessianflat.numel()}"
+    assert hessianflat.numel() == total_entries, (
+        f"Total entries {total_entries} does not match hessianflat.numel() {hessianflat.numel()}"
+    )
 
     # Test batching consistency by comparing individual batch results to block diagonal hessian
     hessian = _blockdiagonal_N_3_N_3_loop(N, edge_index, sym_message)
@@ -644,9 +644,9 @@ def test_flat_hessian_methods_same_as_loop_batching(
     test_mask = torch.zeros_like(hessian)
     for b in range(B):
         n_atoms_batch = data.natoms[b].item()
-        assert (
-            atom_offset == data.ptr[b].item()
-        ), f"Atom offset {atom_offset} does not match batch {b} ptr {data.ptr[b].item()}"
+        assert atom_offset == data.ptr[b].item(), (
+            f"Atom offset {atom_offset} does not match batch {b} ptr {data.ptr[b].item()}"
+        )
         # Extract the block from the full hessian
         block_start = atom_offset
         block_end = atom_offset + n_atoms_batch
@@ -660,9 +660,9 @@ def test_flat_hessian_methods_same_as_loop_batching(
         _hessian_flat = _hessian_flat.reshape(n_atoms_batch, 3, n_atoms_batch, 3)
         is_close = torch.allclose(_hessian_blockdiagonal, _hessian_flat, atol=1e-6)
         max_diff = torch.max(torch.abs(_hessian_blockdiagonal - _hessian_flat)).item()
-        assert (
-            is_close
-        ), f"Batch {b} hessian doesn't match! {_flat_indexaddfct.__name__} Max difference: {max_diff:.2e}"
+        assert is_close, (
+            f"Batch {b} hessian doesn't match! {_flat_indexaddfct.__name__} Max difference: {max_diff:.2e}"
+        )
         atom_offset += n_atoms_batch
         past_entries += n_entries_batch
     # invert the mask
@@ -701,7 +701,9 @@ def test_blockdiagonal_nodediagonal_hessian_methods_for_batching(
     hessian_with_diag_full = _nodediagfct(hessian, l012_node_features, N)
     torch.cuda.synchronize()
     end_time = time.time()
-    print(f"{_nodediagfct.__name__} (full batch): {(end_time - start_time)*1000:.2f}ms")
+    print(
+        f"{_nodediagfct.__name__} (full batch): {(end_time - start_time) * 1000:.2f}ms"
+    )
 
     # Test the node diagonal method on individual batches
     torch.cuda.synchronize()
@@ -740,16 +742,16 @@ def test_blockdiagonal_nodediagonal_hessian_methods_for_batching(
     torch.cuda.synchronize()
     end_time = time.time()
     print(
-        f"{_nodediagfct.__name__} (individual batches): {(end_time - start_time)*1000:.2f}ms"
+        f"{_nodediagfct.__name__} (individual batches): {(end_time - start_time) * 1000:.2f}ms"
     )
 
     # Compare by extracting blocks from full hessian
     atom_offset = 0
     for b in range(B):
         n_atoms_batch = data.natoms[b].item()
-        assert (
-            atom_offset == data.ptr[b].item()
-        ), f"Atom offset {atom_offset} does not match batch {b} ptr {data.ptr[b].item()}"
+        assert atom_offset == data.ptr[b].item(), (
+            f"Atom offset {atom_offset} does not match batch {b} ptr {data.ptr[b].item()}"
+        )
 
         # Extract the block from the full hessian
         block_start = atom_offset * 3
@@ -766,9 +768,9 @@ def test_blockdiagonal_nodediagonal_hessian_methods_for_batching(
         max_diff = torch.max(
             torch.abs(extracted_block - individual_hessian_with_diag)
         ).item()
-        assert (
-            is_close
-        ), f"Batch {b} hessian with diagonal doesn't match! Max difference: {max_diff:.2e}"
+        assert is_close, (
+            f"Batch {b} hessian with diagonal doesn't match! Max difference: {max_diff:.2e}"
+        )
         atom_offset += n_atoms_batch
 
     return hessian_with_diag_full
@@ -790,9 +792,9 @@ def test_fast_vs_trusworthy(
 
     hessian_2d_2 = _blockdiagonal_N3_N3_loop(num_atoms, edge_index, sym_message)
     hessian_2d_2 = hessian_2d_2.reshape(num_atoms * 3, num_atoms * 3)
-    assert torch.allclose(
-        hessian_2d, hessian_2d_2
-    ), f"hessian_2d and hessian_2d_2 don't match: {torch.max(torch.abs(hessian_2d - hessian_2d_2)):.2e}"
+    assert torch.allclose(hessian_2d, hessian_2d_2), (
+        f"hessian_2d and hessian_2d_2 don't match: {torch.max(torch.abs(hessian_2d - hessian_2d_2)):.2e}"
+    )
     # fig = px.imshow(hessian_2d.detach().cpu().numpy())
     # fig.write_image("hessian_2d.png")
 
@@ -809,9 +811,9 @@ def test_fast_vs_trusworthy(
     test_mask = torch.zeros_like(hessian_1d)
     for b in range(B):
         n_atoms_batch = data.natoms[b].item()
-        assert (
-            atom_offset == data.ptr[b].item()
-        ), f"Atom offset {atom_offset} does not match batch {b} ptr {data.ptr[b].item()}"
+        assert atom_offset == data.ptr[b].item(), (
+            f"Atom offset {atom_offset} does not match batch {b} ptr {data.ptr[b].item()}"
+        )
 
         # Extract the block from the full hessian
         block_start = atom_offset * 3
@@ -826,9 +828,9 @@ def test_fast_vs_trusworthy(
         )
         is_close = torch.allclose(extracted_block_2d, extracted_block_1d, atol=1e-6)
         max_diff = torch.max(torch.abs(extracted_block_2d - extracted_block_1d)).item()
-        assert (
-            is_close
-        ), f"Batch {b} / {B-1} hessian with diagonal doesn't match! Max difference: {max_diff:.2e}"
+        assert is_close, (
+            f"Batch {b} / {B - 1} hessian with diagonal doesn't match! Max difference: {max_diff:.2e}"
+        )
         atom_offset += n_atoms_batch
         n_entries_prev += n_entries
     # invert the mask

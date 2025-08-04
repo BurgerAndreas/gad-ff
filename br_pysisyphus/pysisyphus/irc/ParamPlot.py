@@ -3,7 +3,6 @@ import numpy as np
 
 
 class ParamPlot:
-
     def __init__(self, coords_list, param1_inds, param2_inds):
         self.coords_list = coords_list
         self.coords_list_3d = [c.reshape(-1, 3) for c in coords_list]

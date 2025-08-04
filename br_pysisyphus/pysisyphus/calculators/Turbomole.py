@@ -178,9 +178,9 @@ class Turbomole(OverlapCalculator):
     ):
         super().__init__(**kwargs)
 
-        assert (control_path is not None) or (
-            simple_input is not None
-        ), "Please either provide a prepared 'control_path' or 'simple_input'!"
+        assert (control_path is not None) or (simple_input is not None), (
+            "Please either provide a prepared 'control_path' or 'simple_input'!"
+        )
 
         # Handle simple input
         if simple_input:
@@ -218,12 +218,12 @@ class Turbomole(OverlapCalculator):
                 text = handle.read()
             assert re.search(r"\$intsdebug\s*sao", text) and re.search(
                 r"\$scfiterlimit\s*0", text
-            ), ("Please set " "$intsdebug sao and $scfiterlimit 0 !")
+            ), "Please set $intsdebug sao and $scfiterlimit 0 !"
         self.cosmo_kwargs = cosmo_kwargs
         if self.cosmo_kwargs:
-            assert (
-                "epsilon" in self.cosmo_kwargs
-            ), "If 'cosmo_kwargs' is given 'epsilon' must be specified!"
+            assert "epsilon" in self.cosmo_kwargs, (
+                "If 'cosmo_kwargs' is given 'epsilon' must be specified!"
+            )
 
         self.to_keep = (
             "control",

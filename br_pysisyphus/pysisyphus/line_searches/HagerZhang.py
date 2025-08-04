@@ -4,7 +4,6 @@ from pysisyphus.line_searches.LineSearch import LineSearch, LineSearchNotConverg
 
 
 class HagerZhang(LineSearch):
-
     def __init__(
         self,
         *args,
@@ -24,9 +23,8 @@ class HagerZhang(LineSearch):
         Delta=0.7,
         omega=1e-3,
         max_bisects=10,
-        **kwargs
+        **kwargs,
     ):
-
         kwargs["cond"] = "wolfe"
         super().__init__(*args, **kwargs)
 

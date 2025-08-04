@@ -235,7 +235,6 @@ def test_anapotcbm():
 
 
 def test_hcn_iso_dimer(trans_opt, trans_memory):
-
     calc_kwargs = {
         "route": "PM6",
         "pal": 4,

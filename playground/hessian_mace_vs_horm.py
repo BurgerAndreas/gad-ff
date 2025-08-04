@@ -124,7 +124,6 @@ def hess2eigenvalues(hess):
 
 
 if __name__ == "__main__":
-
     # you might need to change this
     project_root = os.path.dirname(os.path.dirname(__file__))
 
@@ -152,7 +151,6 @@ if __name__ == "__main__":
 
     print("\n")
     for batch_base in tqdm(dataloader, desc="Evaluating", total=len(dataloader)):
-
         N = batch_base.natoms
 
         # MACE

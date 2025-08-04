@@ -51,7 +51,6 @@ def save_rel_error(a, b):
 
 
 def equivariance_test(model, batch_base):
-
     state_before = model.training
     model.eval()
 
@@ -203,9 +202,9 @@ def compute_loss_blockdiagonal_hessian(pred_hessian, true_hessian, loss_fn, data
     test_mask = torch.zeros_like(pred_hessian)
     for b in range(B):
         n_atoms_batch = data.natoms[b].item()
-        assert (
-            atom_offset == data.ptr[b].item()
-        ), f"Atom offset {atom_offset} does not match batch {b} ptr {data.ptr[b].item()}"
+        assert atom_offset == data.ptr[b].item(), (
+            f"Atom offset {atom_offset} does not match batch {b} ptr {data.ptr[b].item()}"
+        )
         # Extract the block from the full hessian
         block_start = atom_offset
         block_end = atom_offset + n_atoms_batch
@@ -213,9 +212,9 @@ def compute_loss_blockdiagonal_hessian(pred_hessian, true_hessian, loss_fn, data
         test_mask[block_start:block_end, :, block_start:block_end, :] = 1
         # from the flat block
         n_entries_batch = (n_atoms_batch * 3) ** 2
-        assert (
-            n_entries_batch == pred_block.numel()
-        ), f"Number of entries in batch {b} does not match"
+        assert n_entries_batch == pred_block.numel(), (
+            f"Number of entries in batch {b} does not match"
+        )
         true_block = true_hessian[past_entries : past_entries + n_entries_batch]
         # Compare the blocks
         pred_block = pred_block.reshape(true_block.shape)
@@ -230,7 +229,6 @@ def compute_loss_blockdiagonal_hessian(pred_hessian, true_hessian, loss_fn, data
 
 
 if __name__ == "__main__":
-
     project_root = os.path.dirname(os.path.dirname(__file__))
 
     for _hessian_build_method in ["1d", "blockdiagonal"]:

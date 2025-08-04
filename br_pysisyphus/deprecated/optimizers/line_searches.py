@@ -28,7 +28,6 @@ def interpol_alpha_cubic(f_0, df_0, f_alpha_0, f_alpha_1, alpha_0, alpha_1):
 
 
 class LineSearchConverged(Exception):
-
     def __init__(self, alpha):
         self.alpha = alpha
 
@@ -474,7 +473,6 @@ def wolfe(
     phi0, dphi0 = get_phi_dphi("fg", 0)
 
     def zoom(alpha_lo, alpha_hi, phi_lo, phi_alpha_=None, alpha_0_=None, max_cycles=10):
-
         alphas = list()
         phi_alphas = list()
         if phi_alpha_:
@@ -519,7 +517,7 @@ def wolfe(
 
             dphi_j = get_phi_dphi("g", alpha_j)
             if conds["curv"](alpha_j):
-                print(f"\tzoom converged after {j+1} cycles.")
+                print(f"\tzoom converged after {j + 1} cycles.")
                 return alpha_j
 
             if (dphi_j * (alpha_hi - alpha_lo)) >= 0:

@@ -337,10 +337,10 @@ def test_eigen_dataset(dataset_name="ts1x-val-dft-hess-eigen.lmdb", max_batches=
 
     print(f"\nStatistics:")
     print(
-        f"  Samples with force similarity > 0.9: {high_force_sim_count}/{len(force_similarities)} ({100*high_force_sim_count/len(force_similarities):.1f}%)"
+        f"  Samples with force similarity > 0.9: {high_force_sim_count}/{len(force_similarities)} ({100 * high_force_sim_count / len(force_similarities):.1f}%)"
     )
     print(
-        f"  Samples with |eigenvector similarity| < 0.1: {low_eigenvec_sim_count}/{len(eigenvec_differences)} ({100*low_eigenvec_sim_count/len(eigenvec_differences):.1f}%)"
+        f"  Samples with |eigenvector similarity| < 0.1: {low_eigenvec_sim_count}/{len(eigenvec_differences)} ({100 * low_eigenvec_sim_count / len(eigenvec_differences):.1f}%)"
     )
 
 

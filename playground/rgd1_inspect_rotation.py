@@ -309,7 +309,7 @@ if rmsd_stats["R_P_before"]:
         f"  After alignment:  {r_p_after_mean:.4f} ± {np.std(rmsd_stats['R_P_after']):.4f} Å"
     )
     print(f"  Average improvement: {r_p_improvement:.4f} Å")
-    print(f"  Improvement ratio: {r_p_improvement/r_p_before_mean*100:.1f}%")
+    print(f"  Improvement ratio: {r_p_improvement / r_p_before_mean * 100:.1f}%")
 
     print(f"\nR-TS RMSD:")
     print(
@@ -319,7 +319,7 @@ if rmsd_stats["R_P_before"]:
         f"  After alignment:  {r_ts_after_mean:.4f} ± {np.std(rmsd_stats['R_TS_after']):.4f} Å"
     )
     print(f"  Average improvement: {r_ts_improvement:.4f} Å")
-    print(f"  Improvement ratio: {r_ts_improvement/r_ts_before_mean*100:.1f}%")
+    print(f"  Improvement ratio: {r_ts_improvement / r_ts_before_mean * 100:.1f}%")
 
     print(f"\nRMSD Range Analysis:")
     print(

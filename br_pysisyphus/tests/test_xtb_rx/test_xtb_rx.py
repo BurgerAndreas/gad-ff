@@ -121,7 +121,7 @@ def test_xtb_rx(fn, geoms, charge, mult, ref_energy, results_bag):
         print(
             f"@@@{id_} COMPARE@@@: rmsd={rmsd:{rmsd_fmt}}, ΔE= {diff: .6f} {cmt} is lower, "
             # f"Ref: {ts_ref_imag: >8.1f}, TS: {ts_imag: >8.1f} cm⁻¹"
-            f"fn={fn[:10]}, cycs: opt={opt.cur_cycle+1: >2d}, tsopt={ts_opt.cur_cycle+1: >2d}"
+            f"fn={fn[:10]}, cycs: opt={opt.cur_cycle + 1: >2d}, tsopt={ts_opt.cur_cycle + 1: >2d}"
         )
 
         results_bag.opt_converged = opt.is_converged

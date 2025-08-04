@@ -32,14 +32,13 @@ class pDynamo(Lot):
     """
 
     def __init__(self, options):
-
         super(pDynamo, self).__init__(options)
 
         # pDynamo
-        self.system = self.options["job_data"].get("system", None)
+        self.system = self.options['job_data'].get('system', None)
 
-        nifty.logger.debug(" making folder scratch/{}".format(self.node_id))
-        os.system("mkdir -p scratch/{}".format(self.node_id))
+        nifty.logger.debug(' making folder scratch/{}'.format(self.node_id))
+        os.system('mkdir -p scratch/{}'.format(self.node_id))
 
         # if simulation doesn't exist create it
         if self.lot_inp_file is not None and self.simulation is None:
@@ -47,102 +46,102 @@ class pDynamo(Lot):
             # DO NOT DUPLICATE OPTIONS WHICH ARE ALREADY PART OF LOT OPTIONS (e.g. charge)
             # ORCA options
             self.file_options.set_active(
-                "use_orca", False, bool, "Use ORCA to evaluate energies and gradients"
+                'use_orca', False, bool, 'Use ORCA to evaluate energies and gradients'
             )
             self.file_options.set_active(
-                "orca_method",
-                "B3LYP",
+                'orca_method',
+                'B3LYP',
                 str,
-                "Method to use in ORCA e.g. HF, MP2, or density functional",
+                'Method to use in ORCA e.g. HF, MP2, or density functional',
                 depend=(self.file_options.use_orca),
-                msg="Must use ORCA to specify density functional",
+                msg='Must use ORCA to specify density functional',
             )
             self.file_options.set_active(
-                "basis",
-                "6-31g",
+                'basis',
+                '6-31g',
                 str,
-                "Basis set for wavefunction or density functional",
+                'Basis set for wavefunction or density functional',
                 depend=(self.file_options.use_orca),
-                msg="Must use ORCA to specify density functional",
+                msg='Must use ORCA to specify density functional',
             )
             self.file_options.set_active(
-                "tole", 1e-4, float, "Energy tolerance for convergence"
+                'tole', 1e-4, float, 'Energy tolerance for convergence'
             )
-            self.file_options.set_active("maxiter", 100, int, "Number of SCF cycles")
+            self.file_options.set_active('maxiter', 100, int, 'Number of SCF cycles')
             self.file_options.set_active(
-                "slowconv", False, bool, "Convergence option for ORCA"
+                'slowconv', False, bool, 'Convergence option for ORCA'
             )
             self.file_options.set_active(
-                "scfconvtol",
-                "NormalSCF",
+                'scfconvtol',
+                'NormalSCF',
                 str,
-                "Convergence option for ORCA",
-                allowed=["NormalSCF", "TightSCF", "ExtremeSCF"],
+                'Convergence option for ORCA',
+                allowed=['NormalSCF', 'TightSCF', 'ExtremeSCF'],
             )
             self.file_options.set_active(
-                "d3", False, bool, "Use Grimme's D3 dispersion"
+                'd3', False, bool, "Use Grimme's D3 dispersion"
             )
 
             # QM/MM CHARMM
-            self.file_options.set_active("qmatom_file", None, str, "")
+            self.file_options.set_active('qmatom_file', None, str, '')
             self.file_options.set_active(
-                "use_charmm_qmmm",
+                'use_charmm_qmmm',
                 False,
                 bool,
-                "Use CHARMM molecular mechanics parameters to perform QMMM",
+                'Use CHARMM molecular mechanics parameters to perform QMMM',
                 depend=(self.file_options.qmatom_file is not None),
-                msg="Must define qm atoms",
+                msg='Must define qm atoms',
             )
             self.file_options.set_active(
-                "path_to_prm",
+                'path_to_prm',
                 None,
                 str,
-                "path to folder containing Charmm parameter files",
+                'path to folder containing Charmm parameter files',
             )
             self.file_options.set_active(
-                "path_to_str",
+                'path_to_str',
                 None,
                 str,
-                "path to folder containing to Charmm str files",
+                'path to folder containing to Charmm str files',
             )
             self.file_options.set_active(
-                "psf_file", None, str, "Path to file containing CHARMM PSF"
+                'psf_file', None, str, 'Path to file containing CHARMM PSF'
             )
             self.file_options.set_active(
-                "crd_file", None, str, "Path to file containing CHARMM CRD"
+                'crd_file', None, str, 'Path to file containing CHARMM CRD'
             )
 
             # DFTB options
             self.file_options.set_active(
-                "use_dftb",
+                'use_dftb',
                 False,
                 bool,
-                "Use DFTB to evaluate energies and gradients",
+                'Use DFTB to evaluate energies and gradients',
                 clash=(self.file_options.use_orca),
                 msg="We're not using DFTB+",
             )
             self.file_options.set_active(
-                "path_to_skf", None, str, "path to folder containing skf files"
+                'path_to_skf', None, str, 'path to folder containing skf files'
             )
             self.file_options.set_active(
-                "use_scc", True, bool, "Use self-consistent charge"
+                'use_scc', True, bool, 'Use self-consistent charge'
             )
 
             # General options
             self.file_options.set_active(
-                "command",
+                'command',
                 None,
                 str,
-                "pDynamo requires a path to an executable like ORCA or DFTB+",
+                'pDynamo requires a path to an executable like ORCA or DFTB+',
             )
             self.file_options.set_active(
-                "scratch", None, str, "Folder to store temporary files"
+                'scratch', None, str, 'Folder to store temporary files'
             )
 
             self.file_options.force_active(
-                "scratch", "scratch/{}".format(self.node_id), "Setting scratch folder"
+                'scratch', 'scratch/{}'.format(self.node_id), 'Setting scratch folder'
             )
-            nifty.printcool(" Options for pdynamo")
+            nifty.printcool(' Options for pdynamo')
 
             for line in self.file_options.record():
                 nifty.logger.debug(line)
@@ -155,9 +154,8 @@ class pDynamo(Lot):
             setattr(self, key, self.file_options.ActiveOptions[key])
 
     def build_system(self):
-
         # save xyz file
-        manage_xyz.write_xyz("scratch/{}/tmp.xyz".format(self.node_id), self.geom)
+        manage_xyz.write_xyz('scratch/{}/tmp.xyz'.format(self.node_id), self.geom)
 
         # ORCA
         if self.use_orca:
@@ -190,9 +188,9 @@ class pDynamo(Lot):
             if self.use_charmm_qmmm:
                 # Get PRM
                 prm_files = []
-                for name in glob.glob(self.path_to_prm + "/*.prm"):
+                for name in glob.glob(self.path_to_prm + '/*.prm'):
                     prm_files.append(name)
-                for name in glob.glob(self.path_to_str + "/*.str"):
+                for name in glob.glob(self.path_to_str + '/*.str'):
                     prm_files.append(name)
                 nifty.logger.debug(prm_files)
 
@@ -203,7 +201,7 @@ class pDynamo(Lot):
                 system = pB.CHARMMPSFFile_ToSystem(
                     self.psf_file,
                     isXPLOR=True,
-                    log="scratch/{}/logfile".format(self.node_id),
+                    log='scratch/{}/logfile'.format(self.node_id),
                     parameters=parameters,
                 )
 
@@ -216,7 +214,7 @@ class pDynamo(Lot):
                 system.DefineNBModel(nbModel)
             else:
                 # Define System
-                system = pB.XYZFile_ToSystem("scratch/{}/tmp.xyz".format(self.node_id))
+                system = pB.XYZFile_ToSystem('scratch/{}/tmp.xyz'.format(self.node_id))
                 system.DefineQCModel(qcmodel)
             # system.Summary ( )
 
@@ -230,12 +228,12 @@ class pDynamo(Lot):
                 deleteJobFiles=False,
                 electronicState=electronicState,
                 randomScratch=True,
-                scratch="scratch/{}".format(self.node_id),
+                scratch='scratch/{}'.format(self.node_id),
                 skfPath=self.path_to_skf,
                 command=self.command,
                 useSCC=self.use_scc,
             )
-            system = pB.XYZFile_ToSystem("scratch/{}/tmp.xyz".format(self.node_id))
+            system = pB.XYZFile_ToSystem('scratch/{}/tmp.xyz'.format(self.node_id))
             system.DefineQCModel(qcModel)
             self.system = system
 
@@ -270,15 +268,14 @@ class pDynamo(Lot):
 
     @property
     def system(self):
-        return self.options["job_data"]["system"]
+        return self.options['job_data']['system']
 
     @system.setter
     def system(self, value):
-        self.options["job_data"]["system"] = value
+        self.options['job_data']['system'] = value
 
 
-if __name__ == "__main__":
-
+if __name__ == '__main__':
     # QMMM
     # filepath='/export/zimmerman/craldaz/kevin2/tropcwatersphere.xyz'
     # geom = manage_xyz.read_xyz(filepath)
@@ -287,13 +284,13 @@ if __name__ == "__main__":
     # lot.run(geom)
 
     # DFTB
-    filepath = "../../data/ethylene.xyz"
+    filepath = '../../data/ethylene.xyz'
     geom = manage_xyz.read_xyz(filepath)
     lot = pDynamo.from_options(
         states=[(1, 0)],
         charge=0,
         nproc=16,
         fnm=filepath,
-        lot_inp_file="pdynamo_options_dftb.txt",
+        lot_inp_file='pdynamo_options_dftb.txt',
     )
     lot.run(geom)

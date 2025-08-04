@@ -76,21 +76,21 @@ AMBERVELOCITY_TO_AU = AMBERLENGTH_TO_AU / AMBERTIME_TO_AU
 AMBERCHARGE_TO_AU = 1.0 / 18.2223
 
 # Print all unit conversions
-if __name__ == "__main__":
+if __name__ == '__main__':
     conversions = dict(locals())
     for key, val in conversions.items():
-        if key[0] != "_":
-            nifty.logger.debug((" Conversion: % 22s, Value: %11.11E" % (key, val)))
+        if key[0] != '_':
+            nifty.logger.debug((' Conversion: % 22s, Value: %11.11E' % (key, val)))
 
 
 units = {
-    "au_per_amu": 1.8228884855409500e03,  # mass
-    "au_per_cminv": 1.0 / 219474.6305,  # ???
-    "au_per_ang": 1.0 / 0.5291772109217,  # length
-    "au_per_K": 1.0 / 3.1577464e5,  # temperature
-    "au_per_fs": 1.0 / 2.418884326505e-2,  # time
+    'au_per_amu': 1.8228884855409500e03,  # mass
+    'au_per_cminv': 1.0 / 219474.6305,  # ???
+    'au_per_ang': 1.0 / 0.5291772109217,  # length
+    'au_per_K': 1.0 / 3.1577464e5,  # temperature
+    'au_per_fs': 1.0 / 2.418884326505e-2,  # time
 }
 for k in list(units.keys()):
     v = units[k]
-    mobj = re.match("(\S+)_per_(\S+)", k)
-    units["%s_per_%s" % (mobj.group(2), mobj.group(1))] = 1.0 / v
+    mobj = re.match('(\S+)_per_(\S+)', k)
+    units['%s_per_%s' % (mobj.group(2), mobj.group(1))] = 1.0 / v

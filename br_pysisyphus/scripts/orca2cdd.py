@@ -202,9 +202,9 @@ def run():
 
     states_available = set(range(1, len(Xs) + 1))
     missing_states = set(states) - set(states_available)
-    assert (
-        len(missing_states) == 0
-    ), f"Requested states {missing_states} are not available in '{cis}'."
+    assert len(missing_states) == 0, (
+        f"Requested states {missing_states} are not available in '{cis}'."
+    )
 
     all_cubes = list()
     i = 0

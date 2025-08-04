@@ -503,7 +503,6 @@ class LayerBlock(torch.nn.Module):
         SO3_edge_rot,
         mappingReduced,
     ):
-
         # Compute messages by performing message block
         x_message = self.message_block(
             x,
@@ -711,7 +710,6 @@ class SO2Block(torch.nn.Module):
         x_edge,
         mappingReduced,
     ):
-
         num_edges = len(x_edge)
 
         # Reshape the spherical harmonics based on m (order)
@@ -869,7 +867,6 @@ class EdgeBlock(torch.nn.Module):
         )
 
     def forward(self, edge_distance, source_element, target_element):
-
         # Compute distance embedding
         x_dist = self.distance_expansion(edge_distance)
         x_dist = self.fc1_dist(x_dist)

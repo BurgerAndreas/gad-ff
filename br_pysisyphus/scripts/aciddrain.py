@@ -327,9 +327,9 @@ def run_pka(yaml_inp):
         h_ind = acid_dict["h_ind"]
         assert Path(fn).exists(), f"File '{fn}' does not exist!"
         geom = geom_loader(fn)
-        assert (
-            geom.atoms[h_ind].lower() == "h"
-        ), f"Atom at index {h_ind} in '{fn}' is not a hydrogen atom!"
+        assert geom.atoms[h_ind].lower() == "h", (
+            f"Atom at index {h_ind} in '{fn}' is not a hydrogen atom!"
+        )
         print(f"Checked {acid}.")
         inputs.append((fn, h_ind))
 

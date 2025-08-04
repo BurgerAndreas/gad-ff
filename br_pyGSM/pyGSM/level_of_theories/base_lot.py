@@ -21,19 +21,19 @@ ELEMENT_TABLE = elements.ElementData()
 
 
 def copy_file(path1, path2):
-    cmd = "cp -r " + path1 + " " + path2
-    nifty.logger.debug(" copying scr files\n {}".format(cmd))
+    cmd = 'cp -r ' + path1 + ' ' + path2
+    nifty.logger.debug(' copying scr files\n {}'.format(cmd))
     os.system(cmd)
-    os.system("wait")
+    os.system('wait')
 
 
 class LoTError(Exception):
     pass
 
 
-Energy = namedtuple("Energy", "value unit")
-Gradient = namedtuple("Gradient", "value unit")
-Coupling = namedtuple("Coupling", "value unit")
+Energy = namedtuple('Energy', 'value unit')
+Gradient = namedtuple('Gradient', 'value unit')
+Coupling = namedtuple('Coupling', 'value unit')
 
 
 class Lot(object):
@@ -43,150 +43,150 @@ class Lot(object):
     def default_options():
         """Lot default options."""
 
-        if hasattr(Lot, "_default_options"):
+        if hasattr(Lot, '_default_options'):
             return Lot._default_options.copy()
         opt = options.Options()
 
         opt.add_option(
-            key="fnm",
+            key='fnm',
             value=None,
             required=False,
             allowed_types=[str],
-            doc="File name to create the LOT object from. Only used if geom is none.",
+            doc='File name to create the LOT object from. Only used if geom is none.',
         )
 
         opt.add_option(
-            key="geom",
+            key='geom',
             value=None,
             required=False,
-            doc="geometry object required to get the atom names and initial coords",
+            doc='geometry object required to get the atom names and initial coords',
         )
 
         opt.add_option(
-            key="cell", value=None, required=False, doc="cell object to set ase cell"
+            key='cell', value=None, required=False, doc='cell object to set ase cell'
         )
 
         opt.add_option(
-            key="states", value=[(1, 0)], required=False, doc="list of states 0-indexed"
+            key='states', value=[(1, 0)], required=False, doc='list of states 0-indexed'
         )
 
         opt.add_option(
-            key="gradient_states",
+            key='gradient_states',
             value=None,
             required=False,
-            doc="list of states to calculate gradients for, will assume same as states if not given",
+            doc='list of states to calculate gradients for, will assume same as states if not given',
         )
 
         opt.add_option(
-            key="coupling_states",
+            key='coupling_states',
             value=None,
             required=False,
-            doc="states to calculate derivative coupling. Currently only one coupling can be calculated per level of theory object.",
+            doc='states to calculate derivative coupling. Currently only one coupling can be calculated per level of theory object.',
         )
 
         opt.add_option(
-            key="charge",
+            key='charge',
             value=0,
             required=False,
             allowed_types=[int],
-            doc="charge of molecule",
+            doc='charge of molecule',
         )
 
         opt.add_option(
-            key="nproc",
+            key='nproc',
             required=False,
             value=1,
             allowed_types=[int],
-            doc="number of processors",
+            doc='number of processors',
         )
 
         opt.add_option(
-            key="do_coupling", required=False, value=False, doc="derivative coupling"
+            key='do_coupling', required=False, value=False, doc='derivative coupling'
         )
 
         opt.add_option(
-            key="node_id",
+            key='node_id',
             required=False,
             value=0,
             allowed_types=[int],
-            doc="node id used for storing orbs,etc",
+            doc='node id used for storing orbs,etc',
         )
 
         opt.add_option(
-            key="ID",
+            key='ID',
             required=False,
             value=0,
             allowed_types=[int],
-            doc=" id used for storing orbs,etc for string",
+            doc=' id used for storing orbs,etc for string',
         )
 
         opt.add_option(
-            key="calc_grad",
+            key='calc_grad',
             required=False,
             value=True,
             allowed_types=[bool],
-            doc=" calculate gradient or not",
+            doc=' calculate gradient or not',
         )
 
         opt.add_option(
-            key="lot_inp_file",
+            key='lot_inp_file',
             required=False,
             value=None,
-            doc="file name storing LOT input section. Used for custom basis sets,\
+            doc='file name storing LOT input section. Used for custom basis sets,\
                      custom convergence criteria, etc. Will override nproc, basis and\
                      functional. Do not specify charge or spin in this file. Charge \
                      and spin should be specified in charge and states options.\
                      for QChem, include $molecule line. For ORCA, do not include *xyz\
-                     line.",
+                     line.',
         )
 
         opt.add_option(
-            key="job_data",
+            key='job_data',
             value={},
             allowed_types=[dict],
-            doc="extra key-word arguments to define level of theory object. e.g.\
-                     TeraChem Cloud requires a TeraChem client and options dictionary.",
+            doc='extra key-word arguments to define level of theory object. e.g.\
+                     TeraChem Cloud requires a TeraChem client and options dictionary.',
         )
 
         opt.add_option(
-            key="file_options",
+            key='file_options',
             value=None,
             allowed_types=[File_Options],
-            doc="A specialized dictionary containing lot specific options from file\
+            doc='A specialized dictionary containing lot specific options from file\
                         including checks on dependencies and clashes. Not all packages\
-                        require",
+                        require',
         )
 
         opt.add_option(
-            key="xTB_Hamiltonian",
-            value="GFN2-xTB",
+            key='xTB_Hamiltonian',
+            value='GFN2-xTB',
             required=False,
             allowed_types=[str],
-            doc="xTB hamiltonian",
+            doc='xTB hamiltonian',
         )
 
         opt.add_option(
-            key="xTB_accuracy",
+            key='xTB_accuracy',
             value=1.0,
             required=False,
             allowed_types=[float],
-            doc="xTB accuracy",
+            doc='xTB accuracy',
         )
 
         opt.add_option(
-            key="xTB_electronic_temperature",
+            key='xTB_electronic_temperature',
             value=300,
             required=False,
             allowed_types=[float],
-            doc="xTB electronic_temperature",
+            doc='xTB electronic_temperature',
         )
 
         opt.add_option(
-            key="solvent",
+            key='solvent',
             value=None,
             required=False,
             allowed_types=[str],
-            doc="xTB solvent",
+            doc='xTB solvent',
         )
 
         Lot._default_options = opt
@@ -226,17 +226,17 @@ class Lot(object):
         len_quintets = len(quintets)
 
         # DO this before fixing states if put in lazy
-        if self.options["gradient_states"] is None and self.calc_grad:
+        if self.options['gradient_states'] is None and self.calc_grad:
             if self.verbose:
-                nifty.logger.debug(" Assuming gradient states are ", self.states)
-            self.options["gradient_states"] = self.options["states"]
+                nifty.logger.debug(' Assuming gradient states are ', self.states)
+            self.options['gradient_states'] = self.options['states']
 
         if (
             len(self.states)
             < len_singlets + len_doublets + len_triplets + len_quartets + len_quintets
         ):
             if self.verbose:
-                nifty.logger.debug("fixing states to be proper length")
+                nifty.logger.debug('fixing states to be proper length')
             tmp = []
             # TODO put in rest of fixed states
             for i in range(len_singlets):
@@ -245,35 +245,35 @@ class Lot(object):
                 tmp.append((3, i))
             self.states = tmp
             if self.verbose:
-                nifty.logger.debug(" New states ", self.states)
+                nifty.logger.debug(' New states ', self.states)
 
-        self.geom = self.options["geom"]
-        self.cell = self.options["cell"]
+        self.geom = self.options['geom']
+        self.cell = self.options['cell']
         if self.geom is not None:
             if self.verbose:
-                nifty.logger.debug(" initializing LOT from geom")
-        elif self.options["fnm"] is not None:
+                nifty.logger.debug(' initializing LOT from geom')
+        elif self.options['fnm'] is not None:
             if self.verbose:
-                nifty.logger.debug(" initializing LOT from file")
-            if not os.path.exists(self.options["fnm"]):
+                nifty.logger.debug(' initializing LOT from file')
+            if not os.path.exists(self.options['fnm']):
                 # logger.error('Tried to create LOT object from a file that does not exist: %s\n' % self.options['fnm'])
                 raise IOError
-            self.geom = manage_xyz.read_xyz(self.options["fnm"], scale=1.0)
+            self.geom = manage_xyz.read_xyz(self.options['fnm'], scale=1.0)
         else:
-            raise RuntimeError("Need to initialize LOT object")
+            raise RuntimeError('Need to initialize LOT object')
 
         # Cache some useful atributes - other useful attributes are properties
         self.currentCoords = manage_xyz.xyz_to_np(self.geom)
         self.atoms = manage_xyz.get_atoms(self.geom)
-        self.ID = self.options["ID"]
-        self.nproc = self.options["nproc"]
-        self.charge = self.options["charge"]
-        self.node_id = self.options["node_id"]
-        self.lot_inp_file = self.options["lot_inp_file"]
-        self.xTB_Hamiltonian = self.options["xTB_Hamiltonian"]
-        self.xTB_accuracy = self.options["xTB_accuracy"]
-        self.xTB_electronic_temperature = self.options["xTB_electronic_temperature"]
-        self.solvent = self.options["solvent"]
+        self.ID = self.options['ID']
+        self.nproc = self.options['nproc']
+        self.charge = self.options['charge']
+        self.node_id = self.options['node_id']
+        self.lot_inp_file = self.options['lot_inp_file']
+        self.xTB_Hamiltonian = self.options['xTB_Hamiltonian']
+        self.xTB_accuracy = self.options['xTB_accuracy']
+        self.xTB_electronic_temperature = self.options['xTB_electronic_temperature']
+        self.solvent = self.options['solvent']
 
         # Bools for running
         self.hasRanForCurrentCoords = False
@@ -286,15 +286,15 @@ class Lot(object):
         # package  specific implementation
         # TODO MOVE to specific package !!!
         # tc cloud
-        self.options["job_data"]["orbfile"] = self.options["job_data"].get(
-            "orbfile", ""
+        self.options['job_data']['orbfile'] = self.options['job_data'].get(
+            'orbfile', ''
         )
         # pytc? TODO
-        self.options["job_data"]["lot"] = self.options["job_data"].get("lot", None)
+        self.options['job_data']['lot'] = self.options['job_data'].get('lot', None)
 
-        fname = f"scratch/{self.ID:03}/{self.node_id}"
-        nifty.logger.debug(f" {self.__class__.__name__} making folder {fname}")
-        os.system(f"mkdir -p {fname}")
+        fname = f'scratch/{self.ID:03}/{self.node_id}'
+        nifty.logger.debug(f' {self.__class__.__name__} making folder {fname}')
+        os.system(f'mkdir -p {fname}')
 
     @classmethod
     def from_options(cls, **kwargs):
@@ -325,7 +325,7 @@ class Lot(object):
 
     @Gradients.setter
     def Gradients(self, value):
-        assert type(value) is dict, "grada must be dictionary"
+        assert type(value) is dict, 'grada must be dictionary'
         self._Gradients = value
 
     @property
@@ -339,59 +339,59 @@ class Lot(object):
 
     @property
     def file_options(self):
-        return self.options["file_options"]
+        return self.options['file_options']
 
     @file_options.setter
     def file_options(self, value):
-        assert type(value) == File_Options, "incorrect type for file options"
-        self.options["file_options"] = value
+        assert type(value) == File_Options, 'incorrect type for file options'
+        self.options['file_options'] = value
 
     @property
     def do_coupling(self):
-        return self.options["do_coupling"]
+        return self.options['do_coupling']
 
     @do_coupling.setter
     def do_coupling(self, value):
-        assert type(value) == bool, "incorrect type for do_coupling"
-        self.options["do_coupling"] = value
+        assert type(value) == bool, 'incorrect type for do_coupling'
+        self.options['do_coupling'] = value
 
     @property
     def coupling_states(self):
-        return self.options["coupling_states"]
+        return self.options['coupling_states']
 
     @coupling_states.setter
     def coupling_states(self, value):
-        assert (
-            type(value) == tuple
-        ), "incorrect type for coupling,currently only support a tuple"
-        self.options["coupling_states"] = value
+        assert type(value) == tuple, (
+            'incorrect type for coupling,currently only support a tuple'
+        )
+        self.options['coupling_states'] = value
 
     @property
     def gradient_states(self):
-        return self.options["gradient_states"]
+        return self.options['gradient_states']
 
     @gradient_states.setter
     def gradient_states(self, value):
-        assert type(value) == list, "incorrect type for gradient"
-        self.options["gradient_states"] = value
+        assert type(value) == list, 'incorrect type for gradient'
+        self.options['gradient_states'] = value
 
     @property
     def states(self):
-        return self.options["states"]
+        return self.options['states']
 
     @states.setter
     def states(self, value):
-        assert type(value) == list, "incorrect type for gradient"
-        self.options["states"] = value
+        assert type(value) == list, 'incorrect type for gradient'
+        self.options['states'] = value
 
     @property
     def calc_grad(self):
-        return self.options["calc_grad"]
+        return self.options['calc_grad']
 
     @calc_grad.setter
     def calc_grad(self, value):
-        assert type(value) == bool, "incorrect type for calc_grad"
-        self.options["calc_grad"] = value
+        assert type(value) == bool, 'incorrect type for calc_grad'
+        self.options['calc_grad'] = value
 
     @classmethod
     def copy(cls, lot, options={}, copy_wavefunction=True):
@@ -399,10 +399,10 @@ class Lot(object):
 
     def check_multiplicity(self, multiplicity):
         if multiplicity > self.n_electrons + 1:
-            raise ValueError("Spin multiplicity too high.")
+            raise ValueError('Spin multiplicity too high.')
             nifty.logger.debug(self.n_electrons)
             nifty.logger.debug(multiplicity)
-            raise ValueError("Inconsistent charge/multiplicity.")
+            raise ValueError('Inconsistent charge/multiplicity.')
 
     def get_nelec(self, geom, multiplicity):
         atoms = manage_xyz.get_atoms(geom)
@@ -410,7 +410,7 @@ class Lot(object):
         atomic_num = [ele.atomic_num for ele in elements]
         self.n_electrons = sum(atomic_num) - self.charge
         if self.n_electrons < 0:
-            raise ValueError("Molecule has fewer than 0 electrons!!!")
+            raise ValueError('Molecule has fewer than 0 electrons!!!')
         self.check_multiplicity(multiplicity)
         return
 
@@ -422,9 +422,9 @@ class Lot(object):
             self.hasRanForCurrentCoords = True
 
         Energy = self.Energies[(multiplicity, state)]
-        if Energy.unit == "Hartree":
+        if Energy.unit == 'Hartree':
             return Energy.value * units.KCAL_MOL_PER_AU
-        elif Energy.unit == "kcal/mol":
+        elif Energy.unit == 'kcal/mol':
             return Energy.value
         elif Energy.unit is None:
             return Energy.value
@@ -440,9 +440,9 @@ class Lot(object):
             if frozen_atoms is not None:
                 for a in frozen_atoms:
                     Gradient.value[a, :] = 0.0
-            if Gradient.unit == "Hartree/Bohr":
+            if Gradient.unit == 'Hartree/Bohr':
                 return Gradient.value * units.ANGSTROM_TO_AU  # Ha/bohr*bohr/ang=Ha/ang
-            elif Gradient.unit == "kcal/mol/Angstrom":
+            elif Gradient.unit == 'kcal/mol/Angstrom':
                 return (
                     Gradient.value * units.KCAL_MOL_TO_AU
                 )  # kcalmol/A*Ha/kcalmol=Ha/ang
@@ -463,7 +463,7 @@ class Lot(object):
             if frozen_atoms is not None:
                 for a in [3 * i for i in frozen_atoms]:
                     Coupling.value[a : a + 3, 0] = 0.0
-            if Coupling.unit == "Hartree/Bohr":
+            if Coupling.unit == 'Hartree/Bohr':
                 return Coupling.value * units.ANGSTROM_TO_AU  # Ha/bohr*bohr/ang=Ha/ang
             else:
                 raise NotImplementedError
@@ -472,11 +472,11 @@ class Lot(object):
         # return np.reshape(self.coup,(3*len(self.geom),1))*units.ANGSTROM_TO_AU
 
     def write_E_to_file(self):
-        with open("scratch/{:03}/E_{}.txt".format(self.ID, self.node_id), "w") as f:
+        with open('scratch/{:03}/E_{}.txt'.format(self.ID, self.node_id), 'w') as f:
             for key, Energy in self.Energies.items():
-                f.write("{} {} {:9.7f} Hartree\n".format(key[0], key[1], Energy.value))
+                f.write('{} {} {:9.7f} Hartree\n'.format(key[0], key[1], Energy.value))
 
-    def run(self, geom, mult, ad_idx, runtype="gradient"):
+    def run(self, geom, mult, ad_idx, runtype='gradient'):
         raise NotImplementedError
 
     def runall(self, geom, runtype=None):
@@ -485,12 +485,12 @@ class Lot(object):
         self.Couplings = {}
         for state in self.states:
             mult, ad_idx = state
-            if state in self.gradient_states or runtype == "gradient":
+            if state in self.gradient_states or runtype == 'gradient':
                 self.run(geom, mult, ad_idx)
             elif state in self.coupling_states:
-                self.run(geom, mult, ad_idx, "coupling")
+                self.run(geom, mult, ad_idx, 'coupling')
             else:
-                self.run(geom, mult, ad_idx, "energy")
+                self.run(geom, mult, ad_idx, 'energy')
 
     #    self.E=[]
     #    self.grada = []

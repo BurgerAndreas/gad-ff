@@ -36,7 +36,7 @@ def sort_cut(cut, max_overlap_inds, consider_first=None):
         new_inds = cur_inds.copy()
         if unique_inds.size != consider_first:
             print(f"Step {i:02d}, indices are non-unique! Not skipping!")
-            print(f"\t ({i-1} -> {i}): {inds}")
+            print(f"\t ({i - 1} -> {i}): {inds}")
         else:
             for j, s in jumps:
                 new_inds[j] = cur_inds[s]
@@ -86,7 +86,7 @@ def get_state_couplings(ad_ens, dia_ens, ind_a, ind_b, x=None):
     grey = "#aaaaaa"
 
     fig, (ax_ad, ax_dia, ax_Vd) = plt.subplots(nrows=3, sharex=True)
-    title = f"Couplings between State {ind_a+1} and {ind_b+1}"
+    title = f"Couplings between State {ind_a + 1} and {ind_b + 1}"
     ax_ad.plot(x_fine, ad_fine, c=grey)
     ax_ad.plot(x_fine, a_ad_fine)
     ax_ad.plot(x_fine, b_ad_fine)

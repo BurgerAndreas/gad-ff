@@ -4,7 +4,6 @@ from pysisyphus.intcoords.Primitive import Primitive
 
 
 class Cartesian(Primitive):
-
     def __init__(self, *args, **kwargs):
         kwargs["calc_kwargs"] = ("cart_axis",)
         super().__init__(*args, **kwargs)

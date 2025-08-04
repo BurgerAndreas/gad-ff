@@ -2,7 +2,6 @@ from pysisyphus.constants import BOHR2ANG
 
 
 class FakeASE:
-
     def __init__(self, calc):
         self.calc = calc
 

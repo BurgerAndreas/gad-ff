@@ -11,7 +11,6 @@ from pysisyphus.xyzloader import make_xyz_str
 
 
 class OpenMolcas(Calculator):
-
     conf_key = "openmolcas"
     _set_plans = (
         ("rasorb", "inporb"),

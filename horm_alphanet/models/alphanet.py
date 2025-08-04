@@ -336,7 +336,6 @@ class rbf_emb(nn.Module):
 
 
 class NeighborEmb(MessagePassing):
-
     def __init__(self, hid_dim: int):
         super(NeighborEmb, self).__init__(aggr="add")
         self.embedding = nn.Embedding(95, hid_dim)
@@ -625,7 +624,6 @@ class FTE(nn.Module):
 
 
 class aggregate_pos(MessagePassing):
-
     def __init__(self, aggr="mean"):
         super(aggregate_pos, self).__init__(aggr=aggr)
 
@@ -889,7 +887,6 @@ class AlphaNet(nn.Module):
         return self._forward(data)
 
     def cal_forces(self, energy, positions):
-
         forces = -torch.autograd.grad(
             outputs=energy,
             inputs=positions,

@@ -10,7 +10,6 @@ from pysisyphus.irc.IRC import IRC
 
 
 class LQA(IRC):
-
     def __init__(self, geometry, N_euler=5000, **kwargs):
         super().__init__(geometry, **kwargs)
 

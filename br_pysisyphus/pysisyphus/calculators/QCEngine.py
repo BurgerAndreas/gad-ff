@@ -6,7 +6,6 @@ from pysisyphus.calculators.Calculator import Calculator
 
 
 class QCEngine(Calculator):
-
     def __init__(
         self, program, model, keywords=None, connectivity=None, bond_order=1, **kwargs
     ):

@@ -369,7 +369,7 @@ class InternalPES(PES):
         auto_find_internals: bool = True,
         # Sella adds dummy atoms to handle internal coordinates
         write_dummies_to_traj: bool = True,
-        **kwargs
+        **kwargs,
     ):
         self.int_orig = internals
         new_int = internals.copy()
@@ -387,7 +387,7 @@ class InternalPES(PES):
             H0=None,
             proj_trans=False,
             proj_rot=False,
-            **kwargs
+            **kwargs,
         )
 
         self.int = new_int
@@ -506,7 +506,7 @@ class InternalPES(PES):
             if ode.nfev > 1000:
                 view(self.atoms + self.dummies)
                 raise RuntimeError(
-                    "Geometry update ODE is taking too long " "to converge!"
+                    "Geometry update ODE is taking too long to converge!"
                 )
 
         if ode.status == "failed":

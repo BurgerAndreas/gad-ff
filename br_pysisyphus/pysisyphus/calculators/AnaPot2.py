@@ -12,7 +12,6 @@ from pysisyphus.calculators.Calculator import Calculator
 
 
 class AnaPot2_(Calculator):
-
     def __init__(self):
         super().__init__()
 

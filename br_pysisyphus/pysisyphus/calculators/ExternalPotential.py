@@ -98,9 +98,9 @@ class Restraint:
             try:
                 ref_val = rest.pop(0)
             except IndexError:
-                assert (
-                    geom is not None
-                ), "Need initial coordinates when no reference value is specified!"
+                assert geom is not None, (
+                    "Need initial coordinates when no reference value is specified!"
+                )
                 ref_val = prim.calculate(geom.coords3d)
 
             self.restraints.append((prim, force_const, ref_val))
@@ -195,7 +195,6 @@ class RMSD:
 
 
 class ExternalPotential(Calculator):
-
     available_potentials = {
         "logfermi": LogFermi,
         "harmonic_sphere": HarmonicSphere,

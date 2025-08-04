@@ -352,9 +352,9 @@ def automatic_fragmentation(
         # Step 6 in [1].
         frag1.update(f1_candidates)
         frag2.update(f2_candidates)
-        assert frag1.isdisjoint(
-            frag2
-        ), "Overlapping fragments detected!"  # Sanity check
+        assert frag1.isdisjoint(frag2), (
+            "Overlapping fragments detected!"
+        )  # Sanity check
     return frag1, frag2
 
 
@@ -795,9 +795,9 @@ def run_afir_paths(
     rng = np.random.default_rng(seed)
 
     if afir_key == "sc":
-        assert (
-            len(geoms) == 1
-        ), f"Expected only 1 geometry for SC-AFIR, but got {len(geoms)}!."
+        assert len(geoms) == 1, (
+            f"Expected only 1 geometry for SC-AFIR, but got {len(geoms)}!."
+        )
         geoms = geoms[0]
 
     afir_funcs = {

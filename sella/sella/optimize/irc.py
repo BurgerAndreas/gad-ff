@@ -31,7 +31,7 @@ class IRC(Optimizer):
         gamma: float = 0.1,
         peskwargs: Optional[Dict[str, Any]] = None,
         keep_going: bool = False,
-        **kwargs
+        **kwargs,
     ):
         Optimizer.__init__(
             self,
@@ -80,7 +80,7 @@ class IRC(Optimizer):
         direction: str = "forward",
     ):
         if direction not in ["forward", "reverse"]:
-            raise ValueError('direction must be one of "forward" or ' '"reverse"!')
+            raise ValueError('direction must be one of "forward" or "reverse"!')
 
         if self.v0ts is None:
             # Initial diagonalization

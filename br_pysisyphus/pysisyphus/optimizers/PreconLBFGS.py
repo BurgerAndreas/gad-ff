@@ -195,7 +195,7 @@ class PreconLBFGS(Optimizer):
             if self.cur_cycle > 0:
                 prev_energy = self.energies[-2]
                 self.log(f"Previous energy={prev_energy:{fmt}} au")
-                self.log(f"             ΔE={energy-prev_energy:{fmt}} au")
+                self.log(f"             ΔE={energy - prev_energy:{fmt}} au")
         self.log(f"norm(forces)={norm:.6f}")
 
         # Check for preconditioner getter update

@@ -134,9 +134,9 @@ class HessianOptimizer(Optimizer):
         """
         super().__init__(geometry, **kwargs)
 
-        assert not issubclass(
-            type(geometry), ChainOfStates
-        ), "HessianOptimizer can't be used for and ChainOfStates objects!"
+        assert not issubclass(type(geometry), ChainOfStates), (
+            "HessianOptimizer can't be used for and ChainOfStates objects!"
+        )
 
         self.trust_update = bool(trust_update)
         assert trust_min <= trust_max, "trust_min must be <= trust_max!"
@@ -282,9 +282,9 @@ class HessianOptimizer(Optimizer):
     def update_trust_radius(self):
         # The predicted change should be calculated at the end of optimize
         # of the previous cycle.
-        assert (
-            len(self.predicted_energy_changes) == len(self.forces) - 1
-        ), "Did you forget to append to self.predicted_energy_changes?"
+        assert len(self.predicted_energy_changes) == len(self.forces) - 1, (
+            "Did you forget to append to self.predicted_energy_changes?"
+        )
         self.log("Trust radius update")
         self.log(f"\tCurrent trust radius: {self.trust_radius:.6f}")
         predicted_change = self.predicted_energy_changes[-1]

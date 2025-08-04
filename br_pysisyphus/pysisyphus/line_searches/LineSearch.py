@@ -44,9 +44,9 @@ class LineSearch(metaclass=abc.ABCMeta):
         self.df = df
 
         geometry_supplied = self.geometry is not None
-        assert geometry_supplied or (
-            x0 is not None
-        ), "Supply either 'geometry' or the starting coordinates 'x0'!"
+        assert geometry_supplied or (x0 is not None), (
+            "Supply either 'geometry' or the starting coordinates 'x0'!"
+        )
         assert geometry_supplied or (self.f and self.df), (
             "Supply either 'geometry' with a calculator or the two functions "
             "'f' and 'df' to calculate the energy and its gradient!"

@@ -21,9 +21,9 @@ def make_array(nstates, components, lines):
     for line in lines:
         from_, to_, *props = line
         assert (from_ >= 0) and (to_ >= 0)
-        assert (
-            len(props) == components
-        ), f"Expected line of length {components} but got '{line}'!"
+        assert len(props) == components, (
+            f"Expected line of length {components} but got '{line}'!"
+        )
 
         if from_ == to_:
             expect_diag -= 1

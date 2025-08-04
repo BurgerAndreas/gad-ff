@@ -3,7 +3,6 @@ import numpy as np
 
 
 class PlotAnaPot:
-
     def __init__(self, geometry, xlim, ylim, levels):
         self.geometry = geometry
         self.xlim = xlim

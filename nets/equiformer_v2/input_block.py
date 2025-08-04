@@ -77,7 +77,6 @@ class EdgeDegreeEmbedding(torch.nn.Module):
         self.rescale_factor = rescale_factor
 
     def forward(self, atomic_numbers, edge_distance, edge_index):
-
         if self.use_atom_edge_embedding:
             source_element = atomic_numbers[edge_index[0]]  # Source atom atomic number
             target_element = atomic_numbers[edge_index[1]]  # Target atom atomic number

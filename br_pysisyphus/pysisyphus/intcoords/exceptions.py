@@ -1,5 +1,4 @@
 class NeedNewInternalsException(Exception):
-
     def __init__(
         self, coords3d, *args, invalid_inds=None, invalid_prims=None, **kwargs
     ):
@@ -15,7 +14,6 @@ class NeedNewInternalsException(Exception):
 
 
 class RebuiltInternalsException(Exception):
-
     def __init__(self, *args, typed_prims=None, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -31,7 +29,6 @@ class DifferentCoordLengthsException(Exception):
 
 
 class PrimitiveNotDefinedException(Exception):
-
     def __init__(self, typed_prim, *args, **kwargs):
         self.typed_prim = typed_prim
         super().__init__(*args, **kwargs)

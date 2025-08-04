@@ -19,35 +19,34 @@ class PES(object):
 
     @staticmethod
     def default_options():
-
-        if hasattr(PES, "_default_options"):
+        if hasattr(PES, '_default_options'):
             return PES._default_options.copy()
         opt = options.Options()
 
         opt.add_option(
-            key="lot", value=None, required=True, doc="Level of theory object"
+            key='lot', value=None, required=True, doc='Level of theory object'
         )
 
-        opt.add_option(key="ad_idx", value=0, required=True, doc="adiabatic index")
+        opt.add_option(key='ad_idx', value=0, required=True, doc='adiabatic index')
 
-        opt.add_option(key="multiplicity", value=1, required=True, doc="multiplicity")
+        opt.add_option(key='multiplicity', value=1, required=True, doc='multiplicity')
 
         opt.add_option(
-            key="FORCE",
+            key='FORCE',
             value=None,
             required=False,
-            doc="Apply a constant force between atoms in units of AU, e.g. [(1,2,0.1214)]. Negative is tensile, positive is compresive",
+            doc='Apply a constant force between atoms in units of AU, e.g. [(1,2,0.1214)]. Negative is tensile, positive is compresive',
         )
 
         opt.add_option(
-            key="RESTRAINTS",
+            key='RESTRAINTS',
             value=None,
             required=False,
-            doc="Translational harmonic constraint",
+            doc='Translational harmonic constraint',
         )
 
         opt.add_option(
-            key="mass", value=None, required=False, doc="Mass is sometimes required"
+            key='mass', value=None, required=False, doc='Mass is sometimes required'
         )
 
         PES._default_options = opt
@@ -66,7 +65,7 @@ class PES(object):
         return cls(
             PES.options.copy().set_values(
                 {
-                    "lot": lot,
+                    'lot': lot,
                 }
             )
         )
@@ -78,11 +77,11 @@ class PES(object):
         """Constructor"""
         self.options = options
 
-        self.lot = self.options["lot"]
-        self.ad_idx = self.options["ad_idx"]
-        self.multiplicity = self.options["multiplicity"]
-        self.FORCE = self.options["FORCE"]
-        self.RESTRAINTS = self.options["RESTRAINTS"]
+        self.lot = self.options['lot']
+        self.ad_idx = self.options['ad_idx']
+        self.multiplicity = self.options['multiplicity']
+        self.FORCE = self.options['FORCE']
+        self.RESTRAINTS = self.options['RESTRAINTS']
         self._dE = 1000.0
         # print ' PES object parameters:'
         # print ' Multiplicity:',self.multiplicity,'ad_idx:',self.ad_idx
@@ -126,11 +125,10 @@ class PES(object):
         return xyz_grid, xv, yv
 
     def fill_energy_grid2d(self, xyz_grid):
-
-        assert (
-            xyz_grid.shape[-1] == len(self.lot.geom) * 3
-        ), "xyz nneds to be 3*natoms long"
-        assert xyz_grid.ndim == 3, " xyzgrid needs to be a tensor with 3 dimensions"
+        assert xyz_grid.shape[-1] == len(self.lot.geom) * 3, (
+            'xyz nneds to be 3*natoms long'
+        )
+        assert xyz_grid.ndim == 3, ' xyzgrid needs to be a tensor with 3 dimensions'
 
         nx, ny = xyz_grid.shape[:1]
         energies = np.zeros((nx, ny))
@@ -140,7 +138,7 @@ class PES(object):
             for row in mat:
                 xyz = np.reshape(row, (-1, 3))
                 energies[rc, cc] = self.lot.get_energy(
-                    xyz, self.multiplicity, self.ad_idx, runtype="energy"
+                    xyz, self.multiplicity, self.ad_idx, runtype='energy'
                 )
                 cc += 1
             rc += 1
@@ -185,11 +183,11 @@ class PES(object):
             for n in qm_region:
                 for j in range(3):
                     n1_region.append(n * 3 + j)
-            nifty.logger.debug("n1_region")
+            nifty.logger.debug('n1_region')
             nifty.logger.debug(n1_region)
             # hess = np.zeros((len(coords[qm_region])*3,len(coords[qm_region])*3))
             hess = np.zeros((len(n1_region), len(n1_region)))
-        nifty.logger.debug("hess shape", hess.shape)
+        nifty.logger.debug('hess shape', hess.shape)
 
         def gen_row(n):
             vec = np.zeros(coords.shape[0] * 3)
@@ -199,7 +197,7 @@ class PES(object):
         n_actual = 0
         for n in range(len(coords) * 3):
             if n in n1_region:
-                nifty.logger.debug("on hessian product ", n)
+                nifty.logger.debug('on hessian product ', n)
                 row = gen_row(n)
                 ans = self.get_finite_difference_hessian_product(coords, row)
                 # hess[n_actual] = np.squeeze(self.get_finite_difference_hessian_product(coords,row))
@@ -210,7 +208,6 @@ class PES(object):
     def get_finite_difference_hessian_product(
         self, coords, direction, FD_STEP_LENGTH=0.001
     ):
-
         # format the direction
         direction = direction / np.linalg.norm(direction)
         direction = direction.reshape((len(coords), 3))
@@ -283,7 +280,6 @@ class PES(object):
         return w, Q
 
     def get_gradient(self, xyz, frozen_atoms=None):
-
         grad = self.lot.get_gradient(
             xyz, self.multiplicity, self.ad_idx, frozen_atoms=frozen_atoms
         )
@@ -318,8 +314,7 @@ class PES(object):
         self.checked_input = True
 
 
-if __name__ == "__main__":
-
+if __name__ == '__main__':
     QCHEM = True
     PYTC = False
     if QCHEM:
@@ -330,14 +325,14 @@ if __name__ == "__main__":
         import psiw
         import lightspeed as ls
 
-    filepath = "../../data/ethylene.xyz"
+    filepath = '../../data/ethylene.xyz'
     geom = manage_xyz.read_xyz(filepath, scale=1)
     if QCHEM:
         lot = QChem.from_options(
             states=[(1, 0), (1, 1)],
             charge=0,
-            basis="6-31g(d)",
-            functional="B3LYP",
+            basis='6-31g(d)',
+            functional='B3LYP',
             fnm=filepath,
         )
     elif PYTC:
@@ -346,12 +341,12 @@ if __name__ == "__main__":
         charge = 0
         nocc = 7
         nactive = 2
-        basis = "6-31gs"
+        basis = '6-31gs'
 
         #### => PSIW Obj <= ######
-        nifty.printcool("Build resources")
+        nifty.printcool('Build resources')
         resources = ls.ResourceList.build()
-        nifty.printcool("{}".format(resources))
+        nifty.printcool('{}'.format(resources))
 
         molecule = ls.Molecule.from_xyz_file(filepath)
         geom = psiw.geometry.Geometry.build(
@@ -359,13 +354,13 @@ if __name__ == "__main__":
             molecule=molecule,
             basisname=basis,
         )
-        nifty.printcool("{}".format(geom))
+        nifty.printcool('{}'.format(geom))
 
         ref = psiw.RHF.from_options(
             geometry=geom,
             g_convergence=1.0e-6,
             fomo=True,
-            fomo_method="gaussian",
+            fomo_method='gaussian',
             fomo_temp=0.3,
             fomo_nocc=nocc,
             fomo_nact=nactive,
@@ -387,14 +382,14 @@ if __name__ == "__main__":
             casci=casci,
             rhf_guess=True,
             rhf_mom=True,
-            orbital_coincidence="core",
-            state_coincidence="full",
+            orbital_coincidence='core',
+            state_coincidence='full',
         )
 
-        nifty.printcool("Build the pyGSM Level of Theory object (LOT)")
+        nifty.printcool('Build the pyGSM Level of Theory object (LOT)')
         lot = PyTC.from_options(
             states=[(1, 0), (1, 1)],
-            job_data={"psiw": psiw},
+            job_data={'psiw': psiw},
             do_coupling=False,
             fnm=filepath,
         )

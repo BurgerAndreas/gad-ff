@@ -367,7 +367,6 @@ def get_exc_ens_fosc(wf_fn, cis_fn, log_fn):
 
 
 class ORCA(OverlapCalculator):
-
     conf_key = "orca"
     _set_plans = (
         "gbw",
@@ -426,10 +425,10 @@ class ORCA(OverlapCalculator):
         self.json_dump = bool(json_dump)
 
         assert ("pal" not in keywords) and ("nprocs" not in blocks), (
-            "PALn/nprocs not " "allowed! Use 'pal: n' in the 'calc' section instead."
+            "PALn/nprocs not allowed! Use 'pal: n' in the 'calc' section instead."
         )
         assert "maxcore" not in blocks, (
-            "maxcore not allowed! " "Use 'mem: n' in the 'calc' section instead!"
+            "maxcore not allowed! Use 'mem: n' in the 'calc' section instead!"
         )
 
         self.to_keep = (
@@ -548,7 +547,7 @@ class ORCA(OverlapCalculator):
                 break
         else:
             raise Exception(
-                "Could not find stable wavefunction in {max_cycles}! " "Aborting."
+                "Could not find stable wavefunction in {max_cycles}! Aborting."
             )
 
     def parse_stable(self, path):

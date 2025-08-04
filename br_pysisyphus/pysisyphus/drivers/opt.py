@@ -184,7 +184,9 @@ def run_opt(
             new_cart_coords = geom.cart_coords + step
             geom.cart_coords = new_cart_coords
 
-        print(f"\nDisplaced geometry for optimization cycle {i+1}:\n{geom.as_xyz()}\n")
+        print(
+            f"\nDisplaced geometry for optimization cycle {i + 1}:\n{geom.as_xyz()}\n"
+        )
 
     # ChainOfStates specific
     if is_cos and (not opt.stopped):
@@ -192,7 +194,7 @@ def run_opt(
         floor_ind = floor(hei_frac_index)
         ceil_ind = ceil(hei_frac_index)
         print(
-            f"Splined HEI is at {hei_frac_index:.2f}/{len(geom.images)-1:.2f}, "
+            f"Splined HEI is at {hei_frac_index:.2f}/{len(geom.images) - 1:.2f}, "
             f"between image {floor_ind} and {ceil_ind} (0-based indexing)."
         )
         hei_geom = Geometry(geom.images[0].atoms, hei_coords)

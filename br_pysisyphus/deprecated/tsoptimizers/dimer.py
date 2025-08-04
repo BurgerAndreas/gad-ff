@@ -378,9 +378,7 @@ def dimer_method(
                     gamma = (f_perp - F_rots[-1]).dot(f_perp) / f_perp.dot(f_perp)
                     G_last = G_perps[-1]
                     # theta will be present with j > 0.
-                    G_perp = (
-                        f_perp + gamma * np.linalg.norm(G_last) * theta
-                    )  # noqa: F821
+                    G_perp = f_perp + gamma * np.linalg.norm(G_last) * theta  # noqa: F821
                     theta_dir = G_perp
                     F_rots.append(f_perp)
                     G_perps.append(G_perp)
@@ -494,7 +492,7 @@ def dimer_method(
             rot_table.print_row((j, C, rot_force_rms))
         tot_rot_force_evals += rot_force_evals
         rot_str = (
-            f"Did {rot_force_evals} force evaluation(s) and {j} " "dimer rotation(s)."
+            f"Did {rot_force_evals} force evaluation(s) and {j} dimer rotation(s)."
         )
         rot_table.print(rot_str)
         logger.debug(rot_str)

@@ -131,7 +131,6 @@ class SO2_Convolution(torch.nn.Module):
             self.rad_func = RadialFunction(self.edge_channels_list)
 
     def forward(self, x, x_edge):
-
         num_edges = len(x_edge)
         out = []
 
@@ -285,7 +284,6 @@ class SO2_Linear(torch.nn.Module):
             self.rad_func = RadialFunction(self.edge_channels_list)
 
     def forward(self, x, x_edge):
-
         batch_size = x.embedding.shape[0]
         out = []
 

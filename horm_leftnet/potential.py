@@ -339,7 +339,6 @@ class Potential(BaseDynamics):
         pyg_batch: Data,
         conditions: Optional[Tensor] = None,
     ):
-
         masks = [pyg_batch.batch]
         combined_mask = torch.cat(masks)
         edge_index = get_edges_index(combined_mask, remove_self_edge=True)
@@ -455,7 +454,6 @@ class Potential(BaseDynamics):
         pyg_batch: Data,
         conditions: Optional[Tensor] = None,
     ):
-
         masks = [pyg_batch.batch]
         combined_mask = torch.cat(masks)
         edge_index = get_edges_index(combined_mask, remove_self_edge=True)

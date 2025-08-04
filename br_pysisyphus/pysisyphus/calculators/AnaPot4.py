@@ -2,7 +2,6 @@ from pysisyphus.calculators.AnaPotBase import AnaPotBase
 
 
 class AnaPot4(AnaPotBase):
-
     def __init__(self):
         V_str = "-10*x**2 + 10*y**2 + 4*sin(x*y)-2*x+x**4"
         xlim = (-3.5, 3.5)

@@ -177,7 +177,7 @@ def plot_energies():
     ax2.plot(xs, last_energies, "o-")
     ax2.set_xlabel("Image")
     ax2.set_ylabel("$\Delta$E / kJ mol⁻¹")
-    ax2.set_title(f"Cycle {len(energies)-1}")
+    ax2.set_title(f"Cycle {len(energies) - 1}")
 
     first_image_en = last_energies[0]
     last_image_en = last_energies[-1]
@@ -185,7 +185,7 @@ def plot_energies():
     max_en = last_energies[max_en_ind]
     print(
         "Barrier heights using actual energies (not splined) from "
-        f"cycle {energies.shape[0]-1}."
+        f"cycle {energies.shape[0] - 1}."
     )
     print(f"\tHighest energy image (HEI) at index {max_en_ind} (0-based)")
 
@@ -441,7 +441,7 @@ def plot_all_energies(h5):
     steps = list()
     for i, root_flip in enumerate(flips[:-1]):
         if root_flip:
-            print(f"Root flip occured between {i} and {i+1}.")
+            print(f"Root flip occured between {i} and {i + 1}.")
             continue
         print(f"Using step {i}")
         energies_.append(energies[i])
@@ -638,7 +638,7 @@ def render_cdds(h5):
     print(f"Rendering {len(cdd_cubes)} CDD cubes.")
 
     for i, cube in enumerate(cdd_cubes):
-        print(f"Rendering cube {i+1:03d}/{len(cdd_cubes):03d}")
+        print(f"Rendering cube {i + 1:03d}/{len(cdd_cubes):03d}")
         _ = render_cdd_cube(cube, orient=orient)
     joined = "\n".join([str(fn) for fn in png_fns])
     with open(CDD_PNG_FNS, "w") as handle:
@@ -736,7 +736,7 @@ def parse_args(args):
     group.add_argument(
         "--tddft",
         action="store_true",
-        help="Plot ORCA TDDFT potential energy surfaces " "over the course of the NEB.",
+        help="Plot ORCA TDDFT potential energy surfaces over the course of the NEB.",
     )
     group.add_argument(
         "--params",

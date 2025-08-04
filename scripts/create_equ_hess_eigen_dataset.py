@@ -20,6 +20,7 @@ Saves the new dataset to
 
 Quite slow, takes ~10h for 50k samples, and ~2 weeks for 1.7M samples.
 """
+
 import argparse
 import os
 import pickle
@@ -129,7 +130,6 @@ def create_eigen_dataset(save_hessian=False, dataset_file="ts1x-val.lmdb"):
     num_samples_written = 0
     with out_env.begin(write=True) as txn:
         for batch_idx, batch in tqdm(enumerate(dataloader), total=len(dataset)):
-
             # atomization energy. shape used by equiformerv2
             if not hasattr(batch, "ae"):
                 batch.ae = torch.zeros_like(batch.energy)

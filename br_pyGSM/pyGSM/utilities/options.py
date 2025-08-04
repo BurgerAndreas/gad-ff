@@ -13,7 +13,7 @@ class Option(object):
         required=False,
         allowed_types=None,
         allowed_values=None,
-        doc="",
+        doc='',
     ):
         """Option constructor:
 
@@ -50,7 +50,7 @@ class Option(object):
         """
 
         if self.required and self.value is None:
-            raise RuntimeError("Option %s is required" % self.key)
+            raise RuntimeError('Option %s is required' % self.key)
 
         return self.value
 
@@ -70,12 +70,12 @@ class Option(object):
             isinstance(value, x) for x in self.allowed_types
         ):
             raise RuntimeError(
-                "Option %s must be one of allowed types: %s"
+                'Option %s must be one of allowed types: %s'
                 % (self.key, self.allowed_types)
             )
         if self.allowed_values and value not in self.allowed_values:
             raise RuntimeError(
-                "Option %s must be one of allowed values: %r"
+                'Option %s must be one of allowed values: %r'
                 % (self.key, self.allowed_values)
             )
 
@@ -84,15 +84,15 @@ class Option(object):
     def __str__(self):
         """Return a string containing the full contents and documentation of this Option."""
 
-        s = ""
-        s += "Option:\n"
-        s += "  Key: %s\n" % self.key
-        s += "  Value: %s\n" % self.value
-        s += "  Required: %s\n" % self.required
-        s += "  Allowed Types: %s\n" % self.allowed_types
-        s += "  Allowed Values: %s\n" % self.allowed_values
-        s += "  Doc: %s\n" % self.doc
-        s += "\n"
+        s = ''
+        s += 'Option:\n'
+        s += '  Key: %s\n' % self.key
+        s += '  Value: %s\n' % self.value
+        s += '  Required: %s\n' % self.required
+        s += '  Allowed Types: %s\n' % self.allowed_types
+        s += '  Allowed Values: %s\n' % self.allowed_values
+        s += '  Doc: %s\n' % self.doc
+        s += '\n'
         return s
 
 
@@ -141,7 +141,7 @@ class Options(object):
         Result: Options updated with new Option corresponding to key
         """
 
-        self.options[kwargs["key"]] = Option(**kwargs)
+        self.options[kwargs['key']] = Option(**kwargs)
 
     def get_option(
         self,
@@ -157,7 +157,7 @@ class Options(object):
               __getitem__ method below).
         """
         if key not in self.options:
-            raise ValueError("Key %s is not in Options" % key)
+            raise ValueError('Key %s is not in Options' % key)
         return self.options[key]
 
     def __getitem__(
@@ -172,7 +172,7 @@ class Options(object):
             - value - value of Option (raises RuntimeError if type, value or other validity error).
         """
         if key not in self.options:
-            raise ValueError("Key %s is not in Options" % key)
+            raise ValueError('Key %s is not in Options' % key)
         return self.options[key].get_value()
 
     def __setitem__(
@@ -190,7 +190,7 @@ class Options(object):
         """
 
         if key not in self.options:
-            raise ValueError("Key %s is not in Options" % key)
+            raise ValueError('Key %s is not in Options' % key)
         return self.options[key].set_value(value)
 
     def set_values(
@@ -222,21 +222,20 @@ class Options(object):
 
     def __str__(self):
         """Return the string representations of all Option objects in this Options, in insertion order."""
-        s = "".join(str(v) for v in list(self.options.values()))
+        s = ''.join(str(v) for v in list(self.options.values()))
         return s
 
 
-if __name__ == "__main__":
-
+if __name__ == '__main__':
     import time
 
-    nifty.logger.debug(" this demonstrates options")
+    nifty.logger.debug(' this demonstrates options')
 
     start = time.time()
     options1 = Options()
     for k in range(500):
         options1.add_option(
-            key="size%d" % k,
+            key='size%d' % k,
             value=0,
             allowed_types=[int],
             allowed_values=[0, 1],
@@ -244,40 +243,40 @@ if __name__ == "__main__":
 
     start = time.time()
     options2 = options1.copy()
-    nifty.logger.debug("copy time %11.3E" % (time.time() - start))
+    nifty.logger.debug('copy time %11.3E' % (time.time() - start))
 
     start = time.time()
     options3 = Options()
     options3.add_option(
-        key="size",
+        key='size',
         value=0,
         allowed_types=[int],
         allowed_values=[0, 1],
     )
     options4 = options3.copy()
-    nifty.logger.debug("%11.3E" % (time.time() - start))
+    nifty.logger.debug('%11.3E' % (time.time() - start))
 
     start = time.time()
     options3 = Options()
     options3.add_option(
-        key="size",
+        key='size',
         value=0,
         allowed_types=[int],
         allowed_values=[0, 1],
     )
     options4 = options3.copy()
-    nifty.logger.debug("%11.3E" % (time.time() - start))
+    nifty.logger.debug('%11.3E' % (time.time() - start))
 
     start = time.time()
     options3 = Options()
     options3.add_option(
-        key="size",
+        key='size',
         value=0,
         allowed_types=[int],
         allowed_values=[0, 1],
     )
     options4 = options3.copy()
-    nifty.logger.debug("%11.3E" % (time.time() - start))
+    nifty.logger.debug('%11.3E' % (time.time() - start))
 
-    options4.set_values({"size": 1})
+    options4.set_values({'size': 1})
     nifty.logger.debug(options4)

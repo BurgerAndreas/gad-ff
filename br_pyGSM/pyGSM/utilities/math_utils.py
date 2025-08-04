@@ -170,15 +170,15 @@ def conjugate_orthogonalize(vecs, G, numCvecs=0):
                 basis[:, count] = w / wnorm
                 count += 1
             except:
-                nifty.logger.debug("this vector should be vanishing, exiting")
-                nifty.logger.debug("norm=", wnorm)
+                nifty.logger.debug('this vector should be vanishing, exiting')
+                nifty.logger.debug('norm=', wnorm)
                 nifty.logger.debug(w)
                 exit(1)
     dots = np.linalg.multi_dot([basis.T, G, basis])
     if not (np.allclose(dots, np.eye(dots.shape[0], dtype=float))):
-        nifty.logger.debug("np.dot(b.T,b)")
+        nifty.logger.debug('np.dot(b.T,b)')
         nifty.logger.debug(dots)
-        raise RuntimeError("error in orthonormality")
+        raise RuntimeError('error in orthonormality')
     return basis
 
 
@@ -206,14 +206,14 @@ def orthogonalize(vecs, numCvecs=0):
                 basis[:, count] = w / wnorm
                 count += 1
             except:
-                nifty.logger.debug("this vector should be vanishing, exiting")
-                nifty.logger.debug("norm=", wnorm)
+                nifty.logger.debug('this vector should be vanishing, exiting')
+                nifty.logger.debug('norm=', wnorm)
                 # nifty.logger.debug(w)
                 exit(1)
     dots = np.matmul(basis.T, basis)
     if not (np.allclose(dots, np.eye(dots.shape[0], dtype=float), atol=1e-4)):
-        nifty.logger.debug("np.dot(b.T,b)")
+        nifty.logger.debug('np.dot(b.T,b)')
         # nifty.logger.debug(dots)
         nifty.logger.debug(dots - np.eye(dots.shape[0], dtype=float))
-        raise RuntimeError("error in orthonormality")
+        raise RuntimeError('error in orthonormality')
     return basis

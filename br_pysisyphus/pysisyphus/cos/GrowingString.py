@@ -45,9 +45,9 @@ class GrowingString(GrowingChainOfStates):
         self.param = param
         self.reparam_every = int(reparam_every)
         self.reparam_every_full = int(reparam_every_full)
-        assert (
-            self.reparam_every >= 1 and self.reparam_every_full >= 1
-        ), "reparam_every and reparam_every_full must be positive integers!"
+        assert self.reparam_every >= 1 and self.reparam_every_full >= 1, (
+            "reparam_every and reparam_every_full must be positive integers!"
+        )
         if reparam_tol is not None:
             self.reparam_tol = float(reparam_tol)
             assert self.reparam_tol > 0
@@ -498,7 +498,7 @@ class GrowingString(GrowingChainOfStates):
         hei_ind = energies.argmax()
         hei_norm = np.linalg.norm(self.all_true_forces[-1][hei_ind])
         hei_info = f"norm(forces_true,hei)={hei_norm:.6f} E_h/a_0"
-        hei_str = f"HEI={hei_ind+1:02d}/{energies.size:02d}"
+        hei_str = f"HEI={hei_ind + 1:02d}/{energies.size:02d}"
 
         strs = (
             size_info,

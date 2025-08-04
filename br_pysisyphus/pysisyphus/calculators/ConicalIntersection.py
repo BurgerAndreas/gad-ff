@@ -116,7 +116,7 @@ class ConicalIntersection(Calculator):
         # Eq. (7) in [1].
         P = get_P(x, y)
 
-        self.log(f"ΔE={energy_diff:.6f} au ({energy_diff*AU2KJPERMOL:.2f} kJ mol⁻¹)")
+        self.log(f"ΔE={energy_diff:.6f} au ({energy_diff * AU2KJPERMOL:.2f} kJ mol⁻¹)")
         # Store vectors for next calculation
         self.x_prev = x
         self.y_prev = y

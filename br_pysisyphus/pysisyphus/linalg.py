@@ -372,9 +372,9 @@ def pivoted_cholesky2(A: NDArray[float], tol: Optional[float] = None, m_max: int
 
 def matrix_power(mat, p, thresh=1e-12, strict=True):
     w, v = np.linalg.eigh(mat)
-    assert (not strict) or (
-        w > 0.0
-    ).all(), "matrix_power must be called with a (semi)-positive-definite matrix!"
+    assert (not strict) or (w > 0.0).all(), (
+        "matrix_power must be called with a (semi)-positive-definite matrix!"
+    )
     mask = np.abs(w) > thresh
     w_pow = w[mask] ** p
     v_mask = v[:, mask]

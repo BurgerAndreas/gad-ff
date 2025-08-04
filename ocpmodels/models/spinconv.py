@@ -284,13 +284,16 @@ class spinconv(BaseModel):
 
         if self.regress_forces:
             if self.force_estimator == "grad":
-                forces = -1 * (
-                    torch.autograd.grad(
-                        energy,
-                        data.pos,
-                        grad_outputs=torch.ones_like(energy),
-                        create_graph=True,
-                    )[0]
+                forces = (
+                    -1
+                    * (
+                        torch.autograd.grad(
+                            energy,
+                            data.pos,
+                            grad_outputs=torch.ones_like(energy),
+                            create_graph=True,
+                        )[0]
+                    )
                 )
             if self.force_estimator == "random":
                 forces = self._compute_forces_random_rotations(
@@ -353,7 +356,6 @@ class spinconv(BaseModel):
         forces = torch.zeros(self.num_atoms, 3, device=device)
 
         for rot_index in range(num_random_rotations):
-
             rot_mat_x_perturb = torch.bmm(rot_mat_x, atom_rot_mat[rot_index])
             rot_mat_y_perturb = torch.bmm(rot_mat_y, atom_rot_mat[rot_index])
             rot_mat_z_perturb = torch.bmm(rot_mat_z, atom_rot_mat[rot_index])

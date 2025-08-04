@@ -37,7 +37,6 @@ np.set_printoptions(suppress=True, precision=6)
 
 
 def parse_args(args):
-
     parser = argparse.ArgumentParser()
 
     parser.add_argument("yaml")

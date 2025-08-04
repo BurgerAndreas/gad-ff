@@ -19,27 +19,25 @@ from utilities import units, block_matrix, manage_xyz, nifty
 
 
 class eigenvector_follow(base_optimizer):
-
     def optimize(
         self,
         molecule,
         refE=0.0,
-        opt_type="UNCONSTRAINED",
+        opt_type='UNCONSTRAINED',
         opt_steps=3,
         ictan=None,
         xyzframerate=4,
         verbose=False,
         path=os.getcwd(),
     ):
-
         # stash/initialize some useful attributes
         self.check_inputs(molecule, opt_type, ictan)
         nconstraints = self.get_nconstraints(opt_type)
         self.buf = StringIO()
 
         # print " refE %5.4f" % refE
-        nifty.logger.debug(" initial E %5.4f" % (molecule.energy - refE))
-        nifty.logger.debug(" CONV_TOL %1.5f" % self.conv_grms)
+        nifty.logger.debug(' initial E %5.4f' % (molecule.energy - refE))
+        nifty.logger.debug(' CONV_TOL %1.5f' % self.conv_grms)
         geoms = []
         energies = []
         geoms.append(molecule.geometry)
@@ -47,7 +45,7 @@ class eigenvector_follow(base_optimizer):
         self.converged = False
 
         # form initial coord basis
-        if opt_type != "TS":
+        if opt_type != 'TS':
             constraints = self.get_constraint_vectors(molecule, opt_type, ictan)
             molecule.update_coordinate_basis(constraints=constraints)
             molecule.form_Hessian_in_basis()
@@ -72,13 +70,13 @@ class eigenvector_follow(base_optimizer):
         x = np.copy(molecule.coordinates)
         xyz = np.copy(molecule.xyz)
 
-        if opt_type == "TS":
+        if opt_type == 'TS':
             self.Linesearch = NoLineSearch
-        if opt_type == "SEAM" or opt_type == "MECI" or opt_type == "TS-SEAM":
+        if opt_type == 'SEAM' or opt_type == 'MECI' or opt_type == 'TS-SEAM':
             self.opt_cross = True
 
         # TODO are these used? -- n is used for gradrms,linesearch
-        if molecule.coord_obj.__class__.__name__ == "CartesianCoordinates":
+        if molecule.coord_obj.__class__.__name__ == 'CartesianCoordinates':
             n = molecule.num_coordinates
         else:
             n_actual = molecule.num_coordinates
@@ -93,29 +91,29 @@ class eigenvector_follow(base_optimizer):
         # ====>  Do opt steps <======= #
         for ostep in range(opt_steps):
             nifty.logger.debug(
-                " On opt step {} for node {}".format(ostep + 1, molecule.node_id)
+                ' On opt step {} for node {}'.format(ostep + 1, molecule.node_id)
             )
 
             # update Hess
             if update_hess:
-                if opt_type != "TS":
-                    self.update_Hessian(molecule, "BFGS")
+                if opt_type != 'TS':
+                    self.update_Hessian(molecule, 'BFGS')
                 else:
-                    self.update_Hessian(molecule, "BOFILL")
+                    self.update_Hessian(molecule, 'BOFILL')
             update_hess = True
 
             # => Form eigenvector step <= #
-            if molecule.coord_obj.__class__.__name__ == "CartesianCoordinates":
+            if molecule.coord_obj.__class__.__name__ == 'CartesianCoordinates':
                 raise NotImplementedError
             else:
-                if opt_type != "TS":
+                if opt_type != 'TS':
                     dq = self.eigenvector_step(molecule, gc)
                 else:
                     dq = self.TS_eigenvector_step(molecule, g, ictan)
                     if not self.maxol_good:
-                        nifty.logger.debug(" Switching to climb! Maxol not good!")
+                        nifty.logger.debug(' Switching to climb! Maxol not good!')
                         nconstraints = 1
-                        opt_type = "CLIMB"
+                        opt_type = 'CLIMB'
 
             actual_step = np.linalg.norm(dq)
             # nifty.logger.debug(" actual_step= %1.2f"% actual_step)
@@ -132,7 +130,7 @@ class eigenvector_follow(base_optimizer):
             xyzp = xyz.copy()
             fxp = fx
             pgradrms = molecule.gradrms
-            if not molecule.coord_obj.__class__.__name__ == "CartesianCoordinates":
+            if not molecule.coord_obj.__class__.__name__ == 'CartesianCoordinates':
                 # xp_prim = self.x_prim.copy()
                 gp_prim = self.g_prim.copy()
 
@@ -155,14 +153,14 @@ class eigenvector_follow(base_optimizer):
             )
 
             # get values from linesearch
-            molecule = ls["molecule"]
-            step = ls["step"]
-            x = ls["x"]
-            fx = ls["fx"]
-            g = ls["g"]
+            molecule = ls['molecule']
+            step = ls['step']
+            x = ls['x']
+            fx = ls['fx']
+            g = ls['g']
 
-            if ls["status"] == -2:
-                nifty.logger.debug("[ERROR] the point return to the privious point")
+            if ls['status'] == -2:
+                nifty.logger.debug('[ERROR] the point return to the privious point')
                 x = xp.copy()
                 molecule.xyz = xyzp
                 g = gp.copy()
@@ -171,19 +169,19 @@ class eigenvector_follow(base_optimizer):
                 molecule.newHess = 5
                 # return ls['status']
 
-            if ls["step"] > self.DMAX:
-                if ls["step"] <= self.options["abs_max_step"]:  # absolute max
-                    nifty.logger.debug(" Increasing DMAX to {}".format(ls["step"]))
-                    self.DMAX = ls["step"]
+            if ls['step'] > self.DMAX:
+                if ls['step'] <= self.options['abs_max_step']:  # absolute max
+                    nifty.logger.debug(' Increasing DMAX to {}'.format(ls['step']))
+                    self.DMAX = ls['step']
                 else:
-                    self.DMAX = self.options["abs_max_step"]
-            elif ls["step"] < self.DMAX:
-                if ls["step"] >= self.DMIN:  # absolute min
-                    nifty.logger.debug(" Decreasing DMAX to {}".format(ls["step"]))
-                    self.DMAX = ls["step"]
-                elif ls["step"] <= self.DMIN:
+                    self.DMAX = self.options['abs_max_step']
+            elif ls['step'] < self.DMAX:
+                if ls['step'] >= self.DMIN:  # absolute min
+                    nifty.logger.debug(' Decreasing DMAX to {}'.format(ls['step']))
+                    self.DMAX = ls['step']
+                elif ls['step'] <= self.DMIN:
                     self.DMAX = self.DMIN
-                    nifty.logger.debug(" Decreasing DMAX to {}".format(self.DMIN))
+                    nifty.logger.debug(' Decreasing DMAX to {}'.format(self.DMIN))
 
             # calculate predicted value from Hessian, gp is previous constrained gradient
             scaled_dq = dq * step
@@ -206,10 +204,10 @@ class eigenvector_follow(base_optimizer):
 
             # control step size
             dEstep = fx - fxp
-            nifty.logger.debug(" dEstep=%5.4f" % dEstep)
+            nifty.logger.debug(' dEstep=%5.4f' % dEstep)
             ratio = dEstep / dEpre
             molecule.gradrms = np.sqrt(np.dot(gc.T, gc) / n)
-            if ls["status"] != -2:
+            if ls['status'] != -2:
                 self.step_controller(
                     actual_step,
                     ratio,
@@ -226,14 +224,14 @@ class eigenvector_follow(base_optimizer):
                 geoms.append(molecule.geometry)
                 energies.append(molecule.energy - refE)
                 manage_xyz.write_xyzs_w_comments(
-                    "{}/opt_{}.xyz".format(path, molecule.node_id),
+                    '{}/opt_{}.xyz'.format(path, molecule.node_id),
                     geoms,
                     energies,
                     scale=1.0,
                 )
 
             # save variables for update Hessian!
-            if not molecule.coord_obj.__class__.__name__ == "CartesianCoordinates":
+            if not molecule.coord_obj.__class__.__name__ == 'CartesianCoordinates':
                 # only form g_prim for non-constrained
                 self.g_prim = block_matrix.dot(molecule.coord_basis, gc)
                 self.dx = x - xp
@@ -245,11 +243,11 @@ class eigenvector_follow(base_optimizer):
                 self.dg_prim = self.g_prim - gp_prim
 
             else:
-                raise NotImplementedError(" ef not implemented for CART")
+                raise NotImplementedError(' ef not implemented for CART')
 
-            if self.options["print_level"] > 0:
+            if self.options['print_level'] > 0:
                 nifty.logger.debug(
-                    " Node: %d Opt step: %d E: %5.4f predE: %5.4f ratio: %1.3f gradrms: %1.5f ss: %1.3f DMAX: %1.3f"
+                    ' Node: %d Opt step: %d E: %5.4f predE: %5.4f ratio: %1.3f gradrms: %1.5f ss: %1.3f DMAX: %1.3f'
                     % (
                         molecule.node_id,
                         ostep + 1,
@@ -262,7 +260,7 @@ class eigenvector_follow(base_optimizer):
                     )
                 )
             self.buf.write(
-                " Node: %d Opt step: %d E: %5.4f predE: %5.4f ratio: %1.3f gradrms: %1.5f ss: %1.3f DMAX: %1.3f\n"
+                ' Node: %d Opt step: %d E: %5.4f predE: %5.4f ratio: %1.3f gradrms: %1.5f ss: %1.3f DMAX: %1.3f\n'
                 % (
                     molecule.node_id,
                     ostep + 1,
@@ -279,7 +277,7 @@ class eigenvector_follow(base_optimizer):
             fx = molecule.energy
             dE = molecule.difference_energy
             if dE < 1000.0:
-                nifty.logger.debug(" difference energy is %5.4f" % dE)
+                nifty.logger.debug(' difference energy is %5.4f' % dE)
             gmax = float(np.max(np.absolute(gc)))
             disp = float(np.linalg.norm((xyz - xyzp).flatten()))
             xnorm = np.sqrt(np.dot(x.T, x))
@@ -288,7 +286,7 @@ class eigenvector_follow(base_optimizer):
                 xnorm = 1.0
 
             nifty.logger.debug(
-                " gmax %5.4f disp %5.4f Ediff %5.4f gradrms %5.4f\n"
+                ' gmax %5.4f disp %5.4f Ediff %5.4f gradrms %5.4f\n'
                 % (gmax, disp, dEstep, molecule.gradrms)
             )
 
@@ -301,9 +299,9 @@ class eigenvector_follow(base_optimizer):
                 and abs(dEstep) < self.conv_Ediff
                 and abs(disp) < self.conv_disp
             ):
-                if opt_type == "TS-SEAM":
+                if opt_type == 'TS-SEAM':
                     gts = np.dot(g.T, molecule.constraints[:, 0])
-                    nifty.logger.debug(" gts %1.4f" % gts)
+                    nifty.logger.debug(' gts %1.4f' % gts)
                     if abs(gts) < self.conv_grms * 5:
                         self.converged = True
                 else:
@@ -315,23 +313,23 @@ class eigenvector_follow(base_optimizer):
                 and abs(dEstep) < self.conv_Ediff
                 and abs(disp) < self.conv_disp
             ):
-                if opt_type == "CLIMB":
+                if opt_type == 'CLIMB':
                     gts = np.dot(g.T, molecule.constraints[:, 0])
                     if abs(gts) < self.conv_grms * 5.0:
                         self.converged = True
-                elif opt_type == "TS":
+                elif opt_type == 'TS':
                     if self.gtse < self.conv_grms * 5.0:
                         self.converged = True
                 else:
                     self.converged = True
 
             if self.converged:
-                nifty.logger.debug(" converged")
+                nifty.logger.debug(' converged')
                 if ostep % xyzframerate != 0:
                     geoms.append(molecule.geometry)
                     energies.append(molecule.energy - refE)
                     manage_xyz.write_xyzs_w_comments(
-                        "{}/opt_{}.xyz".format(path, molecule.node_id),
+                        '{}/opt_{}.xyz'.format(path, molecule.node_id),
                         geoms,
                         energies,
                         scale=1.0,
@@ -339,8 +337,8 @@ class eigenvector_follow(base_optimizer):
                 break
 
             # update DLC  --> this changes q, g, Hint
-            if not molecule.coord_obj.__class__.__name__ == "CartesianCoordinates":
-                if opt_type != "TS":
+            if not molecule.coord_obj.__class__.__name__ == 'CartesianCoordinates':
+                if opt_type != 'TS':
                     constraints = self.get_constraint_vectors(molecule, opt_type, ictan)
                     molecule.update_coordinate_basis(constraints=constraints)
                     x = np.copy(molecule.coordinates)
@@ -349,34 +347,34 @@ class eigenvector_follow(base_optimizer):
                     gc = g.copy()
                     for c in molecule.constraints.T:
                         gc -= np.dot(gc.T, c[:, np.newaxis]) * c[:, np.newaxis]
-            nifty.logger.debug("")
+            nifty.logger.debug('')
             sys.stdout.flush()
 
-        nifty.logger.debug(" opt-summary {}".format(molecule.node_id))
+        nifty.logger.debug(' opt-summary {}'.format(molecule.node_id))
         nifty.logger.debug(self.buf.getvalue())
         return geoms, energies
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     from qchem import QChem
     from pes import PES
     from molecule import Molecule
     from slots import Distance
 
-    basis = "6-31G*"
+    basis = '6-31G*'
     nproc = 8
 
-    filepath = "examples/tests/bent_benzene.xyz"
+    filepath = 'examples/tests/bent_benzene.xyz'
     lot = QChem.from_options(
         states=[(1, 0)],
         charge=0,
         basis=basis,
-        functional="HF",
+        functional='HF',
         nproc=nproc,
         fnm=filepath,
     )
     pes = PES.from_options(lot=lot, ad_idx=0, multiplicity=1)
-    M = Molecule.from_options(fnm=filepath, PES=pes, coordinate_type="DLC")
+    M = Molecule.from_options(fnm=filepath, PES=pes, coordinate_type='DLC')
     distance = Distance(5, 8)  # Not 1 based!!
     nifty.logger.debug(distance)
 
@@ -385,4 +383,4 @@ if __name__ == "__main__":
     # geoms = ef.optimize(molecule=M,refE=M.energy,opt_steps=1)
     nifty.logger.debug(M.primitive_internal_coordinates)
 
-    manage_xyz.write_xyzs("opt.xyz", geoms, scale=1.0)
+    manage_xyz.write_xyzs('opt.xyz', geoms, scale=1.0)

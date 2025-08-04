@@ -6,7 +6,6 @@ from .math_utils import orthogonalize, conjugate_orthogonalize
 
 
 class block_tensor(object):
-
     def __init__(self, matlist, cnorms=None):
         self.matlist = matlist
         if cnorms is None:
@@ -14,15 +13,15 @@ class block_tensor(object):
         self.cnorms = cnorms
 
     def __repr__(self):
-        lines = [" block matrix: # blocks = {}".format(self.num_blocks)]
+        lines = [' block matrix: # blocks = {}'.format(self.num_blocks)]
         count = 0
         for m in self.matlist:
             lines.append(str(m))
             count += 1
             if count > 10:
-                nifty.logger.debug("truncating printout")
+                nifty.logger.debug('truncating printout')
                 break
-        return "\n".join(lines)
+        return '\n'.join(lines)
 
     @staticmethod
     def full_matrix(A):
@@ -37,9 +36,9 @@ class block_tensor(object):
         return block_tensor([np.zeros_like(A) for A in BM.matlist])
 
     def __add__(self, rhs):
-        nifty.logger.debug("adding")
+        nifty.logger.debug('adding')
         if isinstance(rhs, self.__class__):
-            nifty.logger.debug("adding block matrices!")
+            nifty.logger.debug('adding block matrices!')
             assert self.shape == rhs.shape
             return block_tensor([A + B for A, B in zip(self.matlist, rhs.matlist)])
         elif isinstance(rhs, float) or isinstance(rhs, int):

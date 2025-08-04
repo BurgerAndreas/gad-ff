@@ -436,9 +436,9 @@ class Shells:
             center = mol.bas_coord(bas_id)
             coeffs = mol.bas_ctr_coeff(bas_id).flatten()
             exps = mol.bas_exp(bas_id)
-            assert (
-                coeffs.size == exps.size
-            ), "General contractions are not yet supported."
+            assert coeffs.size == exps.size, (
+                "General contractions are not yet supported."
+            )
             center_ind = mol.bas_atom(bas_id)
             atom_symbol = mol.atom_symbol(center_ind)
             atomic_num = ATOMIC_NUMBERS[atom_symbol.lower()]

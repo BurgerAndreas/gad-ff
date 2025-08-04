@@ -114,7 +114,7 @@ def test_co_duschinsky(this_dir):
     print(f"det(J)={np.linalg.det(res.J):.8f}")
     nus_init, _, L_init, _ = geom_init.get_normal_modes()
     for i, nu in enumerate(nus_init):
-        print(f"ν_{i+1:02d} {nu: >12.4f} {res.K[i]: >10.6f}")
+        print(f"ν_{i + 1:02d} {nu: >12.4f} {res.K[i]: >10.6f}")
     assert res.K[4] == pytest.approx(2.773520)
     assert res.K[9] == pytest.approx(5.916038)
 

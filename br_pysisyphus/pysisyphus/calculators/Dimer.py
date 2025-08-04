@@ -323,9 +323,9 @@ class Dimer(Calculator):
         self.force_evals += 1
         infl_forces = infl_results["forces"]
 
-        assert (
-            infl_forces.dot(N) < 0
-        ), "We probably overstepped the TS. See Section 2.3 in the paper."
+        assert infl_forces.dot(N) < 0, (
+            "We probably overstepped the TS. See Section 2.3 in the paper."
+        )
 
         forces = self.get_gaussian_forces(infl_coords) + infl_forces
 
@@ -544,19 +544,16 @@ class Dimer(Calculator):
                 rot_deg = np.rad2deg(np.arccos(N_cur.dot(self.N)))
                 self.log(f"\t\tRotated by {rot_deg:.1f}°")
             else:
-                msg = (
-                    "\tDimer rotation did not converge in "
-                    f"{self.rotation_max_cycles}"
-                )
+                msg = f"\tDimer rotation did not converge in {self.rotation_max_cycles}"
         except RotationConverged:
-            msg = f"\tDimer rotation converged in {i+1} cycle(s)."
+            msg = f"\tDimer rotation converged in {i + 1} cycle(s)."
         self.log(msg)
         # self.log("\tN after rotation:\n\t" + str(self.N))
         self.log()
         # Restrict to interval [-1,1] where arccos is defined
         rot_deg = np.rad2deg(np.arccos(max(min(N_first.dot(self.N), 1.0), -1.0)))
         self.log(
-            f"\tRotated by {rot_deg:.1f}° w.r.t. the orientation " "before rotation(s)."
+            f"\tRotated by {rot_deg:.1f}° w.r.t. the orientation before rotation(s)."
         )
 
     def update_orientation(self, coords):

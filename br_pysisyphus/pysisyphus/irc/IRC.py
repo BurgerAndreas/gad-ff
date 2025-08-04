@@ -137,9 +137,9 @@ class IRC:
             hessian_init = "calc" if not self.downhill else "unit"
         self.hessian_init = hessian_init
         self.displ = displ
-        assert (
-            self.displ in self.valid_displs
-        ), f"'displ: {self.displ}' not in {self.valid_displs}"
+        assert self.displ in self.valid_displs, (
+            f"'displ: {self.displ}' not in {self.valid_displs}"
+        )
         self.displ_energy = float(displ_energy)
         self.displ_length = float(displ_length)
         self.displ_third_h5 = displ_third_h5
@@ -273,7 +273,7 @@ class IRC:
             diff = self.displ_energy - actual_lowering
 
             def en_str(en):
-                return f"{en: .4f} au ({en*AU2KJPERMOL: .2f} kJ mol⁻¹)"
+                return f"{en: .4f} au ({en * AU2KJPERMOL: .2f} kJ mol⁻¹)"
 
             print(
                 f"Requested energy lowering: {en_str(self.displ_energy)}\n"
@@ -286,7 +286,7 @@ class IRC:
             sys.stdout.flush()
         initial_step_length = np.linalg.norm(initial_step)
         self.logger.info(
-            f"Did inital step of length {initial_step_length:.4f} " "from the TS."
+            f"Did inital step of length {initial_step_length:.4f} from the TS."
         )
 
     def initial_displacement(self):

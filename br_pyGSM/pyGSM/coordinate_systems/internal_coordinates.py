@@ -16,28 +16,27 @@ CacheWarning = False
 
 
 class InternalCoordinates(object):
-
     @staticmethod
     def default_options():
         """InternalCoordinates default options."""
 
-        if hasattr(InternalCoordinates, "_default_options"):
+        if hasattr(InternalCoordinates, '_default_options'):
             return InternalCoordinates._default_options.copy()
         opt = options.Options()
 
         opt.add_option(
-            key="xyz", required=True, doc="cartesian coordinates in angstrom"
+            key='xyz', required=True, doc='cartesian coordinates in angstrom'
         )
 
         opt.add_option(
-            key="atoms",
+            key='atoms',
             required=True,
             # allowed_types=[],
-            doc="atom element named tuples/dictionary must be of type list[elements].",
+            doc='atom element named tuples/dictionary must be of type list[elements].',
         )
 
         opt.add_option(
-            key="connect",
+            key='connect',
             value=False,
             allowed_types=[bool],
             doc="Connect the fragments/residues together with a minimum spanning bond,\
@@ -45,7 +44,7 @@ class InternalCoordinates(object):
         )
 
         opt.add_option(
-            key="addcart",
+            key='addcart',
             value=False,
             allowed_types=[bool],
             doc="Add cartesian coordinates\
@@ -53,53 +52,53 @@ class InternalCoordinates(object):
         )
 
         opt.add_option(
-            key="addtr",
+            key='addtr',
             value=False,
             allowed_types=[bool],
-            doc="Add translation and rotation coordinates\
-                    use for TRIC.",
+            doc='Add translation and rotation coordinates\
+                    use for TRIC.',
         )
 
         opt.add_option(
-            key="constraints",
+            key='constraints',
             value=None,
             allowed_types=[list],
-            doc="A list of Distance,Angle,Torsion constraints (see slots.py),\
+            doc='A list of Distance,Angle,Torsion constraints (see slots.py),\
                     This is only useful if doing a constrained geometry optimization\
-                    since GSM will handle the constraint automatically.",
+                    since GSM will handle the constraint automatically.',
         )
         opt.add_option(
-            key="cVals",
+            key='cVals',
             value=None,
             allowed_types=[list],
-            doc="List of Distance,Angle,Torsion constraints values",
+            doc='List of Distance,Angle,Torsion constraints values',
         )
 
         opt.add_option(
-            key="form_topology",
+            key='form_topology',
             value=True,
-            doc="A lazy argument for forming the topology on the fly, dont use this",
+            doc='A lazy argument for forming the topology on the fly, dont use this',
         )
 
         opt.add_option(
-            key="primitives",
+            key='primitives',
             value=None,
-            doc="This is a Primitive internal coordinates object -- can be used instead \
-                        of creating new primitive object",
+            doc='This is a Primitive internal coordinates object -- can be used instead \
+                        of creating new primitive object',
         )
 
         opt.add_option(
-            key="topology",
+            key='topology',
             value=None,
-            doc="This is the molecule topology, used for building primitives",
+            doc='This is the molecule topology, used for building primitives',
         )
 
         opt.add_option(
-            key="print_level",
+            key='print_level',
             value=1,
             required=False,
             allowed_types=[int],
-            doc="0-- no printing, 1-- printing",
+            doc='0-- no printing, 1-- printing',
         )
 
         InternalCoordinates._default_options = opt
@@ -111,28 +110,27 @@ class InternalCoordinates(object):
         return cls(cls.default_options().set_values(kwargs))
 
     def __init__(self, options):
-
         self.options = options
         self.stored_wilsonB = OrderedDict()
 
     def addConstraint(self, cPrim, cVal):
         raise NotImplementedError(
-            "Constraints not supported with Cartesian coordinates"
+            'Constraints not supported with Cartesian coordinates'
         )
 
     def haveConstraints(self):
         raise NotImplementedError(
-            "Constraints not supported with Cartesian coordinates"
+            'Constraints not supported with Cartesian coordinates'
         )
 
     def augmentGH(self, xyz, G, H):
         raise NotImplementedError(
-            "Constraints not supported with Cartesian coordinates"
+            'Constraints not supported with Cartesian coordinates'
         )
 
     def calcGradProj(self, xyz, gradx):
         raise NotImplementedError(
-            "Constraints not supported with Cartesian coordinates"
+            'Constraints not supported with Cartesian coordinates'
         )
 
     def clearCache(self):
@@ -157,7 +155,7 @@ class InternalCoordinates(object):
         self.stored_wilsonB[xhash] = np.array(WilsonB)
         if len(self.stored_wilsonB) > 1000 and not CacheWarning:
             nifty.logger.warning(
-                "\x1b[91mWarning: more than 100 B-matrices stored, memory leaks likely\x1b[0m"
+                '\x1b[91mWarning: more than 100 B-matrices stored, memory leaks likely\x1b[0m'
             )
             CacheWarning = True
         ans = np.array(WilsonB)
@@ -196,12 +194,12 @@ class InternalCoordinates(object):
                 # time_svd = nifty.click()
             except np.linalg.LinAlgError:
                 nifty.logger.warning(
-                    "\x1b[1;91m SVD fails, perturbing coordinates and trying again\x1b[0m"
+                    '\x1b[1;91m SVD fails, perturbing coordinates and trying again\x1b[0m'
                 )
                 xyz = xyz + 1e-2 * np.random.random(xyz.shape)
                 loops += 1
                 if loops == 10:
-                    raise RuntimeError("SVD failed too many times")
+                    raise RuntimeError('SVD failed too many times')
                 continue
             break
         # print "Build G: %.3f SVD: %.3f" % (time_G, time_svd),
@@ -244,22 +242,22 @@ class InternalCoordinates(object):
                 FiniteDifference[:, i, j] = PMDiff / (2 * h)
         for i in range(Analytical.shape[0]):
             nifty.logger.info(
-                "IC %i/%i : %s" % (i, Analytical.shape[0], self.Internals[i])
+                'IC %i/%i : %s' % (i, Analytical.shape[0], self.Internals[i])
             )
-            lines = [""]
+            lines = ['']
             maxerr = 0.0
             for j in range(Analytical.shape[1]):
-                lines.append("Atom %i" % (j + 1))
+                lines.append('Atom %i' % (j + 1))
                 for k in range(Analytical.shape[2]):
                     error = Analytical[i, j, k] - FiniteDifference[i, j, k]
                     if np.abs(error) > 1e-5:
-                        color = "\x1b[91m"
+                        color = '\x1b[91m'
                     else:
-                        color = "\x1b[92m"
+                        color = '\x1b[92m'
                     lines.append(
-                        "%s % .5e % .5e %s% .5e\x1b[0m"
+                        '%s % .5e % .5e %s% .5e\x1b[0m'
                         % (
-                            "xyz"[k],
+                            'xyz'[k],
                             Analytical[i, j, k],
                             FiniteDifference[i, j, k],
                             color,
@@ -269,10 +267,10 @@ class InternalCoordinates(object):
                     if maxerr < np.abs(error):
                         maxerr = np.abs(error)
             if maxerr > 1e-5:
-                nifty.logger.info("\n".join(lines))
+                nifty.logger.info('\n'.join(lines))
             else:
-                nifty.logger.info("Max Error = %.5e" % maxerr)
-        nifty.logger.info("Finite-difference Finished")
+                nifty.logger.info('Max Error = %.5e' % maxerr)
+        nifty.logger.info('Finite-difference Finished')
 
     def checkFiniteDifferenceHess(self, xyz):
         xyz = xyz.reshape(-1, 3)
@@ -281,7 +279,7 @@ class InternalCoordinates(object):
         h = 1e-4
         verbose = False
         nifty.logger.info(
-            "-=# Now checking second derivatives of internal coordinates w/r.t. Cartesians #=-\n"
+            '-=# Now checking second derivatives of internal coordinates w/r.t. Cartesians #=-\n'
         )
         for j in range(xyz.shape[0]):
             for m in range(3):
@@ -307,13 +305,13 @@ class InternalCoordinates(object):
         #                 nifty.logger.debug('\r%i %i' % (j, k), end='')
         # nifty.logger.debug("")
         for i in range(Analytical.shape[0]):
-            title = "%20s : %20s" % (
-                "IC %i/%i" % (i + 1, Analytical.shape[0]),
+            title = '%20s : %20s' % (
+                'IC %i/%i' % (i + 1, Analytical.shape[0]),
                 self.Internals[i],
             )
             lines = [title]
             if verbose:
-                logger.info(title + "\n")
+                logger.info(title + '\n')
             maxerr = 0.0
             numerr = 0
             for j in range(Analytical.shape[1]):
@@ -324,32 +322,32 @@ class InternalCoordinates(object):
                             fin = FiniteDifference[i, j, m, k, n]
                             error = ana - fin
                             message = (
-                                "Atom %i %s %i %s a: % 12.5e n: % 12.5e e: % 12.5e %s"
+                                'Atom %i %s %i %s a: % 12.5e n: % 12.5e e: % 12.5e %s'
                                 % (
                                     j + 1,
-                                    "xyz"[m],
+                                    'xyz'[m],
                                     k + 1,
-                                    "xyz"[n],
+                                    'xyz'[n],
                                     ana,
                                     fin,
                                     error,
-                                    "X" if np.abs(error) > 1e-5 else "",
+                                    'X' if np.abs(error) > 1e-5 else '',
                                 )
                             )
                             if np.abs(error) > 1e-5:
                                 numerr += 1
                             if (ana != 0.0 or fin != 0.0) and verbose:
-                                logger.info(message + "\n")
+                                logger.info(message + '\n')
                             lines.append(message)
                             if maxerr < np.abs(error):
                                 maxerr = np.abs(error)
             if maxerr > 1e-5 and not verbose:
-                logger.info("\n".join(lines) + "\n")
+                logger.info('\n'.join(lines) + '\n')
             logger.info(
-                "%s : Max Error = % 12.5e (%i above threshold)\n"
+                '%s : Max Error = % 12.5e (%i above threshold)\n'
                 % (title, maxerr, numerr)
             )
-        logger.info("Finite-difference Finished\n")
+        logger.info('Finite-difference Finished\n')
         return FiniteDifference
 
     def calcGrad(self, xyz, gradx, frozen_atoms=None):
@@ -386,12 +384,12 @@ class InternalCoordinates(object):
         Hx_BptGq = hessx - BptGq
 
         Hq = np.einsum(
-            "ps,sm,mn,nr,rq", Ginv, Bmat, Hx_BptGq, Bmat.T, Ginv, optimize=True
+            'ps,sm,mn,nr,rq', Ginv, Bmat, Hx_BptGq, Bmat.T, Ginv, optimize=True
         )
         return Hq
 
     def readCache(self, xyz, dQ):
-        if not hasattr(self, "stored_xyz"):
+        if not hasattr(self, 'stored_xyz'):
             return None
         if np.linalg.norm(self.stored_xyz - xyz) < 1e-10:
             if np.linalg.norm(self.stored_dQ - dQ) < 1e-10:
@@ -427,7 +425,7 @@ class InternalCoordinates(object):
             if ndqt > 1e-1:
                 if verbose:
                     nifty.logger.info(
-                        " Failed to obtain coordinates after %i microiterations (rmsd = %.3e |dQ| = %.3e)\n"
+                        ' Failed to obtain coordinates after %i microiterations (rmsd = %.3e |dQ| = %.3e)\n'
                         % (microiter, rmsdt, ndqt)
                     )
                 self.bork = True
@@ -436,13 +434,13 @@ class InternalCoordinates(object):
             elif ndqt > 1e-3:
                 if verbose:
                     nifty.logger.info(
-                        " Approximate coordinates obtained after %i microiterations (rmsd = %.3e |dQ| = %.3e)\n"
+                        ' Approximate coordinates obtained after %i microiterations (rmsd = %.3e |dQ| = %.3e)\n'
                         % (microiter, rmsdt, ndqt)
                     )
             else:
                 if verbose:
                     nifty.logger.info(
-                        " Cartesian coordinates obtained after %i microiterations (rmsd = %.3e |dQ| = %.3e)\n"
+                        ' Cartesian coordinates obtained after %i microiterations (rmsd = %.3e |dQ| = %.3e)\n'
                         % (microiter, rmsdt, ndqt)
                     )
             self.writeCache(xyz, dQ, xyzsave)
@@ -475,7 +473,7 @@ class InternalCoordinates(object):
                 if ndq > ndqt:
                     if verbose:
                         nifty.logger.info(
-                            " Iter: %i Err-dQ (Best) = %.5e (%.5e) RMSD: %.5e Damp: %.5e (Bad)\n"
+                            ' Iter: %i Err-dQ (Best) = %.5e (%.5e) RMSD: %.5e Damp: %.5e (Bad)\n'
                             % (microiter, ndq, ndqt, rmsd, damp)
                         )
                     damp /= 2
@@ -484,7 +482,7 @@ class InternalCoordinates(object):
                 else:
                     if verbose:
                         nifty.logger.info(
-                            " Iter: %i Err-dQ (Best) = %.5e (%.5e) RMSD: %.5e Damp: %.5e (Good)\n"
+                            ' Iter: %i Err-dQ (Best) = %.5e (%.5e) RMSD: %.5e Damp: %.5e (Good)\n'
                             % (microiter, ndq, ndqt, rmsd, damp)
                         )
                     fail_counter = 0
@@ -495,7 +493,7 @@ class InternalCoordinates(object):
             else:
                 if verbose:
                     nifty.logger.info(
-                        " Iter: %i Err-dQ = %.5e RMSD: %.5e Damp: %.5e\n"
+                        ' Iter: %i Err-dQ = %.5e RMSD: %.5e Damp: %.5e\n'
                         % (microiter, ndq, rmsd, damp)
                     )
                 rmsdt = rmsd

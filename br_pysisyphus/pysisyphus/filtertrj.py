@@ -65,7 +65,7 @@ def run():
             [is_present == (internal in internals) for is_present, internal in filters]
         )
         if not valid:
-            print(f"geom {i+1} is not valid.")
+            print(f"geom {i + 1} is not valid.")
             invalid_geoms.append(geom)
         else:
             valid_geoms.append(geom)

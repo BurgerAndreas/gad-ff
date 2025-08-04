@@ -21,6 +21,7 @@ Saves the new dataset to
 
 Much faster than computing Hessians since it uses pre-computed DFT Hessians.
 """
+
 import argparse
 import os
 import pickle
@@ -100,7 +101,6 @@ def create_dfteigen_dataset(
     num_samples_written = 0
     with out_env.begin(write=True) as txn:
         for sample_idx in tqdm(range(len(dataset)), total=len(dataset)):
-
             try:
                 # Get the original sample
                 original_sample = dataset[sample_idx]

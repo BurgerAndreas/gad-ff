@@ -806,12 +806,14 @@ class EquiformerV2_OC20(BaseModel):
             # neighbors = data.neighbors
         return edge_index, edge_distance, edge_distance_vec
 
-    def forward(self, data, eigen=False, hessian=False, return_l_features=False, otf_graph=None):
+    def forward(
+        self, data, eigen=False, hessian=False, return_l_features=False, otf_graph=None
+    ):
         """
         If eigen=True, return predictions for eigenvalues and eigenvectors of the Hessian in outputs dict.
-        
+
         hessian=True means direct prediction of the Hessian.
-        
+
         Only pass otf_graph=True if you want to do Hessian from autograd on forces (no hessian prediction)!
 
         Returns:
@@ -851,9 +853,9 @@ class EquiformerV2_OC20(BaseModel):
             # it only matters if we are doing hessian prediction
             # if we pass otf_graph=True we want to do autograd (no hessian prediction)
             if self.do_hessian and (otf_graph is None):
-                assert torch.allclose(
-                    edge_index, data.edge_index
-                ), "To fix this: model.otf_graph=False"
+                assert torch.allclose(edge_index, data.edge_index), (
+                    "To fix this: model.otf_graph=False"
+                )
 
         ###############################################################
         # Initialize data structures
@@ -984,8 +986,9 @@ class EquiformerV2_OC20(BaseModel):
         # Hessian estimation
         ###############################################################
         if hessian:
-            assert self.do_hessian, \
+            assert self.do_hessian, (
                 f"do_hessian is {self.do_hessian} but hessian is {hessian}. Are you sure you loaded the right config?"
+            )
             # we are going to use a different graph here
             # with a bigger cutoff radius
             # graph = edge_distance, edge_index
@@ -1002,7 +1005,7 @@ class EquiformerV2_OC20(BaseModel):
             edge_rot_mat_hessian = self._init_edge_rot_mat(
                 data, edge_index_hessian, edge_distance_vec_hessian
             )
-            
+
             # Initialize the WignerD matrices and other values for spherical harmonic calculations
             # used in edge_degree_embedding, TransBlockV2
             for i in range(self.num_resolutions):

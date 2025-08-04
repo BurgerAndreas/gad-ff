@@ -37,12 +37,12 @@ class Interpolator:
             next_geom = self.geoms[i + 1]
             atoms = geom.atoms
             next_atoms = next_geom.atoms
-            assert len(atoms) == len(
-                next_atoms
-            ), f"Geometries {i} and {i+1} have a different number of atoms!"
-            assert (
-                atoms == next_atoms
-            ), f"Different atom ordering in geometries {i} and {i+1}!"
+            assert len(atoms) == len(next_atoms), (
+                f"Geometries {i} and {i + 1} have a different number of atoms!"
+            )
+            assert atoms == next_atoms, (
+                f"Different atom ordering in geometries {i} and {i + 1}!"
+            )
 
         self.atoms = self.geoms[0].atoms
         if self.align:

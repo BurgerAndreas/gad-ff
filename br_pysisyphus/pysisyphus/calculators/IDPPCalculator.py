@@ -5,7 +5,6 @@ from pysisyphus.calculators.Calculator import Calculator
 
 
 class IDPPCalculator(Calculator):
-
     def __init__(self, target):
         self.target = squareform(target)
 

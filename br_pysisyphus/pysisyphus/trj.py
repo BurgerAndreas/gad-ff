@@ -90,7 +90,7 @@ def parse_args(args):
         "--translate",
         nargs=3,
         type=float,
-        help="Translate the molecule by the given vector given " "in Ångström.",
+        help="Translate the molecule by the given vector given in Ångström.",
     )
     action_group.add_argument(
         "--append",
@@ -286,9 +286,9 @@ def get_geoms(
     if union:
         assert coord_type != "cart", "union must not be used with coord_type == cart!"
         union_geoms = read_geoms(union, coord_type=coord_type)
-        assert (
-            len(union_geoms) == 2
-        ), f"Got {len(union_geoms)} geometries for 'union'! Please give only two!"
+        assert len(union_geoms) == 2, (
+            f"Got {len(union_geoms)} geometries for 'union'! Please give only two!"
+        )
         geom_kwargs["coord_kwargs"]["typed_prims"] = form_coordinate_union(*union_geoms)
 
     geoms = read_geoms(
@@ -379,9 +379,9 @@ def standardize_geoms(geoms, coord_type, geom_kwargs, same_prims=True, union=Fal
 
     if union and coord_type != "cart":
         union_geoms = read_geoms(union, coord_type=coord_type)
-        assert (
-            len(union_geoms) == 2
-        ), f"Got {len(union_geoms)} geometries for 'union'! Please supply only two!"
+        assert len(union_geoms) == 2, (
+            f"Got {len(union_geoms)} geometries for 'union'! Please supply only two!"
+        )
         geom_kwargs["coord_kwargs"]["typed_prims"] = form_coordinate_union(*union_geoms)
     elif (
         same_atoms
@@ -591,13 +591,12 @@ def print_internals(geoms, filter_atoms=None, add_prims=""):
             inds_str = ", ".join([f"{atoms[i]: >2s}{i: <4d}" for i in inds])
             inds_str = f"[{inds_str}]"
             print(
-                f"{j:04d}: {pt: >20} {prim_counter:03d} {inds_str} {val: >10.4f}"
-                f"{unit}"
+                f"{j:04d}: {pt: >20} {prim_counter:03d} {inds_str} {val: >10.4f}{unit}"
             )
             prim_counter += 1
             prev_len = len_
 
-        print(f"Printed {j+1} primitive internals.")
+        print(f"Printed {j + 1} primitive internals.")
         print()
 
 
@@ -645,7 +644,7 @@ def get_interactively(geoms):
     min_ind = np.nanargmin(energies)
     print(f"Minimum energy at index {min_ind}")
     print("(q) to quit\n(p) to plot energies")
-    msg = f"Input index (0-{len(geoms)-1})/p/q: "
+    msg = f"Input index (0-{len(geoms) - 1})/p/q: "
     while True:
         try:
             selection = input(msg)
@@ -684,7 +683,7 @@ def frag_sort(geoms):
     for i, geom in enumerate(geoms):
         print(f"{i:02d}: {geom}")
         frags = get_fragments(geom.atoms, geom.coords)
-        print(f"\tFound {len(frags)} fragments.\n" "\tResorting atoms and coordinates.")
+        print(f"\tFound {len(frags)} fragments.\n\tResorting atoms and coordinates.")
         new_indices = list(it.chain(*frags))
         new_atoms = [geom.atoms[i] for i in new_indices]
         new_coords = geom.coords3d[new_indices]

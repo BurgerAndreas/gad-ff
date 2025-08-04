@@ -116,7 +116,6 @@ class OutputBlock(AtomUpdateBlock):
         name: str = "output",
         **kwargs,
     ):
-
         super().__init__(
             name=name,
             emb_size_atom=emb_size_atom,

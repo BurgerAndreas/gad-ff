@@ -175,7 +175,6 @@ class Model:
         parent_atom_inds,
         use_link_atoms=True,
     ):
-
         self.name = name
         self.calc_level = calc_level
         self.calc = calc
@@ -542,9 +541,9 @@ def get_embedding_charges(embedding, layer, parent_layer, coords3d):
     # layer. Otherwise this would result in additonal charges at
     # the same positions as the atoms we would like to calculate.
     if "electronic" in embedding:
-        assert (
-            len(parent_layer) == 1
-        ), "Multicenter ONIOM in intermediate layer is not supported!"
+        assert len(parent_layer) == 1, (
+            "Multicenter ONIOM in intermediate layer is not supported!"
+        )
         parent_model = parent_layer[0]
         parent_inds = parent_model.atom_inds
         point_charges, _ = parent_model.parse_charges()
@@ -778,9 +777,9 @@ class ONIOM(Calculator):
 
         if embedding is None:
             embedding = ""
-        assert (
-            embedding in self.embeddings.keys()
-        ), f"Valid embeddings are: {self.embeddings.keys()}"
+        assert embedding in self.embeddings.keys(), (
+            f"Valid embeddings are: {self.embeddings.keys()}"
+        )
         self.embedding = embedding
 
         assert real_key not in models, f'"{real_key}" must not be defined in "models"!'
@@ -938,9 +937,9 @@ class ONIOM(Calculator):
         [model.create_bond_vec_getters(geom.atoms) for model in self.models]
 
         # And do a quick sanity check
-        assert (
-            len(self.models[0].links) == 0
-        ), "There must not be any links in the 'real' layer!"
+        assert len(self.models[0].links) == 0, (
+            "There must not be any links in the 'real' layer!"
+        )
         # Look for link atoms that appear in two adjacent layers. In such situations
         # the higher layer is coupled to a layer two levels below. This may be a bad
         # idea.
@@ -956,7 +955,7 @@ class ONIOM(Calculator):
                     print(f"\t{j:02d}: {link}")
                 print(
                     f"Your current setup couples layer '{model.name}' to "
-                    f"layer '{self.models[i-1].name}' two levels below! "
+                    f"layer '{self.models[i - 1].name}' two levels below! "
                     "This is probably a bad idea!"
                 )
 
@@ -1025,7 +1024,7 @@ class ONIOM(Calculator):
                 )
                 self.log(
                     f"Polarizing calculation in layer {i} ({layer}) by "
-                    f"charges from layer {i-1} ({self.layers[i-1]})."
+                    f"charges from layer {i - 1} ({self.layers[i - 1]})."
                 )
                 ee_charge_sum = point_charges[:, -1].sum()
                 self.log(f"sum(charges)={ee_charge_sum:.4f}")

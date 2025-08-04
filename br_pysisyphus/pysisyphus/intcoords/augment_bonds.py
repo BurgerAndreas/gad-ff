@@ -76,7 +76,6 @@ def find_missing_strong_bonds(geom, hessian, bond_factor=1.7, thresh=0.3, root=0
 def find_missing_bonds_by_projection(
     geom, hessian, bond_factor=2.0, bond_thresh=0.35, concerted_thresh=0.35, root=0
 ):
-
     def array2set(arr):
         return set([tuple(_) for _ in arr])
 

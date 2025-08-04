@@ -56,9 +56,9 @@ def main(*, num_batches: int = 16):
         trainer = ctx.trainer
 
         ckpt_file = config.get("checkpoint", None)
-        assert (
-            ckpt_file is not None
-        ), "Checkpoint file not specified. Please specify --checkpoint <path>"
+        assert ckpt_file is not None, (
+            "Checkpoint file not specified. Please specify --checkpoint <path>"
+        )
         ckpt_file = Path(ckpt_file)
 
         logging.info(f"Input checkpoint path: {ckpt_file}, {ckpt_file.exists()=}")
@@ -131,8 +131,7 @@ def main(*, num_batches: int = 16):
         if out_path.exists():
             logging.warning(f"Already found existing file: {out_path}")
             flag = input(
-                "Do you want to continue and overwrite existing file (1), "
-                "or exit (2)? "
+                "Do you want to continue and overwrite existing file (1), or exit (2)? "
             )
             if str(flag) == "1":
                 logging.info("Overwriting existing file.")

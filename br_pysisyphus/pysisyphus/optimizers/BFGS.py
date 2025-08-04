@@ -13,13 +13,12 @@ from pysisyphus.optimizers.restrict_step import scale_by_max_step
 
 
 class BFGS(Optimizer):
-
     def __init__(self, geometry, *args, update="bfgs", **kwargs):
         super().__init__(geometry, *args, **kwargs)
 
-        assert (
-            self.align == False
-        ), "align=True does not work with this optimizer! Consider using LBFGS."
+        assert self.align == False, (
+            "align=True does not work with this optimizer! Consider using LBFGS."
+        )
 
         self.update = update
 

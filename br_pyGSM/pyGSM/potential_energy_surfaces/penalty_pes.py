@@ -24,14 +24,14 @@ class Penalty_PES(PES):
         self.PES1 = PES(
             PES1.options.copy().set_values(
                 {
-                    "lot": lot,
+                    'lot': lot,
                 }
             )
         )
         self.PES2 = PES(
             PES2.options.copy().set_values(
                 {
-                    "lot": lot,
+                    'lot': lot,
                 }
             )
         )
@@ -40,7 +40,7 @@ class Penalty_PES(PES):
         self.dE = 1000.0
         self.sigma = sigma
         nifty.logger.debug(
-            " PES1 multiplicity: {} PES2 multiplicity: {} sigma: {}".format(
+            ' PES1 multiplicity: {} PES2 multiplicity: {} sigma: {}'.format(
                 self.PES1.multiplicity, self.PES2.multiplicity, self.sigma
             )
         )
@@ -92,25 +92,24 @@ class Penalty_PES(PES):
         )
 
 
-if __name__ == "__main__":
-
+if __name__ == '__main__':
     from level_of_theories.pytc import PyTC
     import psiw
     import lightspeed as ls
 
-    filepath = "../../data/ethylene.xyz"
+    filepath = '../../data/ethylene.xyz'
     geom = manage_xyz.read_xyz(filepath, scale=1)
     # => Job Data <= #####
     states = [(1, 0), (1, 1)]
     charge = 0
     nocc = 7
     nactive = 2
-    basis = "6-31gs"
+    basis = '6-31gs'
 
     #### => PSIW Obj <= ######
-    nifty.printcool("Build resources")
+    nifty.printcool('Build resources')
     resources = ls.ResourceList.build()
-    nifty.printcool("{}".format(resources))
+    nifty.printcool('{}'.format(resources))
 
     molecule = ls.Molecule.from_xyz_file(filepath)
     geom = psiw.geometry.Geometry.build(
@@ -118,13 +117,13 @@ if __name__ == "__main__":
         molecule=molecule,
         basisname=basis,
     )
-    nifty.printcool("{}".format(geom))
+    nifty.printcool('{}'.format(geom))
 
     ref = psiw.RHF.from_options(
         geometry=geom,
         g_convergence=1.0e-6,
         fomo=True,
-        fomo_method="gaussian",
+        fomo_method='gaussian',
         fomo_temp=0.3,
         fomo_nocc=nocc,
         fomo_nact=nactive,
@@ -146,14 +145,14 @@ if __name__ == "__main__":
         casci=casci,
         rhf_guess=True,
         rhf_mom=True,
-        orbital_coincidence="core",
-        state_coincidence="full",
+        orbital_coincidence='core',
+        state_coincidence='full',
     )
 
-    nifty.printcool("Build the pyGSM Level of Theory object (LOT)")
+    nifty.printcool('Build the pyGSM Level of Theory object (LOT)')
     lot = PyTC.from_options(
         states=[(1, 0), (1, 1)],
-        job_data={"psiw": psiw},
+        job_data={'psiw': psiw},
         do_coupling=False,
         fnm=filepath,
     )

@@ -5,7 +5,6 @@ from gadff.logging_utils import name_from_config, find_latest_checkpoint
 
 
 def setup_training(cfg: DictConfig):
-
     ###########################################
     # Trainer checkpoint loading
     ###########################################

@@ -96,9 +96,9 @@ class TSHessianOptimizer(HessianOptimizer):
             Keyword arguments passed to the HessianOptimizer/Optimizer baseclass.
         """
 
-        assert (
-            hessian_update in self.valid_updates
-        ), f"Invalid Hessian update. Please chose from: {self.valid_updates}!"
+        assert hessian_update in self.valid_updates, (
+            f"Invalid Hessian update. Please chose from: {self.valid_updates}!"
+        )
 
         super().__init__(
             geometry,
@@ -127,9 +127,9 @@ class TSHessianOptimizer(HessianOptimizer):
             shape = self.hessian_ref.shape
             # Hessian is not yet converted to the correct coordinate system if
             # coord_type != cart.
-            assert (
-                self.geometry.coord_type == "cart"
-            ), "hessian_ref with internal coordinates are not yet supported."
+            assert self.geometry.coord_type == "cart", (
+                "hessian_ref with internal coordinates are not yet supported."
+            )
             assert shape == expected_shape, (
                 f"Shape of reference Hessian {shape} doesn't match the expected "
                 f"shape {expected_shape} of the Hessian for the current coordinates!"

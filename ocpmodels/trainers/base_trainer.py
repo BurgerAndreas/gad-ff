@@ -473,7 +473,6 @@ class BaseTrainer(ABC):
         optimizer = getattr(optim, optimizer)
 
         if self.config["optim"].get("weight_decay", 0) > 0:
-
             # Do not regularize bias etc.
             params_decay = []
             params_no_decay = []

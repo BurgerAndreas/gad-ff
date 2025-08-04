@@ -147,7 +147,7 @@ def setup_training(cfg: DictConfig):
         TQDMProgressBar(),
         lr_monitor,
     ]
-    
+
     # Add EMA callback if enabled
     if cfg.training.ema.get("enabled", False):
         ema_callback = EMACallback(
@@ -157,12 +157,14 @@ def setup_training(cfg: DictConfig):
             use_buffers=cfg.training.ema.get("use_buffers", True),
         )
         callbacks.append(ema_callback)
-        print(f"Added EMA callback with decay={ema_callback.decay}, use_buffers={ema_callback.use_buffers}")
+        print(
+            f"Added EMA callback with decay={ema_callback.decay}, use_buffers={ema_callback.use_buffers}"
+        )
 
     wandb_kwargs = {}
     if not cfg.use_wandb:
         wandb_kwargs["mode"] = "disabled"
-    
+
     # Check for existing WandB run ID in checkpoint for continuation
     wandb_run_id = None
     if cfg.ckpt_trainer_path is not None:
@@ -177,14 +179,14 @@ def setup_training(cfg: DictConfig):
                         break
         except Exception as e:
             print(f"Could not extract WandB run ID from checkpoint: {e}")
-    
+
     if wandb_run_id:
         wandb_kwargs["id"] = wandb_run_id
         wandb_kwargs["resume"] = "must"
         print(f"Resuming WandB run: {wandb_run_id}")
     else:
         print("Starting new WandB run")
-    
+
     wandb_logger = WandbLogger(
         project=cfg.project,
         log_model=False,
@@ -213,14 +215,14 @@ def setup_training(cfg: DictConfig):
         # val_check_interval=cfg.pltrainer.get('val_check_interval', None),
     )
     print("Trainer initialized")
-    
+
     # Set WandB run ID on the model for future checkpoints
-    if hasattr(wandb_logger.experiment, 'id') and wandb_logger.experiment.id:
+    if hasattr(wandb_logger.experiment, "id") and wandb_logger.experiment.id:
         pm.set_wandb_run_id(wandb_logger.experiment.id)
         print(f"Set WandB run ID on model: {wandb_logger.experiment.id}")
     else:
         print("No WandB run ID found")
-    
+
     return trainer, pm
 
 

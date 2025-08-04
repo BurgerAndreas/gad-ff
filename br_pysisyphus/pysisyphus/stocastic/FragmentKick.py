@@ -64,7 +64,7 @@ class FragmentKick(Kick):
         fragment_atoms = list(it.chain(*fragments))
         if len(fragment_atoms) != len(self.atoms):
             self.log(
-                "Fragments were not fully specified. " "Determining remaining fragment."
+                "Fragments were not fully specified. Determining remaining fragment."
             )
             all_indices = set(range(len(self.atoms)))
             new_fragment = list(all_indices - set(fragment_atoms))

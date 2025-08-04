@@ -8,7 +8,6 @@ from pysisyphus.constants import BOHR2ANG
 
 
 class Dalton(Calculator):
-
     conf_key = "dalton"
 
     def __init__(self, basis, method="hf", **kwargs):

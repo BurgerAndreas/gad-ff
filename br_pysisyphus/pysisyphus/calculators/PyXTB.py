@@ -13,7 +13,6 @@ from pysisyphus.elem_data import ATOMIC_NUMBERS
 
 
 class PyXTB(Calculator):
-
     def __init__(
         self, *args, gfn=2, acc=None, verbosity=0, keep_calculator=False, **kwargs
     ):

@@ -493,7 +493,7 @@ def do_final_hessian(
     logging.debug("... started Hessian calculation")
     hessian = geom.cart_hessian
     dur = time.time() - start
-    logging.debug(f"... calculation took {dur/60:.2f} min")
+    logging.debug(f"... calculation took {dur / 60:.2f} min")
     logging.debug("... mass-weighing cartesian hessian")
     mw_hessian = geom.mass_weigh_hessian(hessian)
     logging.debug("... doing Eckart-projection")

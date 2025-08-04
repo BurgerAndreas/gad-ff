@@ -65,9 +65,7 @@ class CGDescent(Optimizer):
             "f_prev": f_prev,
             "quad_step": True,
             # dphi0_prev will be set if alpha_prev is not None
-            "dphi0_prev": (
-                None if not self.alpha_prev else self.dphi0_prev
-            ),  # noqa: F821
+            "dphi0_prev": (None if not self.alpha_prev else self.dphi0_prev),  # noqa: F821
         }
         line_search = HagerZhang(**kwargs)
         hz_result = line_search.run()

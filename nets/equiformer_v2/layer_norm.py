@@ -36,7 +36,6 @@ def get_l_to_all_m_expand_index(lmax):
 
 
 class EquivariantLayerNormArray(nn.Module):
-
     def __init__(
         self, lmax, num_channels, eps=1e-5, affine=True, normalization="component"
     ):

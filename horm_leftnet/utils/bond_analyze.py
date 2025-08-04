@@ -198,9 +198,9 @@ def check_consistency_bond_dictionaries():
                 except KeyError:
                     raise ValueError("Not in dict " + str((atom1, atom2)))
 
-                assert (
-                    bond == bond_check
-                ), f"{bond} != {bond_check} for {atom1}, {atom2}"
+                assert bond == bond_check, (
+                    f"{bond} != {bond_check} for {atom1}, {atom2}"
+                )
 
 
 stdv = {"H": 5, "C": 1, "N": 1, "O": 2, "F": 3}
@@ -240,7 +240,6 @@ def get_bond_order(atom1, atom2, distance, check_exists=False):
     # margin1, margin2 and margin3 have been tuned to maximize the stability of
     # the QM9 true samples.
     if distance < bonds1[atom1][atom2] + margin1:
-
         # Check if atoms in bonds2 dictionary.
         if atom1 in bonds2 and atom2 in bonds2[atom1]:
             thr_bond2 = bonds2[atom1][atom2] + margin2

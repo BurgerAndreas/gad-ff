@@ -20,7 +20,7 @@ def numhess(geom, step_size=0.0001):
     cnum = len(coords)
     H = list()
     for i in range(cnum):
-        print(f"Step {i+1}/{cnum}")
+        print(f"Step {i + 1}/{cnum}")
         step = np.zeros_like(coords)
         step[i] += step_size
 

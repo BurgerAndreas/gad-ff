@@ -137,7 +137,6 @@ def tmp(geom, mode_ind, nu_thresh=-5.0):
 
 
 def kill_modes(geom):
-
     do_analysis(geom)
     # kill_inds = (0, 1)
     # mk = ModeKill(geom, kill_inds=kill_inds, max_cycles=5)

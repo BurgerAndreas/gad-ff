@@ -48,7 +48,7 @@ class MainGSM(GSM):
         optsteps : int
             Maximum number of optimization steps per node of string
         """
-        printcool("In growth_iters")
+        printcool('In growth_iters')
 
         ncurrent, nlist = self.make_difference_node_list()
         self.ictan, self.dqmaga = self.get_tangents_growing()
@@ -59,21 +59,21 @@ class MainGSM(GSM):
         iteration = 0
         while not isGrown:
             if iteration > max_iters:
-                nifty.logger.debug(" Ran out of iterations")
+                nifty.logger.debug(' Ran out of iterations')
                 return
                 # raise Exception(" Ran out of iterations")
-            printcool("Starting growth iteration %i" % iteration)
+            printcool('Starting growth iteration %i' % iteration)
             self.optimize_iteration(max_opt_steps)
             totalgrad, gradrms, sum_gradrms = self.calc_optimization_metrics(self.nodes)
             self.xyz_writer(
-                "scratch/growth_iters_{:03}_{:03}.xyz".format(self.ID, iteration),
+                'scratch/growth_iters_{:03}_{:03}.xyz'.format(self.ID, iteration),
                 self.geometries,
                 self.energies,
                 self.gradrmss,
                 self.dEs,
             )
             nifty.logger.debug(
-                " gopt_iter: {:2} totalgrad: {:4.3} gradrms: {:5.4} max E: {:5.4}\n".format(
+                ' gopt_iter: {:2} totalgrad: {:4.3} gradrms: {:5.4} max E: {:5.4}\n'.format(
                     iteration, float(totalgrad), float(gradrms), float(self.emax)
                 )
             )
@@ -84,18 +84,18 @@ class MainGSM(GSM):
                 nifty.logger.debug("can't add anymore nodes, bdist too small")
 
                 if (
-                    self.__class__.__name__ == "SE_GSM"
+                    self.__class__.__name__ == 'SE_GSM'
                 ):  # or self.__class__.__name__=="SE_Cross":
                     # Don't do SE_cross because that already does optimization later
                     if self.nodes[self.nR - 1].PES.lot.do_coupling:
-                        opt_type = "MECI"
+                        opt_type = 'MECI'
                     else:
-                        opt_type = "UNCONSTRAINED"
-                    nifty.logger.debug(" optimizing last node")
+                        opt_type = 'UNCONSTRAINED'
+                    nifty.logger.debug(' optimizing last node')
                     self.optimizer[self.nR - 1].conv_grms = self.CONV_TOL
                     nifty.logger.debug(self.optimizer[self.nR - 1].conv_grms)
                     path = os.path.join(
-                        os.getcwd(), "scratch/{:03d}/{}".format(self.ID, self.nR - 1)
+                        os.getcwd(), 'scratch/{:03d}/{}'.format(self.ID, self.nR - 1)
                     )
                     self.optimizer[self.nR - 1].optimize(
                         molecule=self.nodes[self.nR - 1],
@@ -104,9 +104,9 @@ class MainGSM(GSM):
                         opt_type=opt_type,
                         path=path,
                     )
-                elif self.__class__.__name__ == "SE_Cross":
+                elif self.__class__.__name__ == 'SE_Cross':
                     nifty.logger.debug(
-                        " Will do extra optimization of this node in SE-Cross"
+                        ' Will do extra optimization of this node in SE-Cross'
                     )
                 else:
                     raise RuntimeError
@@ -121,12 +121,12 @@ class MainGSM(GSM):
             isGrown = self.check_if_grown()
 
         # create newic object
-        nifty.logger.debug(" creating newic molecule--used for ic_reparam")
+        nifty.logger.debug(' creating newic molecule--used for ic_reparam')
         self.newic = Molecule.copy_from_options(self.nodes[0])
 
         # TODO should something be done for growthdirection 2?
         if self.growth_direction == 1:
-            nifty.logger.debug("Setting LOT of last node")
+            nifty.logger.debug('Setting LOT of last node')
             self.nodes[-1] = Molecule.copy_from_options(
                 MoleculeA=self.nodes[-2],
                 xyz=self.nodes[-1].xyz,
@@ -152,7 +152,7 @@ class MainGSM(GSM):
             1 is climber
             2 is finder
         """
-        printcool("In opt_iters Cody")
+        printcool('In opt_iters Cody')
 
         self.nclimb = 0
         self.nhessreset = 10  # are these used??? TODO
@@ -165,11 +165,11 @@ class MainGSM(GSM):
 
         # enter loop
         while oi < max_iter:
-            printcool("Starting opt iter %i" % oi)
+            printcool('Starting opt iter %i' % oi)
             if self.climb and not self.find:
-                nifty.logger.debug(" CLIMBING")
+                nifty.logger.debug(' CLIMBING')
             elif self.find:
-                nifty.logger.debug(" TS SEARCHING")
+                nifty.logger.debug(' TS SEARCHING')
 
             # stash previous TSnode
             self.pTSnode = self.TSnode
@@ -177,7 +177,7 @@ class MainGSM(GSM):
             ts_node_changed = False
 
             # store reparam energies
-            nifty.logger.debug(" V_profile (beginning of iteration): ", end=" ")
+            nifty.logger.debug(' V_profile (beginning of iteration): ', end=' ')
             self.print_energies()
 
             # => Get all tangents 3-way <= #
@@ -188,7 +188,7 @@ class MainGSM(GSM):
             self.set_node_convergence()
             self.optimize_iteration(opt_steps)
 
-            nifty.logger.debug(" V_profile: ", end=" ")
+            nifty.logger.debug(' V_profile: ', end=' ')
             self.print_energies()
 
             # TODO resetting
@@ -209,7 +209,7 @@ class MainGSM(GSM):
                 added = False
 
             # => find peaks <= #
-            fp = self.find_peaks("opting")
+            fp = self.find_peaks('opting')
 
             ts_cgradq = 0.0
             if not self.find:
@@ -220,11 +220,11 @@ class MainGSM(GSM):
                     )
                     * self.nodes[self.TSnode].constraints[:, 0]
                 )
-                nifty.logger.debug(" ts_cgradq %5.4f" % ts_cgradq)
+                nifty.logger.debug(' ts_cgradq %5.4f' % ts_cgradq)
 
             ts_gradrms = self.nodes[self.TSnode].gradrms
             self.dE_iter = abs(self.emax - self.emaxp)
-            nifty.logger.debug(" dE_iter ={:2.2f}".format(self.dE_iter))
+            nifty.logger.debug(' dE_iter ={:2.2f}'.format(self.dE_iter))
 
             # => calculate totalgrad <= #
             totalgrad, gradrms, sum_gradrms = self.calc_optimization_metrics(self.nodes)
@@ -235,10 +235,10 @@ class MainGSM(GSM):
                 np.all(energies[1:] + 0.5 >= energies[:-1])
                 or np.all(energies[1:] - 0.5 <= energies[:-1])
             ) and (self.climber or self.finder):
-                printcool(" There is no TS, turning off TS search")
+                printcool(' There is no TS, turning off TS search')
                 rtype = 0
                 self.climber = self.finder = self.find = self.climb = False
-                self.CONV_TOL = self.options["CONV_TOL"] * 5
+                self.CONV_TOL = self.options['CONV_TOL'] * 5
 
             # if self.has_intermediate(5) and rtype>0 and (self.climb or self.find):
             #    printcool(" THERE IS AN INTERMEDIATE, OPTIMIZE THE INTERMEDIATE AND TRY AGAIN")
@@ -263,7 +263,7 @@ class MainGSM(GSM):
                     self.nopt_intermediate -= 1
 
                 if self.pTSnode != self.TSnode and self.climb:
-                    nifty.logger.debug("TS node changed after opting")
+                    nifty.logger.debug('TS node changed after opting')
                     self.climb = False
                     # self.slow_down_climb()
                     ts_node_changed = True
@@ -285,11 +285,10 @@ class MainGSM(GSM):
                     )
                     and not self.optimizer[self.TSnode].converged
                 ):
-
                     # Reform the guess primitive Hessian
                     self.nodes[self.TSnode].form_Primitive_Hessian()
                     if self.hessrcount < 1 and self.pTSnode == self.TSnode:
-                        nifty.logger.debug(" resetting TS node coords Ut (and Hessian)")
+                        nifty.logger.debug(' resetting TS node coords Ut (and Hessian)')
                         self.ictan, self.dqmaga = self.get_three_way_tangents(
                             self.nodes, self.energies
                         )
@@ -298,26 +297,26 @@ class MainGSM(GSM):
                         self.hessrcount = 1
                     else:
                         nifty.logger.debug(
-                            " Hessian consistently bad, going back to climb (for 3 iterations)"
+                            ' Hessian consistently bad, going back to climb (for 3 iterations)'
                         )
                         self.find = False
                         self.nclimb = 2
                 elif self.find and self.optimizer[self.TSnode].nneg <= 3:
                     self.hessrcount -= 1
                     self.hess_counter += 1
-            nifty.logger.debug(f"{stage_changed=}: {self.climb=} {self.find=}")
+            nifty.logger.debug(f'{stage_changed=}: {self.climb=} {self.find=}')
 
             # => write Convergence to file <= #
-            filename = "scratch/opt_iters_{:03}_{:03}.xyz".format(self.ID, oi)
+            filename = 'scratch/opt_iters_{:03}_{:03}.xyz'.format(self.ID, oi)
             self.xyz_writer(
                 filename, self.geometries, self.energies, self.gradrmss, self.dEs
             )
 
-            nifty.logger.debug(" End early counter {}".format(self.endearly_counter))
+            nifty.logger.debug(' End early counter {}'.format(self.endearly_counter))
 
             # TODO prints tgrads and jobGradCount
             nifty.logger.debug(
-                "opt_iter: {:2} totalgrad: {:4.3} gradrms: {:5.4} max E({}) {:5.4}\n".format(
+                'opt_iter: {:2} totalgrad: {:4.3} gradrms: {:5.4} max E({}) {:5.4}\n'.format(
                     oi, float(totalgrad), float(gradrms), self.TSnode, float(self.emax)
                 )
             )
@@ -329,7 +328,7 @@ class MainGSM(GSM):
                 and not ts_node_changed
                 and not stage_changed
             ):
-                nifty.logger.debug("Converged")
+                nifty.logger.debug('Converged')
                 return
 
             # => Reparam the String <= #
@@ -338,11 +337,11 @@ class MainGSM(GSM):
                 self.get_tangents_opting()
                 self.refresh_coordinates()
                 if self.pTSnode != self.TSnode and self.climb:
-                    nifty.logger.debug("TS node changed after reparameterizing")
+                    nifty.logger.debug('TS node changed after reparameterizing')
                     self.slow_down_climb()
             elif oi == max_iter and not self.isConverged:
                 self.ran_out = True
-                nifty.logger.debug(" Ran out of iterations")
+                nifty.logger.debug(' Ran out of iterations')
                 return
                 # raise Exception(" Ran out of iterations")
 
@@ -373,7 +372,7 @@ class MainGSM(GSM):
                     (
                         (
                             self.newic.coord_obj,
-                            "build_dlc",
+                            'build_dlc',
                             self.nodes[n].xyz,
                             self.ictan[n],
                         )
@@ -407,7 +406,7 @@ class MainGSM(GSM):
                         (
                             (
                                 self.newic.coord_obj,
-                                "build_dlc",
+                                'build_dlc',
                                 self.nodes[n].xyz,
                                 self.ictan[n],
                             )
@@ -444,7 +443,7 @@ class MainGSM(GSM):
                         (
                             (
                                 self.newic.coord_obj,
-                                "build_dlc",
+                                'build_dlc',
                                 self.nodes[n].xyz,
                                 self.ictan[n],
                             )
@@ -465,9 +464,9 @@ class MainGSM(GSM):
 
         for n in range(self.nnodes):
             if self.nodes[n] and self.active[n]:
-                nifty.logger.debug("")
-                path = os.path.join(os.getcwd(), "scratch/{:03d}/{}".format(self.ID, n))
-                printcool("Optimizing node {}".format(n))
+                nifty.logger.debug('')
+                path = os.path.join(os.getcwd(), 'scratch/{:03d}/{}'.format(self.ID, n))
+                printcool('Optimizing node {}'.format(n))
                 opt_type = self.set_opt_type(n)
                 osteps = self.mult_steps(n, opt_steps)
                 self.optimizer[n].optimize(
@@ -480,23 +479,23 @@ class MainGSM(GSM):
                     path=path,
                 )
 
-        if self.__class__.__name__ == "SE-GSM" and self.done_growing:
-            fp = self.find_peaks("opting")
+        if self.__class__.__name__ == 'SE-GSM' and self.done_growing:
+            fp = self.find_peaks('opting')
             if (
                 self.energies[self.nnodes - 1] > self.energies[self.nnodes - 2]
                 and fp > 0
                 and self.nodes[self.nnodes - 1].gradrms > self.CONV_TOL
             ):
                 printcool(
-                    "Last node is not a minimum, Might need to verify that the last node is a minimum"
+                    'Last node is not a minimum, Might need to verify that the last node is a minimum'
                 )
                 path = os.path.join(
-                    os.getcwd(), "scratch/{:03d}/{}".format(self.ID, self.nnodes - 1)
+                    os.getcwd(), 'scratch/{:03d}/{}'.format(self.ID, self.nnodes - 1)
                 )
                 self.optimizer[self.nnodes - 1].optimize(
                     molecule=self.nodes[self.nnodes - 1],
                     refE=refE,
-                    opt_type="UNCONSTRAINED",
+                    opt_type='UNCONSTRAINED',
                     opt_steps=osteps,
                     ictan=None,
                     path=path,
@@ -523,7 +522,7 @@ class MainGSM(GSM):
         ictan = [[]] * self.nnodes
 
         if self.print_level > 1:
-            nifty.logger.debug("ncurrent, nlist")
+            nifty.logger.debug('ncurrent, nlist')
             nifty.logger.debug(ncurrent)
             nifty.logger.debug(nlist)
 
@@ -535,10 +534,10 @@ class MainGSM(GSM):
             #        )
 
             if (
-                self.__class__.__name__ == "DE_GSM"
+                self.__class__.__name__ == 'DE_GSM'
             ):  # or self.__class__.__name__=="SE_Cross":
                 nifty.logger.debug(
-                    " getting tangent [%i ]from between %i %i pointing towards %i"
+                    ' getting tangent [%i ]from between %i %i pointing towards %i'
                     % (nlist[2 * n], nlist[2 * n], nlist[2 * n + 1], nlist[2 * n])
                 )
                 ictan0 = self.get_tangent_xyz(
@@ -554,12 +553,12 @@ class MainGSM(GSM):
                 )
 
             if self.print_level > 1:
-                nifty.logger.debug("forming space for", nlist[2 * n + 1])
+                nifty.logger.debug('forming space for', nlist[2 * n + 1])
             if self.print_level > 1:
-                nifty.logger.debug("forming tangent for ", nlist[2 * n])
+                nifty.logger.debug('forming tangent for ', nlist[2 * n])
 
             if (ictan0[:] == 0.0).all():
-                nifty.logger.debug(" ICTAN IS ZERO!")
+                nifty.logger.debug(' ICTAN IS ZERO!')
                 nifty.logger.debug(nlist[2 * n])
                 nifty.logger.debug(nlist[2 * n + 1])
                 raise RuntimeError
@@ -581,23 +580,23 @@ class MainGSM(GSM):
             dqmaga[nlist[2 * n]] = norm
 
         if print_level > 0:
-            nifty.logger.debug("------------printing dqmaga---------------")
+            nifty.logger.debug('------------printing dqmaga---------------')
             for n in range(self.nnodes):
-                nifty.logger.debug(" {:5.3}".format(dqmaga[n]), end=" ")
+                nifty.logger.debug(' {:5.3}'.format(dqmaga[n]), end=' ')
                 if (n + 1) % 5 == 0:
-                    nifty.logger.debug("")
-            nifty.logger.debug("")
+                    nifty.logger.debug('')
+            nifty.logger.debug('')
 
         if print_level > 1:
             for n in range(ncurrent):
                 nifty.logger.debug(
-                    "dqmag[%i] =%1.2f" % (nlist[2 * n], self.dqmaga[nlist[2 * n]])
+                    'dqmag[%i] =%1.2f' % (nlist[2 * n], self.dqmaga[nlist[2 * n]])
                 )
-                nifty.logger.debug("printing ictan[%i]" % nlist[2 * n])
+                nifty.logger.debug('printing ictan[%i]' % nlist[2 * n])
                 nifty.logger.debug(self.ictan[nlist[2 * n]].T)
         for i, tan in enumerate(ictan):
             if np.all(tan == 0.0):
-                nifty.logger.debug("tan %i of the tangents is 0" % i)
+                nifty.logger.debug('tan %i of the tangents is 0' % i)
                 raise RuntimeError
 
         return ictan, dqmaga
@@ -605,9 +604,8 @@ class MainGSM(GSM):
     # Refactor this code!
     # TODO remove return form_TS hess  3/2021
     def set_stage(self, totalgrad, sumgradrms, ts_cgradq, ts_gradrms, fp):
-
         # checking sum gradrms is not good because if one node is converged a lot while others a re not this is bad
-        nifty.logger.debug("In set stage")
+        nifty.logger.debug('In set stage')
         all_converged = all(
             [
                 self.nodes[n].gradrms < self.optimizer[n].conv_grms * 1.1
@@ -625,17 +623,17 @@ class MainGSM(GSM):
         # TODO totalgrad is not a good criteria for large systems
         # if fp>0 and (((totalgrad < 0.3 or ts_cgradq < 0.01) and self.dE_iter < 2.) or all_converged) and self.nopt_intermediate<1: # extra criterion in og-gsm for added
 
-        nifty.logger.debug("set stage ts_cgradq")
+        nifty.logger.debug('set stage ts_cgradq')
         nifty.logger.debug(ts_cgradq)
 
         if (
             fp > 0
         ):  # and all_converged_climb and self.dE_iter < 2.:  # and self.nopt_intermediate<1:
             if not self.climb and self.climber:
-                nifty.logger.debug(" ** starting climb **")
+                nifty.logger.debug(' ** starting climb **')
                 self.climb = True
                 nifty.logger.debug(
-                    " totalgrad %5.4f gradrms: %5.4f gts: %5.4f"
+                    ' totalgrad %5.4f gradrms: %5.4f gts: %5.4f'
                     % (totalgrad, ts_gradrms, ts_cgradq)
                 )
                 # overwrite this here just in case TSnode changed wont cause slow down climb
@@ -659,9 +657,9 @@ class MainGSM(GSM):
                     )  # used to be 5
                 )
             ) and self.dE_iter < 5.0:
-                nifty.logger.debug(" ** starting exact climb **")
+                nifty.logger.debug(' ** starting exact climb **')
                 nifty.logger.debug(
-                    " totalgrad %5.4f gradrms: %5.4f gts: %5.4f"
+                    ' totalgrad %5.4f gradrms: %5.4f gts: %5.4f'
                     % (totalgrad, ts_gradrms, ts_cgradq)
                 )
                 self.find = True
@@ -672,12 +670,12 @@ class MainGSM(GSM):
                 )
                 self.modify_TS_Hess()
 
-                if self.optimizer[self.TSnode].options["DMAX"] > 0.1:
-                    self.optimizer[self.TSnode].options["DMAX"] = 0.1
+                if self.optimizer[self.TSnode].options['DMAX'] > 0.1:
+                    self.optimizer[self.TSnode].options['DMAX'] = 0.1
                 self.optimizer[self.TSnode] = eigenvector_follow(
                     self.optimizer[self.TSnode].options.copy()
                 )
-                self.optimizer[self.TSnode].options["SCALEQN"] = 1.0
+                self.optimizer[self.TSnode].options['SCALEQN'] = 1.0
                 self.nhessreset = 10  # are these used??? TODO
                 self.hessrcount = 0  # are these used?!  TODO
                 stage_changed = True
@@ -688,16 +686,16 @@ class MainGSM(GSM):
         """
         Add a node between endpoints on the reactant side, should only be called inside GSM
         """
-        printcool("Adding reactant node")
+        printcool('Adding reactant node')
 
         if self.current_nnodes + newnodes > self.nnodes:
-            raise ValueError("Adding too many nodes, cannot interpolate")
+            raise ValueError('Adding too many nodes, cannot interpolate')
         for i in range(newnodes):
             iR = self.nR - 1
             iP = self.nnodes - self.nP
             iN = self.nR
             nifty.logger.debug(
-                " adding node: %i between %i %i from %i" % (iN, iR, iP, iR)
+                ' adding node: %i between %i %i from %i' % (iN, iR, iP, iR)
             )
             if self.nnodes - self.current_nnodes > 1:
                 stepsize = 1.0 / float(self.nnodes - self.current_nnodes + 1)
@@ -715,9 +713,9 @@ class MainGSM(GSM):
             )
 
             if self.nodes[self.nR] is None:
-                raise Exception("Ran out of space")
+                raise Exception('Ran out of space')
 
-            if self.__class__.__name__ != "DE_GSM":
+            if self.__class__.__name__ != 'DE_GSM':
                 ictan, bdist = self.get_tangent(
                     self.nodes[self.nR],
                     None,
@@ -728,7 +726,7 @@ class MainGSM(GSM):
             self.optimizer[self.nR].DMAX = self.optimizer[self.nR - 1].DMAX
             self.current_nnodes += 1
             self.nR += 1
-            nifty.logger.debug(" nn=%i,nR=%i" % (self.current_nnodes, self.nR))
+            nifty.logger.debug(' nn=%i,nR=%i' % (self.current_nnodes, self.nR))
             self.active[self.nR - 1] = True
 
             # align center of mass  and rotation
@@ -741,9 +739,9 @@ class MainGSM(GSM):
         """
         Add a node between endpoints on the product side, should only be called inside GSM
         """
-        printcool("Adding product node")
+        printcool('Adding product node')
         if self.current_nnodes + newnodes > self.nnodes:
-            raise ValueError("Adding too many nodes, cannot interpolate")
+            raise ValueError('Adding too many nodes, cannot interpolate')
 
         for i in range(newnodes):
             # self.nodes[-self.nP-1] = BaseClass.add_node(self.nnodes-self.nP,self.nnodes-self.nP-1,self.nnodes-self.nP)
@@ -751,7 +749,7 @@ class MainGSM(GSM):
             n2 = self.nnodes - self.nP - 1
             n3 = self.nR - 1
             nifty.logger.debug(
-                " adding node: %i between %i %i from %i" % (n2, n1, n3, n1)
+                ' adding node: %i between %i %i from %i' % (n2, n1, n3, n1)
             )
             if self.nnodes - self.current_nnodes > 1:
                 stepsize = 1.0 / float(self.nnodes - self.current_nnodes + 1)
@@ -762,12 +760,12 @@ class MainGSM(GSM):
                 self.nodes[n1], self.nodes[n3], stepsize, n2
             )
             if self.nodes[-self.nP - 1] is None:
-                raise Exception("Ran out of space")
+                raise Exception('Ran out of space')
 
             self.optimizer[n2].DMAX = self.optimizer[n1].DMAX
             self.current_nnodes += 1
             self.nP += 1
-            nifty.logger.debug(" nn=%i,nP=%i" % (self.current_nnodes, self.nP))
+            nifty.logger.debug(' nn=%i,nP=%i' % (self.current_nnodes, self.nP))
             self.active[-self.nP] = True
 
             # align center of mass  and rotation
@@ -781,7 +779,7 @@ class MainGSM(GSM):
         """
         Reparameterize the string
         """
-        if self.interp_method == "DLC":
+        if self.interp_method == 'DLC':
             # nifty.logger.debug('reparameterizing')
             self.ic_reparam(
                 nodes=self.nodes,
@@ -799,7 +797,7 @@ class MainGSM(GSM):
         Reparameterize during growth phase
         """
 
-        printcool("Reparamerizing string nodes")
+        printcool('Reparamerizing string nodes')
         # close_dist_fix(0) #done here in GString line 3427.
         rpmove = np.zeros(self.nnodes)
         rpart = np.zeros(self.nnodes)
@@ -816,14 +814,14 @@ class MainGSM(GSM):
             if self.print_level > 0:
                 if i == 0:
                     nifty.logger.debug(
-                        " totaldqmag (without inner): {:1.2}\n".format(totaldqmag)
+                        ' totaldqmag (without inner): {:1.2}\n'.format(totaldqmag)
                     )
-                nifty.logger.debug(" printing spacings dqmaga: ")
+                nifty.logger.debug(' printing spacings dqmaga: ')
                 for n in range(self.nnodes):
-                    nifty.logger.debug(" {:2.3}".format(self.dqmaga[n]), end=" ")
+                    nifty.logger.debug(' {:2.3}'.format(self.dqmaga[n]), end=' ')
                     if (n + 1) % 5 == 0:
-                        nifty.logger.debug("")
-                nifty.logger.debug("")
+                        nifty.logger.debug('')
+                nifty.logger.debug('')
 
             if i == 0:
                 if self.current_nnodes != self.nnodes:
@@ -837,12 +835,12 @@ class MainGSM(GSM):
                         rpart[n] = 1.0 / (self.nnodes - 1)
                 if self.print_level > 0:
                     if i == 0:
-                        nifty.logger.debug(" rpart: ")
+                        nifty.logger.debug(' rpart: ')
                         for n in range(1, self.nnodes - 1):
-                            nifty.logger.debug(" {:1.2}".format(rpart[n]), end=" ")
+                            nifty.logger.debug(' {:1.2}'.format(rpart[n]), end=' ')
                             if (n) % 5 == 0:
-                                nifty.logger.debug("")
-                        nifty.logger.debug("")
+                                nifty.logger.debug('')
+                        nifty.logger.debug('')
             nR0 = self.nR
             nP0 = self.nP
 
@@ -870,12 +868,12 @@ class MainGSM(GSM):
             if self.print_level > 0:
                 for n in range(n0 + 1, self.nnodes - 1):
                     nifty.logger.debug(
-                        " disp[{}]: {:1.2f}".format(n, rpmove[n]), end=" "
+                        ' disp[{}]: {:1.2f}'.format(n, rpmove[n]), end=' '
                     )
                     if (n) % 5 == 0:
-                        nifty.logger.debug("")
-                nifty.logger.debug("")
-                nifty.logger.debug(" disprms: {:1.3}\n".format(disprms))
+                        nifty.logger.debug('')
+                nifty.logger.debug('')
+                nifty.logger.debug(' disprms: {:1.3}\n'.format(disprms))
 
             if disprms < 1e-2:
                 break
@@ -890,7 +888,7 @@ class MainGSM(GSM):
                     (
                         (
                             self.nodes[0].coord_obj,
-                            "build_dlc",
+                            'build_dlc',
                             self.nodes[n].xyz,
                             self.ictan[ntan],
                         )
@@ -914,7 +912,7 @@ class MainGSM(GSM):
                     (
                         (
                             self.nodes[n].coord_obj,
-                            "newCartesian",
+                            'newCartesian',
                             self.nodes[n].xyz,
                             rpmove[n] * self.nodes[n].constraints[:, 0],
                         )
@@ -933,7 +931,7 @@ class MainGSM(GSM):
                 for nmove, ntan in zip(move_list, tan_list):
                     if rpmove[nmove] < 0:
                         nifty.logger.debug(
-                            "Moving {} along ictan[{}]".format(nmove, ntan)
+                            'Moving {} along ictan[{}]'.format(nmove, ntan)
                         )
                         self.nodes[nmove].update_coordinate_basis(
                             constraints=self.ictan[ntan]
@@ -943,12 +941,12 @@ class MainGSM(GSM):
                         self.nodes[nmove].update_xyz(dq0, verbose=True)
 
         nifty.logger.debug(
-            " spacings (end ic_reparam, steps: {}/{}):".format(i + 1, ic_reparam_steps),
-            end=" ",
+            ' spacings (end ic_reparam, steps: {}/{}):'.format(i + 1, ic_reparam_steps),
+            end=' ',
         )
         for n in range(self.nnodes):
-            nifty.logger.debug(" {:1.2}".format(self.dqmaga[n]), end=" ")
-        nifty.logger.debug("  disprms: {:1.3}".format(disprms))
+            nifty.logger.debug(' {:1.2}'.format(self.dqmaga[n]), end=' ')
+        nifty.logger.debug('  disprms: {:1.3}'.format(disprms))
 
         # TODO old GSM does this here
         # Failed = check_array(self.nnodes,self.dqmaga)
@@ -956,13 +954,13 @@ class MainGSM(GSM):
 
     def modify_TS_Hess(self):
         """Modifies Hessian using RP direction"""
-        nifty.logger.debug("modifying %i Hessian with RP" % self.TSnode)
+        nifty.logger.debug('modifying %i Hessian with RP' % self.TSnode)
 
         TSnode = self.TSnode
         # a variable to determine how many time since last modify
         self.hess_counter = 0
         self.TS_E_0 = self.energies[TSnode]
-        nifty.logger.debug(f"{TSnode=}")
+        nifty.logger.debug(f'{TSnode=}')
 
         E0 = self.energies[TSnode] / units.KCAL_MOL_PER_AU
         Em1 = self.energies[TSnode - 1] / units.KCAL_MOL_PER_AU
@@ -1010,7 +1008,7 @@ class MainGSM(GSM):
         b = abs(qp1 - q0)
         c = 2 * (Em1 / a / (a + b) - E0 / a / b + Ep1 / b / (a + b))
         nifty.logger.debug(
-            " tHt %1.3f a: %1.1f b: %1.1f c: %1.3f" % (tHt, a[0], b[0], c[0])
+            ' tHt %1.3f a: %1.1f b: %1.1f c: %1.3f' % (tHt, a[0], b[0], c[0])
         )
 
         ttt = np.outer(tan, tan)
@@ -1035,10 +1033,10 @@ class MainGSM(GSM):
 
         if False:
             nifty.logger.debug(
-                "newHess of node %i %i" % (TSnode, self.nodes[TSnode].newHess)
+                'newHess of node %i %i' % (TSnode, self.nodes[TSnode].newHess)
             )
             eigen, tmph = np.linalg.eigh(self.nodes[TSnode].Hessian)  # nicd,nicd
-            nifty.logger.debug("eigenvalues of new Hess")
+            nifty.logger.debug('eigenvalues of new Hess')
             nifty.logger.debug(eigen)
 
         # reset pgradrms ?
@@ -1053,7 +1051,7 @@ class MainGSM(GSM):
             and n != tsnode
         ):  #
             exsteps = 2
-            nifty.logger.debug(" multiplying steps for node %i by %i" % (n, exsteps))
+            nifty.logger.debug(' multiplying steps for node %i by %i' % (n, exsteps))
         elif (
             self.find
             and n == tsnode
@@ -1061,7 +1059,7 @@ class MainGSM(GSM):
             and self.energies[tsnode] > self.energies[tsnode + 1] * 1.1
         ):  # Can also try self.climb but i hate climbing image
             exsteps = 2
-            nifty.logger.debug(" multiplying steps for node %i by %i" % (n, exsteps))
+            nifty.logger.debug(' multiplying steps for node %i by %i' % (n, exsteps))
         # elif not self.find and not self.climb and n==tsnode  and self.energies[tsnode]>self.energies[tsnode-1]*1.5 and self.energies[tsnode]>self.energies[tsnode+1]*1.5 and self.climber:
         #    exsteps=2
         #    nifty.logger.debug(" multiplying steps for node %i by %i" % (n,exsteps))
@@ -1073,22 +1071,22 @@ class MainGSM(GSM):
 
     def set_opt_type(self, n, quiet=False):
         # TODO error for seam climb
-        opt_type = "ICTAN"
+        opt_type = 'ICTAN'
         if (
             self.climb
             and n == self.TSnode
             and not self.find
-            and self.nodes[n].PES.__class__.__name__ != "Avg_PES"
+            and self.nodes[n].PES.__class__.__name__ != 'Avg_PES'
         ):
-            opt_type = "CLIMB"
+            opt_type = 'CLIMB'
         elif self.find and n == self.TSnode:
-            opt_type = "TS"
-        elif self.nodes[n].PES.__class__.__name__ == "Avg_PES":
-            opt_type = "SEAM"
+            opt_type = 'TS'
+        elif self.nodes[n].PES.__class__.__name__ == 'Avg_PES':
+            opt_type = 'SEAM'
             if self.climb and n == self.TSnode:
-                opt_type = "TS-SEAM"
+                opt_type = 'TS-SEAM'
         if not quiet:
-            nifty.logger.debug((" setting node %i opt_type to %s" % (n, opt_type)))
+            nifty.logger.debug((' setting node %i opt_type to %s' % (n, opt_type)))
 
         # if isinstance(self.optimizer[n],beales_cg) and opt_type!="BEALES_CG":
         #    raise RuntimeError("This shouldn't happen")
@@ -1097,32 +1095,32 @@ class MainGSM(GSM):
 
     # TODO Remove me does not deserve to be a function
     def set_finder(self, rtype):
-        assert rtype in [0, 1, 2], "rtype not defined"
-        nifty.logger.debug("")
+        assert rtype in [0, 1, 2], 'rtype not defined'
+        nifty.logger.debug('')
         nifty.logger.debug(
-            "*********************************************************************"
+            '*********************************************************************'
         )
         if rtype == 2:
             nifty.logger.debug(
-                "****************** set climber and finder to True *******************"
+                '****************** set climber and finder to True *******************'
             )
             self.climber = True
             self.finder = True
         elif rtype == 1:
             nifty.logger.debug(
-                "***************** setting climber to True*************************"
+                '***************** setting climber to True*************************'
             )
             self.climber = True
         else:
             nifty.logger.debug(
-                "******** Turning off climbing image and exact TS search **********"
+                '******** Turning off climbing image and exact TS search **********'
             )
         nifty.logger.debug(
-            "*********************************************************************"
+            '*********************************************************************'
         )
 
     def com_rotate_move(self, iR, iP, iN):
-        nifty.logger.debug(" aligning com and to Eckart Condition")
+        nifty.logger.debug(' aligning com and to Eckart Condition')
 
         mfrac = 0.5
         if self.nnodes - self.current_nnodes + 1 != 1:
@@ -1170,23 +1168,23 @@ class MainGSM(GSM):
 
         return xyz1
 
-    def find_peaks(self, rtype="opting"):
+    def find_peaks(self, rtype='opting'):
         """
         This doesnt actually calculate peaks, it calculates some other thing
         """
         # rtype 1: growing
         # rtype 2: opting
         # rtype 3: intermediate check
-        if rtype not in ["growing", "opting", "intermediate"]:
+        if rtype not in ['growing', 'opting', 'intermediate']:
             raise RuntimeError
 
         # if rtype==1:
-        if rtype == "growing":
+        if rtype == 'growing':
             nnodes = self.nR
-        elif rtype == "opting" or rtype == "intermediate":
+        elif rtype == 'opting' or rtype == 'intermediate':
             nnodes = self.nnodes
         else:
-            raise ValueError("find peaks bad input")
+            raise ValueError('find peaks bad input')
         # if rtype==1 or rtype==2:
         #    print "Energy"
         alluptol = 0.1
@@ -1206,12 +1204,12 @@ class MainGSM(GSM):
                     and (energies[nnodes - 2] - energies[nnodes - 3]) < alluptol2
                     and (energies[nnodes - 3] - energies[nnodes - 4]) < alluptol2
                 ):
-                    nifty.logger.debug(" possible dissociative profile")
+                    nifty.logger.debug(' possible dissociative profile')
                     diss = True
 
-        nifty.logger.debug(" nnodes ", nnodes)
-        nifty.logger.debug(" all uphill? ", allup)
-        nifty.logger.debug(" dissociative? ", diss)
+        nifty.logger.debug(' nnodes ', nnodes)
+        nifty.logger.debug(' all uphill? ', allup)
+        nifty.logger.debug(' dissociative? ', diss)
         npeaks1 = 0
         npeaks2 = 0
         minnodes = []
@@ -1228,25 +1226,25 @@ class MainGSM(GSM):
                 if energies[n] > energies[n - 1]:
                     maxnodes.append(n)
 
-        nifty.logger.debug(" min nodes ", minnodes)
-        nifty.logger.debug(" max nodes ", maxnodes)
+        nifty.logger.debug(' min nodes ', minnodes)
+        nifty.logger.debug(' max nodes ', maxnodes)
         npeaks1 = len(maxnodes)
         # print "number of peaks is ",npeaks1
         ediff = 0.5
         PEAK4_EDIFF = 2.0
-        if rtype == "growing":
+        if rtype == 'growing':
             ediff = 1.0
-        if rtype == "intermediate":
+        if rtype == 'intermediate':
             ediff = PEAK4_EDIFF
 
-        if rtype == "growing":
+        if rtype == 'growing':
             nmax = np.argmax(energies[: self.nR])
             emax = float(max(energies[: self.nR]))
         else:
             emax = float(max(energies))
             nmax = np.argmax(energies)
 
-        nifty.logger.debug(" emax and nmax in find peaks %3.4f,%i " % (emax, nmax))
+        nifty.logger.debug(' emax and nmax in find peaks %3.4f,%i ' % (emax, nmax))
 
         # check if any node after peak is less than 2 kcal below
         for n in maxnodes:
@@ -1255,10 +1253,10 @@ class MainGSM(GSM):
                 found = n
                 npeaks2 += 1
         npeaks = npeaks2
-        nifty.logger.debug(" found %i significant peak(s) TOL %3.2f" % (npeaks, ediff))
+        nifty.logger.debug(' found %i significant peak(s) TOL %3.2f' % (npeaks, ediff))
 
         # handle dissociative case
-        if rtype == "intermediate" and npeaks == 1:
+        if rtype == 'intermediate' and npeaks == 1:
             nextmin = 0
             for n in range(found, nnodes - 1):
                 if n in minnodes:
@@ -1287,9 +1285,9 @@ class MainGSM(GSM):
         # ALEX REMOVED CLIMB REQUIREMENT
         if self.has_intermediate(self.noise):
             nifty.logger.debug(
-                "New pot min: {}".format(self.get_intermediate(self.noise))
+                'New pot min: {}'.format(self.get_intermediate(self.noise))
             )
-            nifty.logger.debug("Old pot min: {}".format(self.pot_min))
+            nifty.logger.debug('Old pot min: {}'.format(self.pot_min))
             if self.get_intermediate(self.noise) == self.pot_min:
                 self.endearly_counter += 1
             else:
@@ -1299,7 +1297,7 @@ class MainGSM(GSM):
                 self.end_early = True
                 self.tscontinue = False
                 printcool(
-                    " THERE IS AN INTERMEDIATE, OPTIMIZE THE INTERMEDIATE AND TRY AGAIN"
+                    ' THERE IS AN INTERMEDIATE, OPTIMIZE THE INTERMEDIATE AND TRY AGAIN'
                 )
                 return True
 
@@ -1325,15 +1323,15 @@ class MainGSM(GSM):
                 and self.dE_iter < self.optimizer[self.TSnode].conv_Ediff * 3
             )
         elif not self.climber and not self.finder:
-            nifty.logger.debug(" CONV_TOL=%.4f" % self.CONV_TOL)
+            nifty.logger.debug(' CONV_TOL=%.4f' % self.CONV_TOL)
             return all([self.optimizer[n].converged for n in range(1, self.nnodes - 1)])
 
         return False
 
     def print_energies(self):
         for n in range(len(self.energies)):
-            nifty.logger.debug(" {:7.3f}".format(float(self.energies[n])), end=" ")
-        nifty.logger.debug("")
+            nifty.logger.debug(' {:7.3f}'.format(float(self.energies[n])), end=' ')
+        nifty.logger.debug('')
 
     def get_intermediate(self, noise):
         """
@@ -1366,7 +1364,7 @@ class MainGSM(GSM):
                     break
                 b += 1
             if (rnoise > noise) and (pnoise > noise):
-                nifty.logger.debug("Potential minimum at image %s" % i)
+                nifty.logger.debug('Potential minimum at image %s' % i)
                 potential_min.append(i)
 
         return potential_min
@@ -1390,12 +1388,12 @@ class MainGSM(GSM):
         start_climb_immediately (boolean) : set climb to True or False
         """
 
-        printcool("Restarting GSM from geometries")
+        printcool('Restarting GSM from geometries')
         self.growth_direction = 0
         nstructs = len(input_geoms)
 
         if nstructs != self.nnodes:
-            nifty.logger.debug("need to interpolate")
+            nifty.logger.debug('need to interpolate')
             # if self.interp_method=="DLC": TODO
             raise NotImplementedError
         else:
@@ -1430,16 +1428,16 @@ class MainGSM(GSM):
         # ALEX CHANGE - rearranged reparameterize and restart_energies 'if' blocks
         if restart_energies:
             # self.interpolate_orbitals()
-            nifty.logger.debug(" V_profile: ", end=" ")
+            nifty.logger.debug(' V_profile: ', end=' ')
             energies = self.energies
             for n in range(self.nnodes):
-                nifty.logger.debug(" {:7.3f}".format(float(energies[n])), end=" ")
-            nifty.logger.debug("")
+                nifty.logger.debug(' {:7.3f}'.format(float(energies[n])), end=' ')
+            nifty.logger.debug('')
         if reparametrize:
-            printcool("Reparametrizing")
+            printcool('Reparametrizing')
             self.reparameterize(ic_reparam_steps=8)
             self.xyz_writer(
-                "grown_string_{:03}.xyz".format(self.ID),
+                'grown_string_{:03}.xyz'.format(self.ID),
                 self.geometries,
                 self.energies,
                 self.gradrmss,
@@ -1448,11 +1446,11 @@ class MainGSM(GSM):
 
         self.ictan, self.dqmaga = self.get_tangents(self.nodes)
         self.refresh_coordinates()
-        nifty.logger.debug(" setting all interior nodes to active")
+        nifty.logger.debug(' setting all interior nodes to active')
         for n in range(1, self.nnodes - 1):
             self.active[n] = True
             self.optimizer[n].conv_grms = self.CONV_TOL * 2.5
-            self.optimizer[n].options["DMAX"] = 0.05
+            self.optimizer[n].options['DMAX'] = 0.05
 
         return
 
@@ -1487,15 +1485,15 @@ class MainGSM(GSM):
         self.nodes = new_node_list
         self.optimizer = new_optimizers
         self.nnodes = len(self.nodes)
-        nifty.logger.debug(" New number of nodes %d" % self.nnodes)
+        nifty.logger.debug(' New number of nodes %d' % self.nnodes)
         self.active = [True] * self.nnodes
         self.active[0] = False
         self.active[self.nnodes - 1] = False
-        nifty.logger.debug("0")
+        nifty.logger.debug('0')
         nifty.logger.debug(self.nodes[0].xyz)
-        nifty.logger.debug("1")
+        nifty.logger.debug('1')
         nifty.logger.debug(self.nodes[1].xyz)
-        nifty.logger.debug("-1")
+        nifty.logger.debug('-1')
         nifty.logger.debug(self.nodes[-1].xyz)
 
     def add_node_after_TS(self):
@@ -1524,7 +1522,7 @@ class MainGSM(GSM):
         self.nodes = new_node_list
         self.optimizer = new_optimizers
         self.nnodes = len(self.nodes)
-        nifty.logger.debug(" New number of nodes %d" % self.nnodes)
+        nifty.logger.debug(' New number of nodes %d' % self.nnodes)
         self.active = [True] * self.nnodes
         self.active[0] = False
         self.active[self.nnodes - 1] = False
@@ -1537,8 +1535,8 @@ class MainGSM(GSM):
         for n in range(1, self.nnodes - 1):
             if self.nodes[n] is not None:
                 self.optimizer[n].conv_grms = self.CONV_TOL * factor
-                self.optimizer[n].conv_gmax = self.options["CONV_gmax"] * factor
-                self.optimizer[n].conv_Ediff = self.options["CONV_Ediff"] * factor
+                self.optimizer[n].conv_gmax = self.options['CONV_gmax'] * factor
+                self.optimizer[n].conv_Ediff = self.options['CONV_Ediff'] * factor
                 if self.optimizer[n].converged and n != TSnode:
                     self.optimizer[n].check_only_grad_converged = True
                 if (
@@ -1547,23 +1545,23 @@ class MainGSM(GSM):
                     and n != TSnode
                 ):
                     self.optimizer[n].conv_grms = self.CONV_TOL
-                    self.optimizer[n].conv_gmax = self.options["CONV_gmax"]
-                    self.optimizer[n].conv_Ediff = self.options["CONV_Ediff"]
+                    self.optimizer[n].conv_gmax = self.options['CONV_gmax']
+                    self.optimizer[n].conv_Ediff = self.options['CONV_Ediff']
                     self.optimizer[n].check_only_grad_converged = False
                 if n == self.TSnode and (self.climb or self.find):
                     self.optimizer[n].conv_grms = self.CONV_TOL
-                    self.optimizer[n].conv_gmax = self.options["CONV_gmax"]
-                    self.optimizer[n].conv_Ediff = self.options["CONV_Ediff"]
+                    self.optimizer[n].conv_gmax = self.options['CONV_gmax']
+                    self.optimizer[n].conv_Ediff = self.options['CONV_Ediff']
                     self.optimizer[n].check_only_grad_converged = False
 
     def slow_down_climb(self):
         if self.climb and not self.find:
-            nifty.logger.debug(" slowing down climb optimization")
-            self.optimizer[self.TSnode].options["DMAX"] /= self.newclimbscale
-            self.optimizer[self.TSnode].options["SCALEQN"] = 2.0
+            nifty.logger.debug(' slowing down climb optimization')
+            self.optimizer[self.TSnode].options['DMAX'] /= self.newclimbscale
+            self.optimizer[self.TSnode].options['SCALEQN'] = 2.0
             if self.optimizer[self.TSnode].SCALE_CLIMB < 5.0:
                 self.optimizer[self.TSnode].SCALE_CLIMB += 1.0
-            self.optimizer[self.pTSnode].options["SCALEQN"] = 1.0
+            self.optimizer[self.pTSnode].options['SCALEQN'] = 1.0
             self.ts_exsteps = 1
             if self.newclimbscale < 5.0:
                 self.newclimbscale += 1.0
@@ -1571,13 +1569,13 @@ class MainGSM(GSM):
             self.find = False
             self.climb = True
             self.nclimb = 1
-            nifty.logger.debug(" Find bad, going back to climb")
+            nifty.logger.debug(' Find bad, going back to climb')
 
     def interpolate_orbitals(self):
         """
         Interpolate orbitals
         """
-        nifty.logger.debug("Interpolating orbitals")
+        nifty.logger.debug('Interpolating orbitals')
         nnodes = len(self.nodes)
         # nn = nnodes//2 + 1
         nn = -(nnodes // -2)
@@ -1587,9 +1585,9 @@ class MainGSM(GSM):
         for i, j in couples:
             if first:
                 # Calculate the energy of the i, j
-                nifty.logger.debug("Calculating initial energy for node: {}".format(i))
+                nifty.logger.debug('Calculating initial energy for node: {}'.format(i))
                 self.nodes[i].energy
-                nifty.logger.debug("Calculating initial energy for node: {}".format(j))
+                nifty.logger.debug('Calculating initial energy for node: {}'.format(j))
                 self.nodes[j].energy
                 first = False
             elif j - i <= 1:
@@ -1603,20 +1601,20 @@ class MainGSM(GSM):
                     i += 1
                 if i == j:
                     nifty.logger.debug(
-                        "Checking if energies match for wavefunction guesses from either direction for node: {}".format(
+                        'Checking if energies match for wavefunction guesses from either direction for node: {}'.format(
                             i
                         )
                     )
 
-                    options = {"node_id": self.nodes[i].node_id}
+                    options = {'node_id': self.nodes[i].node_id}
                     self.nodes[i].PES.lot = type(self.nodes[i - 1].PES.lot).copy(
                         self.nodes[i - 1].PES.lot, options, copy_wavefunction=True
                     )
-                    nifty.logger.debug("Getting forward energy")
+                    nifty.logger.debug('Getting forward energy')
                     self.nodes[i].PES.lot.node_id = i
                     energy_forward = self.nodes[i].energy
-                    nifty.logger.debug("Getting backward energy")
-                    options = {"node_id": self.nodes[i + 1].node_id}
+                    nifty.logger.debug('Getting backward energy')
+                    options = {'node_id': self.nodes[i + 1].node_id}
                     self.nodes[i].PES.lot = type(self.nodes[i + 1].PES.lot).copy(
                         self.nodes[i + 1].PES.lot, options, copy_wavefunction=True
                     )
@@ -1624,18 +1622,18 @@ class MainGSM(GSM):
                     self.nodes[i].PES.lot.hasRanForCurrentCoords = False
                     energy_backward = self.nodes[i].energy
                     nifty.logger.debug(
-                        "Forward direction energy: {}".format(energy_forward)
+                        'Forward direction energy: {}'.format(energy_forward)
                     )
                     nifty.logger.debug(
-                        "Backward direction energy: {}".format(energy_backward)
+                        'Backward direction energy: {}'.format(energy_backward)
                     )
                     if abs(energy_forward - energy_backward) < 0.1:
-                        nifty.logger.debug("Energies match")
+                        nifty.logger.debug('Energies match')
                     else:
-                        nifty.logger.debug("Energies do not match")
+                        nifty.logger.debug('Energies do not match')
                         if energy_backward < energy_forward:
                             for k in range(i):
-                                options = {"node_id": self.nodes[i + k - 1].node_id}
+                                options = {'node_id': self.nodes[i + k - 1].node_id}
                                 self.nodes[i - k - 1].PES.lot = type(
                                     self.nodes[i - k].PES.lot
                                 ).copy(
@@ -1644,26 +1642,26 @@ class MainGSM(GSM):
                                     copy_wavefunction=True,
                                 )
                                 self.nodes[i - k - 1].PES.lot.node_id = i - k - 1
-                                self.nodes[i - k - 1].PES.lot.hasRanForCurrentCoords = (
-                                    False
+                                self.nodes[
+                                    i - k - 1
+                                ].PES.lot.hasRanForCurrentCoords = False
+                                nifty.logger.debug(
+                                    'node_id {}'.format(self.nodes[i + k].node_id)
                                 )
                                 nifty.logger.debug(
-                                    "node_id {}".format(self.nodes[i + k].node_id)
-                                )
-                                nifty.logger.debug(
-                                    "Calculating new initial energy for node: {}".format(
+                                    'Calculating new initial energy for node: {}'.format(
                                         i - k - 1
                                     )
                                 )
                                 nifty.logger.debug(
-                                    "New energy: {}".format(
+                                    'New energy: {}'.format(
                                         self.nodes[i - k - 1].energy
                                     )
                                 )
                         else:
                             for k in range(i + 1):
                                 # lower energy is in forward direction, so do node i using i-1's wavefunction
-                                options = {"node_id": self.nodes[i + k].node_id}
+                                options = {'node_id': self.nodes[i + k].node_id}
                                 self.nodes[i + k].PES.lot = type(
                                     self.nodes[i + k - 1].PES.lot
                                 ).copy(
@@ -1674,15 +1672,15 @@ class MainGSM(GSM):
                                 self.nodes[i + k].PES.lot.node_id = i + k
                                 self.nodes[i + k].PES.lot.hasRanForCurrentCoords = False
                                 nifty.logger.debug(
-                                    "node_id {}".format(self.nodes[i + k].node_id)
+                                    'node_id {}'.format(self.nodes[i + k].node_id)
                                 )
                                 nifty.logger.debug(
-                                    "Calculating new initial energy for node: {}".format(
+                                    'Calculating new initial energy for node: {}'.format(
                                         i + k
                                     )
                                 )
                                 nifty.logger.debug(
-                                    "New energy: {}".format(self.nodes[i + k].energy)
+                                    'New energy: {}'.format(self.nodes[i + k].energy)
                                 )
 
             else:
@@ -1691,13 +1689,13 @@ class MainGSM(GSM):
                     self.nodes[i - 1].PES.lot, options, copy_wavefunction=True
                 )
                 self.nodes[i].PES.lot.node_id = i
-                nifty.logger.debug("Calculating initial energy for node: {}".format(i))
+                nifty.logger.debug('Calculating initial energy for node: {}'.format(i))
                 self.nodes[i].energy
                 # Copy the orbital of j+1 to j
                 self.nodes[j].PES.lot = type(self.nodes[j + 1].PES.lot).copy(
                     self.nodes[j + 1].PES.lot, options, copy_wavefunction=True
                 )
                 self.nodes[j].PES.lot.node_id = j
-                nifty.logger.debug("Calculating initial energy for node: {}".format(j))
+                nifty.logger.debug('Calculating initial energy for node: {}'.format(j))
                 self.nodes[j].energy
         return

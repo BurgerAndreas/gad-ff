@@ -21,44 +21,42 @@ except:
 
 class OpenMM(Lot):
     def __init__(self, options):
-
         super(OpenMM, self).__init__(options)
 
         # get simulation from options if it exists
         # self.options['job_data']['simulation'] = self.options['job_data'].get('simulation',None)
-        self.simulation = self.options["job_data"].get("simulation", None)
+        self.simulation = self.options['job_data'].get('simulation', None)
 
         if self.lot_inp_file is not None and self.simulation is None:
-
             # Now go through the logic of determining which FILE options are activated.
             self.file_options.set_active(
-                "use_crystal", False, bool, "Use crystal unit parameters"
+                'use_crystal', False, bool, 'Use crystal unit parameters'
             )
             self.file_options.set_active(
-                "use_pme",
+                'use_pme',
                 False,
                 bool,
-                "",
-                "Use particle mesh ewald-- requires periodic boundary conditions",
+                '',
+                'Use particle mesh ewald-- requires periodic boundary conditions',
             )
             self.file_options.set_active(
-                "cutoff",
+                'cutoff',
                 1.0,
                 float,
-                "",
+                '',
                 depend=(self.file_options.use_pme),
-                msg="Requires PME",
+                msg='Requires PME',
             )
-            self.file_options.set_active("prmtopfile", None, str, "parameter file")
-            self.file_options.set_active("inpcrdfile", None, str, "inpcrd file")
+            self.file_options.set_active('prmtopfile', None, str, 'parameter file')
+            self.file_options.set_active('inpcrdfile', None, str, 'inpcrd file')
             self.file_options.set_active(
-                "restrain_bondfile", None, str, "list of bonds to restrain"
-            )
-            self.file_options.set_active(
-                "restrain_torfile", None, str, "list of torsions to restrain"
+                'restrain_bondfile', None, str, 'list of bonds to restrain'
             )
             self.file_options.set_active(
-                "restrain_tranfile", None, str, "list of translations to restrain"
+                'restrain_torfile', None, str, 'list of torsions to restrain'
+            )
+            self.file_options.set_active(
+                'restrain_tranfile', None, str, 'list of translations to restrain'
             )
 
             for line in self.file_options.record():
@@ -68,9 +66,9 @@ class OpenMM(Lot):
             for key in self.file_options.ActiveOptions:
                 setattr(self, key, self.file_options.ActiveOptions[key])
 
-            nifty.printcool(" Options for OpenMM")
+            nifty.printcool(' Options for OpenMM')
             for val in [self.prmtopfile, self.inpcrdfile]:
-                assert val is not None, "Missing prmtop or inpcrdfile"
+                assert val is not None, 'Missing prmtop or inpcrdfile'
 
             # Integrator will never be used (Simulation requires one)
             integrator = openmm.VerletIntegrator(1.0)
@@ -97,7 +95,7 @@ class OpenMM(Lot):
                 # set the box vectors
                 inpcrd = openmm_app.AmberInpcrdFile(self.inpcrdfile)
                 if inpcrd.boxVectors is not None:
-                    nifty.logger.debug(" setting box vectors")
+                    nifty.logger.debug(' setting box vectors')
                     nifty.logger.debug(inpcrd.boxVectors)
                     self.simulation.context.setPeriodicBoxVectors(*inpcrd.boxVectors)
             else:  # Do not use crystal parameters
@@ -124,15 +122,15 @@ class OpenMM(Lot):
     def add_restraints(self, system):
         # Bond Restraints
         if self.restrain_bondfile is not None:
-            nifty.printcool(" Adding bonding restraints!")
+            nifty.printcool(' Adding bonding restraints!')
             # Harmonic constraint
 
-            flat_bottom_force = openmm.CustomBondForce("step(r-r0) * (k/2) * (r-r0)^2")
-            flat_bottom_force.addPerBondParameter("r0")
-            flat_bottom_force.addPerBondParameter("k")
+            flat_bottom_force = openmm.CustomBondForce('step(r-r0) * (k/2) * (r-r0)^2')
+            flat_bottom_force.addPerBondParameter('r0')
+            flat_bottom_force.addPerBondParameter('k')
             system.addForce(flat_bottom_force)
 
-            with open(self.restrain_bondfile, "r") as input_file:
+            with open(self.restrain_bondfile, 'r') as input_file:
                 for line in input_file:
                     nifty.logger.debug(line)
                     columns = line.split()
@@ -144,18 +142,18 @@ class OpenMM(Lot):
 
         # Torsion restraint
         if self.restrain_torfile is not None:
-            nifty.printcool(" Adding torsional restraints!")
+            nifty.printcool(' Adding torsional restraints!')
 
             # Harmonic constraint
             tforce = openmm.CustomTorsionForce(
-                "0.5*k*min(dtheta, 2*pi-dtheta)^2; dtheta = abs(theta-theta0); pi = 3.1415926535"
+                '0.5*k*min(dtheta, 2*pi-dtheta)^2; dtheta = abs(theta-theta0); pi = 3.1415926535'
             )
-            tforce.addPerTorsionParameter("k")
-            tforce.addPerTorsionParameter("theta0")
+            tforce.addPerTorsionParameter('k')
+            tforce.addPerTorsionParameter('theta0')
             system.addForce(tforce)
 
             xyz = manage_xyz.xyz_to_np(self.geom)
-            with open(self.restrain_torfile, "r") as input_file:
+            with open(self.restrain_torfile, 'r') as input_file:
                 for line in input_file:
                     columns = line.split()
                     a = int(columns[0])
@@ -169,18 +167,18 @@ class OpenMM(Lot):
 
         # Translation restraint
         if self.restrain_tranfile is not None:
-            nifty.printcool(" Adding translational restraints!")
+            nifty.printcool(' Adding translational restraints!')
             trforce = openmm.CustomExternalForce(
-                "k*periodicdistance(x, y, z, x0, y0, z0)^2"
+                'k*periodicdistance(x, y, z, x0, y0, z0)^2'
             )
-            trforce.addPerParticleParameter("k")
-            trforce.addPerParticleParameter("x0")
-            trforce.addPerParticleParameter("y0")
-            trforce.addPerParticleParameter("z0")
+            trforce.addPerParticleParameter('k')
+            trforce.addPerParticleParameter('x0')
+            trforce.addPerParticleParameter('y0')
+            trforce.addPerParticleParameter('z0')
             system.addForce(trforce)
 
             xyz = manage_xyz.xyz_to_np(self.geom)
-            with open(self.restrain_tranfile, "r") as input_file:
+            with open(self.restrain_tranfile, 'r') as input_file:
                 for line in input_file:
                     columns = line.split()
                     a = int(columns[0])
@@ -192,14 +190,13 @@ class OpenMM(Lot):
 
     @property
     def simulation(self):
-        return self.options["job_data"]["simulation"]
+        return self.options['job_data']['simulation']
 
     @simulation.setter
     def simulation(self, value):
-        self.options["job_data"]["simulation"] = value
+        self.options['job_data']['simulation'] = value
 
-    def run(self, geom, mult, ad_idx, runtype="gradient"):
-
+    def run(self, geom, mult, ad_idx, runtype='gradient'):
         coords = manage_xyz.xyz_to_np(geom)
 
         # Update coordinates of simulation (shallow-copied object)
@@ -208,7 +205,7 @@ class OpenMM(Lot):
 
         # actually compute (only applicable to ground-states,singlet mult)
         if mult != 1 or ad_idx > 1:
-            raise RuntimeError("MM cant do excited states")
+            raise RuntimeError('MM cant do excited states')
 
         s = self.simulation.context.getState(
             getEnergy=True,
@@ -216,7 +213,7 @@ class OpenMM(Lot):
         )
         tmp = s.getPotentialEnergy()
         E = tmp.value_in_unit(openmm_units.kilocalories / openmm_units.moles)
-        self._Energies[(mult, ad_idx)] = self.Energy(E, "kcal/mol")
+        self._Energies[(mult, ad_idx)] = self.Energy(E, 'kcal/mol')
 
         F = s.getForces()
         G = -1.0 * np.asarray(
@@ -225,18 +222,18 @@ class OpenMM(Lot):
             )
         )
 
-        self._Gradients[(mult, ad_idx)] = self.Gradient(G, "kcal/mol/Angstrom")
+        self._Gradients[(mult, ad_idx)] = self.Gradient(G, 'kcal/mol/Angstrom')
         self.hasRanForCurrentCoords = True
 
         return
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     from openbabel import pybel as pb
 
     # Create and initialize System object from prmtop/inpcrd
-    prmtopfile = "../../data/solvated.prmtop"
-    inpcrdfile = "../../data/solvated.rst7"
+    prmtopfile = '../../data/solvated.prmtop'
+    inpcrdfile = '../../data/solvated.rst7'
     prmtop = openmm_app.AmberPrmtopFile(prmtopfile)
     inpcrd = openmm_app.AmberInpcrdFile(inpcrdfile)
     system = prmtop.createSystem(
@@ -253,14 +250,14 @@ if __name__ == "__main__":
         system,
         integrator,
     )
-    mol = next(pb.readfile("pdb", "../../data/solvated.pdb"))
+    mol = next(pb.readfile('pdb', '../../data/solvated.pdb'))
     coords = nifty.getAllCoords(mol)
     atoms = nifty.getAtomicSymbols(mol)
     nifty.logger.debug(coords)
     geom = manage_xyz.combine_atom_xyz(atoms, coords)
 
     lot = OpenMM.from_options(
-        states=[(1, 0)], job_data={"simulation": simulation}, geom=geom
+        states=[(1, 0)], job_data={'simulation': simulation}, geom=geom
     )
 
     E = lot.get_energy(coords, 1, 0)

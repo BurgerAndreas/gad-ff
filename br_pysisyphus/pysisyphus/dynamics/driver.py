@@ -225,8 +225,8 @@ def md(
         E_conserved = E_pot + E_kin - thermo_corr
 
         status_msg = (
-            f"Step {step:06d}  {t_cur*1e-3: >6.2f} ps  E={E_tot: >8.6f} E_h  "
-            f"T={T: >8.2f} K <T>={T_avg/(step+1): >8.2f} K"
+            f"Step {step:06d}  {t_cur * 1e-3: >6.2f} ps  E={E_tot: >8.6f} E_h  "
+            f"T={T: >8.2f} K <T>={T_avg / (step + 1): >8.2f} K"
         )
         if step % print_stride == 0:
             log(logger, status_msg)

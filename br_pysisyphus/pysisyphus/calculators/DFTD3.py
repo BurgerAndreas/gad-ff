@@ -6,7 +6,6 @@ from pysisyphus.calculators.Calculator import Calculator
 
 
 class DFTD3(Calculator):
-
     conf_key = "dftd3"
 
     def __init__(self, geom, functional, bjdamping=False, **kwargs):

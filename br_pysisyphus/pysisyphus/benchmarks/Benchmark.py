@@ -24,7 +24,6 @@ class Benchmark:
         coord_type="cart",
         calc_getter=None,
     ):
-
         self.name = name
         if exclude is None:
             exclude = tuple()

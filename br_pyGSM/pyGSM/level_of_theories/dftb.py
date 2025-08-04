@@ -18,21 +18,20 @@ except:
 
 
 class DFTB(Lot):
-
     def __init__(self, options):
         super(DFTB, self).__init__(options)
-        os.system("rm -f dftb_jobs.txt")
-        nifty.logger.debug(" making folder scratch/{}".format(self.node_id))
-        os.system("mkdir -p scratch/{}".format(self.node_id))
-        os.system("cp {} scratch/{}".format(self.lot_inp_file, self.node_id))
+        os.system('rm -f dftb_jobs.txt')
+        nifty.logger.debug(' making folder scratch/{}'.format(self.node_id))
+        os.system('mkdir -p scratch/{}'.format(self.node_id))
+        os.system('cp {} scratch/{}'.format(self.lot_inp_file, self.node_id))
 
     def run(self, geom):
         owd = os.getcwd()
-        manage_xyz.write_xyz("scratch/{}/tmp.xyz".format(self.node_id), geom, scale=1.0)
-        os.system("./xyz2gen scratch/{}/tmp.xyz".format(self.node_id))
-        os.chdir("scratch/{}".format(self.node_id))
-        os.system("pwd")
-        cmd = "dftb+"
+        manage_xyz.write_xyz('scratch/{}/tmp.xyz'.format(self.node_id), geom, scale=1.0)
+        os.system('./xyz2gen scratch/{}/tmp.xyz'.format(self.node_id))
+        os.chdir('scratch/{}'.format(self.node_id))
+        os.system('pwd')
+        cmd = 'dftb+'
         proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
@@ -43,8 +42,8 @@ class DFTB(Lot):
         #     out.write(stdout)
         #     out.write(stderr)
 
-        ofilepath = "detailed.out"
-        with open(ofilepath, "r") as ofile:
+        ofilepath = 'detailed.out'
+        with open(ofilepath, 'r') as ofile:
             olines = ofile.readlines()
 
         self.E = []
@@ -52,13 +51,13 @@ class DFTB(Lot):
         tmpgrada = []
         tmpgrad = []
         pattern = re.compile(
-            r"Total energy:                     [-+]?[0-9]*\.?[0-9]+ H"
+            r'Total energy:                     [-+]?[0-9]*\.?[0-9]+ H'
         )
         for line in olines:
             for match in re.finditer(pattern, line):
                 tmpline = line.split()
                 self.E.append((1, 0, float(tmpline[2])))
-            if line == " Total Forces\n":
+            if line == ' Total Forces\n':
                 temp += 1
             elif temp > 0:
                 tmpline = line.split()
@@ -80,10 +79,10 @@ class DFTB(Lot):
         return
 
 
-if __name__ == "__main__":
-    filepath = "../../data/ethylene.xyz"
+if __name__ == '__main__':
+    filepath = '../../data/ethylene.xyz'
     dftb = DFTB.from_options(
-        states=[(1, 0)], fnm=filepath, lot_inp_file="../../data/dftb_in.hsd"
+        states=[(1, 0)], fnm=filepath, lot_inp_file='../../data/dftb_in.hsd'
     )
     geom = manage_xyz.read_xyz(filepath)
     xyz = manage_xyz.xyz_to_np(geom)

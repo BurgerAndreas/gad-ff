@@ -7,7 +7,6 @@ from pysisyphus.calculators.Calculator import Calculator
 
 
 class SocketCalc(Calculator):
-
     valid_requests = ("energy", "forces", "hessian")
 
     def __init__(self, *args, host="localhost", port=8080, **kwargs):
@@ -18,9 +17,9 @@ class SocketCalc(Calculator):
 
     def listen_for(self, atoms, coords, request):
         request = request.lower()
-        assert (
-            request.lower() in self.valid_requests
-        ), f"Invalid request '{request}'! Valid requests are '{self.valid_requests}'."
+        assert request.lower() in self.valid_requests, (
+            f"Invalid request '{request}'! Valid requests are '{self.valid_requests}'."
+        )
 
         request_for = {
             "atoms": atoms,

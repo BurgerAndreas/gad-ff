@@ -310,7 +310,6 @@ class RouteReset(BottleException):
 
 
 class RouterUnknownModeError(RouteError):
-
     pass
 
 
@@ -563,7 +562,7 @@ class Route(object):
         name=None,
         plugins=None,
         skiplist=None,
-        **config
+        **config,
     ):
         #: The application this route is installed to.
         self.app = app
@@ -976,7 +975,7 @@ class Bottle(object):
         name=None,
         apply=None,
         skip=None,
-        **config
+        **config,
     ):
         """A decorator to bind a function to a request URL. Example::
 
@@ -1022,7 +1021,7 @@ class Bottle(object):
                         name=name,
                         plugins=plugins,
                         skiplist=skiplist,
-                        **config
+                        **config,
                     )
                     self.add_route(route)
             return callback
@@ -1109,8 +1108,7 @@ class Bottle(object):
                         0,
                         13,
                         "RouteReset exception deprecated",
-                        "Call route.call() after route.reset() and "
-                        "return the result.",
+                        "Call route.call() after route.reset() and return the result.",
                     )
                     route.reset()
                     continue
@@ -2001,8 +1999,8 @@ class BaseResponse(object):
                 depr(
                     0,
                     13,
-                    "Pickling of arbitrary objects into cookies is " "deprecated.",
-                    "Only store strings in cookies. " "JSON strings are fine, too.",
+                    "Pickling of arbitrary objects into cookies is deprecated.",
+                    "Only store strings in cookies. JSON strings are fine, too.",
                 )
             encoded = base64.b64encode(pickle.dumps([name, value], -1))
             sig = base64.b64encode(
@@ -3370,7 +3368,6 @@ def auth_basic(check, realm="private", text="Access denied"):
     TODO: Add route(check_auth=...) parameter."""
 
     def decorator(func):
-
         @functools.wraps(func)
         def wrapper(*a, **ka):
             user, password = request.auth or (None, None)
@@ -3497,7 +3494,7 @@ class CherryPyServer(ServerAdapter):
             13,
             "The wsgi server part of cherrypy was split into a new "
             "project called 'cheroot'.",
-            "Use the 'cheroot' server " "adapter instead of cherrypy.",
+            "Use the 'cheroot' server adapter instead of cherrypy.",
         )
         from cherrypy import wsgiserver  # This will fail for CherryPy >= 9
 
@@ -3903,7 +3900,7 @@ def run(
     plugins=None,
     debug=None,
     config=None,
-    **kargs
+    **kargs,
 ):
     """Start a server instance. This method blocks until the server terminates.
 
@@ -4563,7 +4560,6 @@ def view(tpl_name, **defaults):
     """
 
     def decorator(func):
-
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             result = func(*args, **kwargs)

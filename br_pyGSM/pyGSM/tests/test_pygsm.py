@@ -12,4 +12,4 @@ import pyGSM
 
 def test_pyGSM_imported():
     """Sample test, will always pass so long as import statement worked."""
-    assert "pyGSM" in sys.modules
+    assert 'pyGSM' in sys.modules

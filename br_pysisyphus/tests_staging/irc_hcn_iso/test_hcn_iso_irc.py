@@ -19,7 +19,6 @@ THIS_DIR = pathlib.Path(os.path.dirname(os.path.realpath(__file__)))
 
 
 def prepare_geometry(xyz_fn, keywords):
-
     # blocks = "%pal nprocs 3 end"
     blocks = ""
 
