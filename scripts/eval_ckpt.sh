@@ -30,4 +30,4 @@ cp ${CKPT} ${GAD_DIR}/ckpteval/
 sbatch ${GAD_DIR}/scripts/killarney.sh ${GAD_DIR}/scripts/eval_horm.py --checkpoint=${CKPT} --dataset=ts1x-val.lmdb
 
 react
-sbatch ${REACT_DIR}/killarney.sh ${REACT_DIR}/ReactBench/main.py config.yaml --calc=equiformer --ckpt_path=${CKPT} --reactbench_path=/project/aip-aspuru/aburger/ReactBench
+sbatch ${REACT_DIR}/killarney.sh ${REACT_DIR}/ReactBench/main.py config.yaml --calc=equiformer --ckpt_path=${CKPT} --config_path=auto --hessian_method=predict --reactbench_path=/project/aip-aspuru/aburger/ReactBench

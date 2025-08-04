@@ -977,7 +977,8 @@ class EquiformerV2_OC20(BaseModel):
         # Hessian estimation
         ###############################################################
         if hessian:
-            assert self.do_hessian, f"do_hessian is {self.do_hessian} but hessian is {hessian}. Are you sure you loaded the right config?"
+            assert self.do_hessian, \
+                f"do_hessian is {self.do_hessian} but hessian is {hessian}. Are you sure you loaded the right config?"
             # we are going to use a different graph here
             # with a bigger cutoff radius
             # graph = edge_distance, edge_index
