@@ -266,6 +266,6 @@ def ase_atoms_to_torch_geometric_hessian(atoms, cutoff, max_neighbors, use_pbc):
         max_neighbors=max_neighbors,
         use_pbc=use_pbc,
     )(data)
-    data = Batch.from_data_list([data])
+    data = Batch.from_data_list([data], follow_batch=["diag_ij", "edge_index", "message_idx_ij"])
 
     return data
