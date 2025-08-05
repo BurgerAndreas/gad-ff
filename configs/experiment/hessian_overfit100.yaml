@@ -7,6 +7,7 @@ training:
   trn_path: "data/sample_100.lmdb"
   val_path: "data/sample_100.lmdb"
   bz: 100
+  bz_val: 100
   lr_schedule_type: null  # No learning rate decay for overfitting
 
 model:
