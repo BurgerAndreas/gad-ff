@@ -318,6 +318,12 @@ class HessianPotentialModule(PotentialModule):
         )
         hat_hessian = outputs["hessian"].to(self.device)
         hessian_true = batch.hessian.to(self.device)
+        # only regress the upper triangular part of the Hessian, including the diagonal
+        if self.training_config["mask_hessian"]:
+            mask = torch.ones((3, 3)).triu(diagonal=0) 
+            hat_hessian = hat_hessian * mask
+            hessian_true = hessian_true * mask
+
         hessian_loss = self.loss_fn_hessian(hat_hessian, hessian_true)
         loss = hessian_loss * self.training_config["hessian_loss_weight"]
         info = {
