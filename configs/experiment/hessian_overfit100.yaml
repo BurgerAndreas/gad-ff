@@ -8,9 +8,13 @@ training:
   val_path: "data/sample_100.lmdb"
   bz: 100
   lr_schedule_type: null  # No learning rate decay for overfitting
+
+model:
+  alpha_drop:               0.0         # [0.0, 0.1]
+  drop_path_rate:           0.0         # [0.0, 0.05]
+  proj_drop:                0.0
   
 pltrainer:
-  max_epochs: 1000  # Fewer epochs since we're overfitting small data
   limit_train_batches: null  # Remove limit to see full tiny dataset 
   limit_val_batches: null    # Remove validation limit
   # val_check_interval: 100    # Validate less frequently
