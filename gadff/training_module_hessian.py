@@ -9,6 +9,7 @@ import os
 import yaml
 from pathlib import Path
 import wandb
+import time
 
 import torch
 from torch import nn
@@ -240,7 +241,7 @@ class HessianPotentialModule(PotentialModule):
         if "SLURM_JOB_ID" in os.environ:
             slurm_job_id = os.environ["SLURM_JOB_ID"]
             try:
-                wandb.log({"slurm_job_id": slurm_job_id}, step=self.global_step)
+                wandb.log({"slurm_job_id": slurm_job_id})
             except Exception as e:
                 print(f"Error logging SLURM job ID: {e}")
             print(f"SLURM job ID: {slurm_job_id}")
@@ -293,8 +294,15 @@ class HessianPotentialModule(PotentialModule):
                 transform=transform,
                 **self.training_config,
             )
-            print("# of training data: ", len(self.train_dataset))
-            print("# of validation data: ", len(self.val_dataset))
+            print("Number of training samples: ", len(self.train_dataset))
+            print("Number of validation samples: ", len(self.val_dataset))
+            num_train_batches = len(self.train_dataset) // self.training_config["bz"]
+            num_val_batches = len(self.val_dataset) // self.training_config["bz_val"]
+            print(f"Number of training batches: {num_train_batches}")
+            print(f"Number of validation batches: {num_val_batches}")
+            if self.training_config["drop_last"]:
+                assert num_train_batches >= 1, f"Training set will be empty with drop_last {len(self.train_dataset)} / {self.training_config['bz']}"
+                assert num_val_batches >= 1, f"Validation set will be empty with drop_last {len(self.val_dataset)} / {self.training_config['bz_val']}"
 
         else:
             raise NotImplementedError
@@ -439,3 +447,16 @@ class HessianPotentialModule(PotentialModule):
 
     def test_step(self, batch, batch_idx, *args):
         return self._shared_eval(batch, batch_idx, "test", *args)
+
+    # def on_validation_epoch_start(self):
+    #     """Reset the validation dataloader at the start of every epoch."""
+    #     # self.trainer.reset_val_dataloader()
+    #     self.eval_batch_idx = 0
+    #     if self.trainer.is_global_zero:
+    #         self.val_start_time = time.time()
+
+    # def on_validation_epoch_end(self):
+    #     """Reset the validation dataloader at the end of every epoch."""
+    #     if self.trainer.is_global_zero:
+    #         print(f"Validation time: {time.time() - self.val_start_time:.2f} seconds")
+    #         self.log("val-time", time.time() - self.val_start_time, prog_bar=False)

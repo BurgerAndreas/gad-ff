@@ -504,7 +504,7 @@ class PotentialModule(LightningModule):
     def val_dataloader(self) -> TGDataLoader:
         return TGDataLoader(
             self.val_dataset,
-            batch_size=self.training_config["bz"],
+            batch_size=self.training_config["bz_val"],
             shuffle=False,
             num_workers=self.training_config["num_workers"],
             follow_batch=self.training_config["follow_batch"],
@@ -514,7 +514,7 @@ class PotentialModule(LightningModule):
     def test_dataloader(self) -> TGDataLoader:
         return TGDataLoader(
             self.test_dataset,
-            batch_size=self.training_config["bz"],
+            batch_size=self.training_config["bz_val"],
             shuffle=False,
             num_workers=self.training_config["num_workers"],
             follow_batch=self.training_config["follow_batch"],

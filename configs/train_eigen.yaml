@@ -23,6 +23,7 @@ training:
   trn_path: "data/sample_100-dft-hess-eigen.lmdb"
   val_path: "data/sample_100-dft-hess-eigen.lmdb"
   bz: 128
+  bz_val: 128
   num_workers: 2 # 48
   clip_grad: true
   gradient_clip_val: 0.1
@@ -69,6 +70,7 @@ pltrainer:
   log_every_n_steps: 1
   # check_val_every_n_epoch: 1  # Run validation every N epochs (default: 1)
   # val_check_interval: 0.5    # Alternative: Run validation every N steps or fraction of epoch
+  # overfit_batches: 2
 
 use_wandb: true
 

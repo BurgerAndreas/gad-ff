@@ -4,6 +4,7 @@ training:
   trn_path: "data/sample_100.lmdb"
   val_path: "data/sample_100.lmdb"
   bz: 3
+  bz_val: 3
   num_workers: 2  
 
 # Pytorch Lightning Trainer configuration
