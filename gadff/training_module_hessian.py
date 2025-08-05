@@ -48,6 +48,9 @@ from gadff.loss_functions import (
     compute_loss_blockdiagonal_hessian,
     get_hessian_loss_fn,
     get_eigval_eigvec_metrics,
+    BatchHessianLoss,
+    L1HessianLoss,
+    L2HessianLoss,
 )
 
 
@@ -118,13 +121,17 @@ class HessianPotentialModule(PotentialModule):
 
         if self.training_config["hessian_loss_type"] == "mse":
             # TODO: batching not correct
-            self.loss_fn_hessian = nn.MSELoss()
+            loss_fn_hessian = L2HessianLoss()
         elif self.training_config["hessian_loss_type"] == "mae":
-            self.loss_fn_hessian = nn.L1Loss()
+            loss_fn_hessian = L1HessianLoss()
         else:
             raise ValueError(
                 f"Invalid Hessian loss type: {self.model_config['hessian_loss_type']}"
             )
+        if self.training_config["mask_hessian"]:
+            self.loss_fn_hessian = BatchHessianLoss(loss_fn_hessian, mask_hessian=True)
+        else:
+            self.loss_fn_hessian = loss_fn_hessian
 
         print(f"Training config: {training_config['eigen_loss']}")
         self.loss_fn_eigen = get_hessian_loss_fn(**training_config["eigen_loss"])
@@ -301,8 +308,12 @@ class HessianPotentialModule(PotentialModule):
             print(f"Number of training batches: {num_train_batches}")
             print(f"Number of validation batches: {num_val_batches}")
             if self.training_config["drop_last"]:
-                assert num_train_batches >= 1, f"Training set will be empty with drop_last {len(self.train_dataset)} / {self.training_config['bz']}"
-                assert num_val_batches >= 1, f"Validation set will be empty with drop_last {len(self.val_dataset)} / {self.training_config['bz_val']}"
+                assert num_train_batches >= 1, (
+                    f"Training set will be empty with drop_last {len(self.train_dataset)} / {self.training_config['bz']}"
+                )
+                assert num_val_batches >= 1, (
+                    f"Validation set will be empty with drop_last {len(self.val_dataset)} / {self.training_config['bz_val']}"
+                )
 
         else:
             raise NotImplementedError
@@ -318,13 +329,7 @@ class HessianPotentialModule(PotentialModule):
         )
         hat_hessian = outputs["hessian"].to(self.device)
         hessian_true = batch.hessian.to(self.device)
-        # only regress the upper triangular part of the Hessian, including the diagonal
-        if self.training_config["mask_hessian"]:
-            mask = torch.ones((3, 3)).triu(diagonal=0) 
-            hat_hessian = hat_hessian * mask
-            hessian_true = hessian_true * mask
-
-        hessian_loss = self.loss_fn_hessian(hat_hessian, hessian_true)
+        hessian_loss = self.loss_fn_hessian(hat_hessian, hessian_true, batch)
         loss = hessian_loss * self.training_config["hessian_loss_weight"]
         info = {
             "Loss Hessian": hessian_loss.detach().item(),

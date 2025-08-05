@@ -319,7 +319,13 @@ class HuberLoss(torch.nn.Module):
 
 
 def batch_hessian_loss(
-    hessian_pred, hessian_true, data, lossfn, debugstr="", **lossfn_kwargs
+    hessian_pred,
+    hessian_true,
+    data,
+    lossfn,
+    mask_hessian=False,
+    debugstr="",
+    **lossfn_kwargs,
 ):
     """We can't normalize concatenated vectors, so we process each vector separately.
     Returns a scalar of similarity averaged over batches.
@@ -349,7 +355,8 @@ def batch_hessian_loss(
     losses = []
     for _b in range(B):
         _start = ptr_hessian[_b].item()
-        _numel = ((natoms[_b]) * 3) ** 2
+        ND = natoms[_b] * 3
+        _numel = ND**2
         _end = _numel + _start
         hessian_pred_b = hessian_pred[_start:_end]
         hessian_true_b = hessian_true[_start:_end]
@@ -362,6 +369,19 @@ def batch_hessian_loss(
             print(" N", natoms[_b].item())
             print(" B", B.item(), set(data.batch.tolist()))
             continue
+        if mask_hessian:
+            # only regress the upper triangular part of the Hessian, including the diagonal
+            mask = (
+                torch.ones(
+                    (ND, ND),
+                    device=hessian_pred_b.device,
+                    dtype=torch.long,
+                )
+                .triu(diagonal=0)
+                .reshape_as(hessian_pred_b)
+            )
+            hessian_pred_b = hessian_pred_b[mask]
+            hessian_true_b = hessian_true_b[mask]
         loss_b = lossfn(
             hessian_pred=hessian_pred_b,
             hessian_true=hessian_true_b,
@@ -380,20 +400,23 @@ def batch_hessian_loss(
 
 
 class BatchHessianLoss(torch.nn.Module):
-    """Wrapper to batch a loss function over vectors."""
+    """Wrapper to batch a loss function over hessian matrices."""
 
-    def __init__(self, loss_fn, **kwargs):
+    def __init__(self, loss_fn, mask_hessian=False, **kwargs):
         super(BatchHessianLoss, self).__init__()
         self.loss_fn = loss_fn
         if kwargs is None:
             kwargs = {}
         self.kwargs = kwargs
+        self.mask_hessian = mask_hessian
 
     def forward(self, pred, target, data, **kwargs):
         _kwargs = self.kwargs.copy()
         if kwargs is not None:
             _kwargs.update(kwargs)
-        return batch_hessian_loss(pred, target, data, self.loss_fn, **_kwargs)
+        return batch_hessian_loss(
+            pred, target, data, self.loss_fn, mask_hessian=self.mask_hessian, **_kwargs
+        )
 
 
 def eigenspectrum_loss(
@@ -466,6 +489,16 @@ def eigenspectrum_loss(
             else:
                 raise ValueError(f"Invalid loss type: {loss_type}")
     return loss
+
+
+class L1HessianLoss(torch.nn.Module):
+    def forward(self, hessian_pred, hessian_true, N=None, **kwargs):
+        return torch.mean(torch.abs(hessian_pred - hessian_true))
+
+
+class L2HessianLoss(torch.nn.Module):
+    def forward(self, hessian_pred, hessian_true, N=None, **kwargs):
+        return torch.mean((hessian_pred - hessian_true) ** 2)
 
 
 # by HORM

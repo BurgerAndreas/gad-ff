@@ -100,7 +100,7 @@ class LmdbDataset(Dataset):
 
         if self.transform is not None:
             data_object = self.transform(data_object)
-        
+
         data_object.dataset_idx = idx
 
         return data_object
