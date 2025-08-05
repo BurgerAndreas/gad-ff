@@ -11,7 +11,7 @@ import hydra
 import re
 from omegaconf import DictConfig
 import wandb
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from pytorch_lightning.callbacks import (
@@ -124,10 +124,11 @@ def setup_training(cfg: DictConfig):
 
     checkpoint_callback = ModelCheckpoint(
         dirpath=ckpt_output_path,
-        every_n_epochs=1,
+        # every_n_epochs=1,
         # save every epoch
         filename="ff-{epoch:03d}",
         save_last=True,
+        train_time_interval=timedelta(hours=1),
         # # save best by val loss
         # save_top_k=2,
         # monitor="val-totloss",
