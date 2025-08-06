@@ -80,7 +80,11 @@ def evaluate(
                 "hessian_method": hessian_method,
                 "model_config": model_config,
             },
+<<<<<<< HEAD
             **wandb_kwargs
+=======
+            **wandb_kwargs,
+>>>>>>> 93255ae3251b786ea77de5daf237f6d035ac1629
         )
 
     model = PotentialModule.load_from_checkpoint(
