@@ -121,17 +121,15 @@ class HessianPotentialModule(PotentialModule):
 
         if self.training_config["hessian_loss_type"] == "mse":
             # TODO: batching not correct
-            loss_fn_hessian = L2HessianLoss()
+            # loss_fn_hessian = L2HessianLoss()
+            self.loss_fn_hessian = torch.nn.MSELoss()
         elif self.training_config["hessian_loss_type"] == "mae":
-            loss_fn_hessian = L1HessianLoss()
+            # loss_fn_hessian = L1HessianLoss()
+            self.loss_fn_hessian = torch.nn.L1Loss()
         else:
             raise ValueError(
                 f"Invalid Hessian loss type: {self.model_config['hessian_loss_type']}"
             )
-        if self.training_config["mask_hessian"]:
-            self.loss_fn_hessian = BatchHessianLoss(loss_fn_hessian, mask_hessian=True)
-        else:
-            self.loss_fn_hessian = loss_fn_hessian
 
         print(f"Training config: {training_config['eigen_loss']}")
         self.loss_fn_eigen = get_hessian_loss_fn(**training_config["eigen_loss"])
@@ -327,9 +325,41 @@ class HessianPotentialModule(PotentialModule):
         hat_ae, hat_forces, outputs = self.potential.forward(
             batch.to(self.device), hessian=True
         )
-        hat_hessian = outputs["hessian"].to(self.device)
+        hessian_pred = outputs["hessian"].to(self.device)
         hessian_true = batch.hessian.to(self.device)
-        hessian_loss = self.loss_fn_hessian(hat_hessian, hessian_true, batch)
+        if self.training_config["mask_hessian"]:
+            data = batch
+            natoms = data.natoms
+            B = data.batch.max() + 1
+            numels = data.natoms.pow(2).mul(9)
+            ptr_hessian = torch.cat([torch.tensor([0], device=numels.device), numels], dim=0)
+            ptr_hessian = torch.cumsum(ptr_hessian, dim=0)
+            total_numel = sum(numels)
+            hessian_pred = hessian_pred.view(-1)
+            hessian_true = hessian_true.view(-1)
+            losses = []
+            for _b in range(B):
+                _start = ptr_hessian[_b].item()
+                ND = natoms[_b] * 3
+                _numel = ND**2
+                _end = _numel + _start
+                hessian_pred_b = hessian_pred[_start:_end].reshape(ND, ND)
+                hessian_true_b = hessian_true[_start:_end].reshape(ND, ND)
+                # only regress the upper triangular part of the Hessian, including the diagonal
+                mask = (
+                    torch.ones(
+                        (ND, ND),
+                        device=hessian_pred_b.device,
+                        dtype=torch.long,
+                    )
+                    .triu(diagonal=0)
+                )
+                loss_b = self.loss_fn_hessian(hessian_pred_b[mask], hessian_true_b[mask])
+                losses.append(loss_b)
+            hessian_loss = torch.stack(losses).mean()
+        else:
+            hessian_loss = self.loss_fn_hessian(hessian_pred, hessian_true)
+
         loss = hessian_loss * self.training_config["hessian_loss_weight"]
         info = {
             "Loss Hessian": hessian_loss.detach().item(),
@@ -337,7 +367,7 @@ class HessianPotentialModule(PotentialModule):
 
         if self.do_eigen_loss:
             eigen_loss = self.loss_fn_eigen(
-                pred=hat_hessian,
+                pred=hessian_pred,
                 target=hessian_true,
                 data=batch,
             )
