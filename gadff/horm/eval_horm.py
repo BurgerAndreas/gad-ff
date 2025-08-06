@@ -7,7 +7,7 @@ from torch_geometric.loader import DataLoader as TGDataLoader
 from gadff.horm.training_module import PotentialModule, compute_extra_props
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.path_config import fix_dataset_path
-
+from ocpmodels.hessian_graph_transform import HessianGraphTransform
 
 def _get_derivatives(x, y, retain_graph=None, create_graph=False):
     """Helper function to compute derivatives"""
@@ -56,8 +56,9 @@ def evaluate(
     hessian_method,
     max_samples=None,
     wandb_run_id=None,
+    wandb_kwargs={},
 ):
-    ckpt = torch.load(checkpoint_path)
+    ckpt = torch.load(checkpoint_path, weights_only=False)
     model_name = ckpt["hyper_parameters"]["model_config"]["name"]
     model_config = ckpt["hyper_parameters"]["model_config"]
     print(f"Model name: {model_name}")
@@ -79,14 +80,29 @@ def evaluate(
                 "hessian_method": hessian_method,
                 "model_config": model_config,
             },
+            **wandb_kwargs
         )
 
-    pm = PotentialModule.load_from_checkpoint(
+    model = PotentialModule.load_from_checkpoint(
         checkpoint_path,
         strict=False,
     ).potential.to("cuda")
+    model.eval()
+    
+    do_autograd = (hessian_method == "autograd" )
+    print(f"do_autograd: {do_autograd}")
 
-    dataset = LmdbDataset(fix_dataset_path(lmdb_path))
+    # if hessian_method == "predict" or model.do_hessian or model.otf_graph == False:
+    if hessian_method == "predict":
+        transform = HessianGraphTransform(
+            cutoff=model.cutoff,
+            max_neighbors=model.max_neighbors,
+            use_pbc=model.use_pbc,
+        )
+    else:
+        transform = None
+
+    dataset = LmdbDataset(fix_dataset_path(lmdb_path), transform=transform)
     dataloader = TGDataLoader(dataset, batch_size=1, shuffle=False)
 
     dataset_name = lmdb_path.split("/")[-1].split(".")[0]
@@ -112,18 +128,27 @@ def evaluate(
 
     for batch in tqdm(dataloader, desc="Evaluating", total=len(dataloader)):
         batch = batch.to("cuda")
-        batch.pos.requires_grad_()
         batch = compute_extra_props(batch)
 
         # Forward pass
         if model_name == "LEFTNet":
-            ener, force = pm.forward_autograd(batch)
+            batch.pos.requires_grad_()
+            ener, force = model.forward_autograd(batch)
+            hess = compute_hessian(batch.pos, ener, force)
+        elif "equiformer" in model_name.lower():
+            if do_autograd:
+                batch.pos.requires_grad_()
+                ener, force, out = model.forward(batch, otf_graph=True, hessian=False)
+                hess = compute_hessian(batch.pos, ener, force)
+            else:
+                ener, force, out = model.forward(batch, otf_graph=False, hessian=True)
+                hess = out["hessian"]
         else:
-            ener, force, out = pm.forward(batch)
+            batch.pos.requires_grad_()
+            ener, force, out = model.forward(batch)
+            hess = compute_hessian(batch.pos, ener, force)
 
-        # Compute hessian and eigenvalues
-        # Use reshape instead of view to handle non-contiguous tensors
-        hess = compute_hessian(batch.pos, ener, force)
+        # Compute hessian eigenspectra
         eigvals, eigvecs = torch.linalg.eigh(hess)
         eigenvalues_hartree_bohr = hess2eigenvalues(hess)
 
