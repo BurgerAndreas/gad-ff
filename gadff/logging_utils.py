@@ -7,16 +7,24 @@ from pathlib import Path
 
 # from gadff.path_config import CHECKPOINT_PATH_EQUIFORMER_HORM
 
-# allows to load checkpoint with the same name
-IGNORE_OVERRIDES = []
+# e.g. inference kwargs
+IGNORE_OVERRIDES = [
+    "wandb",
+    "do_wandb",
+    "use_wandb",
+    "wandb_run_id",
+]
 
 # some stuff is not relevant for the checkpoint
-# e.g. inference kwargs
+# allows to load checkpoint with the same name
 IGNORE_OVERRIDES_CHECKPOINT = [
     "ckpt_resume_auto",
     "ckpt_model_path",
     "ckpt_trainer_path",
     "eval_hessian_method",
+    "eval_max_samples",
+    "eval_config_path",
+    "eval_wandb_run_id",
 ]
 
 REPLACE = {

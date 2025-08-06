@@ -73,7 +73,9 @@ def fix_dataset_path(_path):
         elif os.path.exists(rgd1_path):
             return rgd1_path
         else:
-            raise FileNotFoundError(f"Dataset path {_path} not found")
+            raise FileNotFoundError(
+                f"Dataset path {_path} not found in \n{horm_path} \n{rgd1_path}"
+            )
 
     if (
         isinstance(_path, list)

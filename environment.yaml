@@ -51,7 +51,7 @@ dependencies:
     - h5py>=3.10.0
     - progressbar==2.5
     # Editable install with no version control (mace-torch==0.3.14)
-    - pytorch-lightning==2.5.1.post0
+    - lightning==2.5.1.post0
     - -e .
     # from here below, we use find-links
     - --find-links https://data.pyg.org/whl/torch-2.5.1+cu121.html
