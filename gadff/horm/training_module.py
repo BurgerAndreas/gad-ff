@@ -3,7 +3,7 @@ PyTorch Lightning module for training AlphaNet
 """
 
 from typing import Dict, List, Optional, Tuple
-from omegaconf import ListConfig
+from omegaconf import ListConfig, OmegaConf
 import os
 import time
 from pathlib import Path
@@ -15,6 +15,7 @@ from torch_geometric.loader import DataLoader as TGDataLoader
 from torch.optim.lr_scheduler import (
     CosineAnnealingWarmRestarts,
     StepLR,
+    ReduceLROnPlateau,
     # CosineAnnealingLR,
 )
 try:
@@ -38,6 +39,7 @@ from nets.prediction_utils import compute_extra_props
 LR_SCHEDULER = {
     "cos": CosineAnnealingWarmRestarts,
     "step": StepLR,
+    "plateau": ReduceLROnPlateau,
 }
 GLOBAL_ATOM_NUMBERS = torch.tensor([1, 6, 7, 8])
 
@@ -197,12 +199,30 @@ class PotentialModule(LightningModule):
         return training_config
 
     def configure_optimizers(self):
+        # https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.core.LightningModule.html#lightning.pytorch.core.LightningModule.configure_optimizers
         print("Configuring optimizer")
+        trainable_params = self.potential.parameters()
+        return self._configure_optimizer_for_params(trainable_params)
+    
+    def _configure_optimizer_for_params(self, trainable_params):
         optimizer = torch.optim.AdamW(
-            self.potential.parameters(), **self.optimizer_config
+            trainable_params, **self.optimizer_config
         )
 
         if self.training_config["lr_schedule_type"] is not None:
+            if self.training_config["lr_schedule_type"] == "plateau":
+                lr_schedule_config = self.training_config["lr_schedule_config"]
+                lr_schedule_config = OmegaConf.to_container(lr_schedule_config)
+                monitor = lr_schedule_config.pop("monitor")
+                frequency = lr_schedule_config.pop("frequency", 1)
+                return {
+                    "optimizer": optimizer,
+                    "lr_scheduler": {
+                        "scheduler": ReduceLROnPlateau(optimizer, **lr_schedule_config),
+                        "monitor": monitor,
+                        "frequency": frequency,
+                    },
+                }
             scheduler_func = LR_SCHEDULER[self.training_config["lr_schedule_type"]]
             scheduler = scheduler_func(
                 optimizer=optimizer, **self.training_config["lr_schedule_config"]
