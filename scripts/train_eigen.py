@@ -193,6 +193,7 @@ def setup_training(cfg: DictConfig):
         log_model=False,
         name=run_name,
         **wandb_kwargs,
+        config=cfg
     )
 
     print("Initializing trainer")

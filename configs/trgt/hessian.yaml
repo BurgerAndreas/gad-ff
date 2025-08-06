@@ -21,7 +21,7 @@ model:
   share_atom_edge_embedding_hessian: False
   reuse_source_target_embedding_hessian: True
   reinit_edge_degree_embedding_hessian: False
-  cutoff_hessian: 30.0
+  cutoff_hessian: 100.0
   # graph
   otf_graph: false
   hessian_build_method: "1d"
