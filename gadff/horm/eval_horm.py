@@ -56,8 +56,9 @@ def evaluate(
     hessian_method,
     max_samples=None,
     wandb_run_id=None,
+    wandb_kwargs={},
 ):
-    ckpt = torch.load(checkpoint_path)
+    ckpt = torch.load(checkpoint_path, weights_only=False)
     model_name = ckpt["hyper_parameters"]["model_config"]["name"]
     model_config = ckpt["hyper_parameters"]["model_config"]
     print(f"Model name: {model_name}")
@@ -79,6 +80,7 @@ def evaluate(
                 "hessian_method": hessian_method,
                 "model_config": model_config,
             },
+            **wandb_kwargs,
         )
 
     pm = PotentialModule.load_from_checkpoint(
