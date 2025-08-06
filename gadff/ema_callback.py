@@ -7,8 +7,12 @@ well-tested exponential moving average functionality.
 
 from typing import Any, Dict, Optional
 import torch
-from pytorch_lightning import Callback, LightningModule, Trainer
-from pytorch_lightning.utilities import rank_zero_info
+try:
+    from pytorch_lightning import Callback, LightningModule, Trainer
+    from pytorch_lightning.utilities import rank_zero_info
+except ImportError:
+    from lightning import Callback, LightningModule, Trainer
+    from lightning.utilities import rank_zero_info
 from torch.optim.swa_utils import AveragedModel, get_ema_multi_avg_fn
 
 # alternative

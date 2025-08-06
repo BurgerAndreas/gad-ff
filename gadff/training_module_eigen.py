@@ -13,9 +13,11 @@ from torch.optim.lr_scheduler import (
     StepLR,
     ConstantLR,
 )
-import pytorch_lightning as pl
+try:
+    import pytorch_lightning as pl
+except ImportError:
+    import lightning as pl
 
-# from pytorch_lightning import LightningModule
 # from torchmetrics import (
 #     MeanAbsoluteError,
 #     MeanAbsolutePercentageError,

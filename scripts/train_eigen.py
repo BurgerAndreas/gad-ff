@@ -13,14 +13,22 @@ from omegaconf import DictConfig, OmegaConf
 import wandb
 from datetime import datetime, timedelta
 from pathlib import Path
-
-from pytorch_lightning.callbacks import (
-    TQDMProgressBar,
-    EarlyStopping,
-    ModelCheckpoint,
-    LearningRateMonitor,
-)
-from pytorch_lightning.loggers import WandbLogger
+try:
+    from pytorch_lightning.callbacks import (
+        TQDMProgressBar,
+        EarlyStopping,
+        ModelCheckpoint,
+        LearningRateMonitor,
+    )
+    from pytorch_lightning.loggers import WandbLogger
+except ImportError:
+    from lightning.callbacks import (
+        TQDMProgressBar,
+        EarlyStopping,
+        ModelCheckpoint,
+        LearningRateMonitor,
+    )
+    from lightning.loggers import WandbLogger
 
 from gadff.training_module_eigen import EigenPotentialModule, MyPLTrainer
 from gadff.training_module_hessian import HessianPotentialModule
