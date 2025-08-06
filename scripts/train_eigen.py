@@ -9,7 +9,7 @@ import os
 import torch
 import hydra
 import re
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 import wandb
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -192,8 +192,8 @@ def setup_training(cfg: DictConfig):
         project=cfg.project,
         log_model=False,
         name=run_name,
+        config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=False),
         **wandb_kwargs,
-        config=cfg
     )
 
     print("Initializing trainer")
