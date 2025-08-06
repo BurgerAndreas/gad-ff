@@ -79,7 +79,7 @@ ckpt_model_path: horm
 # Checkpoint that contains model weights and optimizerstate , lr state, etc. 
 ckpt_trainer_path: null
 
-ckpt_resume_auto: false
+ckpt_resume_auto: true
 
 slurm_job_id: null
 

@@ -16,6 +16,7 @@ IGNORE_OVERRIDES_CHECKPOINT = [
     "ckpt_resume_auto",
     "ckpt_model_path",
     "ckpt_trainer_path",
+    "eval_hessian_method",
 ]
 
 REPLACE = {
@@ -48,6 +49,7 @@ def name_from_config(args: omegaconf.DictConfig, is_checkpoint_name=False) -> st
                 # make sure we ignore some overrides
                 if np.any([ignore in arg for ignore in IGNORE_OVERRIDES]):
                     continue
+                # ignore some more overrides for checkpoint names
                 if is_checkpoint_name:
                     if np.any(
                         [ignore in arg for ignore in IGNORE_OVERRIDES_CHECKPOINT]

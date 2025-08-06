@@ -14,6 +14,11 @@ ssh-add ~/.ssh/id_ed25519
 cat ~/.ssh/id_ed25519.pub
 ```
 
+```bash
+git config --global user.name "Max Mustermann"
+git config --global user.email "max.mustermann@mail.utoronto.ca"
+```
+
 ### Python env
 
 ```bash
