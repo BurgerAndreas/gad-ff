@@ -82,6 +82,7 @@ def evaluate(
                 "hessian_method": hessian_method,
                 "model_config": model_config,
             },
+            tags=["hormmetrics"],
             **wandb_kwargs,
         )
 

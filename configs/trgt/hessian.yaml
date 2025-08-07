@@ -39,10 +39,10 @@ training:
 
   eigen_loss:
     loss_name: "eigenspectrum"
+    loss_type: "eigen" # eigen or wa
     k: null
     alpha: null
     dof_filter_fn: null
-    loss_type: "eigen"
 
   max_train_samples: null
   max_val_samples: null
