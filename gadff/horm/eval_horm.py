@@ -64,8 +64,10 @@ def evaluate(
     print(f"Model name: {model_name}")
 
     _name = "hormeval"
+    _name += "_" + checkpoint_path.split("/")[-2]
     _name += "_" + checkpoint_path.split("/")[-1].split(".")[0]
     _name += "_" + lmdb_path.split("/")[-1].split(".")[0]
+    _name += "_" + hessian_method
 
     if wandb_run_id is None:
         wandb.init(

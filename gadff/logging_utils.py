@@ -13,6 +13,7 @@ IGNORE_OVERRIDES = [
     "do_wandb",
     "use_wandb",
     "wandb_run_id",
+    "ckpt_resume_auto",
 ]
 
 # some stuff is not relevant for the checkpoint
