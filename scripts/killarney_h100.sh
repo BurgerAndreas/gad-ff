@@ -18,6 +18,9 @@ source .env
 #module load cuda/12.6
 #module load gcc/12.3
 
+# append command to slurmlog.txt
+echo "sbatch scripts/killarney_h100.sh $@ # $SLURM_JOB_ID" >> slurmlog.txt
+
 echo `date`: Job $SLURM_JOB_ID is allocated resources.
 echo "Inside slurm_launcher.slrm ($0). received arguments: $@"
 

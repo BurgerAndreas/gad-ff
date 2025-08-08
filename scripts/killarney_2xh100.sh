@@ -2,9 +2,9 @@
 #SBATCH -A aip-aspuru
 #SBATCH -D /project/aip-aspuru/aburger/gad-ff
 #SBATCH --time=71:00:00
-#SBATCH --gres=gpu:l40s:1 
+#SBATCH --gres=gpu:h100:2
 #SBATCH --mem=128GB
-#SBATCH --job-name=gad 
+#SBATCH --job-name=traingad
 # Jobs must write their output to your scratch or project directory (home is read-only on compute nodes).
 #SBATCH --output=/project/aip-aspuru/aburger/gad-ff/outslurm/slurm-%j.txt 
 #SBATCH --error=/project/aip-aspuru/aburger/gad-ff/outslurm/slurm-%j.txt
@@ -19,7 +19,7 @@ source .env
 #module load gcc/12.3
 
 # append command to slurmlog.txt
-echo "sbatch scripts/killarney.sh $@ # $SLURM_JOB_ID" >> slurmlog.txt
+echo "sbatch scripts/killarney_2xh100.sh $@ # $SLURM_JOB_ID" >> slurmlog.txt
 
 echo `date`: Job $SLURM_JOB_ID is allocated resources.
 echo "Inside slurm_launcher.slrm ($0). received arguments: $@"
