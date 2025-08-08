@@ -319,7 +319,9 @@ class HessianPotentialModule(PotentialModule):
             natoms = data.natoms
             B = data.batch.max() + 1
             numels = data.natoms.pow(2).mul(9)
-            ptr_hessian = torch.cat([torch.tensor([0], device=numels.device), numels], dim=0)
+            ptr_hessian = torch.cat(
+                [torch.tensor([0], device=numels.device), numels], dim=0
+            )
             ptr_hessian = torch.cumsum(ptr_hessian, dim=0)
             total_numel = sum(numels)
             hessian_pred = hessian_pred.view(-1)
@@ -333,15 +335,14 @@ class HessianPotentialModule(PotentialModule):
                 hessian_pred_b = hessian_pred[_start:_end].reshape(ND, ND)
                 hessian_true_b = hessian_true[_start:_end].reshape(ND, ND)
                 # only regress the upper triangular part of the Hessian, including the diagonal
-                mask = (
-                    torch.ones(
-                        (ND, ND),
-                        device=hessian_pred_b.device,
-                        dtype=torch.long,
-                    )
-                    .triu(diagonal=0)
+                mask = torch.ones(
+                    (ND, ND),
+                    device=hessian_pred_b.device,
+                    dtype=torch.long,
+                ).triu(diagonal=0)
+                loss_b = self.loss_fn_hessian(
+                    hessian_pred_b[mask], hessian_true_b[mask]
                 )
-                loss_b = self.loss_fn_hessian(hessian_pred_b[mask], hessian_true_b[mask])
                 losses.append(loss_b)
             hessian_loss = torch.stack(losses).mean()
         else:

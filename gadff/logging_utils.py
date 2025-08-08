@@ -139,5 +139,6 @@ def find_latest_checkpoint(base_checkpoint_name: str, project: str) -> str:
 
     return str(latest_checkpoint)
 
+
 if __name__ == "__main__":
     print(find_latest_checkpoint("horm", "horm"))

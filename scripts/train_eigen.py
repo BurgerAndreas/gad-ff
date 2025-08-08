@@ -13,6 +13,7 @@ from omegaconf import DictConfig, OmegaConf
 import wandb
 from datetime import datetime, timedelta
 from pathlib import Path
+
 try:
     from pytorch_lightning.callbacks import (
         TQDMProgressBar,
@@ -178,7 +179,9 @@ def setup_training(cfg: DictConfig):
     wandb_run_id = None
     if cfg.ckpt_trainer_path is not None:
         try:
-            checkpoint = torch.load(cfg.ckpt_trainer_path, map_location="cpu", weights_only=False)
+            checkpoint = torch.load(
+                cfg.ckpt_trainer_path, map_location="cpu", weights_only=False
+            )
             if "state_dict" in checkpoint:
                 # Look for wandb_run_id in the model state
                 for key, value in checkpoint["state_dict"].items():

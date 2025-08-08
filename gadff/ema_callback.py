@@ -7,6 +7,7 @@ well-tested exponential moving average functionality.
 
 from typing import Any, Dict, Optional
 import torch
+
 try:
     from pytorch_lightning import Callback, LightningModule, Trainer
     from pytorch_lightning.utilities import rank_zero_info

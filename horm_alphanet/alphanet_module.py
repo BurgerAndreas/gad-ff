@@ -14,6 +14,7 @@ from torch.optim.lr_scheduler import (
     StepLR,
     CosineAnnealingLR,
 )
+
 try:
     from pytorch_lightning import LightningModule
 except ImportError:

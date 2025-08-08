@@ -9,6 +9,7 @@ from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.path_config import fix_dataset_path
 from ocpmodels.hessian_graph_transform import HessianGraphTransform
 
+
 def _get_derivatives(x, y, retain_graph=None, create_graph=False):
     """Helper function to compute derivatives"""
     grad = torch.autograd.grad(
@@ -91,8 +92,8 @@ def evaluate(
         strict=False,
     ).potential.to("cuda")
     model.eval()
-    
-    do_autograd = (hessian_method == "autograd" )
+
+    do_autograd = hessian_method == "autograd"
     print(f"do_autograd: {do_autograd}")
 
     # if hessian_method == "predict" or model.do_hessian or model.otf_graph == False:
@@ -247,7 +248,7 @@ def evaluate(
     }
 
     wandb.log(results)
-    
+
     if wandb_run_id is None:
         wandb.finish()
 

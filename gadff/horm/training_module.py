@@ -18,6 +18,7 @@ from torch.optim.lr_scheduler import (
     ReduceLROnPlateau,
     # CosineAnnealingLR,
 )
+
 try:
     from pytorch_lightning import LightningModule
 except ImportError:
@@ -203,11 +204,9 @@ class PotentialModule(LightningModule):
         print("Configuring optimizer")
         trainable_params = self.potential.parameters()
         return self._configure_optimizer_for_params(trainable_params)
-    
+
     def _configure_optimizer_for_params(self, trainable_params):
-        optimizer = torch.optim.AdamW(
-            trainable_params, **self.optimizer_config
-        )
+        optimizer = torch.optim.AdamW(trainable_params, **self.optimizer_config)
 
         if self.training_config["lr_schedule_type"] is not None:
             if self.training_config["lr_schedule_type"] == "plateau":

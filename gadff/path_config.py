@@ -24,9 +24,9 @@ DATASET_DIR_HORM_EIGEN = os.path.expanduser(
     "~/.cache/kagglehub/datasets/yunhonghan/hessian-dataset-for-optimizing-reactive-mliphorm/versions/5/"
 )
 DATASET_FILES_HORM = [
-    "ts1x-val.lmdb",  # 50844 samples
-    "ts1x_hess_train_big.lmdb",  # 1725362 samples
-    "RGD1.lmdb",  # 60000 samples
+    "ts1x-val.lmdb",  # 50_844 samples
+    "ts1x_hess_train_big.lmdb",  # 1_725_362 samples
+    "RGD1.lmdb",  # 60_000 samples
 ]
 
 DATA_PATH_HORM_SAMPLE = os.path.join(ROOT_DIR, "data/sample_100.lmdb")
