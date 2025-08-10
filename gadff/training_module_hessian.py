@@ -483,9 +483,11 @@ class HessianPotentialModule(PotentialModule):
         self.eval_batch_idx = 0
         if self.trainer.is_global_zero:
             self.val_start_time = time.time()
+        super().on_validation_epoch_start()
 
     def on_validation_epoch_end(self):
         """Reset the validation dataloader at the end of every epoch."""
         if self.trainer.is_global_zero:
             print(f"Validation time: {time.time() - self.val_start_time:.2f} seconds")
             self.log("val-time", time.time() - self.val_start_time, prog_bar=False)
+        super().on_validation_epoch_end()
