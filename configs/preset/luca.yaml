@@ -22,7 +22,7 @@ training:
   eigen_loss:
     loss_name: "eigenspectrum"
     loss_type: "eigen" # eigen=luca or wa
-    k: 8
+    k: null
     alpha: 1.0
     dof_filter_fn: null
   

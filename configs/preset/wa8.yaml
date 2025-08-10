@@ -21,7 +21,7 @@ training:
   mask_hessian: false
   eigen_loss:
     loss_name: "eigenspectrum"
-    loss_type: "eigen" # eigen=luca or wa
+    loss_type: "wa" # eigen or wa
     k: 8
     alpha: 1.0
     dof_filter_fn: null
