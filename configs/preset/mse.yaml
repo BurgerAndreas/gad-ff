@@ -1,4 +1,3 @@
-
 # @package _global_
 
 model:
@@ -18,14 +17,7 @@ training:
     # over 100 epochs -> step=5
     step_size: 10 # 5 or 10
   
-  # hessian_loss_type: "mae"
-  mask_hessian: false
-  eigen_loss:
-    loss_name: "eigenspectrum"
-    loss_type: "eigen" # eigen or wa
-    k: 8
-    alpha: 1.0
-    dof_filter_fn: null
+  hessian_loss_type: "mse"
   
 pltrainer:
   check_val_every_n_epoch: 4  # Run validation every N epochs (default: 1)
