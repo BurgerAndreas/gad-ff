@@ -18,6 +18,13 @@ training:
     step_size: 10 # 5 or 10
   
   # hessian_loss_type: "mae"
+  mask_hessian: false
+  eigen_loss:
+    loss_name: "eigenspectrum"
+    loss_type: "wa" # eigen or wa
+    k: null
+    alpha: 1.0
+    dof_filter_fn: null
   
 pltrainer:
   check_val_every_n_epoch: 4  # Run validation every N epochs (default: 1)
