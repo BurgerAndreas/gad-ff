@@ -245,6 +245,7 @@ def main(cfg: DictConfig) -> None:
     trainer, pm = setup_training(cfg)
     print("Fitting model")
     trainer.fit(pm, ckpt_path=cfg.ckpt_trainer_path)
+    print("\nTraining complete!")
 
 
 if __name__ == "__main__":
