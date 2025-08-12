@@ -208,8 +208,6 @@ class HessianPotentialModule(PotentialModule):
         print(
             f"Trainable parameters: {trainable_params:,} / {total_params:,} ({trainable_params / total_params * 100:.2f}%)"
         )
-        self.log("train-trainable_params", trainable_params, rank_zero_only=True)
-        self.log("train-total_params", total_params, rank_zero_only=True)
 
     def configure_optimizers(self):
         print("Configuring optimizer")
@@ -293,6 +291,13 @@ class HessianPotentialModule(PotentialModule):
 
         else:
             raise NotImplementedError
+        # Log trainable parameters
+        trainable_params = sum(
+            p.numel() for p in self.potential.parameters() if p.requires_grad
+        )
+        total_params = sum(p.numel() for p in self.potential.parameters())
+        self.log("train-trainable_params", trainable_params, rank_zero_only=True)
+        self.log("train-total_params", total_params, rank_zero_only=True)
         return
 
     @torch.enable_grad()
