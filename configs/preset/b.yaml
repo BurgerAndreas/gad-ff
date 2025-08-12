@@ -26,5 +26,3 @@ training:
     alpha: 1.0
     dof_filter_fn: null
   
-pltrainer:
-  check_val_every_n_epoch: 4  # Run validation every N epochs (default: 1)

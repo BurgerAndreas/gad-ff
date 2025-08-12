@@ -18,6 +18,3 @@ training:
     step_size: 10 # 5 or 10
   
   hessian_loss_type: "mse"
-  
-pltrainer:
-  check_val_every_n_epoch: 4  # Run validation every N epochs (default: 1)

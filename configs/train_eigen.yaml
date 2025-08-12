@@ -4,6 +4,7 @@ defaults:
   - _self_
   - lr: step50
   - trgt: eigen
+  - preset: blank
   - experiment: base
   - gpu: single
 
@@ -54,7 +55,7 @@ pltrainer:
   limit_train_batches: 1600
   limit_val_batches: 80 # 50844 samples / 64 bz = 794.4375 batches
   log_every_n_steps: 1
-  check_val_every_n_epoch: 1  # Run validation every N epochs (default: 1)
+  check_val_every_n_epoch: 4  # Run validation every N epochs (default: 1)
   # val_check_interval: 0.5    # Alternative: Run validation every N steps or fraction of epoch
   # overfit_batches: 2
 
