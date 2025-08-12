@@ -36,10 +36,17 @@ REPLACE = {
     "training.eigen_loss": "el",
     "training.": "",
     "model.": "",
+    "pltrainer.": "",
     "hessian_": "",
     "loss_type_vec=": "lossvec=",
     "loss_type=": "loss=",
     "trgt=hessian": "",
+}
+
+REPLACE_HUMAN = {
+    "lr_schedule_type.step_size": "lr_step_size",
+    "overfit100": "",
+    "alldata": "",
 }
 
 
@@ -71,6 +78,13 @@ def name_from_config(args: omegaconf.DictConfig, is_checkpoint_name=False) -> st
         raise error
     for key, value in REPLACE.items():
         override_names = override_names.replace(key, value)
+    if is_checkpoint_name:
+        pass
+    else:
+        # Make wandb name human readable
+        for key, value in REPLACE_HUMAN.items():
+            override_names = override_names.replace(key, value)
+        
     # logger.info("name_from_config() mname: %s, override_names: %s", mname, override_names)
     _name = mname + override_names
     print(f"Name{' checkpoint' if is_checkpoint_name else ''}: {_name}")
