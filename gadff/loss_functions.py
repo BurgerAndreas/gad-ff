@@ -341,15 +341,15 @@ def batch_hessian_loss(
     ptr_hessian = torch.cat([torch.tensor([0], device=numels.device), numels], dim=0)
     ptr_hessian = torch.cumsum(ptr_hessian, dim=0)
     total_numel = sum(numels)
-    if hessian_pred.numel() != total_numel:
-        print(
-            f"{debugstr}\n hessian_pred numel {hessian_pred.numel()} != total_numel {total_numel}"
-        )
-        print(" numels:", numels)
-        print(" natoms:", natoms)
-        print(" hessian_pred:", tensor_info(hessian_pred))
-        print(" hessian_true:", tensor_info(hessian_true))
-        # return torch.tensor(0.0)
+    # if hessian_pred.numel() != total_numel:
+    #     print(
+    #         f"{debugstr}\n hessian_pred numel {hessian_pred.numel()} != total_numel {total_numel}"
+    #     )
+    #     print(" numels:", numels)
+    #     print(" natoms:", natoms)
+    #     print(" hessian_pred:", tensor_info(hessian_pred))
+    #     print(" hessian_true:", tensor_info(hessian_true))
+    #     # return torch.tensor(0.0)
     hessian_pred = hessian_pred.view(-1)
     hessian_true = hessian_true.view(-1)
     losses = []
@@ -360,15 +360,15 @@ def batch_hessian_loss(
         _end = _numel + _start
         hessian_pred_b = hessian_pred[_start:_end]
         hessian_true_b = hessian_true[_start:_end]
-        if hessian_pred_b.numel() != _numel:
-            print(f"Skipping!! {debugstr}")
-            print(" hessian_pred:", tensor_info(hessian_pred))
-            print(" hessian_true:", tensor_info(hessian_true))
-            print(" start, end", _start.item(), _end.item())
-            print(" numel", _numel)
-            print(" N", natoms[_b].item())
-            print(" B", B.item(), set(data.batch.tolist()))
-            continue
+        # if hessian_pred_b.numel() != _numel:
+        #     print(f"Skipping!! {debugstr}")
+        #     print(" hessian_pred:", tensor_info(hessian_pred))
+        #     print(" hessian_true:", tensor_info(hessian_true))
+        #     print(" start, end", _start.item(), _end.item())
+        #     print(" numel", _numel)
+        #     print(" N", natoms[_b].item())
+        #     print(" B", B.item(), set(data.batch.tolist()))
+        #     continue
         if mask_hessian:
             # only regress the upper triangular part of the Hessian, including the diagonal
             mask = (
@@ -389,13 +389,13 @@ def batch_hessian_loss(
             **lossfn_kwargs,
         )
         losses.append(loss_b)
-    if _end != hessian_pred.numel():
-        print(f"Missed or overshot entries: {debugstr}")
-        print(" hessian_pred:", tensor_info(hessian_pred))
-        print(" hessian_true:", tensor_info(hessian_true))
-        print(" start, end", _start.item(), _end.item())
-        print(" numel", _numel)
-        print(" N", natoms[_b].item())
+    # if _end != hessian_pred.numel():
+    #     print(f"Missed or overshot entries: {debugstr}")
+    #     print(" hessian_pred:", tensor_info(hessian_pred))
+    #     print(" hessian_true:", tensor_info(hessian_true))
+    #     print(" start, end", _start.item(), _end.item())
+    #     print(" numel", _numel)
+    #     print(" N", natoms[_b].item())
     return torch.stack(losses).mean()
 
 

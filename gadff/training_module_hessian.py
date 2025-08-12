@@ -138,6 +138,7 @@ class HessianPotentialModule(PotentialModule):
         else:
             self.do_eigen_loss = False
             print("! Training without eigenvalue loss")
+        self.log("train-do_eigen_loss", self.do_eigen_loss, rank_zero_only=True)
 
         # loss from Hamiltonian prediction paper
         self.test_loss_fn_wa2 = get_hessian_loss_fn(
@@ -207,6 +208,8 @@ class HessianPotentialModule(PotentialModule):
         print(
             f"Trainable parameters: {trainable_params:,} / {total_params:,} ({trainable_params / total_params * 100:.2f}%)"
         )
+        self.log("train-trainable_params", trainable_params, rank_zero_only=True)
+        self.log("train-total_params", total_params, rank_zero_only=True)
 
     def configure_optimizers(self):
         print("Configuring optimizer")
@@ -302,39 +305,40 @@ class HessianPotentialModule(PotentialModule):
         )
         hessian_pred = outputs["hessian"].to(self.device)
         hessian_true = batch.hessian.to(self.device)
-        if self.training_config["mask_hessian"]:
-            data = batch
-            natoms = data.natoms
-            B = data.batch.max() + 1
-            numels = data.natoms.pow(2).mul(9)
-            ptr_hessian = torch.cat(
-                [torch.tensor([0], device=numels.device), numels], dim=0
-            )
-            ptr_hessian = torch.cumsum(ptr_hessian, dim=0)
-            total_numel = sum(numels)
-            hessian_pred = hessian_pred.view(-1)
-            hessian_true = hessian_true.view(-1)
-            losses = []
-            for _b in range(B):
-                _start = ptr_hessian[_b].item()
-                ND = natoms[_b] * 3
-                _numel = ND**2
-                _end = _numel + _start
-                hessian_pred_b = hessian_pred[_start:_end].reshape(ND, ND)
-                hessian_true_b = hessian_true[_start:_end].reshape(ND, ND)
-                # only regress the upper triangular part of the Hessian, including the diagonal
-                mask = torch.ones(
-                    (ND, ND),
-                    device=hessian_pred_b.device,
-                    dtype=torch.long,
-                ).triu(diagonal=0)
-                loss_b = self.loss_fn_hessian(
-                    hessian_pred_b[mask], hessian_true_b[mask]
-                )
-                losses.append(loss_b)
-            hessian_loss = torch.stack(losses).mean()
-        else:
-            hessian_loss = self.loss_fn_hessian(hessian_pred, hessian_true)
+        # if self.training_config["mask_hessian"]:
+        #     data = batch
+        #     natoms = data.natoms
+        #     B = data.batch.max() + 1
+        #     numels = data.natoms.pow(2).mul(9)
+        #     ptr_hessian = torch.cat(
+        #         [torch.tensor([0], device=numels.device), numels], dim=0
+        #     )
+        #     ptr_hessian = torch.cumsum(ptr_hessian, dim=0)
+        #     total_numel = sum(numels)
+        #     hessian_pred = hessian_pred.view(-1)
+        #     hessian_true = hessian_true.view(-1)
+        #     losses = []
+        #     for _b in range(B):
+        #         _start = ptr_hessian[_b].item()
+        #         ND = natoms[_b] * 3
+        #         _numel = ND**2
+        #         _end = _numel + _start
+        #         hessian_pred_b = hessian_pred[_start:_end].reshape(ND, ND)
+        #         hessian_true_b = hessian_true[_start:_end].reshape(ND, ND)
+        #         # only regress the upper triangular part of the Hessian, including the diagonal
+        #         mask = torch.ones(
+        #             (ND, ND),
+        #             device=hessian_pred_b.device,
+        #             dtype=torch.long,
+        #         ).triu(diagonal=0)
+        #         loss_b = self.loss_fn_hessian(
+        #             hessian_pred_b[mask], hessian_true_b[mask]
+        #         )
+        #         losses.append(loss_b)
+        #     hessian_loss = torch.stack(losses).mean()
+        # else:
+        #     hessian_loss = self.loss_fn_hessian(hessian_pred, hessian_true)
+        hessian_loss = self.loss_fn_hessian(hessian_pred, hessian_true)
 
         loss = hessian_loss * self.training_config["hessian_loss_weight"]
         info = {
@@ -363,62 +367,62 @@ class HessianPotentialModule(PotentialModule):
         hat_ae, hat_forces, outputs = self.potential.forward(
             batch.to(self.device), hessian=True
         )
+        eval_metrics = {}
 
         hessian_true = batch.hessian
         hessian_pred = outputs["hessian"]
 
-        eval_metrics = {}
-        eval_metrics["Loss Eigen"] = (
-            self.test_loss_fn_eigen(
-                pred=hessian_pred,
-                target=hessian_true,
-                data=batch,
-                debugstr=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}-Loss Eigen",
-            )
-            .detach()
-            .item()
-        )
-        eval_metrics["Loss Eigen k2"] = (
-            self.test_loss_fn_eigen_k2(
-                pred=hessian_pred,
-                target=hessian_true,
-                data=batch,
-                debugstr=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}-Loss Eigen k2",
-            )
-            .detach()
-            .item()
-        )
-        eval_metrics["Loss Eigen k8"] = (
-            self.test_loss_fn_eigen_k8(
-                pred=hessian_pred,
-                target=hessian_true,
-                data=batch,
-                debugstr=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}-Loss Eigen k8",
-            )
-            .detach()
-            .item()
-        )
-        # loss from Hamiltonian prediction paper
-        eval_metrics["Loss WA k2"] = (
-            self.test_loss_fn_wa2(
-                pred=hessian_pred,
-                target=hessian_true,
-                data=batch,
-                debugstr=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}-Loss WA k2",
-            )
-            .detach()
-            .item()
-        )
-        eval_metrics["Loss WA k8"] = (
-            self.test_loss_fn_wa8(
-                pred=hessian_pred,
-                target=hessian_true,
-                data=batch,
-                debugstr=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}-Loss WA k8",
-            )
-            .detach()
-            .item()
-        )
+        # eval_metrics["Loss Eigen"] = (
+        #     self.test_loss_fn_eigen(
+        #         pred=hessian_pred,
+        #         target=hessian_true,
+        #         data=batch,
+        #         debugstr=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}-Loss Eigen",
+        #     )
+        #     .detach()
+        #     .item()
+        # )
+        # eval_metrics["Loss Eigen k2"] = (
+        #     self.test_loss_fn_eigen_k2(
+        #         pred=hessian_pred,
+        #         target=hessian_true,
+        #         data=batch,
+        #         debugstr=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}-Loss Eigen k2",
+        #     )
+        #     .detach()
+        #     .item()
+        # )
+        # eval_metrics["Loss Eigen k8"] = (
+        #     self.test_loss_fn_eigen_k8(
+        #         pred=hessian_pred,
+        #         target=hessian_true,
+        #         data=batch,
+        #         debugstr=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}-Loss Eigen k8",
+        #     )
+        #     .detach()
+        #     .item()
+        # )
+        # # loss from Hamiltonian prediction paper
+        # eval_metrics["Loss WA k2"] = (
+        #     self.test_loss_fn_wa2(
+        #         pred=hessian_pred,
+        #         target=hessian_true,
+        #         data=batch,
+        #         debugstr=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}-Loss WA k2",
+        #     )
+        #     .detach()
+        #     .item()
+        # )
+        # eval_metrics["Loss WA k8"] = (
+        #     self.test_loss_fn_wa8(
+        #         pred=hessian_pred,
+        #         target=hessian_true,
+        #         data=batch,
+        #         debugstr=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}-Loss WA k8",
+        #     )
+        #     .detach()
+        #     .item()
+        # )
 
         # Eigenvalue, Eigenvector metrics
         eig_metrics = get_eigval_eigvec_metrics(
