@@ -296,8 +296,17 @@ class HessianPotentialModule(PotentialModule):
             p.numel() for p in self.potential.parameters() if p.requires_grad
         )
         total_params = sum(p.numel() for p in self.potential.parameters())
-        self.log("train-trainable_params", trainable_params, rank_zero_only=True)
-        self.log("train-total_params", total_params, rank_zero_only=True)
+        try:
+            wandb.log({
+                "train-trainable_params": trainable_params,
+                "train-total_params": total_params,
+                "num_train_samples": len(self.train_dataset),
+                "num_val_samples": len(self.val_dataset),
+                "num_train_batches": num_train_batches,
+                "num_val_batches": num_val_batches,
+            })
+        except Exception as e:
+            print(f"Error logging trainable parameters: {e}")
         return
 
     @torch.enable_grad()
