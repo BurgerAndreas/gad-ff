@@ -26,6 +26,7 @@ IGNORE_OVERRIDES_CHECKPOINT = [
     "eval_max_samples",
     "eval_config_path",
     "eval_wandb_run_id",
+    "num_workers",
 ]
 
 REPLACE = {
