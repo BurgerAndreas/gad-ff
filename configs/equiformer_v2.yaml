@@ -49,10 +49,3 @@ model:
   proj_drop:                0.0
 
   weight_init:              'uniform'    # ['uniform', 'normal']
-
-  # Added for eigenvalue/eigenvector prediction
-  do_eigvec_1: false
-  do_eigvec_2: false  
-  do_eigval_1: false
-  do_eigval_2: false
-

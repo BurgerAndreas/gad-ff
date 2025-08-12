@@ -3,11 +3,11 @@
 potential_module_class: "HessianPotentialModule"
 
 model:
-  # Added for eigenvalue/eigenvector prediction
-  do_eigvec_1: false
-  do_eigvec_2: false  
-  do_eigval_1: false
-  do_eigval_2: false
+  # # Added for eigenvalue/eigenvector prediction
+  # do_eigvec_1: false
+  # do_eigvec_2: false  
+  # do_eigval_1: false
+  # do_eigval_2: false
 
   do_hessian: true
   # expressivity

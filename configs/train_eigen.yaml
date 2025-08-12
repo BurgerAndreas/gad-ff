@@ -36,19 +36,8 @@ training:
     save_ema_state: true       # Save EMA state in checkpoints
     use_buffers: true          # Apply EMA to model buffers (BatchNorm stats, etc.)
 
-  # Loss weights
-  weight_eigval1: 1.0
-  weight_eigval2: 1.0
-  weight_eigvec1: 1.0
-  weight_eigvec2: 1.0
-
   train_heads_only: true
 
-  # Loss type
-  loss_type: "mse"
-  # Sign-invariant loss for eigenvectors: "cosine", "min_l2", "min_l1", "l1", "l2"
-  loss_type_vec: "cosine"  
-  
   # Checkpoint loading options
   load_weights_only: false  # If true, only load model weights, ignore training state (epoch, optimizer, etc.)
 

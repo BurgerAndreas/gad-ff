@@ -120,11 +120,8 @@ class HessianPotentialModule(PotentialModule):
         self.pos_require_grad = False
 
         if self.training_config["hessian_loss_type"] == "mse":
-            # TODO: batching not correct
-            # loss_fn_hessian = L2HessianLoss()
             self.loss_fn_hessian = torch.nn.MSELoss()
         elif self.training_config["hessian_loss_type"] == "mae":
-            # loss_fn_hessian = L1HessianLoss()
             self.loss_fn_hessian = torch.nn.L1Loss()
         else:
             raise ValueError(
@@ -165,15 +162,6 @@ class HessianPotentialModule(PotentialModule):
         self.test_loss_fn_eigen_k8 = get_hessian_loss_fn(
             loss_name="eigenspectrum", k=8, alpha=1.0, loss_type="eigen"
         )
-
-        # self.loss_fn = nn.L1Loss()
-        # self.MAEEval = MeanAbsoluteError()
-        # self.MAPEEval = MeanAbsolutePercentageError()
-        # self.cosineEval = CosineSimilarity(reduction="mean")
-
-        # # Store functions as private attributes to avoid PyTorch module registration
-        # self._loss_fn_eigen = get_vector_loss_fn(training_config["loss_type_vec"])
-        # self._loss_fn_hessian = get_scalar_loss_fn(training_config["loss_type"])
 
     # @property
     # def loss_fn_hessian(self):
