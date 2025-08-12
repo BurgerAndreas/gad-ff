@@ -48,6 +48,9 @@ REPLACE_HUMAN = {
     "lr_schedule_type.step_size": "lr_step_size",
     "overfit100": "",
     "alldata": "",
+    "preset=a": "wa bz=128",
+    "preset=b": "Luca8",
+    "preset=": "",
 }
 
 
