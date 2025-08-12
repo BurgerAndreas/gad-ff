@@ -644,6 +644,13 @@ class PotentialModule(LightningModule):
         val_epoch_metrics.update({"epoch": self.current_epoch})
         for k, v in val_epoch_metrics.items():
             self.log(k, v, sync_dist=True)
+        if hasattr(self, "val_start_time"):
+            self.log(
+                "val-val_duration_seconds",
+                time.time() - self.val_start_time,
+                prog_bar=False,
+                rank_zero_only=True,
+            )
 
         self.val_step_outputs.clear()
 
@@ -660,6 +667,11 @@ class PotentialModule(LightningModule):
             )
             # if self.trainer.is_global_zero:
             #     print(f"Epoch {self.current_epoch} completed in {epoch_duration:.2f} seconds")
+
+    def on_validation_epoch_start(self):
+        """Reset the validation dataloader at the start of every epoch."""
+        self.val_start_time = time.time()
+        super().on_validation_epoch_start()
 
     def _configure_gradient_clipping(
         self,

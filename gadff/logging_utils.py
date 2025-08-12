@@ -88,7 +88,7 @@ def name_from_config(args: omegaconf.DictConfig, is_checkpoint_name=False) -> st
         # Make wandb name human readable
         for key, value in REPLACE_HUMAN.items():
             override_names = override_names.replace(key, value)
-        
+
     # logger.info("name_from_config() mname: %s, override_names: %s", mname, override_names)
     _name = mname + override_names
     print(f"Name{' checkpoint' if is_checkpoint_name else ''}: {_name}")

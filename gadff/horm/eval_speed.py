@@ -36,6 +36,7 @@ from ocpmodels.hessian_graph_transform import HessianGraphTransform
 # 'ygridoff', 'gridon', 'none']
 PLOTLY_TEMPLATE = "plotly_white"
 
+
 def save_idx_by_natoms(args):
     if isinstance(args, str):
         args = argparse.Namespace(dataset_path=args)
@@ -216,7 +217,7 @@ def speed_comparison(
         use_pbc=model.use_pbc,
     )
     dataset = LmdbDataset(fix_dataset_path(dataset_name), transform=transform)
-    
+
     # do a couple of forward passes to warm up the model
     # populate caches, jit, load cuda kernels, and what not
     loader = TGDataLoader(dataset, batch_size=1, shuffle=False)
@@ -230,7 +231,7 @@ def speed_comparison(
         if i > 10:
             break
     print("Model warmed up")
-    
+
     results = []
 
     for n_atoms, indices in tqdm(indices_by_natoms.items(), desc="Processing N_atoms"):
@@ -260,14 +261,14 @@ def speed_comparison(
                     "memory": mem_prediction,
                 }
             )
-            
+
             # clear memory
             torch.cuda.empty_cache()
-            
+
             # fresh batch
             batch = _batch.clone().to(device)
             batch = compute_extra_props(batch)
-            
+
             # Time autograd
             time_autograd, mem_autograd = time_hessian_computation(
                 model, batch, "autograd"
@@ -280,7 +281,7 @@ def speed_comparison(
                     "memory": mem_autograd,
                 }
             )
-            
+
             # clear memory
             torch.cuda.empty_cache()
 
@@ -318,7 +319,7 @@ def plot_speed_comparison(results_df, output_dir="./resultseval"):
         yaxis_title="Average Time (ms)",
         legend_title="Method",
         template=PLOTLY_TEMPLATE,
-        margin=dict(l=40, r=40, b=40, t=40)
+        margin=dict(l=40, r=40, b=40, t=40),
     )
     output_path = output_dir / "speed_comparison_plot.html"
     fig.write_html(output_path)
@@ -352,7 +353,7 @@ def plot_memory_usage(results_df, output_dir="./resultseval"):
         yaxis_title="Peak Memory (MB)",
         legend_title="Method",
         template=PLOTLY_TEMPLATE,
-        margin=dict(l=40, r=40, b=40, t=40)
+        margin=dict(l=40, r=40, b=40, t=40),
     )
     output_path = output_dir / "memory_usage_plot.html"
     fig.write_html(output_path)
