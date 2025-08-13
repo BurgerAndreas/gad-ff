@@ -292,6 +292,7 @@ class HessianPotentialModule(PotentialModule):
                 assert num_val_batches >= 1, (
                     f"Validation set will be empty with drop_last {len(self.val_dataset)} / {self.training_config['bz_val']}"
                 )
+            print(f"self.do_eigen_loss: {self.do_eigen_loss}")
 
         else:
             raise NotImplementedError

@@ -9,7 +9,7 @@ import os
 import torch
 import hydra
 import re
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig, OmegaConf, open_dict
 import wandb
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -100,7 +100,7 @@ def setup_training(cfg: DictConfig):
     if len(checkpoint_name) <= 1:
         checkpoint_name = "base"
     print(f"Checkpoint name: {checkpoint_name}")
-
+    
     # Auto-resume logic: find existing trainer checkpoint with same base name
     if cfg.get("ckpt_resume_auto", False):
         if cfg.ckpt_trainer_path is not None:
@@ -200,11 +200,17 @@ def setup_training(cfg: DictConfig):
     else:
         print("Starting new WandB run")
 
+    # # add checkpoint_name to config
+    # with open_dict(cfg):
+    #     cfg.checkpoint_name = checkpoint_name
+    cfg_dict = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=False)
+    cfg_dict["checkpoint_name"] = checkpoint_name
+
     wandb_logger = WandbLogger(
         project=cfg.project,
         log_model=False,
         name=run_name,
-        config=OmegaConf.to_container(cfg, resolve=True, throw_on_missing=False),
+        config=cfg_dict,
         **wandb_kwargs,
     )
 
