@@ -127,6 +127,10 @@ class HessianPotentialModule(PotentialModule):
             raise ValueError(
                 f"Invalid Hessian loss type: {self.model_config['hessian_loss_type']}"
             )
+        
+        # Validation metrics
+        self.MSE = torch.nn.MSELoss()
+        self.MAE = torch.nn.L1Loss()
 
         print(f"Training config: {training_config['eigen_loss']}")
         self.loss_fn_eigen = get_hessian_loss_fn(**training_config["eigen_loss"])
@@ -437,6 +441,10 @@ class HessianPotentialModule(PotentialModule):
         #     .detach()
         #     .item()
         # )
+        
+        # MSE Hessian
+        eval_metrics["MSE Hessian"] = self.MSE(hessian_pred, hessian_true)
+        eval_metrics["MAE Hessian"] = self.MAE(hessian_pred, hessian_true)
 
         # Eigenvalue, Eigenvector metrics
         eig_metrics = get_eigval_eigvec_metrics(
