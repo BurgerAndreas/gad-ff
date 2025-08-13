@@ -49,7 +49,6 @@ training:
   drop_last: true # otherwise we run into shape issues
 
 pltrainer:
-  # max_epochs: 10000
   # gradient_clip_val: 0.1
   # accumulate_grad_batches: 1
   # limit_train_batches: 1600 # 1600 batches * 64 bz = 102400 samples

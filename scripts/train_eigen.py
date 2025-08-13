@@ -145,9 +145,10 @@ def setup_training(cfg: DictConfig):
     )
 
     early_stopping_callback = EarlyStopping(
-        monitor="val-totloss",
-        patience=1000,
-        mode="min",
+        monitor=cfg.early_stopping.monitor,
+        patience=cfg.early_stopping.patience,
+        mode=cfg.early_stopping.mode,
+        verbose=cfg.early_stopping.verbose,
     )
 
     lr_monitor = LearningRateMonitor(logging_interval="step")
