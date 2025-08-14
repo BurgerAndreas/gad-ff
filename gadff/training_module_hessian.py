@@ -316,6 +316,8 @@ class HessianPotentialModule(PotentialModule):
 
     @torch.enable_grad()
     def compute_loss(self, batch):
+        loss = 0.0
+        info = {}
         batch.pos.requires_grad_()
         batch = compute_extra_props(batch, pos_require_grad=self.pos_require_grad)
 
@@ -357,12 +359,11 @@ class HessianPotentialModule(PotentialModule):
         #     hessian_loss = torch.stack(losses).mean()
         # else:
         #     hessian_loss = self.loss_fn_hessian(hessian_pred, hessian_true)
-        hessian_loss = self.loss_fn_hessian(hessian_pred, hessian_true)
-
-        loss = hessian_loss * self.training_config["hessian_loss_weight"]
-        info = {
-            "Loss Hessian": hessian_loss.detach().item(),
-        }
+        
+        if self.training_config["hessian_loss_weight"] > 0.0:
+            hessian_loss = self.loss_fn_hessian(hessian_pred, hessian_true)
+            loss += hessian_loss * self.training_config["hessian_loss_weight"]
+            info["Loss Hessian"] = hessian_loss.detach().item()
 
         if self.do_eigen_loss:
             eigen_loss = self.loss_fn_eigen(

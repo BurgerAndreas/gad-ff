@@ -7,8 +7,8 @@ model:
 
 # Step decay learning rate schedule
 training:
-  bz: 256
-  bz_val: 256
+  bz: 64
+  bz_val: 64
   
   lr_schedule_type: "step"
   lr_schedule_config:
@@ -17,13 +17,13 @@ training:
     # over 100 epochs -> step=5
     step_size: 10 # 5 or 10
   
-  # hessian_loss_type: "mae"
-  # hessian_loss_weight: 1.0
+  hessian_loss_type: "mae"
+  hessian_loss_weight: 0.0
 
   mask_hessian: false
   eigen_loss:
     loss_name: "eigenspectrum"
     loss_type: "wa" # eigen or wa
-    k: 8
+    k: null
     alpha: 1.0
     dof_filter_fn: null
