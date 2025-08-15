@@ -127,7 +127,7 @@ class HessianPotentialModule(PotentialModule):
             raise ValueError(
                 f"Invalid Hessian loss type: {self.model_config['hessian_loss_type']}"
             )
-        
+
         # Validation metrics
         self.MSE = torch.nn.MSELoss()
         self.MAE = torch.nn.L1Loss()
@@ -302,14 +302,16 @@ class HessianPotentialModule(PotentialModule):
         )
         total_params = sum(p.numel() for p in self.potential.parameters())
         try:
-            wandb.log({
-                "train-trainable_params": trainable_params,
-                "train-total_params": total_params,
-                "num_train_samples": len(self.train_dataset),
-                "num_val_samples": len(self.val_dataset),
-                "num_train_batches": num_train_batches,
-                "num_val_batches": num_val_batches,
-            })
+            wandb.log(
+                {
+                    "train-trainable_params": trainable_params,
+                    "train-total_params": total_params,
+                    "num_train_samples": len(self.train_dataset),
+                    "num_val_samples": len(self.val_dataset),
+                    "num_train_batches": num_train_batches,
+                    "num_val_batches": num_val_batches,
+                }
+            )
         except Exception as e:
             print(f"Error logging trainable parameters: {e}")
         return
@@ -359,7 +361,7 @@ class HessianPotentialModule(PotentialModule):
         #     hessian_loss = torch.stack(losses).mean()
         # else:
         #     hessian_loss = self.loss_fn_hessian(hessian_pred, hessian_true)
-        
+
         if self.training_config["hessian_loss_weight"] > 0.0:
             hessian_loss = self.loss_fn_hessian(hessian_pred, hessian_true)
             loss += hessian_loss * self.training_config["hessian_loss_weight"]
@@ -443,10 +445,14 @@ class HessianPotentialModule(PotentialModule):
         #     .detach()
         #     .item()
         # )
-        
+
         # MSE Hessian
-        eval_metrics["MSE Hessian"] = self.MSE(hessian_pred, hessian_true).detach().item()
-        eval_metrics["MAE Hessian"] = self.MAE(hessian_pred, hessian_true).detach().item()
+        eval_metrics["MSE Hessian"] = (
+            self.MSE(hessian_pred, hessian_true).detach().item()
+        )
+        eval_metrics["MAE Hessian"] = (
+            self.MAE(hessian_pred, hessian_true).detach().item()
+        )
 
         # Eigenvalue, Eigenvector metrics
         eig_metrics = get_eigval_eigvec_metrics(

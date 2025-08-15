@@ -5,7 +5,62 @@ Based on the HORM EquiformerV2 model, finetuned with extra prediction heads on t
 
 ## Installation
 
-Setup the environment [docs/cluster.md](docs/cluster.md)
+```bash
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+```bash
+uv venv hesspred --python 3.11
+source hesspred/bin/activate
+uv pip install --upgrade pip
+
+uv pip install torch==2.4.1 torch-geometric==2.6.1
+# uv pip install --no-index torch-scatter -f https://data.pyg.org/whl/torch-2.4.1+cu128.html
+
+uv pip install "numpy<=1.26.0" scipy scikit-learn pandas ase==3.25.0 plotly imageio seaborn black tqdm joblib einops ipykernel toml omegaconf nbformat nglview py3Dmol==2.5.0 hydra-submitit-launcher hydra-core==1.* wandb==0.21.0 pyyaml dxtb[libcint] torchmetrics joblib==1.5.1 submitit rmsd pytorch_warmup e3nn==0.5.1 "huggingface_hub>=0.27.1" "kagglehub>=0.3.12" networkx==3.4.2 pydantic==2.11.4 opt-einsum-fx==0.1.4 lmdb==1.5.1 "h5py>=3.10.0" progressbar==2.5 ruff triton==2.2.0 lightning==2.5.1.post0
+# fairchem-core==1.10.0
+
+uv pip install -e .
+
+uv pip install -U "jax[cuda12]"==0.6.2
+uv pip install -e sella
+uv pip install git+https://github.com/virtualzx-nad/geodesic-interpolate.git
+
+# uv pip install autograd==1.5 dask==2023.5.1 distributed==2023.5.1 fabric==3.1.0 jinja2==3.1.5 natsort==8.3.1 rmsd==1.5.1
+
+uv pip install pyscf
+uv pip install gpu4pyscf-cuda12x cutensor-cu12
+
+cd ../ReactBench
+cd dependencies 
+git clone git@github.com:BurgerAndreas/pysisyphus.git 
+cd pysisyphus 
+uv pip install -e .
+cd ..
+
+git clone git@github.com:BurgerAndreas/pyGSM.git 
+cd pyGSM
+uv pip install -e .
+cd ../..
+
+cd ReactBench/MLIP/leftnet/ # install leftnet env
+uv pip install -e .
+cd ../../..
+
+cd ReactBench/MLIP/mace/ # install mace env
+uv pip install -e .
+cd ../../..
+
+# git clone git@github.com:BurgerAndreas/gad-ff.git
+cd ../gad-ff
+uv pip install -e .
+cd ../ReactBench
+
+cd ../gad-ff
+```
+
 
 
 ## Available checkpoints
@@ -77,7 +132,6 @@ Code: https://github.com/BurgerAndreas/gad-ff
 Recreate our Hessian-eigen dataset [docs/eigen_dataset.md](docs/eigen_dataset.md)
 
 Recreate our direct-prediction-Hessian-eigen model [docs/training.md](docs/training.md)
-
 
 ## Citation
 

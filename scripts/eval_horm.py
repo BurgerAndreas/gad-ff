@@ -1,6 +1,6 @@
 import torch
 import argparse
-from gadff.horm.eval_horm import evaluate
+from gadff.horm.eval_horm import evaluate, plot_accuracy_vs_natoms
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate HORM model on dataset")
@@ -34,6 +34,13 @@ if __name__ == "__main__":
         default=None,
         help="Maximum number of samples to evaluate (default: all samples)",
     )
+    parser.add_argument(
+        "--redo",
+        "-r",
+        type=bool,
+        default=False,
+        help="Run eval from scratch even if results already exist",
+    )
 
     args = parser.parse_args()
 
@@ -44,5 +51,16 @@ if __name__ == "__main__":
     max_samples = args.max_samples
     config_path = args.config_path
     hessian_method = args.hessian_method
+    redo = args.redo
 
-    evaluate(lmdb_path, checkpoint_path, config_path, hessian_method, max_samples)
+    df_results, aggregated_results = evaluate(
+        lmdb_path=lmdb_path,
+        checkpoint_path=checkpoint_path,
+        config_path=config_path,
+        hessian_method=hessian_method,
+        max_samples=max_samples,
+        redo=redo
+    )
+    
+    # Plot accuracy over Natoms
+    plot_accuracy_vs_natoms(df_results)

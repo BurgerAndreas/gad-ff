@@ -100,7 +100,7 @@ def setup_training(cfg: DictConfig):
     if len(checkpoint_name) <= 1:
         checkpoint_name = "base"
     print(f"Checkpoint name: {checkpoint_name}")
-    
+
     # Auto-resume logic: find existing trainer checkpoint with same base name
     if cfg.get("ckpt_resume_auto", False):
         if cfg.ckpt_trainer_path is not None:

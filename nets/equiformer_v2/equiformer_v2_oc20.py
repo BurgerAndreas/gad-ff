@@ -862,6 +862,7 @@ class EquiformerV2_OC20(BaseModel):
         ###############################################################
 
         # Compute 3x3 rotation matrix per edge [E, 3, 3]
+        assert edge_distance_vec.numel() > 0, "edge_distance_vec is empty"
         edge_rot_mat = self._init_edge_rot_mat(data, edge_index, edge_distance_vec)
 
         # Initialize the WignerD matrices and other values for spherical harmonic calculations

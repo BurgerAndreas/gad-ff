@@ -1,7 +1,9 @@
 import torch
 from tqdm import tqdm
-import argparse
 import wandb
+import pandas as pd
+import matplotlib.pyplot as plt
+import os
 from torch_geometric.loader import DataLoader as TGDataLoader
 
 from gadff.horm.training_module import PotentialModule, compute_extra_props
@@ -58,6 +60,7 @@ def evaluate(
     max_samples=None,
     wandb_run_id=None,
     wandb_kwargs={},
+    redo=False,
 ):
     ckpt = torch.load(checkpoint_path, weights_only=False)
     model_name = ckpt["hyper_parameters"]["model_config"]["name"]
@@ -110,146 +113,192 @@ def evaluate(
     dataloader = TGDataLoader(dataset, batch_size=1, shuffle=False)
 
     dataset_name = lmdb_path.split("/")[-1].split(".")[0]
+    
+    # Create results file path
+    results_dir = "results"
+    os.makedirs(results_dir, exist_ok=True)
+    ckpt_name = checkpoint_path.split("/")[-1].split(".")[0]
+    results_file = f"{results_dir}/{ckpt_name}_{dataset_name}_{hessian_method}_metrics.pkl"
+    
+    # Check if results already exist and redo is False
+    if os.path.exists(results_file) and not redo:
+        print(f"Loading existing results from {results_file}")
+        df_results = pd.read_pickle(results_file)
+        
+    else:
+        # Initialize metrics collection for per-sample DataFrame
+        sample_metrics = []
+        n_samples = 0
 
-    # Initialize metrics
-    total_e_error = 0.0
-    total_f_error = 0.0
-    total_h_error = 0.0
-    total_eigen_error = 0.0
-    total_asymmetry_error = 0.0
-    total_true_asymmetry_error = 0.0
+        for batch in tqdm(dataloader, desc="Evaluating", total=len(dataloader)):
+            batch = batch.to("cuda")
+            batch = compute_extra_props(batch)
 
-    n_samples = 0
-
-    # Added Andreas
-    total_eigval_mae = 0.0
-    total_eigval1_mae = 0.0
-    total_eigval2_mae = 0.0
-    total_eigvec1_mae = 0.0
-    total_eigvec2_mae = 0.0
-    total_eigvec1_cos = 0.0
-    total_eigvec2_cos = 0.0
-
-    for batch in tqdm(dataloader, desc="Evaluating", total=len(dataloader)):
-        batch = batch.to("cuda")
-        batch = compute_extra_props(batch)
-
-        # Forward pass
-        if model_name == "LEFTNet":
-            batch.pos.requires_grad_()
-            ener, force = model.forward_autograd(batch)
-            hess = compute_hessian(batch.pos, ener, force)
-        elif "equiformer" in model_name.lower():
-            if do_autograd:
+            # Forward pass
+            if model_name == "LEFTNet":
                 batch.pos.requires_grad_()
-                ener, force, out = model.forward(batch, otf_graph=True, hessian=False)
+                ener, force = model.forward_autograd(batch)
                 hess = compute_hessian(batch.pos, ener, force)
+            elif "equiformer" in model_name.lower():
+                if do_autograd:
+                    batch.pos.requires_grad_()
+                    ener, force, out = model.forward(batch, otf_graph=True, hessian=False)
+                    hess = compute_hessian(batch.pos, ener, force)
+                else:
+                    ener, force, out = model.forward(batch, otf_graph=False, hessian=True)
+                    hess = out["hessian"]
             else:
-                ener, force, out = model.forward(batch, otf_graph=False, hessian=True)
-                hess = out["hessian"]
-        else:
-            batch.pos.requires_grad_()
-            ener, force, out = model.forward(batch)
-            hess = compute_hessian(batch.pos, ener, force)
+                batch.pos.requires_grad_()
+                ener, force, out = model.forward(batch)
+                hess = compute_hessian(batch.pos, ener, force)
 
-        # Compute hessian eigenspectra
-        eigvals, eigvecs = torch.linalg.eigh(hess)
-        eigenvalues_hartree_bohr = hess2eigenvalues(hess)
+            # Compute hessian eigenspectra
+            eigvals, eigvecs = torch.linalg.eigh(hess)
+            eigenvalues_hartree_bohr = hess2eigenvalues(hess)
 
-        # Compute errors
-        e_error = torch.mean(torch.abs(ener.squeeze() - batch.ae))
-        f_error = torch.mean(torch.abs(force - batch.forces))
+            # Compute errors
+            e_error = torch.mean(torch.abs(ener.squeeze() - batch.ae))
+            f_error = torch.mean(torch.abs(force - batch.forces))
 
-        # Reshape true hessian
-        n_atoms = batch.pos.shape[0]
-        hessian_true = batch.hessian.reshape(n_atoms * 3, n_atoms * 3)
-        h_error = torch.mean(torch.abs(hess - hessian_true))
+            # Reshape true hessian
+            n_atoms = batch.pos.shape[0]
+            hessian_true = batch.hessian.reshape(n_atoms * 3, n_atoms * 3)
+            h_error = torch.mean(torch.abs(hess - hessian_true))
 
-        # Eigenvalue error
-        eigvals_true, eigvecs_true = torch.linalg.eigh(hessian_true)
-        eigen_true_hartree_bohr = hess2eigenvalues(hessian_true)
-        eigen_error = torch.mean(
-            torch.abs(eigenvalues_hartree_bohr - eigen_true_hartree_bohr)
-        )  # Hartree/Bohr^2
+            # Eigenvalue error
+            eigvals_true, eigvecs_true = torch.linalg.eigh(hessian_true)
+            eigen_true_hartree_bohr = hess2eigenvalues(hessian_true)
+            eigen_error = torch.mean(
+                torch.abs(eigenvalues_hartree_bohr - eigen_true_hartree_bohr)
+            )  # Hartree/Bohr^2
 
-        # Asymmetry error
-        asymmetry_error = torch.mean(torch.abs(hess - hess.T))
-        total_asymmetry_error += asymmetry_error.item()
-        true_asymmetry_error = torch.mean(torch.abs(hessian_true - hessian_true.T))
-        total_true_asymmetry_error += true_asymmetry_error.item()
+            # Asymmetry error
+            asymmetry_error = torch.mean(torch.abs(hess - hess.T))
+            true_asymmetry_error = torch.mean(torch.abs(hessian_true - hessian_true.T))
 
-        # Update totals
-        total_e_error += e_error.item()
-        total_f_error += f_error.item()
-        total_h_error += h_error.item()
-        total_eigen_error += eigen_error.item()  # Hartree/Bohr^2
-        n_samples += 1
+            # Additional metrics
+            eigval_mae = torch.mean(torch.abs(eigvals - eigvals_true)) # eV/Angstrom^2
+            eigval1_mae = torch.mean(torch.abs(eigvals[0] - eigvals_true[0]))
+            eigval2_mae = torch.mean(torch.abs(eigvals[1] - eigvals_true[1]))
+            eigvec1_mae = torch.mean(torch.abs(eigvecs[:, 0] - eigvecs_true[:, 0]))
+            eigvec2_mae = torch.mean(torch.abs(eigvecs[:, 1] - eigvecs_true[:, 1]))
+            eigvec1_cos = torch.abs(torch.dot(eigvecs[:, 0], eigvecs_true[:, 0]))
+            eigvec2_cos = torch.abs(torch.dot(eigvecs[:, 1], eigvecs_true[:, 1]))
+            
+            # Collect per-sample metrics
+            sample_data = {
+                'sample_idx': n_samples,
+                'natoms': n_atoms,
+                'energy_error': e_error.item(),
+                'forces_error': f_error.item(),
+                'hessian_error': h_error.item(),
+                'eigen_error': eigen_error.item(),
+                'asymmetry_error': asymmetry_error.item(),
+                'true_asymmetry_error': true_asymmetry_error.item(),
+                'eigval_mae': eigval_mae.item(),
+                'eigval1_mae': eigval1_mae.item(),
+                'eigval2_mae': eigval2_mae.item(),
+                'eigvec1_mae': eigvec1_mae.item(),
+                'eigvec2_mae': eigvec2_mae.item(),
+                'eigvec1_cos': eigvec1_cos.item(),
+                'eigvec2_cos': eigvec2_cos.item(),
+            }
+            sample_metrics.append(sample_data)
+            n_samples += 1
 
-        # Added Andreas
-        eigval_mae = torch.mean(torch.abs(eigvals - eigvals_true))
-        eigval1_mae = torch.mean(torch.abs(eigvals[0] - eigvals_true[0]))
-        eigval2_mae = torch.mean(torch.abs(eigvals[1] - eigvals_true[1]))
-        eigvec1_mae = torch.mean(torch.abs(eigvecs[:, 0] - eigvecs_true[:, 0]))
-        eigvec2_mae = torch.mean(torch.abs(eigvecs[:, 1] - eigvecs_true[:, 1]))
-        eigvec1_cos = torch.abs(torch.dot(eigvecs[:, 0], eigvecs_true[:, 0]))
-        eigvec2_cos = torch.abs(torch.dot(eigvecs[:, 1], eigvecs_true[:, 1]))
-        total_eigval_mae += eigval_mae.item()  # eV/Angstrom^2
-        total_eigval1_mae += eigval1_mae.item()
-        total_eigval2_mae += eigval2_mae.item()
-        total_eigvec1_mae += eigvec1_mae.item()
-        total_eigvec2_mae += eigvec2_mae.item()
-        total_eigvec1_cos += eigvec1_cos.item()
-        total_eigvec2_cos += eigvec2_cos.item()
+            # Memory management
+            torch.cuda.empty_cache()
 
-        # Memory management
-        torch.cuda.empty_cache()
+            if max_samples is not None and n_samples >= max_samples:
+                break
 
-        if max_samples is not None and n_samples >= max_samples:
-            break
-
-    # Calculate average errors
-    mae_e = total_e_error / n_samples
-    mae_f = total_f_error / n_samples
-    mae_h = total_h_error / n_samples
-    mae_eigen = total_eigen_error / n_samples
-    mae_asymmetry = total_asymmetry_error / n_samples
-    mae_true_asymmetry = total_true_asymmetry_error / n_samples
-    print(f"\nResults for {dataset_name}:")
-    print(f"Energy MAE: {mae_e:.6f}")
-    print(f"Forces MAE: {mae_f:.6f}")
-    print(f"Hessian MAE: {mae_h:.6f}")
-    print(f"Eigenvalue MAE: {mae_eigen:.6f} Hartree/Bohr^2")
-    print(f"Asymmetry MAE: {mae_asymmetry:.6f}")
-    print(f"True Asymmetry MAE: {mae_true_asymmetry:.6f}")
-
-    # Added Andreas
-    print(f"Eigenvalue MAE: {total_eigval_mae / n_samples:.6f} eV/Angstrom^2")
-    print(f"Eigenvalue 1 MAE: {total_eigval1_mae / n_samples:.6f}")
-    print(f"Eigenvalue 2 MAE: {total_eigval2_mae / n_samples:.6f}")
-    print(f"Eigenvector 1 MAE: {total_eigvec1_mae / n_samples:.6f}")
-    print(f"Eigenvector 2 MAE: {total_eigvec2_mae / n_samples:.6f}")
-    print(f"Eigenvector 1 Cosine: {total_eigvec1_cos / n_samples:.6f}")
-    print(f"Eigenvector 2 Cosine: {total_eigvec2_cos / n_samples:.6f}")
-
-    results = {
-        "energy_mae": mae_e,
-        "forces_mae": mae_f,
-        "hessian_mae": mae_h,
-        "eigenvalue_mae_hartree_bohr2": mae_eigen,
-        "asymmetry_mae": mae_asymmetry,
-        "true_asymmetry_mae": mae_true_asymmetry,
-        "eigval_mae": total_eigval_mae / n_samples,
-        "eigval1_mae": total_eigval1_mae / n_samples,
-        "eigval2_mae": total_eigval2_mae / n_samples,
-        "eigvec1_mae": total_eigvec1_mae / n_samples,
-        "eigvec2_mae": total_eigvec2_mae / n_samples,
-        "eigvec1_cos": total_eigvec1_cos / n_samples,
-        "eigvec2_cos": total_eigvec2_cos / n_samples,
+        # Create DataFrame from collected metrics
+        df_results = pd.DataFrame(sample_metrics)
+        
+        # Save DataFrame
+        df_results.to_pickle(results_file)
+        print(f"Saved results to {results_file}")
+        
+    aggregated_results = {
+        "energy_mae": df_results["energy_error"].mean(),
+        "forces_mae": df_results["forces_error"].mean(), 
+        "hessian_mae": df_results["hessian_error"].mean(),
+        "eigenvalue_mae_hartree_bohr2": df_results["eigen_error"].mean(),
+        "asymmetry_mae": df_results["asymmetry_error"].mean(),
+        "true_asymmetry_mae": df_results["true_asymmetry_error"].mean(),
+        "eigval_mae": df_results["eigval_mae"].mean(),
+        "eigval1_mae": df_results["eigval1_mae"].mean(),
+        "eigval2_mae": df_results["eigval2_mae"].mean(),
+        "eigvec1_mae": df_results["eigvec1_mae"].mean(),
+        "eigvec2_mae": df_results["eigvec2_mae"].mean(),
+        "eigvec1_cos": df_results["eigvec1_cos"].mean(),
+        "eigvec2_cos": df_results["eigvec2_cos"].mean(),
     }
-
-    wandb.log(results)
+    
+    print(f"\nResults for {dataset_name}:")
+    print(f"Energy MAE: {aggregated_results['energy_mae']:.6f}")
+    print(f"Forces MAE: {aggregated_results['forces_mae']:.6f}")
+    print(f"Hessian MAE: {aggregated_results['hessian_mae']:.6f}")
+    print(f"Eigenvalue MAE: {aggregated_results['eigenvalue_mae_hartree_bohr2']:.6f} Hartree/Bohr^2")
+    print(f"Asymmetry MAE: {aggregated_results['asymmetry_mae']:.6f}")
+    print(f"True Asymmetry MAE: {aggregated_results['true_asymmetry_mae']:.6f}")
+    print(f"Eigenvalue MAE: {aggregated_results['eigval_mae']:.6f} eV/Angstrom^2")
+    print(f"Eigenvalue 1 MAE: {aggregated_results['eigval1_mae']:.6f}")
+    print(f"Eigenvalue 2 MAE: {aggregated_results['eigval2_mae']:.6f}")
+    print(f"Eigenvector 1 MAE: {aggregated_results['eigvec1_mae']:.6f}")
+    print(f"Eigenvector 2 MAE: {aggregated_results['eigvec2_mae']:.6f}")
+    print(f"Eigenvector 1 Cosine: {aggregated_results['eigvec1_cos']:.6f}")
+    print(f"Eigenvector 2 Cosine: {aggregated_results['eigvec2_cos']:.6f}")
+    
+    wandb.log(aggregated_results)
 
     if wandb_run_id is None:
         wandb.finish()
 
-    return results
+    return df_results, aggregated_results
+
+
+def plot_accuracy_vs_natoms(df_results):
+    """Plot accuracy metrics over number of atoms"""
+    
+    # Create figure with subplots
+    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+    fig.suptitle('Model Accuracy vs Number of Atoms', fontsize=16)
+    
+    # Define metrics to plot and their labels
+    metrics = [
+        ('energy_error', 'Energy MAE', 'Energy Error'),
+        ('forces_error', 'Forces MAE', 'Forces Error'),
+        ('hessian_error', 'Hessian MAE', 'Hessian Error'),
+        ('eigen_error', 'Eigenvalue MAE', 'Eigenvalue Error (Hartree/Bohr²)')
+    ]
+    
+    # Plot each metric
+    for i, (metric, title, ylabel) in enumerate(metrics):
+        ax = axes[i // 2, i % 2]
+        
+        # Group by natoms and calculate mean and std
+        grouped = df_results.groupby('natoms')[metric].agg(['mean', 'std']).reset_index()
+        
+        # Plot mean with error bars
+        ax.errorbar(grouped['natoms'], grouped['mean'], yerr=grouped['std'], 
+                   marker='o', capsize=5, capthick=2, linewidth=2)
+        
+        ax.set_xlabel('Number of Atoms')
+        ax.set_ylabel(ylabel)
+        ax.set_title(title)
+        ax.grid(True, alpha=0.3)
+        
+        # Set log scale for y-axis if needed (based on data range)
+        if grouped['mean'].max() / grouped['mean'].min() > 100:
+            ax.set_yscale('log')
+    
+    plt.tight_layout()
+    
+    # Save plot
+    plot_filename = "accuracy_vs_natoms.png"
+    plt.savefig(plot_filename, dpi=300, bbox_inches='tight')
+    print(f"Saved plot to {plot_filename}")
+    
+    # Show plot
+    plt.show()
