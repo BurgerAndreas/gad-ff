@@ -6,7 +6,8 @@ training:
   trn_path: "RGD1.lmdb"
   val_path: "ts1x-val.lmdb"
   # with DDP (Distributed Data Parallel), each GPU will get batch size many samples
-  bz: 64
+  # bz: 64
+  # bz_val: 64
   
 # pltrainer:
 #   val_check_interval: 100    # Validate less frequently

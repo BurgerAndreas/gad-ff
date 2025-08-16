@@ -807,7 +807,7 @@ class EquiformerV2_OC20(BaseModel):
         return edge_index, edge_distance, edge_distance_vec
 
     def forward(
-        self, data, eigen=False, hessian=False, return_l_features=False, otf_graph=None
+        self, data, eigen=False, hessian=False, return_l_features=False, otf_graph=None, add_props=True
     ):
         """
         If eigen=True, return predictions for eigenvalues and eigenvectors of the Hessian in outputs dict.
@@ -1079,7 +1079,8 @@ class EquiformerV2_OC20(BaseModel):
             )  # (E, 3, 3)
             # sym_message: torch.Tensor = l012_edge_features
 
-            data = add_extra_props_for_hessian(data, offset_indices=True)
+            if add_props:
+                data = add_extra_props_for_hessian(data, offset_indices=True)
 
             # combine message with node embeddings (self-connection)
             # node embeddings -> (N, 3, 3)

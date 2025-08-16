@@ -47,6 +47,8 @@ training:
   max_val_samples: null
   drop_last: false
 
+  do_hessiangraphtransform: true
+
 # Pytorch Lightning Trainer configuration
 pltrainer:
   max_epochs: 10000

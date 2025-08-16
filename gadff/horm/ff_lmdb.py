@@ -11,6 +11,7 @@ from pathlib import Path
 
 import lmdb
 import numpy as np
+import torch
 from torch.utils.data import Dataset
 
 # from torch_geometric.data import Batch
@@ -101,7 +102,7 @@ class LmdbDataset(Dataset):
         if self.transform is not None:
             data_object = self.transform(data_object)
 
-        data_object.dataset_idx = idx
+        data_object.dataset_idx = torch.tensor(idx)
 
         return data_object
 

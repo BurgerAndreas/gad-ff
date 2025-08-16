@@ -36,6 +36,8 @@ import pytorch_lightning as pl
 from gadff.horm.ff_lmdb import LmdbDataset
 from ocpmodels.hessian_graph_transform import HessianGraphTransform
 
+from nets.equiformer_v2.hessian_pred_utils import add_extra_props_for_hessian
+
 # from gadff.horm.utils import average_over_batch_metrics, pretty_print
 # import gadff.horm.utils as diff_utils
 # from gadff.path_config import find_project_root
@@ -232,6 +234,7 @@ class HessianPotentialModule(PotentialModule):
             print(f"SLURM job ID: {slurm_job_id}")
         print("Setting up dataset")
         if stage == "fit":
+            # train dataset
             print(f"Loading training dataset from {self.training_config['trn_path']}")
             if (
                 isinstance(self.training_config["trn_path"], list)
@@ -240,11 +243,14 @@ class HessianPotentialModule(PotentialModule):
             ):
                 datasets = []
                 for path in self.training_config["trn_path"]:
-                    transform = HessianGraphTransform(
-                        cutoff=self.potential.cutoff,
-                        max_neighbors=self.potential.max_neighbors,
-                        use_pbc=self.potential.use_pbc,
-                    )
+                    if self.training_config["do_hessiangraphtransform"]:
+                        transform = HessianGraphTransform(
+                            cutoff=self.potential.cutoff,
+                            max_neighbors=self.potential.max_neighbors,
+                            use_pbc=self.potential.use_pbc,
+                        )
+                    else:
+                        transform = None
                     dataset = LmdbDataset(
                         Path(path),
                         transform=transform,
@@ -259,21 +265,28 @@ class HessianPotentialModule(PotentialModule):
                     f"Combined {len(datasets)} datasets into one with {len(self.train_dataset)} total samples"
                 )
             else:
-                transform = HessianGraphTransform(
-                    cutoff=self.potential.cutoff,
-                    max_neighbors=self.potential.max_neighbors,
-                    use_pbc=self.potential.use_pbc,
-                )
+                if self.training_config["do_hessiangraphtransform"]:
+                    transform = HessianGraphTransform(
+                        cutoff=self.potential.cutoff,
+                        max_neighbors=self.potential.max_neighbors,
+                        use_pbc=self.potential.use_pbc,
+                    )
+                else:
+                    transform = None
                 self.train_dataset = LmdbDataset(
                     Path(self.training_config["trn_path"]),
                     transform=transform,
                     **self.training_config,
                 )
-            transform = HessianGraphTransform(
-                cutoff=self.potential.cutoff,
-                max_neighbors=self.potential.max_neighbors,
-                use_pbc=self.potential.use_pbc,
-            )
+            # val dataset
+            if self.training_config["do_hessiangraphtransform"]:
+                transform = HessianGraphTransform(
+                    cutoff=self.potential.cutoff,
+                    max_neighbors=self.potential.max_neighbors,
+                    use_pbc=self.potential.use_pbc,
+                )
+            else:
+                transform = None
             self.val_dataset = LmdbDataset(
                 Path(self.training_config["val_path"]),
                 transform=transform,
@@ -322,9 +335,10 @@ class HessianPotentialModule(PotentialModule):
         info = {}
         batch.pos.requires_grad_()
         batch = compute_extra_props(batch, pos_require_grad=self.pos_require_grad)
+        batch = add_extra_props_for_hessian(batch, offset_indices=True)
 
         hat_ae, hat_forces, outputs = self.potential.forward(
-            batch.to(self.device), hessian=True
+            batch.to(self.device), hessian=True, add_props=False
         )
         hessian_pred = outputs["hessian"].to(self.device)
         hessian_true = batch.hessian.to(self.device)
@@ -385,10 +399,10 @@ class HessianPotentialModule(PotentialModule):
     def compute_eval_loss(self, batch, prefix):
         """Compute comprehensive evaluation metrics for eigenvalues and eigenvectors."""
         batch = compute_extra_props(batch=batch, pos_require_grad=self.pos_require_grad)
-
+        batch = add_extra_props_for_hessian(batch, offset_indices=True)
         with torch.no_grad():
             hat_ae, hat_forces, outputs = self.potential.forward(
-                batch.to(self.device), hessian=True
+                batch.to(self.device), hessian=True, add_props=False
             )
         eval_metrics = {}
 
