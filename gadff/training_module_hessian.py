@@ -386,13 +386,14 @@ class HessianPotentialModule(PotentialModule):
         """Compute comprehensive evaluation metrics for eigenvalues and eigenvectors."""
         batch = compute_extra_props(batch=batch, pos_require_grad=self.pos_require_grad)
 
-        hat_ae, hat_forces, outputs = self.potential.forward(
-            batch.to(self.device), hessian=True
-        )
+        with torch.no_grad():
+            hat_ae, hat_forces, outputs = self.potential.forward(
+                batch.to(self.device), hessian=True
+            )
         eval_metrics = {}
 
         hessian_true = batch.hessian
-        hessian_pred = outputs["hessian"]
+        hessian_pred = outputs["hessian"].detach()
 
         # eval_metrics["Loss Eigen"] = (
         #     self.test_loss_fn_eigen(
@@ -448,17 +449,17 @@ class HessianPotentialModule(PotentialModule):
 
         # MSE Hessian
         eval_metrics["MSE Hessian"] = (
-            self.MSE(hessian_pred, hessian_true).detach().item()
+            self.MSE(hessian_pred, hessian_true).item()
         )
         eval_metrics["MAE Hessian"] = (
-            self.MAE(hessian_pred, hessian_true).detach().item()
+            self.MAE(hessian_pred, hessian_true).item()
         )
 
         # Eigenvalue, Eigenvector metrics
         eig_metrics = get_eigval_eigvec_metrics(
-            hessian_true,
-            hessian_pred,
-            batch,
+            hessian_true.to("cpu"),
+            hessian_pred.to("cpu"),
+            batch.to("cpu"),
             prefix=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}",
         )
         eval_metrics.update(eig_metrics)
