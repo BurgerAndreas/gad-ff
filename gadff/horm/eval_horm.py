@@ -113,18 +113,20 @@ def evaluate(
     dataloader = TGDataLoader(dataset, batch_size=1, shuffle=False)
 
     dataset_name = lmdb_path.split("/")[-1].split(".")[0]
-    
+
     # Create results file path
     results_dir = "results"
     os.makedirs(results_dir, exist_ok=True)
     ckpt_name = checkpoint_path.split("/")[-1].split(".")[0]
-    results_file = f"{results_dir}/{ckpt_name}_{dataset_name}_{hessian_method}_metrics.pkl"
-    
+    results_file = (
+        f"{results_dir}/{ckpt_name}_{dataset_name}_{hessian_method}_metrics.pkl"
+    )
+
     # Check if results already exist and redo is False
     if os.path.exists(results_file) and not redo:
         print(f"Loading existing results from {results_file}")
         df_results = pd.read_pickle(results_file)
-        
+
     else:
         # Initialize metrics collection for per-sample DataFrame
         sample_metrics = []
@@ -142,10 +144,14 @@ def evaluate(
             elif "equiformer" in model_name.lower():
                 if do_autograd:
                     batch.pos.requires_grad_()
-                    ener, force, out = model.forward(batch, otf_graph=True, hessian=False)
+                    ener, force, out = model.forward(
+                        batch, otf_graph=True, hessian=False
+                    )
                     hess = compute_hessian(batch.pos, ener, force)
                 else:
-                    ener, force, out = model.forward(batch, otf_graph=False, hessian=True)
+                    ener, force, out = model.forward(
+                        batch, otf_graph=False, hessian=True
+                    )
                     hess = out["hessian"]
             else:
                 batch.pos.requires_grad_()
@@ -177,31 +183,31 @@ def evaluate(
             true_asymmetry_error = torch.mean(torch.abs(hessian_true - hessian_true.T))
 
             # Additional metrics
-            eigval_mae = torch.mean(torch.abs(eigvals - eigvals_true)) # eV/Angstrom^2
+            eigval_mae = torch.mean(torch.abs(eigvals - eigvals_true))  # eV/Angstrom^2
             eigval1_mae = torch.mean(torch.abs(eigvals[0] - eigvals_true[0]))
             eigval2_mae = torch.mean(torch.abs(eigvals[1] - eigvals_true[1]))
             eigvec1_mae = torch.mean(torch.abs(eigvecs[:, 0] - eigvecs_true[:, 0]))
             eigvec2_mae = torch.mean(torch.abs(eigvecs[:, 1] - eigvecs_true[:, 1]))
             eigvec1_cos = torch.abs(torch.dot(eigvecs[:, 0], eigvecs_true[:, 0]))
             eigvec2_cos = torch.abs(torch.dot(eigvecs[:, 1], eigvecs_true[:, 1]))
-            
+
             # Collect per-sample metrics
             sample_data = {
-                'sample_idx': n_samples,
-                'natoms': n_atoms,
-                'energy_error': e_error.item(),
-                'forces_error': f_error.item(),
-                'hessian_error': h_error.item(),
-                'eigen_error': eigen_error.item(),
-                'asymmetry_error': asymmetry_error.item(),
-                'true_asymmetry_error': true_asymmetry_error.item(),
-                'eigval_mae': eigval_mae.item(),
-                'eigval1_mae': eigval1_mae.item(),
-                'eigval2_mae': eigval2_mae.item(),
-                'eigvec1_mae': eigvec1_mae.item(),
-                'eigvec2_mae': eigvec2_mae.item(),
-                'eigvec1_cos': eigvec1_cos.item(),
-                'eigvec2_cos': eigvec2_cos.item(),
+                "sample_idx": n_samples,
+                "natoms": n_atoms,
+                "energy_error": e_error.item(),
+                "forces_error": f_error.item(),
+                "hessian_error": h_error.item(),
+                "eigen_error": eigen_error.item(),
+                "asymmetry_error": asymmetry_error.item(),
+                "true_asymmetry_error": true_asymmetry_error.item(),
+                "eigval_mae": eigval_mae.item(),
+                "eigval1_mae": eigval1_mae.item(),
+                "eigval2_mae": eigval2_mae.item(),
+                "eigvec1_mae": eigvec1_mae.item(),
+                "eigvec2_mae": eigvec2_mae.item(),
+                "eigvec1_cos": eigvec1_cos.item(),
+                "eigvec2_cos": eigvec2_cos.item(),
             }
             sample_metrics.append(sample_data)
             n_samples += 1
@@ -214,14 +220,14 @@ def evaluate(
 
         # Create DataFrame from collected metrics
         df_results = pd.DataFrame(sample_metrics)
-        
+
         # Save DataFrame
         df_results.to_pickle(results_file)
         print(f"Saved results to {results_file}")
-        
+
     aggregated_results = {
         "energy_mae": df_results["energy_error"].mean(),
-        "forces_mae": df_results["forces_error"].mean(), 
+        "forces_mae": df_results["forces_error"].mean(),
         "hessian_mae": df_results["hessian_error"].mean(),
         "eigenvalue_mae_hartree_bohr2": df_results["eigen_error"].mean(),
         "asymmetry_mae": df_results["asymmetry_error"].mean(),
@@ -234,12 +240,14 @@ def evaluate(
         "eigvec1_cos": df_results["eigvec1_cos"].mean(),
         "eigvec2_cos": df_results["eigvec2_cos"].mean(),
     }
-    
+
     print(f"\nResults for {dataset_name}:")
     print(f"Energy MAE: {aggregated_results['energy_mae']:.6f}")
     print(f"Forces MAE: {aggregated_results['forces_mae']:.6f}")
     print(f"Hessian MAE: {aggregated_results['hessian_mae']:.6f}")
-    print(f"Eigenvalue MAE: {aggregated_results['eigenvalue_mae_hartree_bohr2']:.6f} Hartree/Bohr^2")
+    print(
+        f"Eigenvalue MAE: {aggregated_results['eigenvalue_mae_hartree_bohr2']:.6f} Hartree/Bohr^2"
+    )
     print(f"Asymmetry MAE: {aggregated_results['asymmetry_mae']:.6f}")
     print(f"True Asymmetry MAE: {aggregated_results['true_asymmetry_mae']:.6f}")
     print(f"Eigenvalue MAE: {aggregated_results['eigval_mae']:.6f} eV/Angstrom^2")
@@ -249,7 +257,7 @@ def evaluate(
     print(f"Eigenvector 2 MAE: {aggregated_results['eigvec2_mae']:.6f}")
     print(f"Eigenvector 1 Cosine: {aggregated_results['eigvec1_cos']:.6f}")
     print(f"Eigenvector 2 Cosine: {aggregated_results['eigvec2_cos']:.6f}")
-    
+
     wandb.log(aggregated_results)
 
     if wandb_run_id is None:
@@ -260,45 +268,54 @@ def evaluate(
 
 def plot_accuracy_vs_natoms(df_results):
     """Plot accuracy metrics over number of atoms"""
-    
+
     # Create figure with subplots
     fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-    fig.suptitle('Model Accuracy vs Number of Atoms', fontsize=16)
-    
+    fig.suptitle("Model Accuracy vs Number of Atoms", fontsize=16)
+
     # Define metrics to plot and their labels
     metrics = [
-        ('energy_error', 'Energy MAE', 'Energy Error'),
-        ('forces_error', 'Forces MAE', 'Forces Error'),
-        ('hessian_error', 'Hessian MAE', 'Hessian Error'),
-        ('eigen_error', 'Eigenvalue MAE', 'Eigenvalue Error (Hartree/Bohr²)')
+        ("energy_error", "Energy MAE", "Energy Error"),
+        ("forces_error", "Forces MAE", "Forces Error"),
+        ("hessian_error", "Hessian MAE", "Hessian Error"),
+        ("eigen_error", "Eigenvalue MAE", "Eigenvalue Error (Hartree/Bohr²)"),
     ]
-    
+
     # Plot each metric
     for i, (metric, title, ylabel) in enumerate(metrics):
         ax = axes[i // 2, i % 2]
-        
+
         # Group by natoms and calculate mean and std
-        grouped = df_results.groupby('natoms')[metric].agg(['mean', 'std']).reset_index()
-        
+        grouped = (
+            df_results.groupby("natoms")[metric].agg(["mean", "std"]).reset_index()
+        )
+
         # Plot mean with error bars
-        ax.errorbar(grouped['natoms'], grouped['mean'], yerr=grouped['std'], 
-                   marker='o', capsize=5, capthick=2, linewidth=2)
-        
-        ax.set_xlabel('Number of Atoms')
+        ax.errorbar(
+            grouped["natoms"],
+            grouped["mean"],
+            yerr=grouped["std"],
+            marker="o",
+            capsize=5,
+            capthick=2,
+            linewidth=2,
+        )
+
+        ax.set_xlabel("Number of Atoms")
         ax.set_ylabel(ylabel)
         ax.set_title(title)
         ax.grid(True, alpha=0.3)
-        
+
         # Set log scale for y-axis if needed (based on data range)
-        if grouped['mean'].max() / grouped['mean'].min() > 100:
-            ax.set_yscale('log')
-    
+        if grouped["mean"].max() / grouped["mean"].min() > 100:
+            ax.set_yscale("log")
+
     plt.tight_layout()
-    
+
     # Save plot
     plot_filename = "accuracy_vs_natoms.png"
-    plt.savefig(plot_filename, dpi=300, bbox_inches='tight')
+    plt.savefig(plot_filename, dpi=300, bbox_inches="tight")
     print(f"Saved plot to {plot_filename}")
-    
+
     # Show plot
     plt.show()

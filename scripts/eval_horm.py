@@ -59,8 +59,8 @@ if __name__ == "__main__":
         config_path=config_path,
         hessian_method=hessian_method,
         max_samples=max_samples,
-        redo=redo
+        redo=redo,
     )
-    
+
     # Plot accuracy over Natoms
     plot_accuracy_vs_natoms(df_results)

@@ -462,12 +462,8 @@ class HessianPotentialModule(PotentialModule):
         # )
 
         # MSE Hessian
-        eval_metrics["MSE Hessian"] = (
-            self.MSE(hessian_pred, hessian_true).item()
-        )
-        eval_metrics["MAE Hessian"] = (
-            self.MAE(hessian_pred, hessian_true).item()
-        )
+        eval_metrics["MSE Hessian"] = self.MSE(hessian_pred, hessian_true).item()
+        eval_metrics["MAE Hessian"] = self.MAE(hessian_pred, hessian_true).item()
 
         # Eigenvalue, Eigenvector metrics
         eig_metrics = get_eigval_eigvec_metrics(

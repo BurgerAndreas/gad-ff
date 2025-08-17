@@ -480,7 +480,7 @@ def eigenspectrum_loss(
                     diff = (
                         evec_true_i.T @ (hessian_pred @ evec_true_i)
                     ) - eval_true_i  # (1)
-                    loss += alpha_i * diff.squeeze().squeeze()**2
+                    loss += alpha_i * diff.squeeze().squeeze() ** 2
             elif loss_type == "eigen":
                 diff = (evecs_true_k.T @ (hessian_pred @ evecs_true_k)) - torch.diag(
                     evals_true_k

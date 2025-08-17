@@ -10,13 +10,15 @@ import torch
 import copy
 from tqdm import tqdm
 from gadff.horm.ff_lmdb import LmdbDataset
-from gadff.path_config import DATASET_DIR_HORM_EIGEN, fix_dataset_path, remove_dir_recursively
+from gadff.path_config import (
+    DATASET_DIR_HORM_EIGEN,
+    fix_dataset_path,
+    remove_dir_recursively,
+)
 from ocpmodels.hessian_graph_transform import HessianGraphTransform
 
 
-def create_preprocessed_dataset(
-    dataset_file="ts1x-val.lmdb", debug=False
-):
+def create_preprocessed_dataset(dataset_file="ts1x-val.lmdb", debug=False):
     """
     Creates a new dataset with precomputed graph and indices for Hessian prediction.
     Saves the new dataset to a new file.
@@ -35,9 +37,7 @@ def create_preprocessed_dataset(
 
     input_lmdb_path = fix_dataset_path(dataset_file)
     if debug:
-        output_lmdb_path = input_lmdb_path.replace(
-            ".lmdb", "-hesspred-DEBUG.lmdb"
-        )
+        output_lmdb_path = input_lmdb_path.replace(".lmdb", "-hesspred-DEBUG.lmdb")
     else:
         output_lmdb_path = input_lmdb_path.replace(".lmdb", "-hesspred.lmdb")
 
@@ -61,7 +61,6 @@ def create_preprocessed_dataset(
     for key in first_sample.keys():
         print(key)
         print(f"{key}: {first_sample[key].shape}")
-
 
     # ---- Prepare output LMDB ----
     map_size = 10 * os.path.getsize(input_lmdb_path)  # generous size
@@ -88,8 +87,6 @@ def create_preprocessed_dataset(
                 #     n_atoms * 3, n_atoms * 3
                 # )  # [N*3, N*3]
 
-                
-
                 txn.put(
                     f"{sample_idx}".encode("ascii"),
                     pickle.dumps(data_copy, protocol=pickle.HIGHEST_PROTOCOL),
@@ -114,8 +111,8 @@ def create_preprocessed_dataset(
         print(f"{fname}: {n} samples -> {outpath}")
     return summary
 
+
 def test_dataset(dataset_file="ts1x-val-hesspred.lmdb"):
-    
     input_lmdb_path = fix_dataset_path(dataset_file)
     input_lmdb_path = input_lmdb_path.replace(".lmdb", "-hesspred.lmdb")
 
@@ -132,8 +129,9 @@ def test_dataset(dataset_file="ts1x-val-hesspred.lmdb"):
     for key in first_sample.keys():
         print(key)
         print(f"{key}: {first_sample[key].shape}")
-        
-    return 
+
+    return
+
 
 if __name__ == "__main__":
     """Try:
@@ -157,8 +155,6 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    create_preprocessed_dataset(
-        dataset_file=args.dataset_file, debug=args.debug
-    )
+    create_preprocessed_dataset(dataset_file=args.dataset_file, debug=args.debug)
 
     test_dataset(dataset_file=args.dataset_file)

@@ -807,7 +807,13 @@ class EquiformerV2_OC20(BaseModel):
         return edge_index, edge_distance, edge_distance_vec
 
     def forward(
-        self, data, eigen=False, hessian=False, return_l_features=False, otf_graph=None, add_props=True
+        self,
+        data,
+        eigen=False,
+        hessian=False,
+        return_l_features=False,
+        otf_graph=None,
+        add_props=True,
     ):
         """
         If eigen=True, return predictions for eigenvalues and eigenvectors of the Hessian in outputs dict.
