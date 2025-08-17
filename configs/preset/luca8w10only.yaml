@@ -8,12 +8,12 @@ model:
 # Step decay learning rate schedule
 training:
   
-  # hessian_loss_weight: 1.0
+  hessian_loss_weight: 0.0
 
   mask_hessian: false
   eigen_loss:
     loss_name: "eigenspectrum"
-    loss_type: "wa" # eigen or wa
-    k: 8
-    alpha: 1.0
+    loss_type: "eigen" # eigen or wa
+    k: [null, 8]
+    alpha: [0.1, 1.0]
     dof_filter_fn: null

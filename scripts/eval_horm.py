@@ -17,7 +17,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--hessian_method",
         type=str,
-        default=None,
+        default="autograd",
         help="Hessian computation method",
     )
     parser.add_argument(

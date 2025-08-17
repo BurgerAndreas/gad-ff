@@ -34,7 +34,7 @@ training:
 
   hessian_loss_weight: 1.0
 
-  hessian_loss_type: "mae"
+  hessian_loss_type: "mse"
   mask_hessian: false
 
   eigen_loss:

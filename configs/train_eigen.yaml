@@ -2,7 +2,7 @@
 defaults:
   - ./equiformer_v2
   - _self_
-  - lr: step50
+  - lr: step10
   - trgt: eigen
   - preset: blank
   - experiment: base

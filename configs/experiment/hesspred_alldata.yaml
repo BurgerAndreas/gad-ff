@@ -5,8 +5,8 @@
 training:
   trn_path: ["ts1x_hess_train_big-hesspred.lmdb", "RGD1-hesspred.lmdb"]
   val_path: "ts1x-val-hesspred.lmdb"
-  # bz: 64
-  # bz_val: 64
+  bz: 256
+  bz_val: 256
 
   # already preprocessed dataset, don't need to do hessian graph transform
   do_hessiangraphtransform: false

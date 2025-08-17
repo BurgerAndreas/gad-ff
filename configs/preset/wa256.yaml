@@ -10,14 +10,6 @@ training:
   bz: 256
   bz_val: 256
   
-  lr_schedule_type: "step"
-  lr_schedule_config:
-    gamma: 0.85
-    # 20 steps: 5e-4 -> 1e-5
-    # over 100 epochs -> step=5
-    step_size: 10 # 5 or 10
-  
-  # hessian_loss_type: "mae"
   mask_hessian: false
   eigen_loss:
     loss_name: "eigenspectrum"
