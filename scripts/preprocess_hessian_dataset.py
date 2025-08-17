@@ -14,8 +14,8 @@ from gadff.path_config import DATASET_DIR_HORM_EIGEN, fix_dataset_path, remove_d
 from ocpmodels.hessian_graph_transform import HessianGraphTransform
 
 
-def create_dfteigen_dataset(
-    save_hessian=False, dataset_file="ts1x-val.lmdb", debug=False
+def create_preprocessed_dataset(
+    dataset_file="ts1x-val.lmdb", debug=False
 ):
     """
     Creates a new dataset with precomputed graph and indices for Hessian prediction.
@@ -114,6 +114,26 @@ def create_dfteigen_dataset(
         print(f"{fname}: {n} samples -> {outpath}")
     return summary
 
+def test_dataset(dataset_file="ts1x-val-hesspred.lmdb"):
+    
+    input_lmdb_path = fix_dataset_path(dataset_file)
+    input_lmdb_path = input_lmdb_path.replace(".lmdb", "-hesspred.lmdb")
+
+    print(f"Testing {input_lmdb_path}")
+
+    # ---- Load dataset ----
+    dataset = LmdbDataset(input_lmdb_path)
+    print(f"Loaded dataset with {len(dataset)} samples from {input_lmdb_path}")
+
+    # ---- Print keys of first sample ----
+    first_sample = dataset[0]
+    print("Keys in first sample (dataset):", list(first_sample.keys()))
+    print("Shapes per key:")
+    for key in first_sample.keys():
+        print(key)
+        print(f"{key}: {first_sample[key].shape}")
+        
+    return 
 
 if __name__ == "__main__":
     """Try:
@@ -137,6 +157,8 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    create_dfteigen_dataset(
+    create_preprocessed_dataset(
         dataset_file=args.dataset_file, debug=args.debug
     )
+
+    test_dataset(dataset_file=args.dataset_file)
