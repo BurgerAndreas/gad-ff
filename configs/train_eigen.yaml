@@ -76,6 +76,8 @@ ckpt_trainer_path: null
 
 ckpt_resume_auto: true
 
+ckpt_do_save: true
+
 slurm_job_id: null
 
 # variables we can access in our code

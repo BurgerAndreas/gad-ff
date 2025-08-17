@@ -131,19 +131,6 @@ def setup_training(cfg: DictConfig):
     ckpt_output_path = f"checkpoint/{cfg.project}/{checkpoint_name}"
     print(f"Checkpoint output path: {ckpt_output_path}")
 
-    checkpoint_callback = ModelCheckpoint(
-        dirpath=ckpt_output_path,
-        # every_n_epochs=1,
-        # save every epoch
-        filename="ff-{epoch:03d}",
-        save_last=True,
-        train_time_interval=timedelta(hours=1),
-        # # save best by val loss
-        # save_top_k=2,
-        # monitor="val-totloss",
-        # filename="ff-{epoch:03d}-{val-totloss:.4f}",
-    )
-
     early_stopping_callback = EarlyStopping(
         monitor=cfg.early_stopping.monitor,
         patience=cfg.early_stopping.patience,
@@ -153,11 +140,25 @@ def setup_training(cfg: DictConfig):
 
     lr_monitor = LearningRateMonitor(logging_interval="step")
     callbacks = [
-        checkpoint_callback,
         early_stopping_callback,
         TQDMProgressBar(),
         lr_monitor,
     ]
+
+    if cfg.ckpt_do_save:
+        checkpoint_callback = ModelCheckpoint(
+            dirpath=ckpt_output_path,
+            # every_n_epochs=1,
+            # save every epoch
+            filename="ff-{epoch:03d}",
+            save_last=True,
+            train_time_interval=timedelta(hours=1),
+            # # save best by val loss
+            # save_top_k=2,
+            # monitor="val-totloss",
+            # filename="ff-{epoch:03d}-{val-totloss:.4f}",
+        )
+        callbacks.append(checkpoint_callback)
 
     # Add EMA callback if enabled
     if cfg.training.ema.get("enabled", False):

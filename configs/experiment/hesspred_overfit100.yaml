@@ -32,4 +32,9 @@ pltrainer:
   check_val_every_n_epoch: 100 # Validate every 10 epochs
   log_every_n_steps: 100
 
+# no need to resume or save checkpoints
+ckpt_resume_auto: false
+ckpt_do_save: false
+ckpt_trainer_path: null
+
 experiment_name: "hesspred_overfit100"
