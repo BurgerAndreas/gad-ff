@@ -11,6 +11,10 @@ from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.path_config import fix_dataset_path
 from ocpmodels.hessian_graph_transform import HessianGraphTransform
 
+try:
+    from ReactBench.utils.frequency_analysis import analyze_frequencies
+except ImportError:
+    analyze_frequencies = None
 
 def _get_derivatives(x, y, retain_graph=None, create_graph=False):
     """Helper function to compute derivatives"""
@@ -136,40 +140,42 @@ def evaluate(
             batch = batch.to("cuda")
             batch = compute_extra_props(batch)
 
+            n_atoms = batch.pos.shape[0]
+
             # Forward pass
             if model_name == "LEFTNet":
                 batch.pos.requires_grad_()
-                ener, force = model.forward_autograd(batch)
-                hess = compute_hessian(batch.pos, ener, force)
+                energy_model, force_model = model.forward_autograd(batch)
+                hessian_model = compute_hessian(batch.pos, energy_model, force_model)
             elif "equiformer" in model_name.lower():
                 if do_autograd:
                     batch.pos.requires_grad_()
-                    ener, force, out = model.forward(
+                    energy_model, force_model, out = model.forward(
                         batch, otf_graph=True, hessian=False
                     )
-                    hess = compute_hessian(batch.pos, ener, force)
+                    hessian_model = compute_hessian(batch.pos, energy_model, force_model)
                 else:
-                    ener, force, out = model.forward(
+                    energy_model, force_model, out = model.forward(
                         batch, otf_graph=False, hessian=True
                     )
-                    hess = out["hessian"]
+                    hessian_model = out["hessian"].reshape(n_atoms * 3, n_atoms * 3)
             else:
                 batch.pos.requires_grad_()
-                ener, force, out = model.forward(batch)
-                hess = compute_hessian(batch.pos, ener, force)
+                energy_model, force_model, out = model.forward(batch)
+                hessian_model = compute_hessian(batch.pos, energy_model, force_model)
 
             # Compute hessian eigenspectra
-            eigvals, eigvecs = torch.linalg.eigh(hess)
-            eigenvalues_hartree_bohr = hess2eigenvalues(hess)
+            eigvals_model, eigvecs_model = torch.linalg.eigh(hessian_model)
+            eigenvalues_hartree_bohr = hess2eigenvalues(hessian_model)
 
             # Compute errors
-            e_error = torch.mean(torch.abs(ener.squeeze() - batch.ae))
-            f_error = torch.mean(torch.abs(force - batch.forces))
+            e_error = torch.mean(torch.abs(energy_model.squeeze() - batch.ae))
+            f_error = torch.mean(torch.abs(force_model - batch.forces))
 
             # Reshape true hessian
             n_atoms = batch.pos.shape[0]
             hessian_true = batch.hessian.reshape(n_atoms * 3, n_atoms * 3)
-            h_error = torch.mean(torch.abs(hess - hessian_true))
+            h_error = torch.mean(torch.abs(hessian_model - hessian_true))
 
             # Eigenvalue error
             eigvals_true, eigvecs_true = torch.linalg.eigh(hessian_true)
@@ -179,17 +185,17 @@ def evaluate(
             )  # Hartree/Bohr^2
 
             # Asymmetry error
-            asymmetry_error = torch.mean(torch.abs(hess - hess.T))
+            asymmetry_error = torch.mean(torch.abs(hessian_model - hessian_model.T))
             true_asymmetry_error = torch.mean(torch.abs(hessian_true - hessian_true.T))
 
             # Additional metrics
-            eigval_mae = torch.mean(torch.abs(eigvals - eigvals_true))  # eV/Angstrom^2
-            eigval1_mae = torch.mean(torch.abs(eigvals[0] - eigvals_true[0]))
-            eigval2_mae = torch.mean(torch.abs(eigvals[1] - eigvals_true[1]))
-            eigvec1_mae = torch.mean(torch.abs(eigvecs[:, 0] - eigvecs_true[:, 0]))
-            eigvec2_mae = torch.mean(torch.abs(eigvecs[:, 1] - eigvecs_true[:, 1]))
-            eigvec1_cos = torch.abs(torch.dot(eigvecs[:, 0], eigvecs_true[:, 0]))
-            eigvec2_cos = torch.abs(torch.dot(eigvecs[:, 1], eigvecs_true[:, 1]))
+            eigval_mae = torch.mean(torch.abs(eigvals_model - eigvals_true))  # eV/Angstrom^2
+            eigval1_mae = torch.mean(torch.abs(eigvals_model[0] - eigvals_true[0]))
+            eigval2_mae = torch.mean(torch.abs(eigvals_model[1] - eigvals_true[1]))
+            eigvec1_mae = torch.mean(torch.abs(eigvecs_model[:, 0] - eigvecs_true[:, 0]))
+            eigvec2_mae = torch.mean(torch.abs(eigvecs_model[:, 1] - eigvecs_true[:, 1]))
+            eigvec1_cos = torch.abs(torch.dot(eigvecs_model[:, 0], eigvecs_true[:, 0]))
+            eigvec2_cos = torch.abs(torch.dot(eigvecs_model[:, 1], eigvecs_true[:, 1]))
 
             # Collect per-sample metrics
             sample_data = {
@@ -209,6 +215,20 @@ def evaluate(
                 "eigvec1_cos": eigvec1_cos.item(),
                 "eigvec2_cos": eigvec2_cos.item(),
             }
+
+            if analyze_frequencies is not None:
+                true_freqs = analyze_frequencies(hessian=hessian_true, cart_coords=batch.pos, atomsymbols=batch.atom_types)
+                true_neg_num = true_freqs["neg_num"]
+
+                freqs_model = analyze_frequencies(hessian=hessian_model, cart_coords=batch.pos, atomsymbols=batch.atom_types)
+                freqs_model_neg_num = freqs_model["neg_num"]
+
+                sample_data["true_neg_num"] = true_neg_num
+                sample_data["true_is_ts"] = 1 if true_neg_num == 1 else 0
+                sample_data["model_neg_num"] = freqs_model_neg_num
+                sample_data["model_is_ts"] = 1 if freqs_model_neg_num == 1 else 0
+                sample_data["neg_num_agree"] = 1 if (true_neg_num == freqs_model_neg_num) else 0
+
             sample_metrics.append(sample_data)
             n_samples += 1
 
@@ -241,6 +261,17 @@ def evaluate(
         "eigvec2_cos": df_results["eigvec2_cos"].mean(),
     }
 
+    # Frequencies
+    if "true_neg_num" in df_results.columns:
+        aggregated_results["neg_num_agree"] = df_results["neg_num_agree"].mean()
+        aggregated_results["true_neg_num"] = df_results["true_neg_num"].mean()
+        aggregated_results["model_neg_num"] = df_results["model_neg_num"].mean()
+        aggregated_results["true_is_ts"] = df_results["true_is_ts"].mean()
+        aggregated_results["model_is_ts"] = df_results["model_is_ts"].mean()
+        aggregated_results["is_ts_agree"] = (df_results["model_is_ts"] == df_results["true_is_ts"]).mean()
+    else:
+        print("No frequencies available")
+
     print(f"\nResults for {dataset_name}:")
     print(f"Energy MAE: {aggregated_results['energy_mae']:.6f}")
     print(f"Forces MAE: {aggregated_results['forces_mae']:.6f}")
@@ -258,6 +289,15 @@ def evaluate(
     print(f"Eigenvector 1 Cosine: {aggregated_results['eigvec1_cos']:.6f}")
     print(f"Eigenvector 2 Cosine: {aggregated_results['eigvec2_cos']:.6f}")
 
+    # Frequencies
+    if "true_neg_num" in df_results.columns:
+        print(f"True Neg Num: {aggregated_results['true_neg_num']:.6f}")
+        print(f"Model Neg Num: {aggregated_results['model_neg_num']:.6f}")
+        print(f"Neg Num Agree: {aggregated_results['neg_num_agree']:.6f}")
+        print(f"True Is TS: {aggregated_results['true_is_ts']:.6f}")
+        print(f"Model Is TS: {aggregated_results['model_is_ts']:.6f}")
+        print(f"Is TS Agree: {aggregated_results['is_ts_agree']:.6f}")
+
     wandb.log(aggregated_results)
 
     if wandb_run_id is None:
@@ -266,7 +306,7 @@ def evaluate(
     return df_results, aggregated_results
 
 
-def plot_accuracy_vs_natoms(df_results):
+def plot_accuracy_vs_natoms(df_results, name):
     """Plot accuracy metrics over number of atoms"""
 
     # Create figure with subplots
@@ -279,6 +319,12 @@ def plot_accuracy_vs_natoms(df_results):
         ("forces_error", "Forces MAE", "Forces Error"),
         ("hessian_error", "Hessian MAE", "Hessian Error"),
         ("eigen_error", "Eigenvalue MAE", "Eigenvalue Error (Hartree/Bohr²)"),
+        ("eigvec1_cos", "Eigenvector 1 Cosine", "Eigenvector 1 Cosine"),
+        ("eigval1_mae", "Eigenvalue 1 MAE", "Eigenvalue 1 MAE"),
+        ("is_ts_agree", "Is TS Agree", "Is TS Agree"),
+        ("neg_num_agree", "Neg Num Agree", "Neg Num Agree"),
+        ("true_is_ts", "True Is TS", "True Is TS"),
+        ("model_is_ts", "Model Is TS", "Model Is TS"),
     ]
 
     # Plot each metric
@@ -313,7 +359,9 @@ def plot_accuracy_vs_natoms(df_results):
     plt.tight_layout()
 
     # Save plot
-    plot_filename = "accuracy_vs_natoms.png"
+    plot_dir = "plots/eval_horm"
+    os.makedirs(plot_dir, exist_ok=True)
+    plot_filename = f"{plot_dir}/accuracy_vs_natoms_{name}.png"
     plt.savefig(plot_filename, dpi=300, bbox_inches="tight")
     print(f"Saved plot to {plot_filename}")
 

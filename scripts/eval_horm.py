@@ -53,6 +53,8 @@ if __name__ == "__main__":
     hessian_method = args.hessian_method
     redo = args.redo
 
+    name = f"{checkpoint_path.split('/')[-1].split('.')[0]}_{lmdb_path.split('/')[-1].split('.')[0]}_{hessian_method}"
+
     df_results, aggregated_results = evaluate(
         lmdb_path=lmdb_path,
         checkpoint_path=checkpoint_path,
@@ -63,4 +65,4 @@ if __name__ == "__main__":
     )
 
     # Plot accuracy over Natoms
-    plot_accuracy_vs_natoms(df_results)
+    plot_accuracy_vs_natoms(df_results, name)
