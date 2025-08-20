@@ -7,6 +7,8 @@ from omegaconf import ListConfig, OmegaConf
 import os
 import time
 from pathlib import Path
+import wandb
+
 import torch
 from torch import nn
 from torch.utils.data import ConcatDataset
@@ -20,8 +22,10 @@ from torch.optim.lr_scheduler import (
 )
 
 try:
+    import pytorch_lightning as pl
     from pytorch_lightning import LightningModule
 except ImportError:
+    import lightning as pl
     from lightning import LightningModule
 from torchmetrics import (
     MeanAbsoluteError,
@@ -673,6 +677,13 @@ class PotentialModule(LightningModule):
         self.val_start_time = time.time()
         super().on_validation_epoch_start()
 
+    def on_before_optimizer_step(self, optimizer):
+        # Compute the 2-norm for each layer
+        # If using mixed precision, the gradients are already unscaled here
+        norms = pl.pytorch.utilities.grad_norm(self.layer, norm_type=2)
+        grad_norm = torch.linalg.norm(norms)
+        self.log_dict({"grad_norm": grad_norm})
+
     def _configure_gradient_clipping(
         self,
         optimizer,
@@ -680,6 +691,8 @@ class PotentialModule(LightningModule):
         gradient_clip_val,
         gradient_clip_algorithm,
     ):
+        print("!" * 100) # REMOVE
+        print("_configure_gradient_clipping")
         if not self.clip_grad:
             return
 
@@ -694,6 +707,11 @@ class PotentialModule(LightningModule):
         self.clip_gradients(
             optimizer, gradient_clip_val=max_grad_norm, gradient_clip_algorithm="norm"
         )
+
+        try:
+            wandb.log({"grad_norm": grad_norm, "max_grad_norm": max_grad_norm})
+        except:
+            pass
 
         if float(grad_norm) > max_grad_norm:
             self.gradnorm_queue.add(float(max_grad_norm))
