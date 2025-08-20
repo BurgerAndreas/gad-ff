@@ -16,10 +16,12 @@ uv venv hesspred --python 3.11
 source hesspred/bin/activate
 uv pip install --upgrade pip
 
-uv pip install torch==2.4.1 torch-geometric==2.6.1
-# uv pip install --no-index torch-scatter -f https://data.pyg.org/whl/torch-2.4.1+cu128.html
+uv pip install torch==2.7.0  --index-url https://download.pytorch.org/whl/cu126
+uv pip install torch-scatter -f https://data.pyg.org/whl/torch-2.7.0+cu126.html
+uv pip install torch-cluster -f https://data.pyg.org/whl/torch-2.7.0+cu126.html
+uv pip install torch-geometric
 
-uv pip install "numpy<=1.26.0" scipy scikit-learn pandas ase==3.25.0 plotly imageio seaborn black tqdm joblib einops ipykernel toml omegaconf nbformat nglview py3Dmol==2.5.0 hydra-submitit-launcher hydra-core==1.* wandb==0.21.0 pyyaml dxtb[libcint] torchmetrics joblib==1.5.1 submitit rmsd pytorch_warmup e3nn==0.5.1 "huggingface_hub>=0.27.1" "kagglehub>=0.3.12" networkx==3.4.2 pydantic==2.11.4 opt-einsum-fx==0.1.4 lmdb==1.5.1 "h5py>=3.10.0" progressbar==2.5 ruff triton==2.2.0 lightning==2.5.1.post0
+uv pip install "numpy<=1.26.0" scipy scikit-learn pandas ase==3.25.0 plotly imageio seaborn black tqdm joblib einops ipykernel toml omegaconf nbformat nglview py3Dmol==2.5.0 hydra-submitit-launcher hydra-core==1.* wandb==0.21.0 pyyaml dxtb[libcint] torchmetrics joblib==1.5.1 submitit rmsd pytorch_warmup e3nn==0.5.1 "huggingface_hub>=0.27.1" "kagglehub>=0.3.12" networkx==3.4.2 pydantic==2.11.4 opt-einsum-fx==0.1.4 lmdb==1.5.1 "h5py>=3.10.0" progressbar==2.5 ruff triton==3.3.0 lightning==2.5.1.post0
 # fairchem-core==1.10.0
 
 uv pip install -e .
@@ -61,7 +63,14 @@ cd ../ReactBench
 cd ../gad-ff
 ```
 
+Preprocess the Hessian dataset
+```bash
+python scripts/preprocess_hessian_dataset.py --dataset-file data/sample_100.lmdb
 
+python scripts/preprocess_hessian_dataset.py --dataset-file ts1x-val.lmdb
+python scripts/preprocess_hessian_dataset.py --dataset-file RGD1.lmdb
+python scripts/preprocess_hessian_dataset.py --dataset-file ts1x_hess_train_big.lmdb
+```
 
 ## Available checkpoints
 

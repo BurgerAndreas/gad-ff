@@ -103,22 +103,9 @@ def evaluate(
     do_autograd = hessian_method == "autograd"
     print(f"do_autograd: {do_autograd}")
 
-    # if hessian_method == "predict" or model.do_hessian or model.otf_graph == False:
-    if hessian_method == "predict":
-        transform = HessianGraphTransform(
-            cutoff=model.cutoff,
-            max_neighbors=model.max_neighbors,
-            use_pbc=model.use_pbc,
-        )
-    else:
-        transform = None
-
-    dataset = LmdbDataset(fix_dataset_path(lmdb_path), transform=transform)
-    dataloader = TGDataLoader(dataset, batch_size=1, shuffle=False)
-
-    dataset_name = lmdb_path.split("/")[-1].split(".")[0]
 
     # Create results file path
+    dataset_name = lmdb_path.split("/")[-1].split(".")[0]
     results_dir = "results"
     os.makedirs(results_dir, exist_ok=True)
     ckpt_name = checkpoint_path.split("/")[-1].split(".")[0]
@@ -132,11 +119,29 @@ def evaluate(
         df_results = pd.read_pickle(results_file)
 
     else:
+        # if hessian_method == "predict" or model.do_hessian or model.otf_graph == False:
+        if hessian_method == "predict":
+            transform = HessianGraphTransform(
+                cutoff=model.cutoff,
+                max_neighbors=model.max_neighbors,
+                use_pbc=model.use_pbc,
+            )
+        else:
+            transform = None
+
+        dataset = LmdbDataset(fix_dataset_path(lmdb_path), transform=transform)
+        dataloader = TGDataLoader(dataset, batch_size=1, shuffle=False)
+
         # Initialize metrics collection for per-sample DataFrame
         sample_metrics = []
         n_samples = 0
 
-        for batch in tqdm(dataloader, desc="Evaluating", total=len(dataloader)):
+        if max_samples is not None:
+            total = max_samples
+        else:
+            total = len(dataloader)
+
+        for batch in tqdm(dataloader, desc="Evaluating", total=total):
             batch = batch.to("cuda")
             batch = compute_extra_props(batch)
 
@@ -310,7 +315,7 @@ def plot_accuracy_vs_natoms(df_results, name):
     """Plot accuracy metrics over number of atoms"""
 
     # Create figure with subplots
-    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+    fig, axes = plt.subplots(nrows=5, ncols=2, figsize=(12, 10))
     fig.suptitle("Model Accuracy vs Number of Atoms", fontsize=16)
 
     # Define metrics to plot and their labels
