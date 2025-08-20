@@ -684,6 +684,7 @@ class PotentialModule(LightningModule):
         # a special entry for the total p-norm of the gradients viewed as a single vector
         norms = pl_grad_norm(module=self.potential, norm_type=2)
         self.log_dict(norms)
+        # super().on_before_optimizer_step(optimizer)
 
     def _configure_gradient_clipping(
         self,
@@ -692,14 +693,16 @@ class PotentialModule(LightningModule):
         gradient_clip_val,
         gradient_clip_algorithm,
     ):
-        print("!" * 100) # REMOVE
+        print("!" * 100)  # REMOVE
         print("_configure_gradient_clipping")
         if not self.clip_grad:
             return
 
         if self.training_config["use_clip_gradnorm_queue"]:
             # Allow gradient norm to be 150% + 1.5 * stdev of the recent history.
-            max_grad_norm = 2 * self.gradnorm_queue.mean() + 3 * self.gradnorm_queue.std()
+            max_grad_norm = (
+                2 * self.gradnorm_queue.mean() + 3 * self.gradnorm_queue.std()
+            )
 
             # Get current grad_norm
             params = [p for g in optimizer.param_groups for p in g["params"]]

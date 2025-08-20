@@ -8,6 +8,10 @@
 icon
 Icon
 .vscode
+.ruff_cache/
+qm_calcs/
+scratch/
+# uv.lock
 
 .matplotlib/
 outputs/

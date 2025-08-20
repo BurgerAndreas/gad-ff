@@ -62,6 +62,8 @@ cd ReactBench/MLIP/mace/ # install mace env
 uv pip install -e .
 cd ../../..
 
+uv pip install -e . # install ReactBench
+
 # Get the recomputed Transition1x subset for validation, 960 datapoints
 mkdir -p data 
 tar -xzf ts1x.tar.gz -C data

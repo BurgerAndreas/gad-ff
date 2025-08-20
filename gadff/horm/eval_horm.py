@@ -16,6 +16,7 @@ try:
 except ImportError:
     analyze_frequencies = None
 
+
 def _get_derivatives(x, y, retain_graph=None, create_graph=False):
     """Helper function to compute derivatives"""
     grad = torch.autograd.grad(
@@ -103,7 +104,6 @@ def evaluate(
     do_autograd = hessian_method == "autograd"
     print(f"do_autograd: {do_autograd}")
 
-
     # Create results file path
     dataset_name = lmdb_path.split("/")[-1].split(".")[0]
     results_dir = "results"
@@ -158,7 +158,9 @@ def evaluate(
                     energy_model, force_model, out = model.forward(
                         batch, otf_graph=True, hessian=False
                     )
-                    hessian_model = compute_hessian(batch.pos, energy_model, force_model)
+                    hessian_model = compute_hessian(
+                        batch.pos, energy_model, force_model
+                    )
                 else:
                     energy_model, force_model, out = model.forward(
                         batch, otf_graph=False, hessian=True
@@ -194,11 +196,17 @@ def evaluate(
             true_asymmetry_error = torch.mean(torch.abs(hessian_true - hessian_true.T))
 
             # Additional metrics
-            eigval_mae = torch.mean(torch.abs(eigvals_model - eigvals_true))  # eV/Angstrom^2
+            eigval_mae = torch.mean(
+                torch.abs(eigvals_model - eigvals_true)
+            )  # eV/Angstrom^2
             eigval1_mae = torch.mean(torch.abs(eigvals_model[0] - eigvals_true[0]))
             eigval2_mae = torch.mean(torch.abs(eigvals_model[1] - eigvals_true[1]))
-            eigvec1_mae = torch.mean(torch.abs(eigvecs_model[:, 0] - eigvecs_true[:, 0]))
-            eigvec2_mae = torch.mean(torch.abs(eigvecs_model[:, 1] - eigvecs_true[:, 1]))
+            eigvec1_mae = torch.mean(
+                torch.abs(eigvecs_model[:, 0] - eigvecs_true[:, 0])
+            )
+            eigvec2_mae = torch.mean(
+                torch.abs(eigvecs_model[:, 1] - eigvecs_true[:, 1])
+            )
             eigvec1_cos = torch.abs(torch.dot(eigvecs_model[:, 0], eigvecs_true[:, 0]))
             eigvec2_cos = torch.abs(torch.dot(eigvecs_model[:, 1], eigvecs_true[:, 1]))
 
@@ -222,17 +230,27 @@ def evaluate(
             }
 
             if analyze_frequencies is not None:
-                true_freqs = analyze_frequencies(hessian=hessian_true, cart_coords=batch.pos, atomsymbols=batch.atom_types)
+                true_freqs = analyze_frequencies(
+                    hessian=hessian_true,
+                    cart_coords=batch.pos,
+                    atomsymbols=batch.atom_types,
+                )
                 true_neg_num = true_freqs["neg_num"]
 
-                freqs_model = analyze_frequencies(hessian=hessian_model, cart_coords=batch.pos, atomsymbols=batch.atom_types)
+                freqs_model = analyze_frequencies(
+                    hessian=hessian_model,
+                    cart_coords=batch.pos,
+                    atomsymbols=batch.atom_types,
+                )
                 freqs_model_neg_num = freqs_model["neg_num"]
 
                 sample_data["true_neg_num"] = true_neg_num
                 sample_data["true_is_ts"] = 1 if true_neg_num == 1 else 0
                 sample_data["model_neg_num"] = freqs_model_neg_num
                 sample_data["model_is_ts"] = 1 if freqs_model_neg_num == 1 else 0
-                sample_data["neg_num_agree"] = 1 if (true_neg_num == freqs_model_neg_num) else 0
+                sample_data["neg_num_agree"] = (
+                    1 if (true_neg_num == freqs_model_neg_num) else 0
+                )
 
             sample_metrics.append(sample_data)
             n_samples += 1
@@ -273,7 +291,9 @@ def evaluate(
         aggregated_results["model_neg_num"] = df_results["model_neg_num"].mean()
         aggregated_results["true_is_ts"] = df_results["true_is_ts"].mean()
         aggregated_results["model_is_ts"] = df_results["model_is_ts"].mean()
-        aggregated_results["is_ts_agree"] = (df_results["model_is_ts"] == df_results["true_is_ts"]).mean()
+        aggregated_results["is_ts_agree"] = (
+            df_results["model_is_ts"] == df_results["true_is_ts"]
+        ).mean()
     else:
         print("No frequencies available")
 

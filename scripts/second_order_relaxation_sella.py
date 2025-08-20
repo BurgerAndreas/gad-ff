@@ -58,6 +58,7 @@ from geodesic_interpolate.interpolation import redistribute
 # Helper functions
 ###########################################################################
 
+
 def copy_atoms(atoms: Atoms) -> Atoms:
     """
     Simple function to copy an atoms object to prevent mutability.
@@ -154,6 +155,7 @@ def clean_dict(data):
     else:
         # Discard other non-serializable types
         return None
+
 
 ###########################################################################
 # Sella-specific functions

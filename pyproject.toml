@@ -2,5 +2,19 @@
 requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "gadff"
+version = "1.0.0"
+description = ""
+authors = [
+    {name = "Andreas Burger", email = "andreas.burger@mail.utoronto.ca"},
+]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = []
+
+[tool.setuptools.packages.find]
+include = ["gadff*", "nets*", "ocpmodels*", "horm_alphanet*", "horm_leftnet*", "recipes*", "scripts*"]
+
 [tool.ruff]
-ignore = ["F541"] 
+lint.ignore = ["F541"] 
