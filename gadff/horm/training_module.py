@@ -22,10 +22,10 @@ from torch.optim.lr_scheduler import (
 )
 
 try:
-    from pytorch_lightning.utilities import grad_norm
+    from pytorch_lightning.utilities import grad_norm as pl_grad_norm
     from pytorch_lightning import LightningModule
 except ImportError:
-    from lightning.pytorch.utilities import grad_norm
+    from lightning.pytorch.utilities import grad_norm as pl_grad_norm
     from lightning import LightningModule
 from torchmetrics import (
     MeanAbsoluteError,
@@ -680,7 +680,7 @@ class PotentialModule(LightningModule):
     def on_before_optimizer_step(self, optimizer):
         # Compute the 2-norm for each layer
         # If using mixed precision, the gradients are already unscaled here
-        norms = pl.pytorch.utilities.grad_norm(self.layer, norm_type=2)
+        norms = pl_grad_norm(self.layer, norm_type=2)
         grad_norm = torch.linalg.norm(norms)
         self.log_dict({"grad_norm": grad_norm})
 
