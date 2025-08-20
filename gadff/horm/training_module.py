@@ -680,9 +680,10 @@ class PotentialModule(LightningModule):
     def on_before_optimizer_step(self, optimizer):
         # Compute the 2-norm for each layer
         # If using mixed precision, the gradients are already unscaled here
-        norms = pl_grad_norm(self.layer, norm_type=2)
-        grad_norm = torch.linalg.norm(norms)
-        self.log_dict({"grad_norm": grad_norm})
+        # norms: The dictionary of p-norms of each parameter's gradient and
+        # a special entry for the total p-norm of the gradients viewed as a single vector
+        norms = pl_grad_norm(module=self.potential, norm_type=2)
+        self.log_dict(norms)
 
     def _configure_gradient_clipping(
         self,
