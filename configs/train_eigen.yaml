@@ -28,6 +28,7 @@ training:
   bz_val: 128
   num_workers: 2 # 48
   clip_grad: true
+  use_clip_gradnorm_queue: true
   gradient_clip_val: 0.1
   # EMA configuration using PyTorch's AveragedModel
   ema:

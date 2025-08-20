@@ -22,10 +22,10 @@ from torch.optim.lr_scheduler import (
 )
 
 try:
-    import pytorch_lightning as pl
+    from pytorch_lightning.utilities import grad_norm
     from pytorch_lightning import LightningModule
 except ImportError:
-    import lightning as pl
+    from lightning.pytorch.utilities import grad_norm
     from lightning import LightningModule
 from torchmetrics import (
     MeanAbsoluteError,
@@ -171,7 +171,7 @@ class PotentialModule(LightningModule):
         self.pos_require_grad = True
 
         self.clip_grad = training_config["clip_grad"]
-        if self.clip_grad:
+        if self.training_config["use_clip_gradnorm_queue"]:
             self.gradnorm_queue = diff_utils.Queue()
             self.gradnorm_queue.add(3000)
         self.save_hyperparameters()
@@ -696,12 +696,21 @@ class PotentialModule(LightningModule):
         if not self.clip_grad:
             return
 
-        # Allow gradient norm to be 150% + 1.5 * stdev of the recent history.
-        max_grad_norm = 2 * self.gradnorm_queue.mean() + 3 * self.gradnorm_queue.std()
+        if self.training_config["use_clip_gradnorm_queue"]:
+            # Allow gradient norm to be 150% + 1.5 * stdev of the recent history.
+            max_grad_norm = 2 * self.gradnorm_queue.mean() + 3 * self.gradnorm_queue.std()
 
-        # Get current grad_norm
-        params = [p for g in optimizer.param_groups for p in g["params"]]
-        grad_norm = diff_utils.get_grad_norm(params)
+            # Get current grad_norm
+            params = [p for g in optimizer.param_groups for p in g["params"]]
+            grad_norm = diff_utils.get_grad_norm(params)
+
+            # update the queue
+            if float(grad_norm) > max_grad_norm:
+                self.gradnorm_queue.add(float(max_grad_norm))
+            else:
+                self.gradnorm_queue.add(float(grad_norm))
+        else:
+            max_grad_norm = gradient_clip_val
 
         # Lightning will handle the gradient clipping
         self.clip_gradients(
@@ -712,11 +721,6 @@ class PotentialModule(LightningModule):
             wandb.log({"grad_norm": grad_norm, "max_grad_norm": max_grad_norm})
         except:
             pass
-
-        if float(grad_norm) > max_grad_norm:
-            self.gradnorm_queue.add(float(max_grad_norm))
-        else:
-            self.gradnorm_queue.add(float(grad_norm))
 
         if float(grad_norm) > max_grad_norm:
             print(
