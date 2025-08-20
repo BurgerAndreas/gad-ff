@@ -78,15 +78,6 @@ mv data/transition1x.h5 ../gad-ff/data/transition1x.h5
 cd ../gad-ff
 ```
 
-I had problems with the compute canada version of wandb, so I installed it manually
-```bash
-pip uninstall wandb -y
-
-wget https://files.pythonhosted.org/packages/88/c9/41b8bdb493e5eda32b502bc1cc49d539335a92cacaf0ef304d7dae0240aa/wandb-0.20.1-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl -O wandb-0.20.1-py3-none-any.whl
-
-PIP_CONFIG_FILE=/dev/null pip3 install wandb-0.20.1-py3-none-any.whl --force-reinstall --no-deps --no-build-isolation --no-cache-dir --no-index
-```
-
 If you want to use MACE
 ```bash
 pip install cuequivariance cuequivariance-torch cuequivariance-ops-torch-cu12

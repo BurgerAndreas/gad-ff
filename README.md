@@ -5,15 +5,19 @@ Based on the HORM EquiformerV2 model, finetuned with extra prediction heads on t
 
 ## Installation
 
+### Setting up the environment
+Install uv (if not already installed)
 ```bash
-# Install uv (if not already installed)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
 ```bash
-uv venv hesspred --python 3.11
-source hesspred/bin/activate
+git clone git@github.com:BurgerAndreas/gad-ff.git
+cd gad-ff
+
+uv venv .hessenv --python 3.11
+source .hessenv/bin/activate
 uv pip install --upgrade pip
 
 uv pip install torch==2.7.0  --index-url https://download.pytorch.org/whl/cu126
@@ -21,7 +25,7 @@ uv pip install torch-scatter -f https://data.pyg.org/whl/torch-2.7.0+cu126.html
 uv pip install torch-cluster -f https://data.pyg.org/whl/torch-2.7.0+cu126.html
 uv pip install torch-geometric
 
-uv pip install "numpy<=1.26.0" scipy scikit-learn pandas ase==3.25.0 plotly imageio seaborn black tqdm joblib einops ipykernel toml omegaconf nbformat nglview py3Dmol==2.5.0 hydra-submitit-launcher hydra-core==1.* wandb==0.21.0 pyyaml dxtb[libcint] torchmetrics joblib==1.5.1 submitit rmsd pytorch_warmup e3nn==0.5.1 "huggingface_hub>=0.27.1" "kagglehub>=0.3.12" networkx==3.4.2 pydantic==2.11.4 opt-einsum-fx==0.1.4 lmdb==1.5.1 "h5py>=3.10.0" progressbar==2.5 ruff triton==3.3.0 lightning==2.5.1.post0
+uv pip install -r requirements.txt
 # fairchem-core==1.10.0
 
 uv pip install -e .
@@ -30,12 +34,15 @@ uv pip install -U "jax[cuda12]"==0.6.2
 uv pip install -e sella
 uv pip install git+https://github.com/virtualzx-nad/geodesic-interpolate.git
 
-# uv pip install autograd==1.5 dask==2023.5.1 distributed==2023.5.1 fabric==3.1.0 jinja2==3.1.5 natsort==8.3.1 rmsd==1.5.1
-
-uv pip install pyscf
 uv pip install gpu4pyscf-cuda12x cutensor-cu12
+```
 
-cd ../ReactBench
+To run the evals you need the sister repository as well:
+```bash
+cd ..
+git clone git@github.com:BurgerAndreas/ReactBench.git
+cd ReactBench
+
 cd dependencies 
 git clone git@github.com:BurgerAndreas/pysisyphus.git 
 cd pysisyphus 
@@ -55,15 +62,28 @@ cd ReactBench/MLIP/mace/ # install mace env
 uv pip install -e .
 cd ../../..
 
-# git clone git@github.com:BurgerAndreas/gad-ff.git
-cd ../gad-ff
-uv pip install -e .
-cd ../ReactBench
+# Get the recomputed Transition1x subset for validation, 960 datapoints
+mkdir -p data 
+tar -xzf ts1x.tar.gz -C data
+find data/ts1x -type f | wc -l # 960
 
 cd ../gad-ff
 ```
 
-Preprocess the Hessian dataset
+### Setting up the dataset
+Kaggle automatically downloads to the `~/.cache` folder. I highly recommend to set up a symbolic link to a local folder to avoid running out of space:
+```bash
+PROJECT = <folder where you want to store the dataset>
+mkdir -p ${PROJECT}/.cache
+ln -s ${PROJECT}/.cache ${HOME}/.cache
+```
+
+Get the HORM dataset: # TODO: upload preprocessed data
+```bash
+python scripts/download_horm_data_kaggle.py
+```
+
+Preprocess the Hessian dataset (takes ~48 hours) 
 ```bash
 python scripts/preprocess_hessian_dataset.py --dataset-file data/sample_100.lmdb
 
@@ -72,9 +92,26 @@ python scripts/preprocess_hessian_dataset.py --dataset-file RGD1.lmdb
 python scripts/preprocess_hessian_dataset.py --dataset-file ts1x_hess_train_big.lmdb
 ```
 
-## Available checkpoints
+### Get model checkpoints
 
-- `ckpt/eqv2.ckpt`: HORM EquiformerV2 finetuned on the HORM Hessian dataset. Not trained to predict the Hessian eigenvalues and eigenvectors! Will give random results. Can be used with autograd Hessian.
+Get the baseline model:
+- `ckpt/eqv2.ckpt`: HORM EquiformerV2 finetuned on the HORM Hessian dataset. Can be used to get the Hessian via autograd. Used as starting point for training our HessianLearning model as well as baseline for evaluation.
+
+```bash
+# Download HORM EquiformerV2 with Energy-Force-Hessian Training
+mkdir -p ckpt
+wget https://huggingface.co/yhong55/HORM/resolve/main/eqv2.ckpt -O ckpt/eqv2.ckpt
+# Other models from the HORM paper
+wget https://huggingface.co/yhong55/HORM/resolve/main/left-df.ckpt -O ckpt/left-df.ckpt
+wget https://huggingface.co/yhong55/HORM/resolve/main/left.ckpt -O ckpt/left.ckpt
+wget https://huggingface.co/yhong55/HORM/resolve/main/alpha.ckpt -O ckpt/alpha.ckpt
+```
+
+Get our HessianLearning model: # TODO
+```bash
+# download from HuggingFace
+wget https://huggingface.co/andreasburger/heigen -O ckpt/heigen.ckpt
+```
 
 
 ## Use our model
@@ -130,24 +167,41 @@ v = eigenpred["eigvec_1"].reshape(B, -1)
 forces = forces.reshape(B, -1)
 # −∇V(x) + 2(∇V, v(x))v(x)
 gad = -forces + 2 * torch.einsum("bi,bi->b", forces, v) * v
-
 ```
 
 
-## Recreate our models
+## Reproduce results from our paper
 
-Code: https://github.com/BurgerAndreas/gad-ff
+Training run we used: # TODO
+```bash
 
-Recreate our Hessian-eigen dataset [docs/eigen_dataset.md](docs/eigen_dataset.md)
+```
 
-Recreate our direct-prediction-Hessian-eigen model [docs/training.md](docs/training.md)
+Evaluation: # TODO
+
+
 
 ## Citation
 
+If you found this code useful, please consider citing:
 ```bibtex
 TODO
 ```
 
+The training code and the dataset are based on the HORM [paper](https://arxiv.org/abs/2505.12447), [dataset](https://www.kaggle.com/datasets/yunhonghan/hessian-dataset-for-optimizing-reactive-mliphorm/data), and [code](https://github.com/deepprinciple/HORM)
 ```bibtex
 HORM
 ```
+
+The evaluation is based on the ReactBench [paper](https://chemrxiv.org/engage/chemrxiv/article-details/68270569927d1c2e66165ad8), and [code](https://github.com/deepprinciple/ReactBench)
+```bibtex
+@article{https://doi.org/10.1002/advs.202506240,
+    author = {Zhao, Qiyuan and Han, Yunhong and Zhang, Duo and Wang, Jiaxu and Zhong, Peichen and Cui, Taoyong and Yin, Bangchen and Cao, Yirui and Jia, Haojun and Duan, Chenru},
+    title = {Harnessing Machine Learning to Enhance Transition State Search with Interatomic Potentials and Generative Models},
+    journal = {Advanced Science},
+    pages = {e06240},
+    doi = {https://doi.org/10.1002/advs.202506240}
+}
+```
+
+We thank the authors of HORM and ReactBench from DeepPrinciple for making their code and data openly available. Please consider citing their work if you use this code or data.
