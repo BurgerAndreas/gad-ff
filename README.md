@@ -16,8 +16,8 @@ export PATH="$HOME/.local/bin:$PATH"
 git clone git@github.com:BurgerAndreas/gad-ff.git
 cd gad-ff
 
-uv venv .hessenv --python 3.11
-source .hessenv/bin/activate
+uv venv .venv --python 3.11
+source .venv/bin/activate
 uv pip install --upgrade pip
 
 uv pip install torch==2.7.0  --index-url https://download.pytorch.org/whl/cu126
@@ -25,7 +25,6 @@ uv pip install torch-scatter -f https://data.pyg.org/whl/torch-2.7.0+cu126.html
 uv pip install torch-cluster -f https://data.pyg.org/whl/torch-2.7.0+cu126.html
 uv pip install torch-geometric
 
-uv pip install -r requirements.txt
 # fairchem-core==1.10.0
 
 uv pip install -e .
@@ -58,9 +57,10 @@ cd ReactBench/MLIP/leftnet/ # install leftnet env
 uv pip install -e .
 cd ../../..
 
-cd ReactBench/MLIP/mace/ # install mace env
-uv pip install -e .
-cd ../../..
+# Mace requires e3nn<5.*, but pytorch 2.7.0 only supports e3nn>=5.0.0
+# cd ReactBench/MLIP/mace/ # install mace env
+# uv pip install -e .
+# cd ../../..
 
 uv pip install -e . # install ReactBench
 
@@ -70,6 +70,7 @@ tar -xzf ts1x.tar.gz -C data
 find data/ts1x -type f | wc -l # 960
 
 cd ../gad-ff
+uv pip install -r requirements.txt
 ```
 
 ### Setting up the dataset

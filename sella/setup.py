@@ -56,6 +56,7 @@ with open("sella.md", "r") as f:
 
 with open("requirements.txt", "r") as f:
     install_requires = f.read().strip().split()
+# install_requires = ["numpy"]
 
 setup(
     name="Sella",
@@ -71,7 +72,6 @@ setup(
         "Development Status :: 4 - Beta",
         "Environment :: Console",
         "Intended Audience :: Science/Research",
-        "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
         "Natural Language :: English",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3.8",
@@ -82,4 +82,5 @@ setup(
     ],
     python_requires=">=3.8",
     install_requires=install_requires,
+    license="LGPL-3.0-only",
 )
