@@ -40,29 +40,20 @@ To run the evals you need the sister repository as well:
 ```bash
 cd ..
 git clone git@github.com:BurgerAndreas/ReactBench.git
-cd ReactBench
-
-cd dependencies 
+cd ReactBench/dependencies 
 git clone git@github.com:BurgerAndreas/pysisyphus.git 
-cd pysisyphus 
-uv pip install -e .
+git clone git@github.com:BurgerAndreas/pyGSM.git 
 cd ..
 
-git clone git@github.com:BurgerAndreas/pyGSM.git 
-cd pyGSM
-uv pip install -e .
-cd ../..
+uv pip install -e . # install ReactBench
 
-cd ReactBench/MLIP/leftnet/ # install leftnet env
-uv pip install -e .
-cd ../../..
+# install leftnet env
+uv pip install -e ReactBench/MLIP/leftnet/
 
 # Mace requires e3nn<5.*, but pytorch 2.7.0 only supports e3nn>=5.0.0
-# cd ReactBench/MLIP/mace/ # install mace env
-# uv pip install -e .
-# cd ../../..
+# install mace env
+# uv pip install -e ReactBench/MLIP/mace
 
-uv pip install -e . # install ReactBench
 
 # Get the recomputed Transition1x subset for validation, 960 datapoints
 mkdir -p data 

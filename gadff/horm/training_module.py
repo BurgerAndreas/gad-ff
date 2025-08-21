@@ -171,7 +171,7 @@ class PotentialModule(LightningModule):
         self.pos_require_grad = True
 
         self.clip_grad = training_config["clip_grad"]
-        if self.training_config["use_clip_gradnorm_queue"]:
+        if self.training_config.get("use_clip_gradnorm_queue", True):
             self.gradnorm_queue = diff_utils.Queue()
             self.gradnorm_queue.add(3000)
         self.save_hyperparameters()

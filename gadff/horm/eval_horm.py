@@ -110,13 +110,13 @@ def evaluate(
     os.makedirs(results_dir, exist_ok=True)
     ckpt_name = checkpoint_path.split("/")[-1].split(".")[0]
     results_file = (
-        f"{results_dir}/{ckpt_name}_{dataset_name}_{hessian_method}_metrics.pkl"
+        f"{results_dir}/{ckpt_name}_{dataset_name}_{hessian_method}_metrics.csv"
     )
 
     # Check if results already exist and redo is False
     if os.path.exists(results_file) and not redo:
         print(f"Loading existing results from {results_file}")
-        df_results = pd.read_pickle(results_file)
+        df_results = pd.read_csv(results_file)
 
     else:
         # if hessian_method == "predict" or model.do_hessian or model.otf_graph == False:
@@ -265,7 +265,7 @@ def evaluate(
         df_results = pd.DataFrame(sample_metrics)
 
         # Save DataFrame
-        df_results.to_pickle(results_file)
+        df_results.to_csv(results_file, index=False)
         print(f"Saved results to {results_file}")
 
     aggregated_results = {
