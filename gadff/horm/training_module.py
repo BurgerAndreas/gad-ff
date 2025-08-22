@@ -697,7 +697,7 @@ class PotentialModule(LightningModule):
     #     # torch.nn.utils.clip_grad_value_(self.parameters(), clip_value=self.training_config["gradient_clip_val"])
 
 
-    def configure_gradient_clipping(
+    def _configure_gradient_clipping(
         self,
         optimizer,
         # optimizer_idx,
