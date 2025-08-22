@@ -3,6 +3,7 @@ from torch_geometric.transforms import BaseTransform
 from nets.equiformer_v2.hessian_pred_utils import (
     _get_flat_indexadd_message_indices,
     _get_node_diagonal_1d_indexadd_indices,
+    add_extra_props_for_hessian,
 )
 from nets.equiformer_v2.equiformer_v2_oc20 import EquiformerV2_OC20
 
@@ -17,6 +18,18 @@ from torch_geometric.nn import radius_graph
 
 from torch_geometric.data import Data as TGData
 from torch_geometric.data import Batch as TGBatch
+from torch_geometric.data import Dataset as TGDataset
+
+from collections.abc import Mapping
+from typing import Any, List, Optional, Sequence, Union
+
+import torch.utils.data
+from torch.utils.data.dataloader import default_collate
+from torch_geometric.loader.dataloader import Collater as TGCollater
+
+from torch_geometric.data.data import BaseData
+from torch_geometric.data.datapipes import DatasetAdapter
+from torch_geometric.typing import TensorFrame, torch_frame
 
 
 class HessianGraphTransform(BaseTransform):
@@ -214,3 +227,85 @@ def generate_fullyconnected_graph_nopbc(data, cutoff):
         torch.tensor([0.0]),
         torch.tensor([0.0]),
     )
+
+
+class HessianBatchTransform:
+    """
+    Post-batching transform that applies batch-specific index offsetting.
+    This should be used in a custom collate function after batching individual samples.
+
+    This replaces the need to call add_extra_props_for_hessian(batch, offset_indices=True)
+    during training, moving the computation to dataloader workers.
+    """
+
+    def __call__(self, batch):
+        """
+        Apply batch offsetting to precomputed indices.
+
+        Args:
+            batch: Batched torch_geometric.data.Batch object
+
+        Returns:
+            batch: Modified batch with offset indices
+        """
+        # This is equivalent to add_extra_props_for_hessian(batch, offset_indices=True)
+        # but optimized for the dataloader worker context
+        return add_extra_props_for_hessian(batch, offset_indices=True)
+
+
+def create_hessian_collate_fn(dataset, follow_batch, exclude_keys):
+    """
+    Create a custom collate function that applies batch offsetting after batching.
+    Use this instead of the default PyG collate function when training with Hessian prediction.
+
+    Returns:
+        collate_fn: Function that can be passed to DataLoader
+    """
+    tg_collater = TGCollater(dataset, follow_batch, exclude_keys)
+    hessian_batch_transform = HessianBatchTransform()
+
+    def collate_fn(data_list):
+        # First do the standard PyG batching
+        batch = tg_collater(data_list)
+
+        # Then apply batch-specific index offsetting
+        batch = hessian_batch_transform(batch)
+
+        return batch
+
+    return collate_fn
+
+
+class HessianDataLoader(torch.utils.data.DataLoader):
+    r"""A copy of the torch_geometric dataloader, but adds our custom collate function after the torch_geometric collate function."""
+
+    def __init__(
+        self,
+        dataset: Union[TGDataset, Sequence[BaseData], DatasetAdapter],
+        batch_size: int = 1,
+        shuffle: bool = False,
+        follow_batch: Optional[List[str]] = None,
+        exclude_keys: Optional[List[str]] = None,
+        do_hessian_batch_offsetting: bool = True,
+        **kwargs,
+    ):
+        # Remove for PyTorch Lightning:
+        kwargs.pop("collate_fn", None)
+
+        # Save for PyTorch Lightning < 1.6:
+        self.follow_batch = follow_batch
+        self.exclude_keys = exclude_keys
+
+        self.do_hessian_batch_offsetting = do_hessian_batch_offsetting
+        if self.do_hessian_batch_offsetting:
+            collate_fn = create_hessian_collate_fn(dataset, follow_batch, exclude_keys)
+        else:
+            collate_fn = TGCollater(dataset, follow_batch, exclude_keys)
+
+        super().__init__(
+            dataset,
+            batch_size,
+            shuffle,
+            collate_fn=collate_fn,
+            **kwargs,
+        )

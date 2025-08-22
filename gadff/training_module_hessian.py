@@ -20,7 +20,7 @@ from torch.optim.lr_scheduler import (
     ConstantLR,
 )
 
-# from torch_geometric.loader import DataLoader as TGDataLoader
+from torch_geometric.loader import DataLoader as TGDataLoader
 # from torchmetrics import (
 #     MeanAbsoluteError,
 #     MeanAbsolutePercentageError,
@@ -34,7 +34,11 @@ import pytorch_lightning as pl
 
 # from nets.equiformer_v2.equiformer_v2_oc20 import EquiformerV2_OC20
 from gadff.horm.ff_lmdb import LmdbDataset
-from ocpmodels.hessian_graph_transform import HessianGraphTransform
+from ocpmodels.hessian_graph_transform import (
+    HessianGraphTransform,
+    create_hessian_collate_fn,
+    HessianDataLoader,
+)
 
 from nets.equiformer_v2.hessian_pred_utils import add_extra_props_for_hessian
 
@@ -329,13 +333,42 @@ class HessianPotentialModule(PotentialModule):
             print(f"Error logging trainable parameters: {e}")
         return
 
+    # MISC
+    def train_dataloader(self):
+        """Override to use custom collate function for Hessian batch offsetting"""
+        from torch_geometric.loader import DataLoader as TGDataLoader
+
+        return HessianDataLoader(
+            self.train_dataset,
+            batch_size=self.training_config["bz"],
+            shuffle=True,
+            num_workers=self.training_config["num_workers"],
+            follow_batch=self.training_config["follow_batch"],
+            drop_last=self.training_config["drop_last"],
+            do_hessian_batch_offsetting=True,
+        )
+
+    def val_dataloader(self):
+        """Override to use custom collate function for Hessian batch offsetting"""
+        return HessianDataLoader(
+            self.val_dataset,
+            batch_size=self.training_config["bz_val"],
+            shuffle=False,
+            num_workers=self.training_config["num_workers"],
+            follow_batch=self.training_config["follow_batch"],
+            drop_last=self.training_config["drop_last"],
+            do_hessian_batch_offsetting=True,
+        )
+
     @torch.enable_grad()
     def compute_loss(self, batch):
         loss = 0.0
         info = {}
         batch.pos.requires_grad_()
         batch = compute_extra_props(batch, pos_require_grad=self.pos_require_grad)
-        batch = add_extra_props_for_hessian(batch, offset_indices=True)
+        # MISC
+        # batch specific index offsetting
+        # batch = add_extra_props_for_hessian(batch, offset_indices=True)
 
         hat_ae, hat_forces, outputs = self.potential.forward(
             batch.to(self.device), hessian=True, add_props=False
@@ -399,7 +432,7 @@ class HessianPotentialModule(PotentialModule):
     def compute_eval_loss(self, batch, prefix):
         """Compute comprehensive evaluation metrics for eigenvalues and eigenvectors."""
         batch = compute_extra_props(batch=batch, pos_require_grad=self.pos_require_grad)
-        batch = add_extra_props_for_hessian(batch, offset_indices=True)
+        # batch = add_extra_props_for_hessian(batch, offset_indices=True) # MISC
         with torch.no_grad():
             hat_ae, hat_forces, outputs = self.potential.forward(
                 batch.to(self.device), hessian=True, add_props=False
