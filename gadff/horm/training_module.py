@@ -686,26 +686,24 @@ class PotentialModule(LightningModule):
         self.log_dict(norms)
         # super().on_before_optimizer_step(optimizer)
 
-    # def configure_gradient_clipping(
-    #     self,
-    #     optimizer,
-    #     optimizer_idx=None,
-    #     gradient_clip_val=None,
-    #     gradient_clip_algorithm=None,
-    # ):
-    #     # Clips gradient norm to max_norm
-    #     self.clip_gradients(
-    #         optimizer,
-    #         gradient_clip_val=self.training_config["gradient_clip_val"],
-    #         gradient_clip_algorithm=self.training_config["gradient_clip_algorithm"],
-    #     )
-    #     # torch.nn.utils.clip_grad_norm_(self.parameters(), clip_value=self.training_config["gradient_clip_val"])
-    #     # torch.nn.utils.clip_grad_value_(self.parameters(), clip_value=self.training_config["gradient_clip_val"])
+    def configure_gradient_clipping(
+        self,
+        optimizer,
+        gradient_clip_val=None,
+        gradient_clip_algorithm=None,
+    ):
+        # Clips gradient norm to max_norm
+        self.clip_gradients(
+            optimizer,
+            gradient_clip_val=self.training_config["gradient_clip_val"],
+            gradient_clip_algorithm=self.training_config["gradient_clip_algorithm"],
+        )
+        # torch.nn.utils.clip_grad_norm_(self.parameters(), clip_value=self.training_config["gradient_clip_val"])
+        # torch.nn.utils.clip_grad_value_(self.parameters(), clip_value=self.training_config["gradient_clip_val"])
 
     def _configure_gradient_clipping(
         self,
         optimizer,
-        # optimizer_idx,
         gradient_clip_val=None,
         gradient_clip_algorithm=None,
     ):
