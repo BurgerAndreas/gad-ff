@@ -2,10 +2,7 @@ import os
 import omegaconf
 import numpy as np
 import torch
-from uuid import uuid4
 from pathlib import Path
-
-# from gadff.path_config import CHECKPOINT_PATH_EQUIFORMER_HORM
 
 # e.g. inference kwargs
 IGNORE_OVERRIDES = [

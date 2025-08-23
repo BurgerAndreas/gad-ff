@@ -1,7 +1,9 @@
 import torch
+import numpy as np
 from nets.scatter_utils import scatter_mean
 
 GLOBAL_ATOM_NUMBERS = torch.tensor([1, 6, 7, 8])
+GLOBAL_ATOM_SYMBOLS = np.array(["H", "C", "N", "O"])
 
 
 def remove_mean_batch(x, indices):

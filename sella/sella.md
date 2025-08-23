@@ -9,7 +9,7 @@ Here’s a high-level, implementation-focused overview of the Sella codebase, di
 1. Core algorithm modules
 
    * Internal-coordinate generation:
-     Builds a *redundant* set of bond-stretch, angle-bend and dihedral coordinates (Appendix A).  It automatically detects near-linear angles, replaces them with impropers, and—even mid-optimization—drops and rebuilds the coordinate system as needed, inserting “dummy” atoms and associated constraints to keep everything well-defined .
+     Builds a *redundant* set of bond-stretch, angle-bend and dihedral coordinates (Appendix A).  It automatically detects near-linear angles, replaces them with impropers, and-even mid-optimization-drops and rebuilds the coordinate system as needed, inserting “dummy” atoms and associated constraints to keep everything well-defined .
    * Hessian diagonalization & update:
      Implements an iterative Rayleigh–Ritz (Olsen) solver in the *nonredundant* internal-coordinate basis to find the lowest-curvature mode without ever forming the full Hessian .  All curvature information from those Hessian-vector products is folded into a multi-secant TS-BFGS update of the approximate Hessian so subsequent steps stay accurate .
    * Geodesic stepping:
@@ -18,7 +18,7 @@ Here’s a high-level, implementation-focused overview of the Sella codebase, di
 2. Constrained saddle-point optimizer
 
    * Null-space SQP for constraint enforcement: constraints (distances, angles, even custom expressions) enter as Lagrange multipliers; at each iteration a small correction step brings you back toward the constraint manifold, then an SQP step (in the orthogonal subspace) optimizes the energy .
-   * RS-PRFO for saddle points: splits the unconstrained space into maximization (reaction coordinate) and minimization subspaces, solving small eigenproblems to step uphill in one and downhill in the others—all within the SQP framework .
+   * RS-PRFO for saddle points: splits the unconstrained space into maximization (reaction coordinate) and minimization subspaces, solving small eigenproblems to step uphill in one and downhill in the others-all within the SQP framework .
    * Trust-region control uses the infinity norm on the combined SQP step (so adding more redundant coordinates doesn’t shrink your allowed step size) and rescales via a simple Newton solve when needed .
 
 

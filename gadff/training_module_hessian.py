@@ -41,13 +41,13 @@ from ocpmodels.hessian_graph_transform import (
 )
 
 from nets.equiformer_v2.hessian_pred_utils import add_extra_props_for_hessian
+from nets.prediction_utils import compute_extra_props
 
 # from gadff.horm.utils import average_over_batch_metrics, pretty_print
 # import gadff.horm.utils as diff_utils
 # from gadff.path_config import find_project_root
 from gadff.horm.training_module import (
     PotentialModule,
-    compute_extra_props,
     SchemaUniformDataset,
 )
 from gadff.loss_functions import (
