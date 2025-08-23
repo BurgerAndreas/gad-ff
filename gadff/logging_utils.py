@@ -55,6 +55,7 @@ REPLACE_HUMAN = {
     "preset=b": "Luca8",
     "preset=": "",
     "hesspred_": "",
+    "num_layers_hessian": "l",
 }
 
 

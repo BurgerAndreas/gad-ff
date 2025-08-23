@@ -5,6 +5,5 @@ model:
   drop_path_rate:           0.0         # [0.0, 0.05]
   proj_drop:                0.0
 
-# Step decay learning rate schedule
 training:
   hessian_loss_type: "mae"
