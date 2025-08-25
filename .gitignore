@@ -18,6 +18,8 @@ outputs/
 outslurm/
 wandb
 results/
+runs_*/
+runs_relaxation/
 
 _*
 plots/

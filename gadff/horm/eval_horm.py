@@ -13,8 +13,10 @@ from ocpmodels.hessian_graph_transform import HessianGraphTransform
 
 try:
     from ReactBench.utils.frequency_analysis import analyze_frequencies
-except ImportError:
+except ImportError as e:
     analyze_frequencies = None
+    print("analyze_frequencies is not available.")
+    print(f"Import error in {__file__}:\n{e}")
 
 
 def _get_derivatives(x, y, retain_graph=None, create_graph=False):
@@ -251,6 +253,8 @@ def evaluate(
                 sample_data["neg_num_agree"] = (
                     1 if (true_neg_num == freqs_model_neg_num) else 0
                 )
+            else:
+                print("analyze_frequencies is not available.")
 
             sample_metrics.append(sample_data)
             n_samples += 1
@@ -355,6 +359,11 @@ def plot_accuracy_vs_natoms(df_results, name):
     # Plot each metric
     for i, (metric, title, ylabel) in enumerate(metrics):
         ax = axes[i // 2, i % 2]
+
+        # Skip metrics not available in results
+        if metric not in df_results.columns:
+            ax.set_visible(False)
+            continue
 
         # Group by natoms and calculate mean and std
         grouped = (

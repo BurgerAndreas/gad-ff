@@ -127,6 +127,7 @@ class HessianPotentialModule(PotentialModule):
 
         if self.training_config["hessian_loss_type"] == "mse":
             self.loss_fn_hessian = torch.nn.MSELoss()
+            # self.loss_fn_hessian = torch.nn.functional.mse_loss
         elif self.training_config["hessian_loss_type"] == "mae":
             self.loss_fn_hessian = torch.nn.L1Loss()
         else:
@@ -336,8 +337,6 @@ class HessianPotentialModule(PotentialModule):
     # MISC
     def train_dataloader(self):
         """Override to use custom collate function for Hessian batch offsetting"""
-        from torch_geometric.loader import DataLoader as TGDataLoader
-
         return HessianDataLoader(
             self.train_dataset,
             batch_size=self.training_config["bz"],
@@ -409,8 +408,15 @@ class HessianPotentialModule(PotentialModule):
         # else:
         #     hessian_loss = self.loss_fn_hessian(hessian_pred, hessian_true)
 
+        assert hessian_pred.shape == hessian_true.shape, (
+            f"{hessian_pred.shape} != {hessian_true.shape}"
+        )
         if self.training_config["hessian_loss_weight"] > 0.0:
             hessian_loss = self.loss_fn_hessian(hessian_pred, hessian_true)
+            manual_loss = torch.pow(hessian_pred - hessian_true, 2).mean()
+            assert torch.allclose(hessian_loss, manual_loss), (
+                f"{hessian_loss} != {manual_loss}"
+            )
             loss += hessian_loss * self.training_config["hessian_loss_weight"]
             info["Loss Hessian"] = hessian_loss.detach().item()
 
