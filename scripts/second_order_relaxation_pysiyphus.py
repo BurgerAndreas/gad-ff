@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import traceback
 import logging
+import torch
 
 from pysisyphus.Geometry import Geometry  # Geometry API + coordinate systems
 from pysisyphus.calculators.MLFF import MLFF
@@ -49,7 +50,7 @@ It implements four variants:
 1. baseline: first-order (FIRE)
 2. no-Hessian: RFO+BFGS with unit initial Hessian
 3. initial-only: RFO+BFGS with Hpred only at step 0
-4. periodic replace: RFO+BFGS with Hpred every k∈{3,1}
+4. periodic replace: RFO+BFGS with Hpred every k in {3,1}
 
 - baseline: FIRE -> first-order only, no Hessian
 - no-Hessian: RFOptimizer(hessian_init='unit', hessian_update='bfgs') -> quasi-Newton with a diagonal initial guess (no external Hessian) ([pysisyphus.readthedocs.io][1])
@@ -176,19 +177,6 @@ pysis_all_optimizers = [
     "StringOptimizer",
     "StabilizedQNMethod",
 ]
-
-# we probably do not need this
-# if hessianmethod_name == "predict":
-# transform = HessianGraphTransform(
-#     cutoff=model.cutoff,
-#     max_neighbors=model.max_neighbors,
-#     use_pbc=model.use_pbc,
-# )
-# else:
-# transform = None
-
-# dataset = LmdbDataset(fix_dataset_path(lmdb_path), transform=transform)
-# dataloader = TGDataLoader(dataset, batch_size=1, shuffle=False)
 
 # --------------------------
 #  Utilities
@@ -386,8 +374,6 @@ def get_rfo_optimizer(
 ):
     # RFO with flexible Hessian policies. hessian_init ∈ {'unit','calc',...}; hessian_recalc = k or None.
     opt = RFOptimizer(
-        # geometry
-        # Geometry to be optimized.
         # line_search
         # Whether to carry out implicit line searches.
         # gediis
@@ -440,6 +426,7 @@ def get_rfo_optimizer(
         # Maximum number of RS iterations.
         # rfo_overlaps
         # Enable mode-following in RS procedure.
+        # Geometry to be optimized.
         geom,
         thresh=thresh,
         trust_radius=trust_radius,
@@ -488,6 +475,7 @@ def do_relaxations():
         required=False,
     )
     ap.add_argument("--max_samples", type=int, default=15)
+    ap.add_argument("--max_cycles", type=int, default=150)
     ap.add_argument("--debug", type=bool, default=False)
     ap.add_argument("--redo", type=bool, default=False)
     ap.add_argument("--verbose", type=bool, default=False)
@@ -497,10 +485,6 @@ def do_relaxations():
     ckpt_path = "/ssd/Code/ReactBench/ckpt/hesspred/alldatagputwoalphadrop0droppathrate0projdrop0-394770-20250806-133956.ckpt"
     wandb_id = ckpt_path.split("/")[-1].split(".")[0].split("-")[1]
 
-    max_cycles = 150
-    if args.debug:
-        args.max_samples = 3
-        max_cycles = 3
 
     print("Loading dataset...")
     # case 1: is
@@ -522,23 +506,61 @@ def do_relaxations():
     # Determine source label for logging
     source_label = dataset_path.split("/")[-1].split(".")[0]
     out_dir = os.path.join(
-        ROOT_DIR, "runs_relaxation", source_label + "_" + args.coord + "_" + wandb_id
+        ROOT_DIR, "runs_relaxation", source_label + "_" + wandb_id + "_" + args.coord + "_" + args.thresh.replace('_', '') + "_" + str(args.max_samples)
     )
     os.makedirs(out_dir, exist_ok=True)
     print(f"Out directory: {out_dir}")
 
-    ts = time.strftime("%Y%m%d-%H%M%S")
-    csv_path = os.path.join(out_dir, f"relaxation_results_{args.thresh.replace('_', '')}_{args.max_samples}.csv")
+    print("\nInitializing model...")
+    base_calc = MLFF(
+        charge=0,
+        ckpt_path=ckpt_path,
+        config_path="auto",
+        device="cuda",
+        hessianmethod_name="predict",
+        mem=4000,
+        method="equiformer",
+        mult=1,
+        pal=1,
+        # out_dir=yaml_dir / OUT_DIR_DEFAULT,
+        # 'out_dir': PosixPath('/ssd/Code/ReactBench/runs/equiformer_alldatagputwoalphadrop0droppathrate0projdrop0-394770-20250806-133956_data_predict/rxn9/TSOPT/qm_calcs
+    )
+    print(f"Initialized calc MLFF.model: {base_calc.model.__class__.__name__}")
+    print(
+        f"Initialized calc MLFF.model.model: {base_calc.model.model.__class__.__name__}"
+    )
+    print(
+        f"Initialized calc MLFF.model.model.potential: {base_calc.model.model.potential.__class__.__name__}"
+    )
 
+    print("\nTesting model with pysisyphus...")
+    counting_calc = CountingCalc(base_calc)
+    data = dataset[0]
+    atomssymbols = GLOBAL_ATOM_SYMBOLS[data.one_hot.long().argmax(dim=1).cpu().numpy()]
+    coords = data.pos.numpy() * ANG2BOHR
+    geom = Geometry(
+        atomssymbols, coords, coord_type=args.coord
+    )  
+    geom.set_calculator(counting_calc)
+    energy = geom.energy
+    forces = geom.forces
+    hessian = geom.hessian
+
+    print("\nRunning relaxations...")
+    csv_path = os.path.join(out_dir, f"relaxation_results.csv")
     if not os.path.exists(csv_path) or args.redo:
+        ts = time.strftime("%Y%m%d-%H%M%S")
         # Accumulate results across all samples
         all_results = []
 
+        np.random.seed(42)
+        torch.manual_seed(42)
+        random_idx = np.random.permutation(len(dataset))[:args.max_samples]
+
         print()
-        for i, data in tqdm(enumerate(dataset), total=args.max_samples):
-            if i >= args.max_samples:
-                break
-            print("", "=" * 80, f"\tSample {i}\t", "=" * 80, sep="\n")
+        for cnt, idx in tqdm(enumerate(random_idx), total=args.max_samples):
+            print("", "=" * 80, f"\tSample {cnt} ({idx})\t", "=" * 80, sep="\n")
+            data = dataset[idx]
             # atoms, coords = load_xyz(xyz)
 
             indices = data.one_hot.long().argmax(dim=1)
@@ -547,45 +569,59 @@ def do_relaxations():
             coords = data.pos.numpy() * ANG2BOHR
             initial_dft_hessian = data.hessian.numpy() / AU2EV * BOHR2ANG * BOHR2ANG
 
-            # Build Geometry; pysisyphus expects Bohr
-            # RIC('redund') is recommended for molecules.
-            geom = Geometry(
-                atomssymbols, coords, coord_type=args.coord
-            )  
-
-            # base_calc = LennardJones()
-            base_calc = MLFF(
-                charge=0,
-                ckpt_path=ckpt_path,
-                config_path="auto",
-                device="cuda",
-                hessianmethod_name="predict",
-                mem=4000,
-                method="equiformer",
-                mult=1,
-                pal=1,
-                # out_dir=yaml_dir / OUT_DIR_DEFAULT,
-                # 'out_dir': PosixPath('/ssd/Code/ReactBench/runs/equiformer_alldatagputwoalphadrop0droppathrate0projdrop0-394770-20250806-133956_data_predict/rxn9/TSOPT/qm_calcs
-            )
-            print(f"Initialized calc MLFF.model: {base_calc.model.__class__.__name__}")
-            print(
-                f"Initialized calc MLFF.model.model: {base_calc.model.model.__class__.__name__}"
-            )
-            print(
-                f"Initialized calc MLFF.model.model.potential: {base_calc.model.model.potential.__class__.__name__}"
-            )
-
-            # Wrap it so we can count calls and optionally supply H_pred
-            counting_calc = CountingCalc(base_calc)
-            geom.set_calculator(counting_calc)
-
             results = []
 
-            # 1) Baseline: first-order optimization (FIRE)
+            # first order:
+            method_name = "NaiveSteepestDescent"
+            print_header(cnt, method_name)
+            method_name_clean = clean_str(method_name)
+            out_dir_method = os.path.join(out_dir, method_name_clean)
+            geom_nsd = get_geom(atomssymbols, coords, args.coord, base_calc)
+            opt = NaiveSteepestDescent(
+                geom_nsd,
+                max_cycles=args.max_cycles,
+                thresh=args.thresh,
+                # line_search=True,
+                out_dir=out_dir_method,
+            )
+            results.append(
+                _run_opt_safely(
+                    geom=geom_nsd,
+                    opt=opt,
+                    method_name=method_name,
+                    out_dir=out_dir_method,
+                    verbose=args.verbose,
+                )
+            )
+
+            # first order, with backtracking line search
+            method_name = "SteepestDescent"
+            print_header(cnt, method_name)
+            geom_sd = get_geom(atomssymbols, coords, args.coord, base_calc)
+            method_name_clean = clean_str(method_name)
+            out_dir_method = os.path.join(out_dir, method_name_clean)
+            opt = SteepestDescent(
+                geom_sd,
+                max_cycles=args.max_cycles,
+                thresh=args.thresh,
+                # line_search=True,
+                out_dir=out_dir_method,
+            )
+            results.append(
+                _run_opt_safely(
+                    geom=geom_sd,
+                    opt=opt,
+                    method_name=method_name,
+                    out_dir=out_dir,
+                    verbose=args.verbose,
+                )
+            )
+
+            # first-order optimization (FIRE)
             method_name = "FIRE"
             method_name_clean = clean_str(method_name)
             out_dir_method = os.path.join(out_dir, method_name_clean)
-            print_header(i, method_name)
+            print_header(cnt, method_name)
             geom_fire = get_geom(atomssymbols, coords, args.coord, base_calc)
             """
             https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.97.170201
@@ -598,7 +634,7 @@ def do_relaxations():
             opt = FIRE(
                 # Geometry providing coords, forces, energy
                 geom_fire,
-                max_cycles=max_cycles,
+                max_cycles=args.max_cycles,
                 thresh=args.thresh,
                 # # Initial time step; adaptively scaled during optimization
                 # dt=0.1,
@@ -630,60 +666,15 @@ def do_relaxations():
                 )
             )
 
-            # also first order:
-            # Hessian free, with backtracking line search
-            method_name = "SteepestDescent"
-            print_header(i, method_name)
-            geom_sd = get_geom(atomssymbols, coords, args.coord, base_calc)
-            method_name_clean = clean_str(method_name)
-            opt = SteepestDescent(
-                geom_sd,
-                max_cycles=max_cycles,
-                thresh=args.thresh,
-                # line_search=True,
-                out_dir=out_dir_method,
-            )
-            results.append(
-                _run_opt_safely(
-                    geom=geom_sd,
-                    opt=opt,
-                    method_name=method_name,
-                    out_dir=out_dir,
-                    verbose=args.verbose,
-                )
-            )
-
-            # also first order:
-            method_name = "NaiveSteepestDescent"
-            print_header(i, method_name)
-            geom_nsd = get_geom(atomssymbols, coords, args.coord, base_calc)
-            method_name_clean = clean_str(method_name)
-            opt = NaiveSteepestDescent(
-                geom_nsd,
-                max_cycles=max_cycles,
-                thresh=args.thresh,
-                # line_search=True,
-                out_dir=out_dir_method,
-            )
-            results.append(
-                _run_opt_safely(
-                    geom=geom_nsd,
-                    opt=opt,
-                    method_name=method_name,
-                    out_dir=out_dir_method,
-                    verbose=args.verbose,
-                )
-            )
-
-            # also first order:
+            # first order:
             method_name = "ConjugateGradient"
-            print_header(i, method_name)
+            print_header(cnt, method_name)
             geom_cg = get_geom(atomssymbols, coords, args.coord, base_calc)
             method_name_clean = clean_str(method_name)
             out_dir_method = os.path.join(out_dir, method_name_clean)
             opt = ConjugateGradient(
                 geom_cg,
-                max_cycles=max_cycles,
+                max_cycles=args.max_cycles,
                 thresh=args.thresh,
                 # line_search=True,
                 out_dir=out_dir_method,
@@ -701,7 +692,7 @@ def do_relaxations():
             # 2) No Hessian: BFGS with non-Hessian initial guess (unit) - pure quasi-Newton
             #    RFOptimizer accepts hessian_init and BFGS updates.
             method_name = "RFO-BFGS (unit init)"
-            print_header(i, method_name)
+            print_header(cnt, method_name)
             # geom2 = Geometry(atomssymbols, coords, coord_type=args.coord)
             # geom2.set_calculator(CountingCalc(base_calc))
             geom_bfgsunit = get_geom(atomssymbols, coords, args.coord, base_calc)
@@ -714,7 +705,7 @@ def do_relaxations():
                 hessian_recalc=None,
                 out_dir=out_dir_method,
                 thresh=args.thresh,
-                max_cycles=max_cycles,
+                max_cycles=args.max_cycles,
             )
             results.append(
                 _run_opt_safely(
@@ -728,7 +719,7 @@ def do_relaxations():
 
             # 3) Initial-only: RFO+BFGS with DFT Hessian at step 0
             method_name = "RFO-BFGS (DFT init)"
-            print_header(i, method_name)
+            print_header(cnt, method_name)
             # geom3 = Geometry(atomssymbols, coords, coord_type=args.coord)
             # geom3.set_calculator(CountingCalc(base_calc))
             geom_bfgsdft = get_geom(atomssymbols, coords, args.coord, base_calc)
@@ -742,7 +733,7 @@ def do_relaxations():
                 out_dir=out_dir_method,
                 verbose=args.verbose,
                 thresh=args.thresh,
-                max_cycles=max_cycles,
+                max_cycles=args.max_cycles,
             )
             results.append(
                 _run_opt_safely(
@@ -760,7 +751,7 @@ def do_relaxations():
 
             # 4) Initial-only: RFO+BFGS with Hpred only at step 0
             method_name = "RFO-BFGS (Hpred init)"
-            print_header(i, method_name)
+            print_header(cnt, method_name)
             # geom3 = Geometry(atomssymbols, coords, coord_type=args.coord)
             # geom3.set_calculator(CountingCalc(base_calc))
             geom_bfgshpred = get_geom(atomssymbols, coords, args.coord, base_calc)
@@ -774,7 +765,7 @@ def do_relaxations():
                 out_dir=out_dir_method,
                 verbose=args.verbose,
                 thresh=args.thresh,
-                max_cycles=max_cycles,
+                max_cycles=args.max_cycles,
             )
             results.append(
                 _run_opt_safely(
@@ -788,7 +779,7 @@ def do_relaxations():
 
             # 5) Periodic replace: k=3
             method_name = "RFO-BFGS (Hpred k3)"
-            print_header(i, method_name)
+            print_header(cnt, method_name)
             # geom4 = Geometry(atomssymbols, coords, coord_type=args.coord)
             # geom4.set_calculator(CountingCalc(base_calc))
             geom_bfgshpredk3 = get_geom(atomssymbols, coords, args.coord, base_calc)
@@ -802,7 +793,7 @@ def do_relaxations():
                 out_dir=out_dir_method,
                 verbose=args.verbose,
                 thresh=args.thresh,
-                max_cycles=max_cycles,
+                max_cycles=args.max_cycles,
             )
             results.append(
                 _run_opt_safely(
@@ -816,7 +807,7 @@ def do_relaxations():
 
             # 6) Periodic replace: k=1 (every step)
             method_name = "RFO (Hpred)"
-            print_header(i, method_name)
+            print_header(cnt, method_name)
             # geom5 = Geometry(atomssymbols, coords, coord_type=args.coord)
             # geom5.set_calculator(CountingCalc(base_calc))
             geom_rfohpred = get_geom(atomssymbols, coords, args.coord, base_calc)
@@ -830,7 +821,7 @@ def do_relaxations():
                 out_dir=out_dir_method,
                 verbose=args.verbose,
                 thresh=args.thresh,
-                max_cycles=max_cycles,
+                max_cycles=args.max_cycles,
             )
             results.append(
                 _run_opt_safely(
@@ -843,7 +834,7 @@ def do_relaxations():
             )
 
             # Pretty print
-            print(f"\n{'Strategy':>24s} {'coords':>24s} {'converged':>6} {'steps':>6} {'grads':>6} {'hessians':>6} {'s':>12}")
+            print(f"\n{'Strategy':>24s} {'coords':>6} {'converged':>6} {'steps':>6} {'grads':>6} {'hessians':>6} {'s':>12}")
             for r in results:
                 try:
                     print(
@@ -858,7 +849,7 @@ def do_relaxations():
                 r_with_ctx = dict(r)
                 r_with_ctx.update(
                     {
-                        "sample_index": i,
+                        "sample_index": idx,
                         "coord": args.coord,
                         "source": source_label,
                     }
@@ -902,7 +893,19 @@ def do_relaxations():
     plots_dir = os.path.join(out_dir, "plots")
     os.makedirs(plots_dir, exist_ok=True)
 
-    def _remove_outliers(_df, metric_name):
+    name_order = [
+        "NaiveSteepestDescent",
+        "SteepestDescent",
+        "FIRE",
+        "ConjugateGradient",
+        "RFO-BFGS (unit init)",
+        "RFO-BFGS (DFT init)",
+        "RFO-BFGS (Hpred init)",
+        "RFO-BFGS (Hpred k3)",
+        "RFO (Hpred)",
+    ]
+
+    def _remove_outliers(_d, metric_name):
         # remove the most extreme outliers (1st and 99th percentiles)
         low, high = _d[metric_name].quantile([0.01, 0.99])
         len_before = len(_d)
@@ -911,8 +914,12 @@ def do_relaxations():
         print(f"Removed {len_before - len_after} outliers for {metric_name}")
         return _d
 
-    def _plot_metric_box(_df, metric_name, save_path, remove_outliers=False):
+    def _plot_metric_box(_df, metric_name, save_path, title, remove_outliers=False):
         _d = _df.dropna(subset=[metric_name])
+        _d = _d.sort_values(
+            by="name",
+            key=lambda s: s.map({name: i for i, name in enumerate(name_order)}),
+        )
         if len(_d) == 0:
             return
         if remove_outliers:
@@ -932,9 +939,7 @@ def do_relaxations():
         )
         ax.set_xlabel("Method")
         ax.set_ylabel(metric_name.replace("_", " "))
-        ax.set_title(
-            f"{metric_name.replace('_', ' ').title()} by method ({COORD_TO_NAME[args.coord]})"
-        )
+        ax.set_title(title)
         plt.xticks(rotation=25, ha="right")
         plt.tight_layout()
         plt.savefig(save_path, dpi=150)
@@ -998,24 +1003,34 @@ def do_relaxations():
         print(f"Saved {save_path}")
 
     for metric in ["steps", "grad_calls", "hessian_calls", "wall_time_s"]:
-        _plot_metric_scatter(
-            df.copy(),
+        _d = df.copy()
+        _plot_metric_box(
+            _d[(_d["converged"] == True)],
             metric,
-            os.path.join(plots_dir, f"{metric}_scatter.png"),
+            os.path.join(plots_dir, f"{metric}_box_converged.png"),
+            title=f"{metric.replace('_', ' ').title()} (converged) ({COORD_TO_NAME[args.coord]})",
             remove_outliers=False,
         )
+        _d = df.copy()
         _plot_metric_box(
-            df.copy(),
+            _d,
             metric,
             os.path.join(plots_dir, f"{metric}_box.png"),
+            title=f"{metric.replace('_', ' ').title()} (incl. not converged) ({COORD_TO_NAME[args.coord]})",
             remove_outliers=False,
         )
-        _plot_metric_violin(
-            df.copy(),
-            metric,
-            os.path.join(plots_dir, f"{metric}_violin.png"),
-            remove_outliers=False,
-        )
+        # _plot_metric_scatter(
+        #     df.copy(),
+        #     metric,
+        #     os.path.join(plots_dir, f"{metric}_scatter.png"),
+        #     remove_outliers=False,
+        # )
+        # _plot_metric_violin(
+        #     df.copy(),
+        #     metric,
+        #     os.path.join(plots_dir, f"{metric}_violin.png"),
+        #     remove_outliers=False,
+        # )
 
     # Convergence rate per method
     if "converged" in df.columns:
@@ -1023,17 +1038,6 @@ def do_relaxations():
             df.groupby("name")["converged"].mean().reset_index(name="convergence_rate")
         )
         # sort by human name:
-        name_order = [
-            "FIRE",
-            "SteepestDescent",
-            "NaiveSteepestDescent",
-            "ConjugateGradient",
-            "RFO-BFGS (unit init)",
-            "RFO-BFGS (DFT init)",
-            "RFO-BFGS (Hpred init)",
-            "RFO-BFGS (Hpred k3)",
-            "RFO (Hpred)",
-        ]
         conv = conv.sort_values(
             by="name",
             key=lambda s: s.map({name: i for i, name in enumerate(name_order)}),
