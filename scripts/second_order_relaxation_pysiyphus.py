@@ -33,7 +33,7 @@ import pandas as pd
 # from pysisyphus.helpers_pure import eigval_to_wavenumber
 # from pysisyphus.helpers import _do_hessian
 # from pysisyphus.io.hessian import save_hessian
-from pysisyphus.constants import ANG2BOHR, AU2KJPERMOL
+from pysisyphus.constants import ANG2BOHR, AU2KJPERMOL, AU2EV, BOHR2ANG
 
 from pysisyphus.optimizers.SteepestDescent import SteepestDescent
 from pysisyphus.optimizers.ConjugateGradient import ConjugateGradient
@@ -314,11 +314,11 @@ def _run_opt_safely(geom, opt, method_name, out_dir, verbose=False, start_clean=
         assert geom.calculator.grad_calls == 0, (
             f"Calculator counts {geom.calculator.grad_calls} gradient calls"
         )
-        assert geom.masses is None, f"Masses are not None: {geom.masses}"
-        assert geom.energy is None, f"Energy is not None: {geom.energy}"
-        assert geom.forces is None, f"Forces are not None: {geom.forces}"
-        assert geom.hessian is None, f"Hessian is not None: {geom.hessian}"
-        assert geom.all_energies is None, f"All energies are not None: {geom.all_energies}"
+        # assert geom._masses is None, f"Masses are not None: {geom._masses}" # computed in Geometry.__init__
+        assert geom._energy is None, f"Energy is not None: {geom._energy}"
+        assert geom._forces is None, f"Forces are not None: {geom._forces}"
+        assert geom._hessian is None, f"Hessian is not None: {geom._hessian}"
+        assert geom._all_energies is None, f"All energies are not None: {geom._all_energies}"
 
     method_name_clean = clean_str(method_name)
     log_path = os.path.join(out_dir, f"optrun_{method_name_clean}.txt")
@@ -528,7 +528,7 @@ def do_relaxations():
     print(f"Out directory: {out_dir}")
 
     ts = time.strftime("%Y%m%d-%H%M%S")
-    csv_path = os.path.join(out_dir, f"relaxation_results_{args.max_samples}.csv")
+    csv_path = os.path.join(out_dir, f"relaxation_results_{args.thresh.replace('_', '')}_{args.max_samples}.csv")
 
     if not os.path.exists(csv_path) or args.redo:
         # Accumulate results across all samples
@@ -545,7 +545,7 @@ def do_relaxations():
             atomssymbols = GLOBAL_ATOM_SYMBOLS[indices.cpu().numpy()]
 
             coords = data.pos.numpy() * ANG2BOHR
-            initial_dft_hessian = data.hessian.numpy()
+            initial_dft_hessian = data.hessian.numpy() / AU2EV * BOHR2ANG * BOHR2ANG
 
             # Build Geometry; pysisyphus expects Bohr
             # RIC('redund') is recommended for molecules.
@@ -600,22 +600,22 @@ def do_relaxations():
                 geom_fire,
                 max_cycles=max_cycles,
                 thresh=args.thresh,
-                # Initial time step; adaptively scaled during optimization
-                dt=0.1,
-                # Maximum allowed time step when increasing dt
-                dt_max=1,
-                # Consecutive aligned steps before accelerating
-                N_acc=2,
-                # Factor to increase dt on acceleration
-                f_inc=1.1,
-                # Factor to reduce mixing a on acceleration; also shrinks dt on reset here
-                f_acc=0.99,
-                # Unused in this implementation; typical FIRE uses to reduce dt on reset
-                f_dec=0.5,
-                # Counter of aligned steps since last reset (start at 0)
-                n_reset=0,
-                # Initial mixing parameter for velocity/force mixing; restored on reset
-                a_start=0.1,
+                # # Initial time step; adaptively scaled during optimization
+                # dt=0.1,
+                # # Maximum allowed time step when increasing dt
+                # dt_max=1,
+                # # Consecutive aligned steps before accelerating
+                # N_acc=2,
+                # # Factor to increase dt on acceleration
+                # f_inc=1.1,
+                # # Factor to reduce mixing a on acceleration; also shrinks dt on reset here
+                # f_acc=0.99,
+                # # Unused in this implementation; typical FIRE uses to reduce dt on reset
+                # f_dec=0.5,
+                # # Counter of aligned steps since last reset (start at 0)
+                # n_reset=0,
+                # # Initial mixing parameter for velocity/force mixing; restored on reset
+                # a_start=0.1,
                 # String poiting to a directory where optimization progress is
                 # dumped.
                 out_dir=out_dir_method,
@@ -714,6 +714,7 @@ def do_relaxations():
                 hessian_recalc=None,
                 out_dir=out_dir_method,
                 thresh=args.thresh,
+                max_cycles=max_cycles,
             )
             results.append(
                 _run_opt_safely(
@@ -740,6 +741,8 @@ def do_relaxations():
                 hessian_recalc=None,
                 out_dir=out_dir_method,
                 verbose=args.verbose,
+                thresh=args.thresh,
+                max_cycles=max_cycles,
             )
             results.append(
                 _run_opt_safely(
@@ -771,6 +774,7 @@ def do_relaxations():
                 out_dir=out_dir_method,
                 verbose=args.verbose,
                 thresh=args.thresh,
+                max_cycles=max_cycles,
             )
             results.append(
                 _run_opt_safely(
@@ -798,6 +802,7 @@ def do_relaxations():
                 out_dir=out_dir_method,
                 verbose=args.verbose,
                 thresh=args.thresh,
+                max_cycles=max_cycles,
             )
             results.append(
                 _run_opt_safely(
@@ -825,6 +830,7 @@ def do_relaxations():
                 out_dir=out_dir_method,
                 verbose=args.verbose,
                 thresh=args.thresh,
+                max_cycles=max_cycles,
             )
             results.append(
                 _run_opt_safely(
@@ -837,7 +843,7 @@ def do_relaxations():
             )
 
             # Pretty print
-            print(f"\n{'Strategy':>24s} {'converged':>6} {'steps':>6} {'grad_calls':>6} {'hessian_calls':>6} {'wall_time_s':>12}")
+            print(f"\n{'Strategy':>24s} {'coords':>24s} {'converged':>6} {'steps':>6} {'grads':>6} {'hessians':>6} {'s':>12}")
             for r in results:
                 try:
                     print(
