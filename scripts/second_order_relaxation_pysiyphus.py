@@ -244,9 +244,9 @@ class CountingCalc(Calculator):
     def __init__(self, inner, **kwargs):
         super().__init__(**kwargs)
         self.inner = inner
-        self.reset_counts()
+        self.reset()
 
-    def reset_counts(self):
+    def reset(self):
         self.energy_calls = 0
         self.grad_calls = 0
         self.hessian_calls = 0
@@ -254,6 +254,7 @@ class CountingCalc(Calculator):
         self.calculate_energy_calls = 0
         self.calculate_gradient_calls = 0
         self.calculate_hessian_calls = 0
+        super().reset()
 
     @property
     def model(self):
@@ -306,14 +307,21 @@ class NaiveSteepestDescent(BacktrackingOptimizer):
         return step
 
 
-def _run_opt_safely(geom, opt, method_name, out_dir, verbose=False):
+def _run_opt_safely(geom, opt, method_name, out_dir, verbose=False, start_clean=True):
     # logging
-    # check if calculator supports gradient call counting
-    geom.calculator.reset_counts()
-    assert geom.calculator.grad_calls == 0, (
-        f"Calculator counts {geom.calculator.grad_calls} gradient calls"
-    )
-    log_path = os.path.join(out_dir, f"optrun_{method_name}.txt")
+    if start_clean:
+        geom.calculator.reset()
+        assert geom.calculator.grad_calls == 0, (
+            f"Calculator counts {geom.calculator.grad_calls} gradient calls"
+        )
+        assert geom.masses is None, f"Masses are not None: {geom.masses}"
+        assert geom.energy is None, f"Energy is not None: {geom.energy}"
+        assert geom.forces is None, f"Forces are not None: {geom.forces}"
+        assert geom.hessian is None, f"Hessian is not None: {geom.hessian}"
+        assert geom.all_energies is None, f"All energies are not None: {geom.all_energies}"
+
+    method_name_clean = clean_str(method_name)
+    log_path = os.path.join(out_dir, f"optrun_{method_name_clean}.txt")
 
     # wrapper to run optimizer and return results
     def _try_to_run(_opt):
@@ -336,9 +344,21 @@ def _run_opt_safely(geom, opt, method_name, out_dir, verbose=False):
                 "wall_time_s": t1 - t0,
             }
         except Exception as e:
-            print(f"Error running {method_name} optimization:")
+            print(f"Error running {method_name} optimization: {e}", flush=True)
             traceback.print_exc()
-            return None
+            return {
+                "name": method_name,
+                "converged": False,
+                "steps": None,
+                "grad_calls": None,
+                "hessian_calls": None,
+                "energy_calls": None,
+                "calculate_calls": None,
+                "calculate_energy_calls": None,
+                "calculate_gradient_calls": None,
+                "calculate_hessian_calls": None,
+                "wall_time_s": None,
+            }
 
     # run optimizer and return results
     if verbose:
@@ -356,11 +376,11 @@ def get_rfo_optimizer(
     geom,
     *,
     hessian_init,
+    thresh,
     hessian_update="bfgs",
     hessian_recalc=None,
     trust_radius=0.3,
     max_cycles=200,
-    thresh="gau_loose",
     out_dir=".",
     verbose=False,
 ):
@@ -437,6 +457,14 @@ def get_rfo_optimizer(
 #  Main harness
 # --------------------------
 
+def get_geom(atomssymbols, coords, coord_type, base_calc):
+    geom = Geometry(
+        atomssymbols, coords, coord_type=coord_type
+    )  
+    base_calc.reset()
+    counting_calc = CountingCalc(base_calc)
+    geom.set_calculator(counting_calc)
+    return geom
 
 def print_header(i, method):
     print("\n" + "=" * 10 + " " + str(i) + " " + method + " " + "=" * 10)
@@ -463,6 +491,7 @@ def do_relaxations():
     ap.add_argument("--debug", type=bool, default=False)
     ap.add_argument("--redo", type=bool, default=False)
     ap.add_argument("--verbose", type=bool, default=False)
+    ap.add_argument("--thresh", type=str, default="gau")
     args = ap.parse_args()
 
     ckpt_path = "/ssd/Code/ReactBench/ckpt/hesspred/alldatagputwoalphadrop0droppathrate0projdrop0-394770-20250806-133956.ckpt"
@@ -519,9 +548,10 @@ def do_relaxations():
             initial_dft_hessian = data.hessian.numpy()
 
             # Build Geometry; pysisyphus expects Bohr
-            base_geometry = Geometry(
+            # RIC('redund') is recommended for molecules.
+            geom = Geometry(
                 atomssymbols, coords, coord_type=args.coord
-            )  # RIC('redund') is recommended for molecules.
+            )  
 
             # base_calc = LennardJones()
             base_calc = MLFF(
@@ -547,7 +577,7 @@ def do_relaxations():
 
             # Wrap it so we can count calls and optionally supply H_pred
             counting_calc = CountingCalc(base_calc)
-            base_geometry.set_calculator(counting_calc)
+            geom.set_calculator(counting_calc)
 
             results = []
 
@@ -556,7 +586,7 @@ def do_relaxations():
             method_name_clean = clean_str(method_name)
             out_dir_method = os.path.join(out_dir, method_name_clean)
             print_header(i, method_name)
-            geom1 = base_geometry.copy_all()
+            geom_fire = get_geom(atomssymbols, coords, args.coord, base_calc)
             """
             https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.97.170201
             Structure optimization algorithm which is 
@@ -567,9 +597,9 @@ def do_relaxations():
             """
             opt = FIRE(
                 # Geometry providing coords, forces, energy
-                geom1,
+                geom_fire,
                 max_cycles=max_cycles,
-                thresh="gau_loose",
+                thresh=args.thresh,
                 # Initial time step; adaptively scaled during optimization
                 dt=0.1,
                 # Maximum allowed time step when increasing dt
@@ -592,7 +622,7 @@ def do_relaxations():
             )
             results.append(
                 _run_opt_safely(
-                    geom=geom1,
+                    geom=geom_fire,
                     opt=opt,
                     method_name=method_name,
                     out_dir=out_dir_method,
@@ -604,18 +634,18 @@ def do_relaxations():
             # Hessian free, with backtracking line search
             method_name = "SteepestDescent"
             print_header(i, method_name)
-            geom1 = base_geometry.copy_all()
+            geom_sd = get_geom(atomssymbols, coords, args.coord, base_calc)
             method_name_clean = clean_str(method_name)
             opt = SteepestDescent(
-                geom1,
+                geom_sd,
                 max_cycles=max_cycles,
-                thresh="gau_loose",
+                thresh=args.thresh,
                 # line_search=True,
                 out_dir=out_dir_method,
             )
             results.append(
                 _run_opt_safely(
-                    geom=geom1,
+                    geom=geom_sd,
                     opt=opt,
                     method_name=method_name,
                     out_dir=out_dir,
@@ -626,18 +656,18 @@ def do_relaxations():
             # also first order:
             method_name = "NaiveSteepestDescent"
             print_header(i, method_name)
-            geom1 = base_geometry.copy_all()
+            geom_nsd = get_geom(atomssymbols, coords, args.coord, base_calc)
             method_name_clean = clean_str(method_name)
             opt = NaiveSteepestDescent(
-                geom1,
+                geom_nsd,
                 max_cycles=max_cycles,
-                thresh="gau_loose",
+                thresh=args.thresh,
                 # line_search=True,
                 out_dir=out_dir_method,
             )
             results.append(
                 _run_opt_safely(
-                    geom=geom1,
+                    geom=geom_nsd,
                     opt=opt,
                     method_name=method_name,
                     out_dir=out_dir_method,
@@ -648,19 +678,19 @@ def do_relaxations():
             # also first order:
             method_name = "ConjugateGradient"
             print_header(i, method_name)
-            geom1 = base_geometry.copy_all()
+            geom_cg = get_geom(atomssymbols, coords, args.coord, base_calc)
             method_name_clean = clean_str(method_name)
             out_dir_method = os.path.join(out_dir, method_name_clean)
             opt = ConjugateGradient(
-                geom1,
+                geom_cg,
                 max_cycles=max_cycles,
-                thresh="gau_loose",
+                thresh=args.thresh,
                 # line_search=True,
                 out_dir=out_dir_method,
             )
             results.append(
                 _run_opt_safely(
-                    geom=geom1,
+                    geom=geom_cg,
                     opt=opt,
                     method_name=method_name,
                     out_dir=out_dir_method,
@@ -674,19 +704,20 @@ def do_relaxations():
             print_header(i, method_name)
             # geom2 = Geometry(atomssymbols, coords, coord_type=args.coord)
             # geom2.set_calculator(CountingCalc(base_calc))
-            geom2 = base_geometry.copy_all()
+            geom_bfgsunit = get_geom(atomssymbols, coords, args.coord, base_calc)
             method_name_clean = clean_str(method_name)
             out_dir_method = os.path.join(out_dir, method_name_clean)
             opt = get_rfo_optimizer(
-                geom2,
+                geom_bfgsunit,
                 hessian_init="unit",
                 hessian_update="bfgs",
                 hessian_recalc=None,
                 out_dir=out_dir_method,
+                thresh=args.thresh,
             )
             results.append(
                 _run_opt_safely(
-                    geom=geom2,
+                    geom=geom_bfgsunit,
                     opt=opt,
                     method_name=method_name,
                     out_dir=out_dir_method,
@@ -699,11 +730,11 @@ def do_relaxations():
             print_header(i, method_name)
             # geom3 = Geometry(atomssymbols, coords, coord_type=args.coord)
             # geom3.set_calculator(CountingCalc(base_calc))
-            geom3 = base_geometry.copy_all()
+            geom_bfgsdft = get_geom(atomssymbols, coords, args.coord, base_calc)
             method_name_clean = clean_str(method_name)
             out_dir_method = os.path.join(out_dir, method_name_clean)
             opt = get_rfo_optimizer(
-                geom3,
+                geom_bfgsdft,
                 hessian_init=initial_dft_hessian,
                 hessian_update="bfgs",
                 hessian_recalc=None,
@@ -712,7 +743,7 @@ def do_relaxations():
             )
             results.append(
                 _run_opt_safely(
-                    geom=geom3,
+                    geom=geom_bfgsdft,
                     opt=opt,
                     method_name=method_name,
                     out_dir=out_dir_method,
@@ -729,20 +760,21 @@ def do_relaxations():
             print_header(i, method_name)
             # geom3 = Geometry(atomssymbols, coords, coord_type=args.coord)
             # geom3.set_calculator(CountingCalc(base_calc))
-            geom3 = base_geometry.copy_all()
+            geom_bfgshpred = get_geom(atomssymbols, coords, args.coord, base_calc)
             method_name_clean = clean_str(method_name)
             out_dir_method = os.path.join(out_dir, method_name_clean)
             opt = get_rfo_optimizer(
-                geom3,
+                geom_bfgshpred,
                 hessian_init="calc",
                 hessian_update="bfgs",
                 hessian_recalc=None,
                 out_dir=out_dir_method,
                 verbose=args.verbose,
+                thresh=args.thresh,
             )
             results.append(
                 _run_opt_safely(
-                    geom=geom3,
+                    geom=geom_bfgshpred,
                     opt=opt,
                     method_name=method_name,
                     out_dir=out_dir_method,
@@ -755,20 +787,21 @@ def do_relaxations():
             print_header(i, method_name)
             # geom4 = Geometry(atomssymbols, coords, coord_type=args.coord)
             # geom4.set_calculator(CountingCalc(base_calc))
-            geom4 = base_geometry.copy_all()
+            geom_bfgshpredk3 = get_geom(atomssymbols, coords, args.coord, base_calc)
             method_name_clean = clean_str(method_name)
             out_dir_method = os.path.join(out_dir, method_name_clean)
             opt = get_rfo_optimizer(
-                geom4,
+                geom_bfgshpredk3,
                 hessian_init="calc",
                 hessian_update="bfgs",
                 hessian_recalc=3,
                 out_dir=out_dir_method,
                 verbose=args.verbose,
+                thresh=args.thresh,
             )
             results.append(
                 _run_opt_safely(
-                    geom=geom4,
+                    geom=geom_bfgshpredk3,
                     opt=opt,
                     method_name=method_name,
                     out_dir=out_dir_method,
@@ -781,20 +814,21 @@ def do_relaxations():
             print_header(i, method_name)
             # geom5 = Geometry(atomssymbols, coords, coord_type=args.coord)
             # geom5.set_calculator(CountingCalc(base_calc))
-            geom5 = base_geometry.copy_all()
+            geom_rfohpred = get_geom(atomssymbols, coords, args.coord, base_calc)
             method_name_clean = clean_str(method_name)
             out_dir_method = os.path.join(out_dir, method_name_clean)
             opt = get_rfo_optimizer(
-                geom5,
+                geom_rfohpred,
                 hessian_init="calc",
                 hessian_update="bfgs",
                 hessian_recalc=1,
                 out_dir=out_dir_method,
                 verbose=args.verbose,
+                thresh=args.thresh,
             )
             results.append(
                 _run_opt_safely(
-                    geom=geom5,
+                    geom=geom_rfohpred,
                     opt=opt,
                     method_name=method_name,
                     out_dir=out_dir_method,
@@ -803,14 +837,14 @@ def do_relaxations():
             )
 
             # Pretty print
-            print(f"\n{'Strategy':24s}, {'converged':6}, {'steps':6s}, {'grad_calls':6s}, {'hessian_calls':6s}, {'wall_time_s':12.3f}")
+            print(f"\n{'Strategy':>24s} {'converged':>6} {'steps':>6} {'grad_calls':>6} {'hessian_calls':>6} {'wall_time_s':>12}")
             for r in results:
                 try:
                     print(
                         f"{r['name']:>24s} {args.coord:>6} {str(r['converged']):>6s} {str(r['steps']):>6s} {str(r['grad_calls']):>6s} {str(r['hessian_calls']):>6s} {r['wall_time_s']:>12.3f}"
                     )
                 except:
-                    print(f"Error printing {r['name']}")
+                    print(f"Error printing {r}")
                     print(r)
 
             # Collect results with context for CSV

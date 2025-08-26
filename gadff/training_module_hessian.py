@@ -413,12 +413,16 @@ class HessianPotentialModule(PotentialModule):
         )
         if self.training_config["hessian_loss_weight"] > 0.0:
             hessian_loss = self.loss_fn_hessian(hessian_pred, hessian_true)
-            manual_loss = torch.pow(hessian_pred - hessian_true, 2).mean()
-            assert torch.allclose(hessian_loss, manual_loss), (
-                f"{hessian_loss} != {manual_loss}"
-            )
             loss += hessian_loss * self.training_config["hessian_loss_weight"]
             info["Loss Hessian"] = hessian_loss.detach().item()
+            # # REMOVE
+            # print(" hessian_pred", hessian_pred.shape, "hessian_true", hessian_true.shape)
+            # diff = hessian_pred - hessian_true
+            # info["Max Diff Hessian"] = diff.abs().max().item()
+            # manual_loss = torch.pow(diff, 2).mean()
+            # assert torch.allclose(hessian_loss, manual_loss), (
+            #     f"{hessian_loss} != {manual_loss}"
+            # )
 
         if self.do_eigen_loss:
             eigen_loss = self.loss_fn_eigen(

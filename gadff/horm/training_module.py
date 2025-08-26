@@ -647,7 +647,7 @@ class PotentialModule(LightningModule):
 
         val_epoch_metrics.update({"epoch": self.current_epoch})
         for k, v in val_epoch_metrics.items():
-            self.log(k, v, sync_dist=True)
+            self.log(k, v, sync_dist=True, prog_bar=False)
         if hasattr(self, "val_start_time"):
             self.log(
                 "val-val_duration_seconds",
@@ -701,6 +701,7 @@ class PotentialModule(LightningModule):
         # torch.nn.utils.clip_grad_norm_(self.parameters(), clip_value=self.training_config["gradient_clip_val"])
         # torch.nn.utils.clip_grad_value_(self.parameters(), clip_value=self.training_config["gradient_clip_val"])
 
+    # was in HORM, not used
     def _configure_gradient_clipping(
         self,
         optimizer,
