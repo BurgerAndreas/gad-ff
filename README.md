@@ -64,6 +64,17 @@ cd ../gad-ff
 uv pip install -r requirements.txt
 ```
 
+For the relaxations:
+```bash
+git clone https://gitlab.com/matschreiner/Transition1x
+cd Transition1x
+uv pip install .
+uv run download_t1x.py
+cd ..
+
+wget https://springernature.figshare.com/ndownloader/files/18112775 -O data/relaxations/ani1x/ani1x.h5
+```
+
 ### Setting up the dataset
 Kaggle automatically downloads to the `~/.cache` folder. I highly recommend to set up a symbolic link to a local folder to avoid running out of space:
 ```bash

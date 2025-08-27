@@ -31,6 +31,16 @@ from nets.prediction_utils import (
 import h5py
 import pandas as pd
 
+try:
+    from transition1x import Dataloader as T1xDataloader
+except ImportError:
+    print(
+        "Transition1x not found, please install it by:\n"
+        "git clone https://gitlab.com/matschreiner/Transition1x.git" + "\n"
+        "uv run Transition1x/download_t1x.py Transition1x/data" + "\n"
+        "uv pip install -e Transition1x" + "\n"
+    )
+
 # from pysisyphus.helpers_pure import eigval_to_wavenumber
 # from pysisyphus.helpers import _do_hessian
 # from pysisyphus.io.hessian import save_hessian
@@ -182,6 +192,13 @@ pysis_all_optimizers = [
 #  Utilities
 # --------------------------
 
+
+Z_TO_SYMBOL = {
+    1: "H",
+    6: "C",
+    7: "N",
+    8: "O",
+}
 
 def load_xyz(fn):
     """Read a single-geometry XYZ (Angstrom). Returns atoms (list[str]), coords (1d array, 3N)."""
@@ -449,6 +466,7 @@ def get_rfo_optimizer(
         hessian_recalc=hessian_recalc,
         line_search=True,
         out_dir=out_dir,
+        max_cycles=max_cycles,
     )
     return opt
 
@@ -496,6 +514,7 @@ def do_relaxations():
     ap.add_argument("--pddftonly", type=bool, default=False, help="only run optimizers when dft hessian is positive definite")
     ap.add_argument("--pdpredonly", type=bool, default=False, help="Stop optimization early when predicted Hessian is not positive definite")
     ap.add_argument("--pdthresh", type=float, default=0, help="Threshold for positive definiteness of DFT Hessian")
+    ap.add_argument("--noise", type=float, default=0)
     args = ap.parse_args()
 
     ckpt_path = "/ssd/Code/ReactBench/ckpt/hesspred/alldatagputwoalphadrop0droppathrate0projdrop0-394770-20250806-133956.ckpt"
@@ -503,12 +522,21 @@ def do_relaxations():
 
 
     print("Loading dataset...")
-    # case 1: is
-    if os.path.isfile(args.xyz):
+    data_is_xyz = False
+    data_is_t1x = False
+    data_is_lmdb = False
+    if args.xyz in ["t1x"]:
+        dataset = T1xDataloader(
+            "Transition1x/data/transition1x.h5", datasplit="val", only_final=True
+        )
+        dataset_path = "Transition1x/data/transition1x.h5"
+        data_is_t1x = True
+    # is xyz file
+    elif os.path.isfile(args.xyz):
         dataset = [args.xyz]
         dataset_path = args.xyz
         data_is_xyz = True
-    # case 2: folder of xyz files
+    # folder of xyz files
     elif os.path.isdir(args.xyz):
         dataset = [
             os.path.join(args.xyz, f)
@@ -517,15 +545,20 @@ def do_relaxations():
         ]
         dataset_path = args.xyz
         data_is_xyz = True
-    # case 3: lmdb path
+    # lmdb path
     elif args.xyz.endswith(".lmdb"):
         dataset_path = fix_dataset_path(args.xyz)
         dataset = LmdbDataset(dataset_path)
-        data_is_xyz = False
+        data_is_lmdb = True
         # dataloader = TGDataLoader(dataset, batch_size=1, shuffle=False)
 
-    if args.max_samples > len(dataset):
-        args.max_samples = len(dataset)
+    try:
+        len_dataset = len(dataset)
+    except:
+        len_dataset = 1_000
+
+    if args.max_samples > len_dataset:
+        args.max_samples = len_dataset
 
     # Determine source label for logging
     source_label = dataset_path.split("/")[-1].split(".")[0]
@@ -541,7 +574,8 @@ def do_relaxations():
         ckpt_path=ckpt_path,
         config_path="auto",
         device="cuda",
-        hessianmethod_name="predict",
+        hessianmethod_name="autograd",
+        hessian_method="autograd", # "autograd", "predict"
         mem=4000,
         method="equiformer",
         mult=1,
@@ -561,6 +595,15 @@ def do_relaxations():
     counting_calc = CountingCalc(base_calc)
     if data_is_xyz:
         atoms, coords = load_xyz(dataset[0])
+    elif data_is_t1x:
+        molecule = next(iter(dataset))
+        reactant = molecule["reactant"]["positions"]
+        # ts = molecule["transition_state"]["positions"]
+        # product = molecule["product"]["positions"]
+        atoms = np.array(molecule["reactant"]["atomic_numbers"])
+        atomssymbols = [Z_TO_SYMBOL[a] for a in atoms]
+        coords = reactant / BOHR2ANG # same as *ANG2BOHR
+        t1xdataloader = iter(dataset)
     else:
         data = dataset[0]
         atomssymbols = GLOBAL_ATOM_SYMBOLS[data.one_hot.long().argmax(dim=1).cpu().numpy()]
@@ -574,14 +617,14 @@ def do_relaxations():
     hessian = geom.hessian
 
     name_order = [
-        "NaiveSteepestDescent",
+        # "NaiveSteepestDescent",
         "SteepestDescent",
-        "FIRE",
-        "ConjugateGradient",
+        # "FIRE",
+        # "ConjugateGradient",
         "RFO-BFGS (unit init)",
-        "RFO-BFGS (DFT init)",
+        # "RFO-BFGS (DFT init)",
         "RFO-BFGS (Hpred init)",
-        "RFO-BFGS (Hpred k3)",
+        # "RFO-BFGS (Hpred k3)",
         "RFO (Hpred)",
     ]
     # name_order = [
@@ -597,16 +640,16 @@ def do_relaxations():
 
         np.random.seed(42)
         torch.manual_seed(42)
-        random_idx = np.random.permutation(len(dataset))
+        random_idx = np.random.permutation(len_dataset)
 
         print()
         optims_done = 0
         for cnt, idx in enumerate(random_idx):
             if optims_done >= args.max_samples:
                 break
-            print("", "=" * 80, f"\tSample {optims_done} (tried cnt={cnt}, idx={idx} / {len(dataset)})\t", "=" * 80, sep="\n")
-            data = dataset[idx]
+            print("", "=" * 80, f"\tSample {optims_done} (tried cnt={cnt}, idx={idx} / {len_dataset})\t", "=" * 80, sep="\n")
             if data_is_xyz:
+                data = dataset[idx]
                 atomssymbols, coords = load_xyz(data)
                 # skip if there are any other atomsymbols than C, H, N, O
                 if not all(atomssymbols in ["C", "H", "N", "O"] for atomssymbols in atomssymbols):
@@ -614,21 +657,34 @@ def do_relaxations():
                     continue
                 hessian_path = data.replace(".xyz", ".hessian.npy")
                 initial_dft_hessian = np.load(hessian_path)
+            elif data_is_t1x:
+                molecule = next(t1xdataloader)
+                idx = molecule["reactant"].get("idx", cnt)
+                print("idx", idx)
+                reactant = molecule["reactant"]["positions"]
+                atoms = np.array(molecule["reactant"]["atomic_numbers"])
+                atomssymbols = [Z_TO_SYMBOL[a] for a in atoms]
+                coords = reactant / BOHR2ANG # same as *ANG2BOHR
+                initial_dft_hessian = np.eye(len(atomssymbols) * 3) # TODO
+                # eV/Angstrom^2 -> Hartree/Bohr^2
+                # initial_dft_hessian = initial_dft_hessian * AU2EV * BOHR2ANG * BOHR2ANG 
             else:
+                data = dataset[idx]
                 indices = data.one_hot.long().argmax(dim=1)
                 atomssymbols = GLOBAL_ATOM_SYMBOLS[indices.cpu().numpy()]
                 natoms = len(atomssymbols)
                 coords = data.pos.numpy() / BOHR2ANG
                 # eV/Angstrom^2 -> Hartree/Bohr^2
                 initial_dft_hessian = data.hessian.numpy().reshape(natoms*3, natoms*3) / AU2EV * BOHR2ANG * BOHR2ANG
-                if not np.all(np.linalg.eigvals(data.hessian.numpy().reshape(natoms*3, natoms*3)) > 0):
-                    print("Initial DFT Hessian is not positive definite (eV/Angstrom^2)")
 
             # use a small threshold to account for numerical errors
-            dft_hessian_is_pd = np.all(np.linalg.eigvals(initial_dft_hessian) > args.pdthresh)
+            eigvals = np.linalg.eigvals(initial_dft_hessian)
+            dft_hessian_is_pd = np.all(eigvals > args.pdthresh)
             if not dft_hessian_is_pd:
                 print("Initial DFT Hessian is not positive definite (Hartree/Bohr^2)")
-                print(np.sort(np.linalg.eigvals(initial_dft_hessian))[:8])
+                if np.all(eigvals > -1e-3):
+                    print(" but is pd approximately (> -1e-3)")
+                print(np.sort(eigvals)[:8])
                 if args.pddftonly:
                     print("Skipping sample.")
                     continue

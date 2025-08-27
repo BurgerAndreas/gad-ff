@@ -20,6 +20,7 @@ wandb
 results/
 runs_*/
 runs_relaxation/
+**/Transition1x/
 
 _*
 plots/
