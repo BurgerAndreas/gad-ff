@@ -416,8 +416,9 @@ class HessianPotentialModule(PotentialModule):
             loss += hessian_loss * self.training_config["hessian_loss_weight"]
             info["Loss Hessian"] = hessian_loss.detach().item()
             # # REMOVE
-            # print(" hessian_pred", hessian_pred.shape, "hessian_true", hessian_true.shape)
-            # diff = hessian_pred - hessian_true
+            print(" hessian_pred", hessian_pred.shape, "hessian_true", hessian_true.shape)
+            diff = hessian_pred - hessian_true
+            print("  diff", diff.shape)
             # info["Max Diff Hessian"] = diff.abs().max().item()
             # manual_loss = torch.pow(diff, 2).mean()
             # assert torch.allclose(hessian_loss, manual_loss), (

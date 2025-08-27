@@ -82,7 +82,7 @@ def evaluate(
 
     if wandb_run_id is None:
         wandb.init(
-            project="reactbench",
+            project="horm",
             name=_name,
             config={
                 "checkpoint": checkpoint_path,
@@ -132,7 +132,7 @@ def evaluate(
             transform = None
 
         dataset = LmdbDataset(fix_dataset_path(lmdb_path), transform=transform)
-        dataloader = TGDataLoader(dataset, batch_size=1, shuffle=False)
+        dataloader = TGDataLoader(dataset, batch_size=1, shuffle=True)
 
         # Initialize metrics collection for per-sample DataFrame
         sample_metrics = []

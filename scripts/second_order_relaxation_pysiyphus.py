@@ -34,7 +34,7 @@ import pandas as pd
 # from pysisyphus.helpers_pure import eigval_to_wavenumber
 # from pysisyphus.helpers import _do_hessian
 # from pysisyphus.io.hessian import save_hessian
-from pysisyphus.constants import ANG2BOHR, AU2KJPERMOL, AU2EV, BOHR2ANG
+from pysisyphus.constants import AU2EV, BOHR2ANG
 
 from pysisyphus.optimizers.SteepestDescent import SteepestDescent
 from pysisyphus.optimizers.ConjugateGradient import ConjugateGradient
@@ -229,10 +229,11 @@ class CountingCalc(Calculator):
     Wrap any Calculator; count energy/gradient/Hessian calls.
     """
 
-    def __init__(self, inner, **kwargs):
+    def __init__(self, inner, assert_pd_hessians=False, **kwargs):
         super().__init__(**kwargs)
         self.inner = inner
         self.reset()
+        self.assert_pd_hessians = assert_pd_hessians
 
     def reset(self):
         self.energy_calls = 0
@@ -242,6 +243,7 @@ class CountingCalc(Calculator):
         self.calculate_energy_calls = 0
         self.calculate_gradient_calls = 0
         self.calculate_hessian_calls = 0
+        self.cnt_not_pd = 0
         super().reset()
 
     @property
@@ -259,7 +261,14 @@ class CountingCalc(Calculator):
 
     def get_hessian(self, atoms, coords, **kw):
         self.hessian_calls += 1
-        return self.inner.get_hessian(atoms, coords, **kw)
+        results = self.inner.get_hessian(atoms, coords, **kw)
+        # check if hessian is positive definite
+        if not np.all(np.linalg.eigvals(results["hessian"]) > 0):
+            print("Predicted Hessian is not positive definite")
+            self.cnt_not_pd += 1
+            if self.assert_pd_hessians:
+                raise ValueError("Predicted Hessian is not positive definite")
+        return results
 
     def calculate(self, atom=None, properties=None, **kwargs):
         self.calculate_calls += 1
@@ -295,7 +304,7 @@ class NaiveSteepestDescent(BacktrackingOptimizer):
         return step
 
 
-def _run_opt_safely(geom, opt, method_name, out_dir, verbose=False, start_clean=True):
+def _run_opt_safely(geom, opt, method_name, out_dir, verbose=False, start_clean=True, dft_hessian_is_pd=True):
     # logging
     if start_clean:
         geom.calculator.reset()
@@ -329,7 +338,9 @@ def _run_opt_safely(geom, opt, method_name, out_dir, verbose=False, start_clean=
                 "calculate_energy_calls": geom.calculator.calculate_energy_calls,
                 "calculate_gradient_calls": geom.calculator.calculate_gradient_calls,
                 "calculate_hessian_calls": geom.calculator.calculate_hessian_calls,
+                "cnt_not_pd": geom.calculator.cnt_not_pd,
                 "wall_time_s": t1 - t0,
+                "dft_hessian_is_pd": dft_hessian_is_pd,
             }
         except Exception as e:
             print(f"Error running {method_name} optimization: {e}", flush=True)
@@ -345,7 +356,9 @@ def _run_opt_safely(geom, opt, method_name, out_dir, verbose=False, start_clean=
                 "calculate_energy_calls": None,
                 "calculate_gradient_calls": None,
                 "calculate_hessian_calls": None,
+                "cnt_not_pd": None,
                 "wall_time_s": None,
+                "dft_hessian_is_pd": dft_hessian_is_pd,
             }
 
     # run optimizer and return results
@@ -444,12 +457,12 @@ def get_rfo_optimizer(
 #  Main harness
 # --------------------------
 
-def get_geom(atomssymbols, coords, coord_type, base_calc):
+def get_geom(atomssymbols, coords, coord_type, base_calc, args):
     geom = Geometry(
         atomssymbols, coords, coord_type=coord_type
     )  
     base_calc.reset()
-    counting_calc = CountingCalc(base_calc)
+    counting_calc = CountingCalc(base_calc, assert_pd_hessians=args.pdpredonly)
     geom.set_calculator(counting_calc)
     return geom
 
@@ -480,6 +493,9 @@ def do_relaxations():
     ap.add_argument("--redo", type=bool, default=False)
     ap.add_argument("--verbose", type=bool, default=False)
     ap.add_argument("--thresh", type=str, default="gau")
+    ap.add_argument("--pddftonly", type=bool, default=False, help="only run optimizers when dft hessian is positive definite")
+    ap.add_argument("--pdpredonly", type=bool, default=False, help="Stop optimization early when predicted Hessian is not positive definite")
+    ap.add_argument("--pdthresh", type=float, default=0, help="Threshold for positive definiteness of DFT Hessian")
     args = ap.parse_args()
 
     ckpt_path = "/ssd/Code/ReactBench/ckpt/hesspred/alldatagputwoalphadrop0droppathrate0projdrop0-394770-20250806-133956.ckpt"
@@ -489,24 +505,32 @@ def do_relaxations():
     print("Loading dataset...")
     # case 1: is
     if os.path.isfile(args.xyz):
-        input_geometries = [args.xyz]
+        dataset = [args.xyz]
+        dataset_path = args.xyz
+        data_is_xyz = True
     # case 2: folder of xyz files
     elif os.path.isdir(args.xyz):
-        input_geometries = [
+        dataset = [
             os.path.join(args.xyz, f)
             for f in os.listdir(args.xyz)
             if f.endswith(".xyz")
         ]
+        dataset_path = args.xyz
+        data_is_xyz = True
     # case 3: lmdb path
     elif args.xyz.endswith(".lmdb"):
         dataset_path = fix_dataset_path(args.xyz)
         dataset = LmdbDataset(dataset_path)
+        data_is_xyz = False
         # dataloader = TGDataLoader(dataset, batch_size=1, shuffle=False)
+
+    if args.max_samples > len(dataset):
+        args.max_samples = len(dataset)
 
     # Determine source label for logging
     source_label = dataset_path.split("/")[-1].split(".")[0]
     out_dir = os.path.join(
-        ROOT_DIR, "runs_relaxation", source_label + "_" + wandb_id + "_" + args.coord + "_" + args.thresh.replace('_', '') + "_" + str(args.max_samples)
+        ROOT_DIR, "runs_relaxation", source_label + "_" + wandb_id + "_" + args.coord + "_" + args.thresh.replace('_', '') + "_" + str(args.max_samples) + "_pddft" + str(args.pddftonly) + "_pdpred" + str(args.pdpredonly) + "_pdthresh" + str(args.pdthresh)
     )
     os.makedirs(out_dir, exist_ok=True)
     print(f"Out directory: {out_dir}")
@@ -535,9 +559,12 @@ def do_relaxations():
 
     print("\nTesting model with pysisyphus...")
     counting_calc = CountingCalc(base_calc)
-    data = dataset[0]
-    atomssymbols = GLOBAL_ATOM_SYMBOLS[data.one_hot.long().argmax(dim=1).cpu().numpy()]
-    coords = data.pos.numpy() * ANG2BOHR
+    if data_is_xyz:
+        atoms, coords = load_xyz(dataset[0])
+    else:
+        data = dataset[0]
+        atomssymbols = GLOBAL_ATOM_SYMBOLS[data.one_hot.long().argmax(dim=1).cpu().numpy()]
+        coords = data.pos.numpy() / BOHR2ANG
     geom = Geometry(
         atomssymbols, coords, coord_type=args.coord
     )  
@@ -545,6 +572,21 @@ def do_relaxations():
     energy = geom.energy
     forces = geom.forces
     hessian = geom.hessian
+
+    name_order = [
+        "NaiveSteepestDescent",
+        "SteepestDescent",
+        "FIRE",
+        "ConjugateGradient",
+        "RFO-BFGS (unit init)",
+        "RFO-BFGS (DFT init)",
+        "RFO-BFGS (Hpred init)",
+        "RFO-BFGS (Hpred k3)",
+        "RFO (Hpred)",
+    ]
+    # name_order = [
+    #     "RFO-BFGS (DFT init)",
+    # ]
 
     print("\nRunning relaxations...")
     csv_path = os.path.join(out_dir, f"relaxation_results.csv")
@@ -555,195 +597,226 @@ def do_relaxations():
 
         np.random.seed(42)
         torch.manual_seed(42)
-        random_idx = np.random.permutation(len(dataset))[:args.max_samples]
+        random_idx = np.random.permutation(len(dataset))
 
         print()
-        for cnt, idx in tqdm(enumerate(random_idx), total=args.max_samples):
-            print("", "=" * 80, f"\tSample {cnt} ({idx})\t", "=" * 80, sep="\n")
+        optims_done = 0
+        for cnt, idx in enumerate(random_idx):
+            if optims_done >= args.max_samples:
+                break
+            print("", "=" * 80, f"\tSample {optims_done} (tried cnt={cnt}, idx={idx} / {len(dataset)})\t", "=" * 80, sep="\n")
             data = dataset[idx]
-            # atoms, coords = load_xyz(xyz)
+            if data_is_xyz:
+                atomssymbols, coords = load_xyz(data)
+                # skip if there are any other atomsymbols than C, H, N, O
+                if not all(atomssymbols in ["C", "H", "N", "O"] for atomssymbols in atomssymbols):
+                    print("Skipping sample because it contains non-C, H, N, O atoms", atomssymbols)
+                    continue
+                hessian_path = data.replace(".xyz", ".hessian.npy")
+                initial_dft_hessian = np.load(hessian_path)
+            else:
+                indices = data.one_hot.long().argmax(dim=1)
+                atomssymbols = GLOBAL_ATOM_SYMBOLS[indices.cpu().numpy()]
+                natoms = len(atomssymbols)
+                coords = data.pos.numpy() / BOHR2ANG
+                # eV/Angstrom^2 -> Hartree/Bohr^2
+                initial_dft_hessian = data.hessian.numpy().reshape(natoms*3, natoms*3) / AU2EV * BOHR2ANG * BOHR2ANG
+                if not np.all(np.linalg.eigvals(data.hessian.numpy().reshape(natoms*3, natoms*3)) > 0):
+                    print("Initial DFT Hessian is not positive definite (eV/Angstrom^2)")
 
-            indices = data.one_hot.long().argmax(dim=1)
-            atomssymbols = GLOBAL_ATOM_SYMBOLS[indices.cpu().numpy()]
-
-            coords = data.pos.numpy() * ANG2BOHR
-            initial_dft_hessian = data.hessian.numpy() / AU2EV * BOHR2ANG * BOHR2ANG
+            # use a small threshold to account for numerical errors
+            dft_hessian_is_pd = np.all(np.linalg.eigvals(initial_dft_hessian) > args.pdthresh)
+            if not dft_hessian_is_pd:
+                print("Initial DFT Hessian is not positive definite (Hartree/Bohr^2)")
+                print(np.sort(np.linalg.eigvals(initial_dft_hessian))[:8])
+                if args.pddftonly:
+                    print("Skipping sample.")
+                    continue
 
             results = []
 
             # first order:
             method_name = "NaiveSteepestDescent"
-            print_header(cnt, method_name)
-            method_name_clean = clean_str(method_name)
-            out_dir_method = os.path.join(out_dir, method_name_clean)
-            geom_nsd = get_geom(atomssymbols, coords, args.coord, base_calc)
-            opt = NaiveSteepestDescent(
-                geom_nsd,
-                max_cycles=args.max_cycles,
-                thresh=args.thresh,
-                # line_search=True,
-                out_dir=out_dir_method,
-            )
-            results.append(
-                _run_opt_safely(
-                    geom=geom_nsd,
-                    opt=opt,
-                    method_name=method_name,
+            if method_name in name_order:
+                print_header(cnt, method_name)
+                method_name_clean = clean_str(method_name)
+                out_dir_method = os.path.join(out_dir, method_name_clean)
+                geom_nsd = get_geom(atomssymbols, coords, args.coord, base_calc, args)
+                opt = NaiveSteepestDescent(
+                    geom_nsd,
+                    max_cycles=args.max_cycles,
+                    thresh=args.thresh,
+                    # line_search=True,
                     out_dir=out_dir_method,
-                    verbose=args.verbose,
                 )
-            )
+                results.append(
+                    _run_opt_safely(
+                        geom=geom_nsd,
+                        opt=opt,
+                        method_name=method_name,
+                        out_dir=out_dir_method,
+                        verbose=args.verbose,
+                        dft_hessian_is_pd=dft_hessian_is_pd,
+                    )
+                )
 
             # first order, with backtracking line search
             method_name = "SteepestDescent"
-            print_header(cnt, method_name)
-            geom_sd = get_geom(atomssymbols, coords, args.coord, base_calc)
-            method_name_clean = clean_str(method_name)
-            out_dir_method = os.path.join(out_dir, method_name_clean)
-            opt = SteepestDescent(
-                geom_sd,
-                max_cycles=args.max_cycles,
-                thresh=args.thresh,
-                # line_search=True,
-                out_dir=out_dir_method,
-            )
-            results.append(
-                _run_opt_safely(
-                    geom=geom_sd,
-                    opt=opt,
-                    method_name=method_name,
-                    out_dir=out_dir,
-                    verbose=args.verbose,
+            if method_name in name_order:
+                print_header(cnt, method_name)
+                geom_sd = get_geom(atomssymbols, coords, args.coord, base_calc, args)
+                method_name_clean = clean_str(method_name)
+                out_dir_method = os.path.join(out_dir, method_name_clean)
+                opt = SteepestDescent(
+                    geom_sd,
+                    max_cycles=args.max_cycles,
+                    thresh=args.thresh,
+                    # line_search=True,
+                    out_dir=out_dir_method,
                 )
-            )
+                results.append(
+                    _run_opt_safely(
+                        geom=geom_sd,
+                        opt=opt,
+                        method_name=method_name,
+                        out_dir=out_dir,
+                        verbose=args.verbose,
+                    )
+                )
 
             # first-order optimization (FIRE)
             method_name = "FIRE"
-            method_name_clean = clean_str(method_name)
-            out_dir_method = os.path.join(out_dir, method_name_clean)
-            print_header(cnt, method_name)
-            geom_fire = get_geom(atomssymbols, coords, args.coord, base_calc)
-            """
-            https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.97.170201
-            Structure optimization algorithm which is 
-            significantly faster than standard implementations of the conjugate gradient method 
-            and often competitive with more sophisticated quasi-Newton schemes
-            It is based on conventional molecular dynamics 
-            with additional velocity modifications and adaptive time steps.
-            """
-            opt = FIRE(
-                # Geometry providing coords, forces, energy
-                geom_fire,
-                max_cycles=args.max_cycles,
-                thresh=args.thresh,
-                # # Initial time step; adaptively scaled during optimization
-                # dt=0.1,
-                # # Maximum allowed time step when increasing dt
-                # dt_max=1,
-                # # Consecutive aligned steps before accelerating
-                # N_acc=2,
-                # # Factor to increase dt on acceleration
-                # f_inc=1.1,
-                # # Factor to reduce mixing a on acceleration; also shrinks dt on reset here
-                # f_acc=0.99,
-                # # Unused in this implementation; typical FIRE uses to reduce dt on reset
-                # f_dec=0.5,
-                # # Counter of aligned steps since last reset (start at 0)
-                # n_reset=0,
-                # # Initial mixing parameter for velocity/force mixing; restored on reset
-                # a_start=0.1,
-                # String poiting to a directory where optimization progress is
-                # dumped.
-                out_dir=out_dir_method,
-            )
-            results.append(
-                _run_opt_safely(
-                    geom=geom_fire,
-                    opt=opt,
-                    method_name=method_name,
+            if method_name in name_order:
+                method_name_clean = clean_str(method_name)
+                out_dir_method = os.path.join(out_dir, method_name_clean)
+                print_header(cnt, method_name)
+                geom_fire = get_geom(atomssymbols, coords, args.coord, base_calc, args)
+                """
+                https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.97.170201
+                Structure optimization algorithm which is 
+                significantly faster than standard implementations of the conjugate gradient method 
+                and often competitive with more sophisticated quasi-Newton schemes
+                It is based on conventional molecular dynamics 
+                with additional velocity modifications and adaptive time steps.
+                """
+                opt = FIRE(
+                    # Geometry providing coords, forces, energy
+                    geom_fire,
+                    max_cycles=args.max_cycles,
+                    thresh=args.thresh,
+                    # # Initial time step; adaptively scaled during optimization
+                    # dt=0.1,
+                    # # Maximum allowed time step when increasing dt
+                    # dt_max=1,
+                    # # Consecutive aligned steps before accelerating
+                    # N_acc=2,
+                    # # Factor to increase dt on acceleration
+                    # f_inc=1.1,
+                    # # Factor to reduce mixing a on acceleration; also shrinks dt on reset here
+                    # f_acc=0.99,
+                    # # Unused in this implementation; typical FIRE uses to reduce dt on reset
+                    # f_dec=0.5,
+                    # # Counter of aligned steps since last reset (start at 0)
+                    # n_reset=0,
+                    # # Initial mixing parameter for velocity/force mixing; restored on reset
+                    # a_start=0.1,
+                    # String poiting to a directory where optimization progress is
+                    # dumped.
                     out_dir=out_dir_method,
-                    verbose=args.verbose,
                 )
-            )
+                results.append(
+                    _run_opt_safely(
+                        geom=geom_fire,
+                        opt=opt,
+                        method_name=method_name,
+                        out_dir=out_dir_method,
+                        verbose=args.verbose,
+                        dft_hessian_is_pd=dft_hessian_is_pd,
+                    )
+                )
 
             # first order:
             method_name = "ConjugateGradient"
-            print_header(cnt, method_name)
-            geom_cg = get_geom(atomssymbols, coords, args.coord, base_calc)
-            method_name_clean = clean_str(method_name)
-            out_dir_method = os.path.join(out_dir, method_name_clean)
-            opt = ConjugateGradient(
-                geom_cg,
-                max_cycles=args.max_cycles,
-                thresh=args.thresh,
-                # line_search=True,
-                out_dir=out_dir_method,
-            )
-            results.append(
-                _run_opt_safely(
-                    geom=geom_cg,
-                    opt=opt,
-                    method_name=method_name,
+            if method_name in name_order:
+                print_header(cnt, method_name)
+                geom_cg = get_geom(atomssymbols, coords, args.coord, base_calc, args)
+                method_name_clean = clean_str(method_name)
+                out_dir_method = os.path.join(out_dir, method_name_clean)
+                opt = ConjugateGradient(
+                    geom_cg,
+                    max_cycles=args.max_cycles,
+                    thresh=args.thresh,
+                    # line_search=True,
                     out_dir=out_dir_method,
-                    verbose=args.verbose,
                 )
-            )
+                results.append(
+                    _run_opt_safely(
+                        geom=geom_cg,
+                        opt=opt,
+                        method_name=method_name,
+                        out_dir=out_dir_method,
+                        verbose=args.verbose,
+                        dft_hessian_is_pd=dft_hessian_is_pd,
+                    )
+                )
 
             # 2) No Hessian: BFGS with non-Hessian initial guess (unit) - pure quasi-Newton
             #    RFOptimizer accepts hessian_init and BFGS updates.
             method_name = "RFO-BFGS (unit init)"
-            print_header(cnt, method_name)
-            # geom2 = Geometry(atomssymbols, coords, coord_type=args.coord)
-            # geom2.set_calculator(CountingCalc(base_calc))
-            geom_bfgsunit = get_geom(atomssymbols, coords, args.coord, base_calc)
-            method_name_clean = clean_str(method_name)
-            out_dir_method = os.path.join(out_dir, method_name_clean)
-            opt = get_rfo_optimizer(
-                geom_bfgsunit,
-                hessian_init="unit",
-                hessian_update="bfgs",
-                hessian_recalc=None,
-                out_dir=out_dir_method,
-                thresh=args.thresh,
-                max_cycles=args.max_cycles,
-            )
-            results.append(
-                _run_opt_safely(
-                    geom=geom_bfgsunit,
-                    opt=opt,
-                    method_name=method_name,
+            if method_name in name_order:
+                print_header(cnt, method_name)
+                # geom2 = Geometry(atomssymbols, coords, coord_type=args.coord)
+                # geom2.set_calculator(CountingCalc(base_calc))
+                geom_bfgsunit = get_geom(atomssymbols, coords, args.coord, base_calc, args)
+                method_name_clean = clean_str(method_name)
+                out_dir_method = os.path.join(out_dir, method_name_clean)
+                opt = get_rfo_optimizer(
+                    geom_bfgsunit,
+                    hessian_init="unit",
+                    hessian_update="bfgs",
+                    hessian_recalc=None,
                     out_dir=out_dir_method,
-                    verbose=args.verbose,
+                    thresh=args.thresh,
+                    max_cycles=args.max_cycles,
                 )
-            )
+                results.append(
+                    _run_opt_safely(
+                        geom=geom_bfgsunit,
+                        opt=opt,
+                        method_name=method_name,
+                        out_dir=out_dir_method,
+                        verbose=args.verbose,
+                        dft_hessian_is_pd=dft_hessian_is_pd,
+                    )
+                )
 
             # 3) Initial-only: RFO+BFGS with DFT Hessian at step 0
             method_name = "RFO-BFGS (DFT init)"
-            print_header(cnt, method_name)
-            # geom3 = Geometry(atomssymbols, coords, coord_type=args.coord)
-            # geom3.set_calculator(CountingCalc(base_calc))
-            geom_bfgsdft = get_geom(atomssymbols, coords, args.coord, base_calc)
-            method_name_clean = clean_str(method_name)
-            out_dir_method = os.path.join(out_dir, method_name_clean)
-            opt = get_rfo_optimizer(
-                geom_bfgsdft,
-                hessian_init=initial_dft_hessian,
-                hessian_update="bfgs",
-                hessian_recalc=None,
-                out_dir=out_dir_method,
-                verbose=args.verbose,
-                thresh=args.thresh,
-                max_cycles=args.max_cycles,
-            )
-            results.append(
-                _run_opt_safely(
-                    geom=geom_bfgsdft,
-                    opt=opt,
-                    method_name=method_name,
+            if method_name in name_order:
+                print_header(cnt, method_name)
+                geom_bfgsdft = get_geom(atomssymbols, coords, args.coord, base_calc, args)
+                method_name_clean = clean_str(method_name)
+                out_dir_method = os.path.join(out_dir, method_name_clean)
+                opt = get_rfo_optimizer(
+                    geom_bfgsdft,
+                    hessian_init=initial_dft_hessian,
+                    hessian_update="bfgs",
+                    hessian_recalc=None,
                     out_dir=out_dir_method,
                     verbose=args.verbose,
+                    thresh=args.thresh,
+                    max_cycles=args.max_cycles,
                 )
-            )
+                results.append(
+                    _run_opt_safely(
+                        geom=geom_bfgsdft,
+                        opt=opt,
+                        method_name=method_name,
+                        out_dir=out_dir_method,
+                        verbose=args.verbose,
+                        dft_hessian_is_pd=dft_hessian_is_pd,
+                    )
+                )
 
             # we provide your H_pred through the calculator and ask RFOptimizer to pull it:
             #    hessian_init='calc' gets Hessian from the calculator at step 0;
@@ -751,90 +824,90 @@ def do_relaxations():
 
             # 4) Initial-only: RFO+BFGS with Hpred only at step 0
             method_name = "RFO-BFGS (Hpred init)"
-            print_header(cnt, method_name)
-            # geom3 = Geometry(atomssymbols, coords, coord_type=args.coord)
-            # geom3.set_calculator(CountingCalc(base_calc))
-            geom_bfgshpred = get_geom(atomssymbols, coords, args.coord, base_calc)
-            method_name_clean = clean_str(method_name)
-            out_dir_method = os.path.join(out_dir, method_name_clean)
-            opt = get_rfo_optimizer(
-                geom_bfgshpred,
-                hessian_init="calc",
-                hessian_update="bfgs",
-                hessian_recalc=None,
-                out_dir=out_dir_method,
-                verbose=args.verbose,
-                thresh=args.thresh,
-                max_cycles=args.max_cycles,
-            )
-            results.append(
-                _run_opt_safely(
-                    geom=geom_bfgshpred,
-                    opt=opt,
-                    method_name=method_name,
+            if method_name in name_order:
+                print_header(cnt, method_name)
+                geom_bfgshpred = get_geom(atomssymbols, coords, args.coord, base_calc, args)
+                method_name_clean = clean_str(method_name)
+                out_dir_method = os.path.join(out_dir, method_name_clean)
+                opt = get_rfo_optimizer(
+                    geom_bfgshpred,
+                    hessian_init="calc",
+                    hessian_update="bfgs",
+                    hessian_recalc=None,
                     out_dir=out_dir_method,
                     verbose=args.verbose,
+                    thresh=args.thresh,
+                    max_cycles=args.max_cycles,
                 )
-            )
+                results.append(
+                    _run_opt_safely(
+                        geom=geom_bfgshpred,
+                        opt=opt,
+                        method_name=method_name,
+                        out_dir=out_dir_method,
+                        verbose=args.verbose,
+                        dft_hessian_is_pd=dft_hessian_is_pd,
+                    )
+                )
 
             # 5) Periodic replace: k=3
             method_name = "RFO-BFGS (Hpred k3)"
-            print_header(cnt, method_name)
-            # geom4 = Geometry(atomssymbols, coords, coord_type=args.coord)
-            # geom4.set_calculator(CountingCalc(base_calc))
-            geom_bfgshpredk3 = get_geom(atomssymbols, coords, args.coord, base_calc)
-            method_name_clean = clean_str(method_name)
-            out_dir_method = os.path.join(out_dir, method_name_clean)
-            opt = get_rfo_optimizer(
-                geom_bfgshpredk3,
-                hessian_init="calc",
-                hessian_update="bfgs",
-                hessian_recalc=3,
-                out_dir=out_dir_method,
-                verbose=args.verbose,
-                thresh=args.thresh,
-                max_cycles=args.max_cycles,
-            )
-            results.append(
-                _run_opt_safely(
-                    geom=geom_bfgshpredk3,
-                    opt=opt,
-                    method_name=method_name,
+            if method_name in name_order:
+                print_header(cnt, method_name)
+                geom_bfgshpredk3 = get_geom(atomssymbols, coords, args.coord, base_calc, args)
+                method_name_clean = clean_str(method_name)
+                out_dir_method = os.path.join(out_dir, method_name_clean)
+                opt = get_rfo_optimizer(
+                    geom_bfgshpredk3,
+                    hessian_init="calc",
+                    hessian_update="bfgs",
+                    hessian_recalc=3,
                     out_dir=out_dir_method,
                     verbose=args.verbose,
+                    thresh=args.thresh,
+                    max_cycles=args.max_cycles,
                 )
-            )
+                results.append(
+                    _run_opt_safely(
+                        geom=geom_bfgshpredk3,
+                        opt=opt,
+                        method_name=method_name,
+                        out_dir=out_dir_method,
+                        verbose=args.verbose,
+                        dft_hessian_is_pd=dft_hessian_is_pd,
+                    )
+                )
 
             # 6) Periodic replace: k=1 (every step)
             method_name = "RFO (Hpred)"
-            print_header(cnt, method_name)
-            # geom5 = Geometry(atomssymbols, coords, coord_type=args.coord)
-            # geom5.set_calculator(CountingCalc(base_calc))
-            geom_rfohpred = get_geom(atomssymbols, coords, args.coord, base_calc)
-            method_name_clean = clean_str(method_name)
-            out_dir_method = os.path.join(out_dir, method_name_clean)
-            opt = get_rfo_optimizer(
-                geom_rfohpred,
-                hessian_init="calc",
-                hessian_update="bfgs",
-                hessian_recalc=1,
-                out_dir=out_dir_method,
-                verbose=args.verbose,
-                thresh=args.thresh,
-                max_cycles=args.max_cycles,
-            )
-            results.append(
-                _run_opt_safely(
-                    geom=geom_rfohpred,
-                    opt=opt,
-                    method_name=method_name,
+            if method_name in name_order:
+                print_header(cnt, method_name)
+                geom_rfohpred = get_geom(atomssymbols, coords, args.coord, base_calc, args)
+                method_name_clean = clean_str(method_name)
+                out_dir_method = os.path.join(out_dir, method_name_clean)
+                opt = get_rfo_optimizer(
+                    geom_rfohpred,
+                    hessian_init="calc",
+                    hessian_update="bfgs",
+                    hessian_recalc=1,
                     out_dir=out_dir_method,
                     verbose=args.verbose,
+                    thresh=args.thresh,
+                    max_cycles=args.max_cycles,
                 )
-            )
+                results.append(
+                    _run_opt_safely(
+                        geom=geom_rfohpred,
+                        opt=opt,
+                        method_name=method_name,
+                        out_dir=out_dir_method,
+                        verbose=args.verbose,
+                        dft_hessian_is_pd=dft_hessian_is_pd,
+                    )
+                )
 
             # Pretty print
-            print(f"\n{'Strategy':>24s} {'coords':>6} {'converged':>6} {'steps':>6} {'grads':>6} {'hessians':>6} {'s':>12}")
+            print(f"\n{'Strategy':>24s} {'coords':>6} {'converged':>6} {'steps':>6} {'grads':>6} {'hessians':>6} {'s':>6}")
             for r in results:
                 try:
                     print(
@@ -843,6 +916,14 @@ def do_relaxations():
                 except:
                     print(f"Error printing {r}")
                     print(r)
+            
+            # print positive definite status extra
+            print(f"cnt_not_pd:")
+            for r in results:
+                _msg = f"{r['name']}: {r['cnt_not_pd']}"
+                if r['hessian_calls'] is not None and r['hessian_calls'] > 0:
+                    _msg += f" ({r['cnt_not_pd'] / r['hessian_calls'] * 100:.2f}%)"
+                print(_msg)
 
             # Collect results with context for CSV
             for r in results:
@@ -855,6 +936,8 @@ def do_relaxations():
                     }
                 )
                 all_results.append(r_with_ctx)
+            
+            optims_done += 1
 
         # Write aggregated CSV
         if len(all_results) > 0:
@@ -878,12 +961,29 @@ def do_relaxations():
         # "calculate_energy_calls",
         # "calculate_gradient_calls",
         # "calculate_hessian_calls",
+        "cnt_not_pd",
         "wall_time_s",
     ]:
         print(f"\n{metric.replace('_', ' ').title()}:")
         for method in df["name"].unique():
             _d = df[df["name"] == method]
             print(f"{method}: {_d[metric].mean():.2f} ± {_d[metric].std():.2f}")
+    
+    # print % of converged optims where dft_hessian_is_pd is False
+    print("\n% of converged BFGS+DFT init when dft_hessian_is_pd is True:")
+    _d = df[(df["dft_hessian_is_pd"] == True) & (df["name"] == "RFO-BFGS (DFT init)")]
+    print(f"{_d['converged'].mean() * 100:.2f}%")
+    print("\n% of converged BFGS+DFT init when dft_hessian_is_pd is False:")
+    _d = df[(df["dft_hessian_is_pd"] == False) & (df["name"] == "RFO-BFGS (DFT init)")]
+    print(f"{_d['converged'].mean() * 100:.2f}%")
+
+    # print % of converged optims where no pd Hessian was encountered in calculator
+    print("\n% of converged RFO (Hpred) when all Hessians were pd:")
+    _d = df[(df["cnt_not_pd"] == 0) & (df["name"] == "RFO (Hpred)")]
+    print(f"{_d['converged'].mean() * 100:.2f}%")
+    print("\n% of converged RFO (Hpred) when some Hessians were not pd:")
+    _d = df[(df["cnt_not_pd"] > 0) & (df["name"] == "RFO (Hpred)")]
+    print(f"{_d['converged'].mean() * 100:.2f}%")
 
     #########################################################
     # do plotting
@@ -892,18 +992,6 @@ def do_relaxations():
     sns.set_theme(style="whitegrid")
     plots_dir = os.path.join(out_dir, "plots")
     os.makedirs(plots_dir, exist_ok=True)
-
-    name_order = [
-        "NaiveSteepestDescent",
-        "SteepestDescent",
-        "FIRE",
-        "ConjugateGradient",
-        "RFO-BFGS (unit init)",
-        "RFO-BFGS (DFT init)",
-        "RFO-BFGS (Hpred init)",
-        "RFO-BFGS (Hpred k3)",
-        "RFO (Hpred)",
-    ]
 
     def _remove_outliers(_d, metric_name):
         # remove the most extreme outliers (1st and 99th percentiles)

@@ -12,7 +12,7 @@ if __name__ == "__main__":
         help="Path to checkpoint file",
     )
     parser.add_argument(
-        "--config_path", type=str, default=None, help="Path to config file"
+        "--config_path", type=str, default=None, help="Path to config file. Ignored at the moment (config from ckpt is used instead)."
     )
     parser.add_argument(
         "--hessian_method",
