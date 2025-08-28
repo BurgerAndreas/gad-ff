@@ -2,7 +2,7 @@ from typing import Optional
 import torch
 import numpy as np
 from ase.calculators.calculator import Calculator, all_changes
-from horm_alphanet.alphanet_module import PotentialModule
+from alphanet.alphanet_module import PotentialModule
 from torch_geometric.data import Data
 
 

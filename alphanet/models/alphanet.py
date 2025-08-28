@@ -792,8 +792,9 @@ class AlphaNet(nn.Module):
         edge_diff = edge_diff / (dist.unsqueeze(1) + self.eps)
         mean = scatter(pos[edge_index[0]], edge_index[1], reduce="mean", dim=0)
 
-        edge_cross = torch.cross(pos[i] - mean[i], pos[j] - mean[i])
-        edge_vertical = torch.cross(edge_diff, edge_cross)
+        # dim is chosen to be the first dimension of size 3
+        edge_cross = torch.cross(pos[i] - mean[i], pos[j] - mean[i], dim=-1)
+        edge_vertical = torch.cross(edge_diff, edge_cross, dim=-1)
         edge_frame = torch.cat(
             (
                 edge_diff.unsqueeze(-1),
@@ -831,6 +832,7 @@ class AlphaNet(nn.Module):
         quantum = torch.complex(real, imagine)
 
         for i in range(self.num_layers):
+            rope = None
             if i > 0:
                 rope, ds, dvec = self.message_layers[i](
                     s, vec, edge_index, radial_emb, edge_weight, edge_diff, rope
