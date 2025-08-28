@@ -34,7 +34,7 @@ def check_symmetry(hessian, N, nsamples=100):
         f"Hessian symmetry check - Rel error: mean={sum(errors_rel) / len(errors_rel):.2e}, max={max(errors_rel):.2e}"
     )
 
-
+# TODO: I think this bottlenecks training
 def add_extra_props_for_hessian(data, offset_indices=False):
     # add extra props for convience
     nedges = data.nedges_hessian
@@ -98,6 +98,50 @@ def add_extra_props_for_hessian(data, offset_indices=False):
 
     return data
 
+def add_extra_props_for_hessian_optimized(data, offset_indices=False):
+    # add extra props for convience
+    nedges = data.nedges_hessian
+    B = data.batch.max().item() + 1
+    # vectorized pointer build
+    _nedges = nedges.to(device=data.batch.device, dtype=torch.long)
+    _sizes = (_nedges * 3) ** 2
+    # indices are computed for each sample individually
+    # so we need to offset the indices by the number of entries in the previous samples in the batch
+    if offset_indices:
+        if hasattr(data, "offsetdone") and (data.offsetdone is True):
+            return data
+        data.offsetdone = True
+        # Precompute exclusive cumulative offsets once (O(B))
+        natoms = data.natoms.to(device=data.batch.device, dtype=torch.long)
+        hess_entries_per_sample = (natoms * 3) ** 2
+        node_entries_per_sample = natoms * 9
+        cumsum_hess = torch.cumsum(hess_entries_per_sample, dim=0)
+        cumsum_node = torch.cumsum(node_entries_per_sample, dim=0)
+        hess_offsets = torch.zeros_like(cumsum_hess)
+        node_offsets = torch.zeros_like(cumsum_node)
+        if B > 1:
+            data.ptr_1d_hessian = torch.empty(B + 1, device=data.batch.device, dtype=torch.long)
+            data.ptr_1d_hessian[0] = 0
+            if B > 0:
+                data.ptr_1d_hessian[1:] = torch.cumsum(_sizes, dim=0)
+            hess_offsets[1:] = cumsum_hess[:-1]
+            node_offsets[1:] = cumsum_node[:-1]
+        # Parallelize offsets across all elements using repeat_interleave per-sample lengths
+        edge_counts = (_nedges * 9).to(dtype=torch.long)
+        node_counts = (natoms * 9).to(dtype=torch.long)
+        # Build full-length offset vectors
+        if edge_counts.sum().item() > 0:
+            full_edge_hess_offsets = torch.repeat_interleave(hess_offsets, edge_counts)
+            data.message_idx_ij += full_edge_hess_offsets
+            data.message_idx_ji += full_edge_hess_offsets
+        if node_counts.sum().item() > 0:
+            full_node_hess_offsets = torch.repeat_interleave(hess_offsets, node_counts)
+            full_node_node_offsets = torch.repeat_interleave(node_offsets, node_counts)
+            data.diag_ij += full_node_hess_offsets
+            data.diag_ji += full_node_hess_offsets
+            data.node_transpose_idx += full_node_node_offsets
+
+    return data
 
 def predict_hessian_1d_fast(edge_index, data, l012_edge_features, l012_node_features):
     """

@@ -22,7 +22,7 @@ def iter_data_buckets(h5filename, keys=['wb97x_dz.energy']):
     with h5py.File(h5filename, 'r') as f:
         for grp in f.values():
             Nc = grp['coordinates'].shape[0]
-            mask = np.ones(Nc, dtype=np.bool)
+            mask = np.ones(Nc, dtype=bool)
             data = dict((k, grp[k][()]) for k in keys)
             for k in keys:
                 v = data[k].reshape(Nc, -1)
@@ -41,14 +41,16 @@ if __name__ == "__main__":
     #data_keys = ['ccsd(t)_cbs.energy'] # The coupled cluster ANI-1ccx data set (https://doi.org/10.1038/s41467-019-10827-4)
     #data_keys = ['wb97x_dz.dipoles'] # A subset of this data was used for training the ACA charge model (https://doi.org/10.1021/acs.jpclett.8b01939)
 
-    if not os.path.exists(path_to_h5file):
-        download_ani1x()
-    else:
-        print("Using existing ANI-1x data file:", path_to_h5file)
+    # if not os.path.exists(path_to_h5file):
+    #     download_ani1x()
+    # else:
+    #     print("Using existing ANI-1x data file:", path_to_h5file)
 
     # Example for extracting DFT/DZ energies and forces
-    for data in iter_data_buckets(path_to_h5file, keys=data_keys):
+    for idx, data in enumerate(iter_data_buckets(path_to_h5file, keys=data_keys)):
         X = data['coordinates']
         Z = data['atomic_numbers']
-        E = data['wb97x_dz.energy']
-        F = data['wb97x_dz.forces']
+        E = data['wb97x_dz.energy'][idx]
+        F = data['wb97x_dz.forces'][idx]
+        print(E, Z)
+        break

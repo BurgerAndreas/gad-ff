@@ -204,7 +204,7 @@ class EquiformerV2_OC20(BaseModel):
         use_atom_edge_embedding_hessian=True,
         reuse_source_target_embedding_hessian=True,
         reinit_edge_degree_embedding_hessian=False,
-        cutoff_hessian=12.0,
+        cutoff_hessian=100.0,
         **kwargs,
     ):
         super().__init__()
@@ -514,8 +514,8 @@ class EquiformerV2_OC20(BaseModel):
             self.eigval_2_head = None
 
         self.do_hessian = do_hessian
+        self.cutoff_hessian = cutoff_hessian
         if do_hessian:
-            self.cutoff_hessian = cutoff_hessian
             # if to also use atom type embedding or just relative distances for edge features
             # in edge_distance
             self.use_atom_edge_embedding_hessian = use_atom_edge_embedding_hessian

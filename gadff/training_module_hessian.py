@@ -251,6 +251,7 @@ class HessianPotentialModule(PotentialModule):
                     if self.training_config["do_hessiangraphtransform"]:
                         transform = HessianGraphTransform(
                             cutoff=self.potential.cutoff,
+                            cutoff_hessian=self.potential.cutoff_hessian,
                             max_neighbors=self.potential.max_neighbors,
                             use_pbc=self.potential.use_pbc,
                         )
@@ -273,6 +274,7 @@ class HessianPotentialModule(PotentialModule):
                 if self.training_config["do_hessiangraphtransform"]:
                     transform = HessianGraphTransform(
                         cutoff=self.potential.cutoff,
+                        cutoff_hessian=self.potential.cutoff_hessian,
                         max_neighbors=self.potential.max_neighbors,
                         use_pbc=self.potential.use_pbc,
                     )
@@ -287,6 +289,7 @@ class HessianPotentialModule(PotentialModule):
             if self.training_config["do_hessiangraphtransform"]:
                 transform = HessianGraphTransform(
                     cutoff=self.potential.cutoff,
+                    cutoff_hessian=self.potential.cutoff_hessian,
                     max_neighbors=self.potential.max_neighbors,
                     use_pbc=self.potential.use_pbc,
                 )

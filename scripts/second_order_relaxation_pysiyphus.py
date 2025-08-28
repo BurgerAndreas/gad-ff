@@ -11,7 +11,11 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import traceback
 import logging
+import h5py
+import pandas as pd
+
 import torch
+from torch_geometric.data import DataLoader as TGDataLoader
 
 from pysisyphus.Geometry import Geometry  # Geometry API + coordinate systems
 from pysisyphus.calculators.MLFF import MLFF
@@ -19,17 +23,23 @@ from pysisyphus.calculators.Calculator import Calculator  # base class to wrap/o
 from pysisyphus.optimizers.FIRE import FIRE  # first-order baseline
 from pysisyphus.optimizers.RFOptimizer import RFOptimizer  # second-order RFO + BFGS
 from pysisyphus.optimizers.BFGS import BFGS
+from pysisyphus.optimizers.SteepestDescent import SteepestDescent
+from pysisyphus.optimizers.ConjugateGradient import ConjugateGradient
+from pysisyphus.optimizers.BacktrackingOptimizer import BacktrackingOptimizer
+# from pysisyphus.helpers_pure import eigval_to_wavenumber
+# from pysisyphus.helpers import _do_hessian
+# from pysisyphus.io.hessian import save_hessian
+from pysisyphus.constants import AU2EV, BOHR2ANG
+from pysisyphus.helpers import procrustes
 
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.path_config import fix_dataset_path, ROOT_DIR
-from torch_geometric.data import DataLoader as TGDataLoader
 from nets.prediction_utils import (
     GLOBAL_ATOM_SYMBOLS,
     GLOBAL_ATOM_NUMBERS,
     compute_extra_props,
 )
-import h5py
-import pandas as pd
+from ReactBench.Calculators.equiformer import PysisEquiformer
 
 try:
     from transition1x import Dataloader as T1xDataloader
@@ -41,15 +51,6 @@ except ImportError:
         "uv pip install -e Transition1x" + "\n"
     )
 
-# from pysisyphus.helpers_pure import eigval_to_wavenumber
-# from pysisyphus.helpers import _do_hessian
-# from pysisyphus.io.hessian import save_hessian
-from pysisyphus.constants import AU2EV, BOHR2ANG
-
-from pysisyphus.optimizers.SteepestDescent import SteepestDescent
-from pysisyphus.optimizers.ConjugateGradient import ConjugateGradient
-from pysisyphus.helpers import procrustes
-from pysisyphus.optimizers.BacktrackingOptimizer import BacktrackingOptimizer
 
 """
 run as:
@@ -569,7 +570,8 @@ def do_relaxations():
     print(f"Out directory: {out_dir}")
 
     print("\nInitializing model...")
-    base_calc = MLFF(
+    # base_calc = MLFF(
+    base_calc = PysisEquiformer(
         charge=0,
         ckpt_path=ckpt_path,
         config_path="auto",
@@ -583,13 +585,14 @@ def do_relaxations():
         # out_dir=yaml_dir / OUT_DIR_DEFAULT,
         # 'out_dir': PosixPath('/ssd/Code/ReactBench/runs/equiformer_alldatagputwoalphadrop0droppathrate0projdrop0-394770-20250806-133956_data_predict/rxn9/TSOPT/qm_calcs
     )
-    print(f"Initialized calc MLFF.model: {base_calc.model.__class__.__name__}")
-    print(
-        f"Initialized calc MLFF.model.model: {base_calc.model.model.__class__.__name__}"
-    )
-    print(
-        f"Initialized calc MLFF.model.model.potential: {base_calc.model.model.potential.__class__.__name__}"
-    )
+    # print(f"Initialized calc MLFF.: {base_calc.__class__.__name__}")
+    # print(f"Initialized calc MLFF.model: {base_calc.model.__class__.__name__}")
+    # print(
+    #     f"Initialized calc MLFF.model.model: {base_calc.model.model.__class__.__name__}"
+    # )
+    # print(
+    #     f"Initialized calc MLFF.model.model.potential: {base_calc.model.model.potential.__class__.__name__}"
+    # )
 
     print("\nTesting model with pysisyphus...")
     counting_calc = CountingCalc(base_calc)

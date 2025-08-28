@@ -671,7 +671,7 @@ class LEFTNet(torch.nn.Module):
                 GCLMessage(hidden_channels, num_radial, legacy=legacy)
             )
             self.message_layers.append(
-                EquiMessage(hidden_channels, num_radial, reflect_equiv).jittable()
+                EquiMessage(hidden_channels, num_radial, reflect_equiv) #.jittable()
             )
             self.update_layers.append(EquiUpdate(hidden_channels, reflect_equiv))
 
@@ -697,12 +697,12 @@ class LEFTNet(torch.nn.Module):
         dist = (pos[i] - pos[j]).pow(2).sum(dim=-1).sqrt()
         coord_diff = pos[i] - pos[j]
         radial = torch.sum((coord_diff) ** 2, 1).unsqueeze(1)
-        coord_cross = torch.cross(pos[i], pos[j])
+        coord_cross = torch.cross(pos[i], pos[j], dim=-1)
         norm = torch.sqrt(radial) + EPS
         coord_diff = coord_diff / norm
         cross_norm = (torch.sqrt(torch.sum((coord_cross) ** 2, 1).unsqueeze(1))) + EPS
         coord_cross = coord_cross / cross_norm
-        coord_vertical = torch.cross(coord_diff, coord_cross)
+        coord_vertical = torch.cross(coord_diff, coord_cross, dim=-1)
 
         return dist, coord_diff, coord_cross, coord_vertical
 

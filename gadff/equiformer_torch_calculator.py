@@ -72,6 +72,7 @@ def get_model_and_dataloader_for_hessian_prediction(
     # Dataset
     transform = HessianGraphTransform(
         cutoff=model.cutoff,
+        cutoff_hessian=model.cutoff_hessian,
         max_neighbors=model.max_neighbors,
         use_pbc=model.use_pbc,
     )

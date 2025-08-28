@@ -50,7 +50,7 @@ def create_preprocessed_dataset(dataset_file="ts1x-val.lmdb", debug=False):
     print(f"\nProcessing {input_lmdb_path} -> {output_lmdb_path}")
 
     # ---- Load dataset ----
-    transform = HessianGraphTransform(cutoff=100.0, max_neighbors=None, use_pbc=False)
+    transform = HessianGraphTransform(cutoff=100.0, cutoff_hessian=100.0, max_neighbors=None, use_pbc=False)
     dataset = LmdbDataset(input_lmdb_path, transform=transform)
     print(f"Loaded dataset with {len(dataset)} samples from {input_lmdb_path}")
 

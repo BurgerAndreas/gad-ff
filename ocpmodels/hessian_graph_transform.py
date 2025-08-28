@@ -50,7 +50,7 @@ class HessianGraphTransform(BaseTransform):
     where E is the number of edges in the graph.
     """
 
-    def __init__(self, cutoff=None, max_neighbors=None, use_pbc=None):
+    def __init__(self, cutoff=None, cutoff_hessian=100, max_neighbors=None, use_pbc=None):
         """
         Args:
             cutoff: cutoff radius for the graph
@@ -59,6 +59,7 @@ class HessianGraphTransform(BaseTransform):
         """
         super().__init__()
         self.cutoff = cutoff
+        self.cutoff_hessian = cutoff_hessian
         self.max_neighbors = max_neighbors
         self.use_pbc = use_pbc
 

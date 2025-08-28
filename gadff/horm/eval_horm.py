@@ -11,13 +11,7 @@ from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.path_config import fix_dataset_path
 from ocpmodels.hessian_graph_transform import HessianGraphTransform
 
-try:
-    from ReactBench.utils.frequency_analysis import analyze_frequencies
-except ImportError as e:
-    analyze_frequencies = None
-    print("analyze_frequencies is not available.")
-    print(f"Import error in {__file__}:\n{e}")
-
+from ReactBench.utils.frequency_analysis import analyze_frequencies
 
 def _get_derivatives(x, y, retain_graph=None, create_graph=False):
     """Helper function to compute derivatives"""
@@ -48,21 +42,10 @@ def compute_hessian(coords, energy, forces=None):
     return hessian.reshape(n_comp, -1)
 
 
-def hess2eigenvalues(hess):
-    """Convert Hessian to eigenvalues with unit conversion (hartree to eV, bohr to angstrom)"""
-    hartree_to_ev = 27.2114
-    bohr_to_angstrom = 0.529177
-    ev_angstrom_2_to_hartree_bohr_2 = (bohr_to_angstrom**2) / hartree_to_ev
-
-    hess = hess * ev_angstrom_2_to_hartree_bohr_2
-    eigen_values, _ = torch.linalg.eigh(hess)
-    return eigen_values
-
-
 def evaluate(
     lmdb_path,
     checkpoint_path,
-    config_path,
+    config_path, # not used
     hessian_method,
     max_samples=None,
     wandb_run_id=None,
@@ -125,6 +108,7 @@ def evaluate(
         if hessian_method == "predict":
             transform = HessianGraphTransform(
                 cutoff=model.cutoff,
+                cutoff_hessian=model.cutoff_hessian,
                 max_neighbors=model.max_neighbors,
                 use_pbc=model.use_pbc,
             )
@@ -175,7 +159,6 @@ def evaluate(
 
             # Compute hessian eigenspectra
             eigvals_model, eigvecs_model = torch.linalg.eigh(hessian_model)
-            eigenvalues_hartree_bohr = hess2eigenvalues(hessian_model)
 
             # Compute errors
             e_error = torch.mean(torch.abs(energy_model.squeeze() - batch.ae))
@@ -188,10 +171,6 @@ def evaluate(
 
             # Eigenvalue error
             eigvals_true, eigvecs_true = torch.linalg.eigh(hessian_true)
-            eigen_true_hartree_bohr = hess2eigenvalues(hessian_true)
-            eigen_error = torch.mean(
-                torch.abs(eigenvalues_hartree_bohr - eigen_true_hartree_bohr)
-            )  # Hartree/Bohr^2
 
             # Asymmetry error
             asymmetry_error = torch.mean(torch.abs(hessian_model - hessian_model.T))
@@ -219,7 +198,6 @@ def evaluate(
                 "energy_error": e_error.item(),
                 "forces_error": f_error.item(),
                 "hessian_error": h_error.item(),
-                "eigen_error": eigen_error.item(),
                 "asymmetry_error": asymmetry_error.item(),
                 "true_asymmetry_error": true_asymmetry_error.item(),
                 "eigval_mae": eigval_mae.item(),
@@ -231,30 +209,27 @@ def evaluate(
                 "eigvec2_cos": eigvec2_cos.item(),
             }
 
-            if analyze_frequencies is not None:
-                true_freqs = analyze_frequencies(
-                    hessian=hessian_true,
-                    cart_coords=batch.pos,
-                    atomsymbols=batch.atom_types,
-                )
-                true_neg_num = true_freqs["neg_num"]
+            true_freqs = analyze_frequencies(
+                hessian=hessian_true,
+                cart_coords=batch.pos,
+                atomsymbols=batch.atom_types,
+            )
+            true_neg_num = true_freqs["neg_num"]
 
-                freqs_model = analyze_frequencies(
-                    hessian=hessian_model,
-                    cart_coords=batch.pos,
-                    atomsymbols=batch.atom_types,
-                )
-                freqs_model_neg_num = freqs_model["neg_num"]
+            freqs_model = analyze_frequencies(
+                hessian=hessian_model,
+                cart_coords=batch.pos,
+                atomsymbols=batch.atom_types,
+            )
+            freqs_model_neg_num = freqs_model["neg_num"]
 
-                sample_data["true_neg_num"] = true_neg_num
-                sample_data["true_is_ts"] = 1 if true_neg_num == 1 else 0
-                sample_data["model_neg_num"] = freqs_model_neg_num
-                sample_data["model_is_ts"] = 1 if freqs_model_neg_num == 1 else 0
-                sample_data["neg_num_agree"] = (
-                    1 if (true_neg_num == freqs_model_neg_num) else 0
-                )
-            else:
-                print("analyze_frequencies is not available.")
+            sample_data["true_neg_num"] = true_neg_num
+            sample_data["true_is_ts"] = 1 if true_neg_num == 1 else 0
+            sample_data["model_neg_num"] = freqs_model_neg_num
+            sample_data["model_is_ts"] = 1 if freqs_model_neg_num == 1 else 0
+            sample_data["neg_num_agree"] = (
+                1 if (true_neg_num == freqs_model_neg_num) else 0
+            )
 
             sample_metrics.append(sample_data)
             n_samples += 1
@@ -276,7 +251,6 @@ def evaluate(
         "energy_mae": df_results["energy_error"].mean(),
         "forces_mae": df_results["forces_error"].mean(),
         "hessian_mae": df_results["hessian_error"].mean(),
-        "eigenvalue_mae_hartree_bohr2": df_results["eigen_error"].mean(),
         "asymmetry_mae": df_results["asymmetry_error"].mean(),
         "true_asymmetry_mae": df_results["true_asymmetry_error"].mean(),
         "eigval_mae": df_results["eigval_mae"].mean(),
@@ -289,25 +263,19 @@ def evaluate(
     }
 
     # Frequencies
-    if "true_neg_num" in df_results.columns:
-        aggregated_results["neg_num_agree"] = df_results["neg_num_agree"].mean()
-        aggregated_results["true_neg_num"] = df_results["true_neg_num"].mean()
-        aggregated_results["model_neg_num"] = df_results["model_neg_num"].mean()
-        aggregated_results["true_is_ts"] = df_results["true_is_ts"].mean()
-        aggregated_results["model_is_ts"] = df_results["model_is_ts"].mean()
-        aggregated_results["is_ts_agree"] = (
-            df_results["model_is_ts"] == df_results["true_is_ts"]
-        ).mean()
-    else:
-        print("No frequencies available")
+    aggregated_results["neg_num_agree"] = df_results["neg_num_agree"].mean()
+    aggregated_results["true_neg_num"] = df_results["true_neg_num"].mean()
+    aggregated_results["model_neg_num"] = df_results["model_neg_num"].mean()
+    aggregated_results["true_is_ts"] = df_results["true_is_ts"].mean()
+    aggregated_results["model_is_ts"] = df_results["model_is_ts"].mean()
+    aggregated_results["is_ts_agree"] = (
+        df_results["model_is_ts"] == df_results["true_is_ts"]
+    ).mean()
 
     print(f"\nResults for {dataset_name}:")
     print(f"Energy MAE: {aggregated_results['energy_mae']:.6f}")
     print(f"Forces MAE: {aggregated_results['forces_mae']:.6f}")
     print(f"Hessian MAE: {aggregated_results['hessian_mae']:.6f}")
-    print(
-        f"Eigenvalue MAE: {aggregated_results['eigenvalue_mae_hartree_bohr2']:.6f} Hartree/Bohr^2"
-    )
     print(f"Asymmetry MAE: {aggregated_results['asymmetry_mae']:.6f}")
     print(f"True Asymmetry MAE: {aggregated_results['true_asymmetry_mae']:.6f}")
     print(f"Eigenvalue MAE: {aggregated_results['eigval_mae']:.6f} eV/Angstrom^2")
@@ -319,13 +287,12 @@ def evaluate(
     print(f"Eigenvector 2 Cosine: {aggregated_results['eigvec2_cos']:.6f}")
 
     # Frequencies
-    if "true_neg_num" in df_results.columns:
-        print(f"True Neg Num: {aggregated_results['true_neg_num']:.6f}")
-        print(f"Model Neg Num: {aggregated_results['model_neg_num']:.6f}")
-        print(f"Neg Num Agree: {aggregated_results['neg_num_agree']:.6f}")
-        print(f"True Is TS: {aggregated_results['true_is_ts']:.6f}")
-        print(f"Model Is TS: {aggregated_results['model_is_ts']:.6f}")
-        print(f"Is TS Agree: {aggregated_results['is_ts_agree']:.6f}")
+    print(f"True Neg Num: {aggregated_results['true_neg_num']:.6f}")
+    print(f"Model Neg Num: {aggregated_results['model_neg_num']:.6f}")
+    print(f"Neg Num Agree: {aggregated_results['neg_num_agree']:.6f}")
+    print(f"True Is TS: {aggregated_results['true_is_ts']:.6f}")
+    print(f"Model Is TS: {aggregated_results['model_is_ts']:.6f}")
+    print(f"Is TS Agree: {aggregated_results['is_ts_agree']:.6f}")
 
     wandb.log(aggregated_results)
 
@@ -347,7 +314,6 @@ def plot_accuracy_vs_natoms(df_results, name):
         ("energy_error", "Energy MAE", "Energy Error"),
         ("forces_error", "Forces MAE", "Forces Error"),
         ("hessian_error", "Hessian MAE", "Hessian Error"),
-        ("eigen_error", "Eigenvalue MAE", "Eigenvalue Error (Hartree/Bohr²)"),
         ("eigvec1_cos", "Eigenvector 1 Cosine", "Eigenvector 1 Cosine"),
         ("eigval1_mae", "Eigenvalue 1 MAE", "Eigenvalue 1 MAE"),
         ("is_ts_agree", "Is TS Agree", "Is TS Agree"),
