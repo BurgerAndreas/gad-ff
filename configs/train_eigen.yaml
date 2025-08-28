@@ -49,7 +49,7 @@ training:
   max_val_samples: null
   drop_last: false
 
-  do_hessiangraphtransform: true
+  do_hessiangraphtransform: false
 
 # Pytorch Lightning Trainer configuration
 pltrainer:

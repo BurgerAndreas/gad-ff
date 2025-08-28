@@ -27,7 +27,7 @@ def main():
         "--dataset",
         "-d",
         type=str,
-        default="ts1x-val.lmdb",
+        default="ts1x-val.lmdb", # ts1x-val-hesspred.lmdb
         help="Dataset file name",
     )
     # No per-sample iters; we synthesize batches for timing tests below
@@ -71,39 +71,37 @@ def main():
         use_pbc=model.use_pbc,
     )
     dataset_yes = LmdbDataset(fix_dataset_path(lmdb_path), transform=transform)
-    dataloader_yes = TGDataLoader(dataset_yes, batch_size=1, shuffle=False, follow_batch=["diag_ij", "edge_index", "message_idx_ij"])
     dataset_no = LmdbDataset(fix_dataset_path(lmdb_path), transform=None)
-    dataloader_no = TGDataLoader(dataset_no, batch_size=1, shuffle=False, follow_batch=["diag_ij", "edge_index", "message_idx_ij"])
 
     # Test 0: timing HessianGraphTransform using dataloaders with/without transform
-    K = min(64, len(dataset_no)) if len(dataset_no) > 0 else 0
-    if K > 0:
+    # HessianGraphTransform is extremely slow
+    for _bz in [2, 4, 8, 16, 32]:
+        dataloader_yes = TGDataLoader(dataset_yes, batch_size=_bz, shuffle=False, follow_batch=["diag_ij", "edge_index", "message_idx_ij"])
+        dataloader_no = TGDataLoader(dataset_no, batch_size=_bz, shuffle=False, follow_batch=["diag_ij", "edge_index", "message_idx_ij"])
+        K = 64
         # Measure no-transform loader fetch time
         times_no = []
         it_no = iter(dataloader_no)
-        for _ in range(K):
+        for i in range(K):
             t0 = time.perf_counter()
-            _ = next(it_no)
+            _databatch = next(it_no)
             t1 = time.perf_counter()
-            if _ > 1: # first iteration is warmup
+            if i > 1: # first iteration is warmup
                 times_no.append((t1 - t0) * 1000.0)
         # Measure with-transform loader fetch time
         times_yes = []
         it_yes = iter(dataloader_yes)
-        for _ in range(K):
+        for i in range(K):
             t0 = time.perf_counter()
-            _ = next(it_yes)
+            _databatch = next(it_yes)
             t1 = time.perf_counter()
-            if _ > 1: # first iteration is warmup
+            if i > 1: # first iteration is warmup
                 times_yes.append((t1 - t0) * 1000.0)
         avg_no = sum(times_no) / len(times_no)
         avg_yes = sum(times_yes) / len(times_yes)
-        print("HessianGraphTransform timing (ms/sample):")
+        print(f"HessianGraphTransform timing (ms/sample) (bz={_bz}):")
         print(f"  dataloader without transform: {avg_no:.2f}")
         print(f"  dataloader with transform:    {avg_yes:.2f}")
-        print(f"  approx transform cost:        {max(0.0, avg_yes - avg_no):.2f}")
-    else:
-        print("HessianGraphTransform timing: dataset empty, skipping")
 
     # Warmup single forward pass
     with torch.no_grad():
@@ -131,7 +129,7 @@ def main():
             "node_transpose_idx",
         ]
         ok = all(_equal(f, f) for f in fields)
-        print(f"Equivalence test (B=4): {'PASS' if ok else 'FAIL'}")
+        print(f"\nEquivalence test (B=4): {'PASS' if ok else 'FAIL'}")
         if not ok:
             for f in fields:
                 if hasattr(ref, f) and hasattr(opt, f):

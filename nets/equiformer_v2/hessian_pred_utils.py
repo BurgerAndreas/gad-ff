@@ -34,7 +34,6 @@ def check_symmetry(hessian, N, nsamples=100):
         f"Hessian symmetry check - Rel error: mean={sum(errors_rel) / len(errors_rel):.2e}, max={max(errors_rel):.2e}"
     )
 
-# TODO: I think this bottlenecks training
 def add_extra_props_for_hessian(data, offset_indices=False):
     # add extra props for convience
     nedges = data.nedges_hessian
@@ -98,6 +97,7 @@ def add_extra_props_for_hessian(data, offset_indices=False):
 
     return data
 
+# slightly faster than add_extra_props_for_hessian, gives the same result. does not matter though
 def add_extra_props_for_hessian_optimized(data, offset_indices=False):
     # add extra props for convience
     nedges = data.nedges_hessian
