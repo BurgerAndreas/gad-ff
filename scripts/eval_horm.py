@@ -1,6 +1,6 @@
 import torch
 import argparse
-
+import numpy as np
 import torch
 from tqdm import tqdm
 import wandb
@@ -64,7 +64,8 @@ def evaluate(
     model_config = ckpt["hyper_parameters"]["model_config"]
     print(f"Model name: {model_name}")
 
-    _name = checkpoint_path.split("/")[-2]
+    _name = ""
+    # _name += checkpoint_path.split("/")[-2]
     _name += checkpoint_path.split("/")[-1].split(".")[0]
     # _name += "_" + lmdb_path.split("/")[-1].split(".")[0]
     if hessian_method != "autograd":
@@ -112,6 +113,9 @@ def evaluate(
         df_results = pd.read_csv(results_file)
 
     else:
+        torch.manual_seed(42)
+        np.random.seed(42)
+
         # if hessian_method == "predict" or model.do_hessian or model.otf_graph == False:
         if hessian_method == "predict":
             transform = HessianGraphTransform(
@@ -218,12 +222,18 @@ def evaluate(
                 "eigvec2_cos": eigvec2_cos.item(),
             }
 
+            ########################
+            # Mass weighted + Eckart projection
+            ########################
+
             true_freqs = analyze_frequencies(
                 hessian=hessian_true.detach().cpu().numpy(),
                 cart_coords=batch.pos.detach().cpu().numpy(),
                 atomsymbols=[Z_TO_ATOM_SYMBOL[z.item()] for z in batch.z],
             )
             true_neg_num = true_freqs["neg_num"]
+            true_eigvecs_eckart = torch.tensor(true_freqs["eigvecs"])
+            true_eigvals_eckart = torch.tensor(true_freqs["eigvals"])
 
             freqs_model = analyze_frequencies(
                 hessian=hessian_model.detach().cpu().numpy(),
@@ -231,6 +241,8 @@ def evaluate(
                 atomsymbols=[Z_TO_ATOM_SYMBOL[z.item()] for z in batch.z],
             )
             freqs_model_neg_num = freqs_model["neg_num"]
+            eigvecs_model_eckart = torch.tensor(freqs_model["eigvecs"])
+            eigvals_model_eckart = torch.tensor(freqs_model["eigvals"])
 
             sample_data["true_neg_num"] = true_neg_num
             sample_data["true_is_ts"] = 1 if true_neg_num == 1 else 0
@@ -239,6 +251,25 @@ def evaluate(
             sample_data["neg_num_agree"] = (
                 1 if (true_neg_num == freqs_model_neg_num) else 0
             )
+
+            sample_data["eigval_mae_eckart"] = torch.mean(
+                torch.abs(eigvals_model_eckart - true_eigvals_eckart)
+            )
+            sample_data["eigval1_mae_eckart"] = torch.mean(
+                torch.abs(eigvals_model_eckart[0] - true_eigvals_eckart[0])
+            )
+            sample_data["eigval2_mae_eckart"] = torch.mean(
+                torch.abs(eigvals_model_eckart[1] - true_eigvals_eckart[1])
+            )
+            sample_data["eigvec1_mae_eckart"] = torch.mean(
+                torch.abs(eigvecs_model_eckart[:, 0] - true_eigvecs_eckart[:, 0])
+            )
+            sample_data["eigvec2_mae_eckart"] = torch.mean(
+                torch.abs(eigvecs_model_eckart[:, 1] - true_eigvecs_eckart[:, 1])
+            )
+            sample_data["eigvec1_cos_eckart"] = torch.abs(torch.dot(eigvecs_model_eckart[:, 0], true_eigvecs_eckart[:, 0]))
+            sample_data["eigvec2_cos_eckart"] = torch.abs(torch.dot(eigvecs_model_eckart[:, 1], true_eigvecs_eckart[:, 1]))
+
 
             sample_metrics.append(sample_data)
             n_samples += 1
@@ -269,39 +300,44 @@ def evaluate(
         "eigvec2_mae": df_results["eigvec2_mae"].mean(),
         "eigvec1_cos": df_results["eigvec1_cos"].mean(),
         "eigvec2_cos": df_results["eigvec2_cos"].mean(),
+        # Eckart projection
+        "eigval_mae_eckart": df_results["eigval_mae_eckart"].mean(),
+        "eigval1_mae_eckart": df_results["eigval1_mae_eckart"].mean(),
+        "eigval2_mae_eckart": df_results["eigval2_mae_eckart"].mean(),
+        "eigvec1_mae_eckart": df_results["eigvec1_mae_eckart"].mean(),
+        "eigvec2_mae_eckart": df_results["eigvec2_mae_eckart"].mean(),
+        "eigvec1_cos_eckart": df_results["eigvec1_cos_eckart"].mean(),
+        "eigvec2_cos_eckart": df_results["eigvec2_cos_eckart"].mean(),
+        # Frequencies
+        "neg_num_agree": df_results["neg_num_agree"].mean(),
+        "true_neg_num": df_results["true_neg_num"].mean(),
+        "model_neg_num": df_results["model_neg_num"].mean(),
+        "true_is_ts": df_results["true_is_ts"].mean(),
+        "model_is_ts": df_results["model_is_ts"].mean(),
+        "is_ts_agree": (df_results["model_is_ts"] == df_results["true_is_ts"]).mean(),
     }
 
-    # Frequencies
-    aggregated_results["neg_num_agree"] = df_results["neg_num_agree"].mean()
-    aggregated_results["true_neg_num"] = df_results["true_neg_num"].mean()
-    aggregated_results["model_neg_num"] = df_results["model_neg_num"].mean()
-    aggregated_results["true_is_ts"] = df_results["true_is_ts"].mean()
-    aggregated_results["model_is_ts"] = df_results["model_is_ts"].mean()
-    aggregated_results["is_ts_agree"] = (
-        df_results["model_is_ts"] == df_results["true_is_ts"]
-    ).mean()
+    # print(f"\nResults for {dataset_name}:")
+    # print(f"Energy MAE: {aggregated_results['energy_mae']:.6f}")
+    # print(f"Forces MAE: {aggregated_results['forces_mae']:.6f}")
+    # print(f"Hessian MAE: {aggregated_results['hessian_mae']:.6f}")
+    # print(f"Asymmetry MAE: {aggregated_results['asymmetry_mae']:.6f}")
+    # print(f"True Asymmetry MAE: {aggregated_results['true_asymmetry_mae']:.6f}")
+    # print(f"Eigenvalue MAE: {aggregated_results['eigval_mae']:.6f} eV/Angstrom^2")
+    # print(f"Eigenvalue 1 MAE: {aggregated_results['eigval1_mae']:.6f}")
+    # print(f"Eigenvalue 2 MAE: {aggregated_results['eigval2_mae']:.6f}")
+    # print(f"Eigenvector 1 MAE: {aggregated_results['eigvec1_mae']:.6f}")
+    # print(f"Eigenvector 2 MAE: {aggregated_results['eigvec2_mae']:.6f}")
+    # print(f"Eigenvector 1 Cosine: {aggregated_results['eigvec1_cos']:.6f}")
+    # print(f"Eigenvector 2 Cosine: {aggregated_results['eigvec2_cos']:.6f}")
 
-    print(f"\nResults for {dataset_name}:")
-    print(f"Energy MAE: {aggregated_results['energy_mae']:.6f}")
-    print(f"Forces MAE: {aggregated_results['forces_mae']:.6f}")
-    print(f"Hessian MAE: {aggregated_results['hessian_mae']:.6f}")
-    print(f"Asymmetry MAE: {aggregated_results['asymmetry_mae']:.6f}")
-    print(f"True Asymmetry MAE: {aggregated_results['true_asymmetry_mae']:.6f}")
-    print(f"Eigenvalue MAE: {aggregated_results['eigval_mae']:.6f} eV/Angstrom^2")
-    print(f"Eigenvalue 1 MAE: {aggregated_results['eigval1_mae']:.6f}")
-    print(f"Eigenvalue 2 MAE: {aggregated_results['eigval2_mae']:.6f}")
-    print(f"Eigenvector 1 MAE: {aggregated_results['eigvec1_mae']:.6f}")
-    print(f"Eigenvector 2 MAE: {aggregated_results['eigvec2_mae']:.6f}")
-    print(f"Eigenvector 1 Cosine: {aggregated_results['eigvec1_cos']:.6f}")
-    print(f"Eigenvector 2 Cosine: {aggregated_results['eigvec2_cos']:.6f}")
-
-    # Frequencies
-    print(f"True Neg Num: {aggregated_results['true_neg_num']:.6f}")
-    print(f"Model Neg Num: {aggregated_results['model_neg_num']:.6f}")
-    print(f"Neg Num Agree: {aggregated_results['neg_num_agree']:.6f}")
-    print(f"True Is TS: {aggregated_results['true_is_ts']:.6f}")
-    print(f"Model Is TS: {aggregated_results['model_is_ts']:.6f}")
-    print(f"Is TS Agree: {aggregated_results['is_ts_agree']:.6f}")
+    # # Frequencies
+    # print(f"True Neg Num: {aggregated_results['true_neg_num']:.6f}")
+    # print(f"Model Neg Num: {aggregated_results['model_neg_num']:.6f}")
+    # print(f"Neg Num Agree: {aggregated_results['neg_num_agree']:.6f}")
+    # print(f"True Is TS: {aggregated_results['true_is_ts']:.6f}")
+    # print(f"Model Is TS: {aggregated_results['model_is_ts']:.6f}")
+    # print(f"Is TS Agree: {aggregated_results['is_ts_agree']:.6f}")
 
     wandb.log(aggregated_results)
 
