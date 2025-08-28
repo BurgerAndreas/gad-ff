@@ -39,7 +39,7 @@ def create_preprocessed_dataset(dataset_file="ts1x-val.lmdb", debug=False):
     if debug:
         output_lmdb_path = input_lmdb_path.replace(".lmdb", "-hesspred-DEBUG.lmdb")
     else:
-        output_lmdb_path = input_lmdb_path.replace(".lmdb", "-hesspred.lmdb")
+        output_lmdb_path = input_lmdb_path.replace(".lmdb", "-hesspred100.lmdb")
 
     # Clean up old database files if they exist
     successfully_removed = remove_dir_recursively(output_lmdb_path)
@@ -50,7 +50,8 @@ def create_preprocessed_dataset(dataset_file="ts1x-val.lmdb", debug=False):
     print(f"\nProcessing {input_lmdb_path} -> {output_lmdb_path}")
 
     # ---- Load dataset ----
-    transform = HessianGraphTransform(cutoff=100.0, cutoff_hessian=100.0, max_neighbors=None, use_pbc=False)
+    # Settings taken from EquiformerV2.yaml
+    transform = HessianGraphTransform(cutoff=12.0, cutoff_hessian=100.0, max_neighbors=20, use_pbc=False)
     dataset = LmdbDataset(input_lmdb_path, transform=transform)
     print(f"Loaded dataset with {len(dataset)} samples from {input_lmdb_path}")
 
