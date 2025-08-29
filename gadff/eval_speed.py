@@ -181,7 +181,7 @@ def speed_comparison(
     dataset_name,
     max_samples_per_n,
     device="cuda",
-    output_dir="./resultseval",
+    output_dir="./results_speed",
 ):
     """Compares the speed of autograd vs prediction for Hessian computation."""
     # Load model
@@ -296,7 +296,7 @@ def speed_comparison(
     return results_df
 
 
-def plot_speed_comparison(results_df, output_dir="./resultseval"):
+def plot_speed_comparison(results_df, output_dir="./results_speed"):
     output_dir = Path(output_dir)
     # Plot results for speed
     avg_times = results_df.groupby(["n_atoms", "method"])["time"].mean().unstack()
@@ -333,7 +333,7 @@ def plot_speed_comparison(results_df, output_dir="./resultseval"):
     plot_memory_usage(results_df, output_dir)
 
 
-def plot_memory_usage(results_df, output_dir="./resultseval"):
+def plot_memory_usage(results_df, output_dir="./results_speed"):
     output_dir = Path(output_dir)
     avg_memory = results_df.groupby(["n_atoms", "method"])["memory"].mean().unstack()
 

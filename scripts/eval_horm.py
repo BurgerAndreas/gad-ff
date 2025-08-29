@@ -100,7 +100,7 @@ def evaluate(
 
     # Create results file path
     dataset_name = lmdb_path.split("/")[-1].split(".")[0]
-    results_dir = "results"
+    results_dir = "results_evalhorm"
     os.makedirs(results_dir, exist_ok=True)
     ckpt_name = checkpoint_path.split("/")[-1].split(".")[0]
     results_file = (

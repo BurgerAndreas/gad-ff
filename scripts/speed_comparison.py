@@ -61,7 +61,7 @@ if __name__ == "__main__":
 
     redo = args.redo
 
-    output_dir = "./resultseval"
+    output_dir = "./results_speed"
     if not redo:
         output_dir = Path(output_dir)
         output_path = output_dir / f"{args.dataset}_speed_comparison_results.csv"

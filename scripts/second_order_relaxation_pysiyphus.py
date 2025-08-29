@@ -31,6 +31,17 @@ from pysisyphus.optimizers.BacktrackingOptimizer import BacktrackingOptimizer
 # from pysisyphus.io.hessian import save_hessian
 from pysisyphus.constants import AU2EV, BOHR2ANG
 from pysisyphus.helpers import procrustes
+import shutil
+
+from ase import Atoms
+from ase.io import read
+from ase.calculators.emt import EMT
+from ase.constraints import FixAtoms
+from ase.vibrations.data import VibrationsData
+from ase.vibrations import Vibrations
+from ase.optimize import BFGS
+from ase.mep import NEB
+from sella import Sella, Constraints, IRC
 
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.path_config import fix_dataset_path, ROOT_DIR
@@ -41,6 +52,7 @@ from nets.prediction_utils import (
 )
 from ReactBench.Calculators.equiformer import PysisEquiformer
 
+from gadff.t1x_dataloader import Dataloader as T1xDFTDataloader
 try:
     from transition1x import Dataloader as T1xDataloader
 except ImportError:
@@ -288,6 +300,17 @@ class CountingCalc(Calculator):
                 raise ValueError("Predicted Hessian is not positive definite")
         return results
 
+    def get_num_hessian(self, atoms, coords, prepare_kwargs={}):
+        self.hessian_calls += 1
+        results = self.inner.get_num_hessian(atoms, coords, **prepare_kwargs)
+        # check if hessian is positive definite
+        if not np.all(np.linalg.eigvals(results["hessian"]) > 0):
+            print("Numerical Hessian is not positive definite")
+            self.cnt_not_pd += 1
+            if self.assert_pd_hessians:
+                raise ValueError("Numerical Hessian is not positive definite")
+        return results
+
     def calculate(self, atom=None, properties=None, **kwargs):
         self.calculate_calls += 1
         if properties is None:
@@ -518,7 +541,8 @@ def do_relaxations():
     ap.add_argument("--noise", type=float, default=0)
     args = ap.parse_args()
 
-    ckpt_path = "/ssd/Code/ReactBench/ckpt/hesspred/alldatagputwoalphadrop0droppathrate0projdrop0-394770-20250806-133956.ckpt"
+    # ckpt_path = "/ssd/Code/ReactBench/ckpt/hesspred/alldatagputwoalphadrop0droppathrate0projdrop0-394770-20250806-133956.ckpt"
+    ckpt_path = "/ssd/Code/ReactBench/ckpt/hesspred/hesspredalldatanumlayershessian3presetluca8w10onlybz128-581483-20250826-074746.ckpt"
     wandb_id = ckpt_path.split("/")[-1].split(".")[0].split("-")[1]
 
 
@@ -566,6 +590,8 @@ def do_relaxations():
     out_dir = os.path.join(
         ROOT_DIR, "runs_relaxation", source_label + "_" + wandb_id + "_" + args.coord + "_" + args.thresh.replace('_', '') + "_" + str(args.max_samples) + "_pddft" + str(args.pddftonly) + "_pdpred" + str(args.pdpredonly) + "_pdthresh" + str(args.pdthresh)
     )
+    if args.redo:
+        shutil.rmtree(out_dir, ignore_errors=True)
     os.makedirs(out_dir, exist_ok=True)
     print(f"Out directory: {out_dir}")
 
@@ -576,8 +602,8 @@ def do_relaxations():
         ckpt_path=ckpt_path,
         config_path="auto",
         device="cuda",
-        hessianmethod_name="autograd",
-        hessian_method="autograd", # "autograd", "predict"
+        hessianmethod_name="predict",
+        hessian_method="predict", # "autograd", "predict"
         mem=4000,
         method="equiformer",
         mult=1,
@@ -626,9 +652,13 @@ def do_relaxations():
         # "ConjugateGradient",
         "RFO-BFGS (unit init)",
         # "RFO-BFGS (DFT init)",
+        "RFO-BFGS (NumHess init)",
         "RFO-BFGS (Hpred init)",
         # "RFO-BFGS (Hpred k3)",
         "RFO (Hpred)",
+        # "RFO (NumHess)",
+        # "RFO (NumHess 4)",
+        "RFO (autograd)",
     ]
     # name_order = [
     #     "RFO-BFGS (DFT init)",
@@ -876,12 +906,47 @@ def do_relaxations():
                         dft_hessian_is_pd=dft_hessian_is_pd,
                     )
                 )
+            
+            # Finite difference Hessian
+            method_name = "RFO-BFGS (NumHess init)"
+            if method_name in name_order:
+                print_header(cnt, method_name)
+                geom_bfgsnumhess = get_geom(atomssymbols, coords, args.coord, base_calc, args)
+                geom_bfgsnumhess.calculator.num_hess_kwargs = {"acc": 4} # 2 or 4
+                numerical_hessian = geom_bfgsnumhess.calculator.get_num_hessian(geom_bfgsnumhess.atoms, geom_bfgsnumhess._coords)["hessian"]
+                eigvals = np.linalg.eigvals(numerical_hessian)
+                num_hessian_is_pd = np.all(eigvals > args.pdthresh)
+                if not num_hessian_is_pd:
+                    print("Numerical Hessian is not positive definite (Hartree/Bohr^2)")
+                method_name_clean = clean_str(method_name)
+                out_dir_method = os.path.join(out_dir, method_name_clean)
+                opt = get_rfo_optimizer(
+                    geom_bfgsnumhess,
+                    hessian_init=numerical_hessian,
+                    hessian_update="bfgs",
+                    hessian_recalc=None,
+                    out_dir=out_dir_method,
+                    verbose=args.verbose,
+                    thresh=args.thresh,
+                    max_cycles=args.max_cycles,
+                )
+                results.append(
+                    _run_opt_safely(
+                        geom=geom_bfgsnumhess,
+                        opt=opt,
+                        method_name=method_name,
+                        out_dir=out_dir_method,
+                        verbose=args.verbose,
+                        dft_hessian_is_pd=dft_hessian_is_pd,
+                    )
+                )
+
 
             # we provide your H_pred through the calculator and ask RFOptimizer to pull it:
             #    hessian_init='calc' gets Hessian from the calculator at step 0;
             #    hessian_recalc=k recomputes it every k steps.
 
-            # 4) Initial-only: RFO+BFGS with Hpred only at step 0
+            # Initial-only: RFO+BFGS with Hpred only at step 0
             method_name = "RFO-BFGS (Hpred init)"
             if method_name in name_order:
                 print_header(cnt, method_name)
@@ -909,7 +974,7 @@ def do_relaxations():
                     )
                 )
 
-            # 5) Periodic replace: k=3
+            # Periodic replace: k=3
             method_name = "RFO-BFGS (Hpred k3)"
             if method_name in name_order:
                 print_header(cnt, method_name)
@@ -937,7 +1002,7 @@ def do_relaxations():
                     )
                 )
 
-            # 6) Periodic replace: k=1 (every step)
+            # Periodic replace: k=1 (every step)
             method_name = "RFO (Hpred)"
             if method_name in name_order:
                 print_header(cnt, method_name)
@@ -965,6 +1030,146 @@ def do_relaxations():
                     )
                 )
 
+            # Periodic replace: k=1 (every step)
+            method_name = "RFO (autograd)"
+            if method_name in name_order:
+                print_header(cnt, method_name)
+                hessian_method_before = base_calc.hessian_method
+                base_calc.hessian_method = "autograd"
+                geom_rfohpred = get_geom(atomssymbols, coords, args.coord, base_calc, args)
+                method_name_clean = clean_str(method_name)
+                out_dir_method = os.path.join(out_dir, method_name_clean)
+                opt = get_rfo_optimizer(
+                    geom_rfohpred,
+                    hessian_init="calc",
+                    hessian_update="bfgs",
+                    hessian_recalc=1,
+                    out_dir=out_dir_method,
+                    verbose=args.verbose,
+                    thresh=args.thresh,
+                    max_cycles=args.max_cycles,
+                )
+                results.append(
+                    _run_opt_safely(
+                        geom=geom_rfohpred,
+                        opt=opt,
+                        method_name=method_name,
+                        out_dir=out_dir_method,
+                        verbose=args.verbose,
+                        dft_hessian_is_pd=dft_hessian_is_pd,
+                    )
+                )
+                base_calc.hessian_method = hessian_method_before
+
+            # Finite difference Hessian at every step
+            method_name = "RFO (NumHess)"
+            if method_name in name_order:
+                print_header(cnt, method_name)
+                geom_rfonumhess = get_geom(atomssymbols, coords, args.coord, base_calc, args)
+                geom_rfonumhess.calculator.force_num_hessian()
+                # numerical_hessian = geom_rfonumhess.calculator.get_num_hessian(geom_rfonumhess.atoms, geom_rfonumhess._coords)
+                method_name_clean = clean_str(method_name)
+                out_dir_method = os.path.join(out_dir, method_name_clean)
+                opt = get_rfo_optimizer(
+                    geom_rfonumhess,
+                    hessian_init="calc",
+                    hessian_update="bfgs",
+                    hessian_recalc=1,
+                    out_dir=out_dir_method,
+                    verbose=args.verbose,
+                    thresh=args.thresh,
+                    max_cycles=args.max_cycles,
+                )
+                results.append(
+                    _run_opt_safely(
+                        geom=geom_rfonumhess,
+                        opt=opt,
+                        method_name=method_name,
+                        out_dir=out_dir_method,
+                        verbose=args.verbose,
+                        dft_hessian_is_pd=dft_hessian_is_pd,
+                    )
+                )
+                
+            # Finite difference Hessian at every step with higher accuracy
+            method_name = "RFO (NumHess 4)"
+            if method_name in name_order:
+                print_header(cnt, method_name)
+                geom_rfonumhess4 = get_geom(atomssymbols, coords, args.coord, base_calc, args)
+                geom_rfonumhess4.calculator.num_hess_kwargs = {"acc": 4} # 2 or 4
+                geom_rfonumhess4.calculator.force_num_hessian()
+                # numerical_hessian = geom_rfonumhess.calculator.get_num_hessian(geom_rfonumhess.atoms, geom_rfonumhess._coords)
+                method_name_clean = clean_str(method_name)
+                out_dir_method = os.path.join(out_dir, method_name_clean)
+                opt = get_rfo_optimizer(
+                    geom_rfonumhess4,
+                    hessian_init="calc",
+                    hessian_update="bfgs",
+                    hessian_recalc=1,
+                    out_dir=out_dir_method,
+                    verbose=args.verbose,
+                    thresh=args.thresh,
+                    max_cycles=args.max_cycles,
+                )
+                results.append(
+                    _run_opt_safely(
+                        geom=geom_rfonumhess4,
+                        opt=opt,
+                        method_name=method_name,
+                        out_dir=out_dir_method,
+                        verbose=args.verbose,
+                        dft_hessian_is_pd=dft_hessian_is_pd,
+                    )
+                )
+
+            #########################################################
+            # Sella
+            #########################################################
+            # sella_default_kwargs = dict(
+            #     minimum=dict(
+            #         delta0=1e-1,
+            #         sigma_inc=1.15,
+            #         sigma_dec=0.90,
+            #         rho_inc=1.035,
+            #         rho_dec=100,
+            #         method="rfo",
+            #         eig=False,
+            #     ),
+            #     saddle=dict(
+            #         delta0=0.1,
+            #         sigma_inc=1.15,
+            #         sigma_dec=0.65,
+            #         rho_inc=1.035,
+            #         rho_dec=5.0,
+            #         method="prfo",
+            #         eig=True,
+            #     ),
+            # )
+            # mol_ase = Atoms(numbers=atomic_numbers_np, positions=start_pos)
+            # dyn = Sella(
+            #     atoms=mol_ase,
+            #     # constraints=cons,
+            #     order=1,  # Explicitly search for first-order saddle point
+            #     # eta=5e-5,  # Smaller finite difference step for higher accuracy
+            #     # delta0=5e-3,  # Larger initial trust radius for TS search
+            #     # gamma=0.1,  # Much tighter convergence for iterative diagonalization
+            #     # rho_inc=1.05,  # More conservative trust radius adjustment
+            #     # rho_dec=3.0,  # Allow larger trust radius changes
+            #     # sigma_inc=1.3,  # Larger trust radius increases
+            #     # sigma_dec=0.5,  # More aggressive trust radius decreases
+            #     log_every_n=100,
+            #     hessian_function=hessian_function,
+            #     diag_every_n=diag_every_n,
+            #     nsteps_per_diag=nsteps_per_diag,
+            #     internal=internal,
+            # )
+            # _run_kwargs = dict(
+            #     fmax=1e-3,
+            #     steps=4000,
+            # )
+            # dyn.run(**_run_kwargs)
+            
+            ###########################
             # Pretty print
             print(f"\n{'Strategy':>24s} {'coords':>6} {'converged':>6} {'steps':>6} {'grads':>6} {'hessians':>6} {'s':>6}")
             for r in results:
@@ -998,6 +1203,7 @@ def do_relaxations():
             
             optims_done += 1
 
+        #########################################################
         # Write aggregated CSV
         if len(all_results) > 0:
             df = pd.DataFrame(all_results)
@@ -1082,7 +1288,7 @@ def do_relaxations():
             # hue=
             # width=0.5,
             # whis=(0, 100) # show full range of data
-            # showfliers=False # hide outliers
+            showfliers=False # hide outliers
         )
         ax.set_xlabel("Method")
         ax.set_ylabel(metric_name.replace("_", " "))
@@ -1149,6 +1355,63 @@ def do_relaxations():
         plt.close()
         print(f"Saved {save_path}")
 
+    def _plot_metric_mean(_df, metric_name, save_path, remove_outliers=False):
+        _d = _df.dropna(subset=[metric_name])
+        if len(_d) == 0:
+            return
+        if remove_outliers:
+            _d = _remove_outliers(_d, metric_name)
+            if len(_d) == 0:
+                return
+        # aggregate statistics per method
+        agg = (
+            _d.groupby("name")[metric_name]
+            .agg(mean="mean", std="std", median="median")
+            .reset_index()
+        )
+        # sort by predefined order if available
+        agg = agg.sort_values(
+            by="name",
+            key=lambda s: s.map({name: i for i, name in enumerate(name_order)}),
+        )
+
+        plt.figure(figsize=(10, 6))
+        order = agg["name"].tolist()
+        ax = sns.barplot(data=agg, x="name", y="mean", order=order)
+        # add std as error bars and median as overlay markers
+        x_positions = np.arange(len(agg))
+        yerr = agg["std"].fillna(0).to_numpy()
+        ax.errorbar(
+            x_positions,
+            agg["mean"].to_numpy(),
+            yerr=yerr,
+            fmt="none",
+            ecolor="black",
+            capsize=4,
+            elinewidth=1,
+            label="Std",
+        )
+        ax.scatter(
+            x_positions,
+            agg["median"].to_numpy(),
+            # color="red",
+            marker="D",
+            s=36,
+            label="Median",
+            zorder=3,
+        )
+        ax.legend()
+        ax.set_xlabel("Method")
+        ax.set_ylabel(metric_name.replace("_", " "))
+        ax.set_title(
+            f"{metric_name.replace('_', ' ').title()} by method ({COORD_TO_NAME[args.coord]})"
+        )
+        plt.xticks(rotation=25, ha="right")
+        plt.tight_layout()
+        plt.savefig(save_path, dpi=150)
+        plt.close()
+        print(f"Saved {save_path}")
+
     for metric in ["steps", "grad_calls", "hessian_calls", "wall_time_s"]:
         _d = df.copy()
         _plot_metric_box(
@@ -1172,12 +1435,18 @@ def do_relaxations():
         #     os.path.join(plots_dir, f"{metric}_scatter.png"),
         #     remove_outliers=False,
         # )
-        # _plot_metric_violin(
-        #     df.copy(),
-        #     metric,
-        #     os.path.join(plots_dir, f"{metric}_violin.png"),
-        #     remove_outliers=False,
-        # )
+        _plot_metric_violin(
+            df.copy(),
+            metric,
+            os.path.join(plots_dir, f"{metric}_violin.png"),
+            remove_outliers=False,
+        )
+        _plot_metric_mean(
+            df.copy(),
+            metric,
+            os.path.join(plots_dir, f"{metric}_mean.png"),
+            remove_outliers=False,
+        )
 
     # Convergence rate per method
     if "converged" in df.columns:

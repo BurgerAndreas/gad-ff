@@ -18,6 +18,7 @@ outputs/
 outslurm/
 wandb
 results/
+results*/
 runs_*/
 runs_relaxation/
 **/Transition1x/

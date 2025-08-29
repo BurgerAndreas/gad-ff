@@ -3,7 +3,11 @@ import torch
 
 def init_edge_rot_mat(edge_distance_vec):
     edge_vec_0 = edge_distance_vec
-    edge_vec_0_distance = torch.sqrt(torch.sum(edge_vec_0**2, dim=1))
+    try:
+        edge_vec_0_distance = torch.sqrt(torch.sum(edge_vec_0**2, dim=1))
+    except:
+        print("edge_distance_vecshould be [N,3] but got", edge_vec_0.shape)
+        raise
 
     # Make sure the atoms are far enough apart
     # assert torch.min(edge_vec_0_distance) < 0.0001
