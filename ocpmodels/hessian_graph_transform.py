@@ -48,6 +48,8 @@ class HessianGraphTransform(BaseTransform):
         message_idx_ji [E * 9]
 
     where E is the number of edges in the graph.
+
+    Extremely slow. For training it is highly recommended to preprocess the dataset and compute this once.
     """
 
     def __init__(self, cutoff=None, cutoff_hessian=100, max_neighbors=None, use_pbc=None):

@@ -1,8 +1,8 @@
-# Training HORM EquiformerV2 on Eigen dataset
+# Training HORM EquiformerV2 on Hessian prediction
 
-Extra prediction heads for the Hessian eigenvalues and eigenvectors.
+Extra prediction head for the Hessian.
 
-## Start job
+## Preprocessing
 
 Killarney
 ```bash
@@ -25,26 +25,6 @@ sbatch scripts/killarney.sh scripts/train_eigen.py experiment=overfit100
 sbatch scripts/killarney.sh scripts/train_eigen.py experiment=overfit100 training.loss_type_vec=cosine
 ```
 
-Fit on the smaller training dataset (RGD1), test on TS1x
-```bash
-sbatch scripts/killarney_2xl40s.sh scripts/train_eigen.py experiment=rgd1 gpu=two
-sbatch scripts/killarney_2xl40s.sh scripts/train_eigen.py experiment=rgd1 gpu=two training.lr_schedule_type=null
-
-# smaller batch size instead
-sbatch scripts/killarney.sh scripts/train_eigen.py experiment=rgd1 training.bz=64
-sbatch scripts/killarney.sh scripts/train_eigen.py experiment=rgd1 training.bz=64 training.lr_schedule_type=null
-
-# H100 instead
-sbatch scripts/killarney_h100.sh scripts/train_eigen.py experiment=rgd1 
-```
-
-Fit on the larger training dataset (TS1x), test on TS1x
-```bash
-sbatch scripts/killarney.sh scripts/train_eigen.py experiment=ts1x
-sbatch scripts/killarney.sh scripts/train_eigen.py experiment=ts1x training.loss_type_vec=cosine
-sbatch scripts/killarney.sh scripts/train_eigen.py experiment=ts1x training.loss_type_vec=cosine training.lr_schedule_type=null
-```
-
 Fit on both datasets (RGD1 and TS1x), test on TS1x
 ```bash
 sbatch scripts/killarney_h100.sh scripts/train_eigen.py experiment=alldata
@@ -52,7 +32,7 @@ sbatch scripts/killarney_h100.sh scripts/train_eigen.py experiment=alldata
 
 ## Background
 
-We have two training datasets and one validation dataset:
+The HORM dataset contains two training datasets and one validation dataset:
 ```bash
 ls ~/.cache/kagglehub/datasets/yunhonghan/hessian-dataset-for-optimizing-reactive-mliphorm/versions/5
 
@@ -67,11 +47,3 @@ ls data
 
 sample_100.lmdb
 ```
-
-There are two kinds of nodes on our Killarney cluster:
-
-Performance Tier | Nodes | Model | CPU | Cores | System Memory | GPUs per node | Total GPUs \
-Standard Compute | 168 | Dell 750xa | 2 x Intel Xeon Gold 6338 | 64 | 512 GB | 4 x NVIDIA L40S 48GB | 672 \
-Performance Compute | 10 | Dell XE9680 | 2 x Intel Xeon Gold 6442Y | 48 | 2048 GB | 8 x NVIDIA H100 SXM 80GB | 80
-
-

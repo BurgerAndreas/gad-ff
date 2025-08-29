@@ -179,10 +179,15 @@ gad = -forces + 2 * torch.einsum("bi,bi->b", forces, v) * v
 
 Training run we used: # TODO
 ```bash
-
+uv run scripts/train_eigen.py trgt=hessian experiment=hesspred_alldata preset=luca8w10only training.bz=128 model.num_layers_hessian=3
 ```
 
-Evaluation: # TODO
+Evaluation: 
+
+DFT Hessians for reactant geometries in T1x validation set, which we use to evaluate geometry optimization (relaxation)
+```bash
+uv run scripts/compute_dft_hessian_t1x.py
+```
 
 
 
@@ -195,7 +200,15 @@ TODO
 
 The training code and the dataset are based on the HORM [paper](https://arxiv.org/abs/2505.12447), [dataset](https://www.kaggle.com/datasets/yunhonghan/hessian-dataset-for-optimizing-reactive-mliphorm/data), and [code](https://github.com/deepprinciple/HORM)
 ```bibtex
-HORM
+@misc{cui2025hormlargescalemolecular,
+      title={HORM: A Large Scale Molecular Hessian Database for Optimizing Reactive Machine Learning Interatomic Potentials}, 
+      author={Taoyong Cui and Yunhong Han and Haojun Jia and Chenru Duan and Qiyuan Zhao},
+      year={2025},
+      eprint={2505.12447},
+      archivePrefix={arXiv},
+      primaryClass={physics.chem-ph},
+      url={https://arxiv.org/abs/2505.12447}, 
+}
 ```
 
 The evaluation is based on the ReactBench [paper](https://chemrxiv.org/engage/chemrxiv/article-details/68270569927d1c2e66165ad8), and [code](https://github.com/deepprinciple/ReactBench)

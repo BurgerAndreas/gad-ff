@@ -52,16 +52,16 @@ from nets.prediction_utils import (
 )
 from ReactBench.Calculators.equiformer import PysisEquiformer
 
-from gadff.t1x_dataloader import Dataloader as T1xDFTDataloader
-try:
-    from transition1x import Dataloader as T1xDataloader
-except ImportError:
-    print(
-        "Transition1x not found, please install it by:\n"
-        "git clone https://gitlab.com/matschreiner/Transition1x.git" + "\n"
-        "uv run Transition1x/download_t1x.py Transition1x/data" + "\n"
-        "uv pip install -e Transition1x" + "\n"
-    )
+from gadff.t1x_dft_dataloader import Dataloader as T1xDFTDataloader
+# try:
+#     from transition1x import Dataloader as T1xDataloader
+# except ImportError:
+#     print(
+#         "Transition1x not found, please install it by:\n"
+#         "git clone https://gitlab.com/matschreiner/Transition1x.git" + "\n"
+#         "uv run Transition1x/download_t1x.py Transition1x/data" + "\n"
+#         "uv pip install -e Transition1x" + "\n"
+#     )
 
 
 """
@@ -551,10 +551,11 @@ def do_relaxations():
     data_is_t1x = False
     data_is_lmdb = False
     if args.xyz in ["t1x"]:
-        dataset = T1xDataloader(
-            "Transition1x/data/transition1x.h5", datasplit="val", only_final=True
+        # dataset_path = "Transition1x/data/transition1x.h5"
+        dataset_path = "data/t1x_val_reactant_hessian_100.h5"
+        dataset = T1xDFTDataloader(
+            dataset_path, datasplit="val", only_final=True
         )
-        dataset_path = "Transition1x/data/transition1x.h5"
         data_is_t1x = True
     # is xyz file
     elif os.path.isfile(args.xyz):
@@ -698,7 +699,7 @@ def do_relaxations():
                 atoms = np.array(molecule["reactant"]["atomic_numbers"])
                 atomssymbols = [Z_TO_SYMBOL[a] for a in atoms]
                 coords = reactant / BOHR2ANG # same as *ANG2BOHR
-                initial_dft_hessian = np.eye(len(atomssymbols) * 3) # TODO
+                initial_dft_hessian = molecule["reactant"]["wB97x_6-31G(d).hessian"]
                 # eV/Angstrom^2 -> Hartree/Bohr^2
                 # initial_dft_hessian = initial_dft_hessian * AU2EV * BOHR2ANG * BOHR2ANG 
             else:
