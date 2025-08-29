@@ -72,8 +72,8 @@ It implements four variants:
 
 1. baseline: first-order (FIRE)
 2. no-Hessian: RFO+BFGS with unit initial Hessian
-3. initial-only: RFO+BFGS with Hpred only at step 0
-4. periodic replace: RFO+BFGS with Hpred every k in {3,1}
+3. initial-only: RFO+BFGS with learned only at step 0
+4. periodic replace: RFO+BFGS with learned every k in {3,1}
 
 - baseline: FIRE -> first-order only, no Hessian
 - no-Hessian: RFOptimizer(hessian_init='unit', hessian_update='bfgs') -> quasi-Newton with a diagonal initial guess (no external Hessian) ([pysisyphus.readthedocs.io][1])
@@ -536,7 +536,7 @@ def do_relaxations():
     ap.add_argument("--verbose", type=bool, default=False)
     ap.add_argument("--thresh", type=str, default="gau")
     ap.add_argument("--pddftonly", type=bool, default=False, help="only run optimizers when dft hessian is positive definite")
-    ap.add_argument("--pdpredonly", type=bool, default=False, help="Stop optimization early when predicted Hessian is not positive definite")
+    ap.add_argument("--pdpredonly", type=bool, default=False, help="Stop optimization early when learned Hessian is not positive definite")
     ap.add_argument("--pdthresh", type=float, default=0, help="Threshold for positive definiteness of DFT Hessian")
     ap.add_argument("--noise", type=float, default=0)
     args = ap.parse_args()
@@ -654,9 +654,9 @@ def do_relaxations():
         "RFO-BFGS (unit init)",
         # "RFO-BFGS (DFT init)",
         "RFO-BFGS (NumHess init)",
-        "RFO-BFGS (Hpred init)",
-        # "RFO-BFGS (Hpred k3)",
-        "RFO (Hpred)",
+        "RFO-BFGS (learned init)",
+        # "RFO-BFGS (learned k3)",
+        "RFO (learned)",
         # "RFO (NumHess)",
         # "RFO (NumHess 4)",
         "RFO (autograd)",
@@ -947,15 +947,15 @@ def do_relaxations():
             #    hessian_init='calc' gets Hessian from the calculator at step 0;
             #    hessian_recalc=k recomputes it every k steps.
 
-            # Initial-only: RFO+BFGS with Hpred only at step 0
-            method_name = "RFO-BFGS (Hpred init)"
+            # Initial-only: RFO+BFGS with learned only at step 0
+            method_name = "RFO-BFGS (learned init)"
             if method_name in name_order:
                 print_header(cnt, method_name)
-                geom_bfgshpred = get_geom(atomssymbols, coords, args.coord, base_calc, args)
+                geom_bfgslearned = get_geom(atomssymbols, coords, args.coord, base_calc, args)
                 method_name_clean = clean_str(method_name)
                 out_dir_method = os.path.join(out_dir, method_name_clean)
                 opt = get_rfo_optimizer(
-                    geom_bfgshpred,
+                    geom_bfgslearned,
                     hessian_init="calc",
                     hessian_update="bfgs",
                     hessian_recalc=None,
@@ -966,7 +966,7 @@ def do_relaxations():
                 )
                 results.append(
                     _run_opt_safely(
-                        geom=geom_bfgshpred,
+                        geom=geom_bfgslearned,
                         opt=opt,
                         method_name=method_name,
                         out_dir=out_dir_method,
@@ -976,14 +976,14 @@ def do_relaxations():
                 )
 
             # Periodic replace: k=3
-            method_name = "RFO-BFGS (Hpred k3)"
+            method_name = "RFO-BFGS (learned k3)"
             if method_name in name_order:
                 print_header(cnt, method_name)
-                geom_bfgshpredk3 = get_geom(atomssymbols, coords, args.coord, base_calc, args)
+                geom_bfgslearnedk3 = get_geom(atomssymbols, coords, args.coord, base_calc, args)
                 method_name_clean = clean_str(method_name)
                 out_dir_method = os.path.join(out_dir, method_name_clean)
                 opt = get_rfo_optimizer(
-                    geom_bfgshpredk3,
+                    geom_bfgslearnedk3,
                     hessian_init="calc",
                     hessian_update="bfgs",
                     hessian_recalc=3,
@@ -994,7 +994,7 @@ def do_relaxations():
                 )
                 results.append(
                     _run_opt_safely(
-                        geom=geom_bfgshpredk3,
+                        geom=geom_bfgslearnedk3,
                         opt=opt,
                         method_name=method_name,
                         out_dir=out_dir_method,
@@ -1004,14 +1004,14 @@ def do_relaxations():
                 )
 
             # Periodic replace: k=1 (every step)
-            method_name = "RFO (Hpred)"
+            method_name = "RFO (learned)"
             if method_name in name_order:
                 print_header(cnt, method_name)
-                geom_rfohpred = get_geom(atomssymbols, coords, args.coord, base_calc, args)
+                geom_rfolearned = get_geom(atomssymbols, coords, args.coord, base_calc, args)
                 method_name_clean = clean_str(method_name)
                 out_dir_method = os.path.join(out_dir, method_name_clean)
                 opt = get_rfo_optimizer(
-                    geom_rfohpred,
+                    geom_rfolearned,
                     hessian_init="calc",
                     hessian_update="bfgs",
                     hessian_recalc=1,
@@ -1022,7 +1022,7 @@ def do_relaxations():
                 )
                 results.append(
                     _run_opt_safely(
-                        geom=geom_rfohpred,
+                        geom=geom_rfolearned,
                         opt=opt,
                         method_name=method_name,
                         out_dir=out_dir_method,
@@ -1037,11 +1037,11 @@ def do_relaxations():
                 print_header(cnt, method_name)
                 hessian_method_before = base_calc.hessian_method
                 base_calc.hessian_method = "autograd"
-                geom_rfohpred = get_geom(atomssymbols, coords, args.coord, base_calc, args)
+                geom_rfolearned = get_geom(atomssymbols, coords, args.coord, base_calc, args)
                 method_name_clean = clean_str(method_name)
                 out_dir_method = os.path.join(out_dir, method_name_clean)
                 opt = get_rfo_optimizer(
-                    geom_rfohpred,
+                    geom_rfolearned,
                     hessian_init="calc",
                     hessian_update="bfgs",
                     hessian_recalc=1,
@@ -1052,7 +1052,7 @@ def do_relaxations():
                 )
                 results.append(
                     _run_opt_safely(
-                        geom=geom_rfohpred,
+                        geom=geom_rfolearned,
                         opt=opt,
                         method_name=method_name,
                         out_dir=out_dir_method,
@@ -1244,11 +1244,11 @@ def do_relaxations():
     print(f"{_d['converged'].mean() * 100:.2f}%")
 
     # print % of converged optims where no pd Hessian was encountered in calculator
-    print("\n% of converged RFO (Hpred) when all Hessians were pd:")
-    _d = df[(df["cnt_not_pd"] == 0) & (df["name"] == "RFO (Hpred)")]
+    print("\n% of converged RFO (learned) when all Hessians were pd:")
+    _d = df[(df["cnt_not_pd"] == 0) & (df["name"] == "RFO (learned)")]
     print(f"{_d['converged'].mean() * 100:.2f}%")
-    print("\n% of converged RFO (Hpred) when some Hessians were not pd:")
-    _d = df[(df["cnt_not_pd"] > 0) & (df["name"] == "RFO (Hpred)")]
+    print("\n% of converged RFO (learned) when some Hessians were not pd:")
+    _d = df[(df["cnt_not_pd"] > 0) & (df["name"] == "RFO (learned)")]
     print(f"{_d['converged'].mean() * 100:.2f}%")
 
     #########################################################
