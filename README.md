@@ -186,7 +186,7 @@ Evaluation:
 
 DFT Hessians for reactant geometries in T1x validation set, which we use to evaluate geometry optimization (relaxation)
 ```bash
-uv run scripts/compute_dft_hessian_t1x.py
+uv run scripts/compute_dft_hessian_t1x.py --noiserms 0.05
 ```
 
 
