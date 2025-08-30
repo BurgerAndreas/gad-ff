@@ -13,6 +13,7 @@ from ocpmodels.hessian_graph_transform import HessianGraphTransform
 
 from ReactBench.utils.frequency_analysis import analyze_frequencies
 
+
 def _get_derivatives(x, y, retain_graph=None, create_graph=False):
     """Helper function to compute derivatives"""
     grad = torch.autograd.grad(
@@ -45,7 +46,7 @@ def compute_hessian(coords, energy, forces=None):
 def evaluate(
     lmdb_path,
     checkpoint_path,
-    config_path, # not used
+    config_path,  # not used
     hessian_method,
     max_samples=None,
     wandb_run_id=None,

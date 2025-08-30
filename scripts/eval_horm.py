@@ -20,6 +20,7 @@ from ocpmodels.hessian_graph_transform import HessianGraphTransform
 
 from ReactBench.utils.frequency_analysis import analyze_frequencies
 
+
 def _get_derivatives(x, y, retain_graph=None, create_graph=False):
     """Helper function to compute derivatives"""
     grad = torch.autograd.grad(
@@ -52,7 +53,7 @@ def compute_hessian(coords, energy, forces=None):
 def evaluate(
     lmdb_path,
     checkpoint_path,
-    config_path, # not used
+    config_path,  # not used
     hessian_method,
     max_samples=None,
     wandb_run_id=None,
@@ -145,6 +146,12 @@ def evaluate(
 
             n_atoms = batch.pos.shape[0]
 
+            torch.cuda.reset_peak_memory_stats()
+            start_event = torch.cuda.Event(enable_timing=True)
+            end_event = torch.cuda.Event(enable_timing=True)
+
+            start_event.record()
+
             # Forward pass
             if model_name == "LEFTNet":
                 batch.pos.requires_grad_()
@@ -169,6 +176,12 @@ def evaluate(
                 batch.pos.requires_grad_()
                 energy_model, force_model = model.forward(batch)
                 hessian_model = compute_hessian(batch.pos, energy_model, force_model)
+            
+            end_event.record()
+            torch.cuda.synchronize()
+
+            time_taken = start_event.elapsed_time(end_event)
+            memory_usage = torch.cuda.max_memory_allocated() / 1e6  # Convert to MB
 
             # Compute hessian eigenspectra
             eigvals_model, eigvecs_model = torch.linalg.eigh(hessian_model)
@@ -220,6 +233,8 @@ def evaluate(
                 "eigvec2_mae": eigvec2_mae.item(),
                 "eigvec1_cos": eigvec1_cos.item(),
                 "eigvec2_cos": eigvec2_cos.item(),
+                "time": time_taken,
+                "memory": memory_usage,
             }
 
             ########################
@@ -267,9 +282,12 @@ def evaluate(
             sample_data["eigvec2_mae_eckart"] = torch.mean(
                 torch.abs(eigvecs_model_eckart[:, 1] - true_eigvecs_eckart[:, 1])
             )
-            sample_data["eigvec1_cos_eckart"] = torch.abs(torch.dot(eigvecs_model_eckart[:, 0], true_eigvecs_eckart[:, 0]))
-            sample_data["eigvec2_cos_eckart"] = torch.abs(torch.dot(eigvecs_model_eckart[:, 1], true_eigvecs_eckart[:, 1]))
-
+            sample_data["eigvec1_cos_eckart"] = torch.abs(
+                torch.dot(eigvecs_model_eckart[:, 0], true_eigvecs_eckart[:, 0])
+            )
+            sample_data["eigvec2_cos_eckart"] = torch.abs(
+                torch.dot(eigvecs_model_eckart[:, 1], true_eigvecs_eckart[:, 1])
+            )
 
             sample_metrics.append(sample_data)
             n_samples += 1
@@ -315,6 +333,9 @@ def evaluate(
         "true_is_ts": df_results["true_is_ts"].mean(),
         "model_is_ts": df_results["model_is_ts"].mean(),
         "is_ts_agree": (df_results["model_is_ts"] == df_results["true_is_ts"]).mean(),
+        # Speed
+        "time": df_results["time"].mean(),
+        "memory": df_results["memory"].mean(),
     }
 
     # print(f"\nResults for {dataset_name}:")
@@ -424,7 +445,10 @@ if __name__ == "__main__":
         help="Path to checkpoint file",
     )
     parser.add_argument(
-        "--config_path", type=str, default=None, help="Path to config file. Ignored at the moment (config from ckpt is used instead)."
+        "--config_path",
+        type=str,
+        default=None,
+        help="Path to config file. Ignored at the moment (config from ckpt is used instead).",
     )
     parser.add_argument(
         "--hessian_method",

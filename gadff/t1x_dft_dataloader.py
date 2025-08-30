@@ -21,7 +21,7 @@ def get_molecular_reference_energy(atomic_numbers):
 
 
 def generator(formula, rxn, grp):
-    """ Iterates through a h5 group """
+    """Iterates through a h5 group"""
 
     energies = grp["wB97x_6-31G(d).energy"]
     forces = grp["wB97x_6-31G(d).forces"]
@@ -103,7 +103,9 @@ if __name__ == "__main__":
     # Minimal usage example: iterate a few samples from the validation split
 
     # default_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "transition1x.h5")
-    default_path = os.path.abspath(os.path.join("data", "t1x_val_reactant_hessian_100.h5"))
+    default_path = os.path.abspath(
+        os.path.join("data", "t1x_val_reactant_hessian_100.h5")
+    )
     if not os.path.exists(default_path):
         default_path = "Transition1x/data/transition1x.h5"
 

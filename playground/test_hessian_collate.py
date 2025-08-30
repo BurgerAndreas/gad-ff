@@ -30,7 +30,9 @@ def test_hessian_optimization():
         return
 
     # Create transform
-    transform = HessianGraphTransform(cutoff=100.0, cutoff_hessian=100.0, max_neighbors=None, use_pbc=False)
+    transform = HessianGraphTransform(
+        cutoff=100.0, cutoff_hessian=100.0, max_neighbors=None, use_pbc=False
+    )
 
     # Load dataset with transform
     dataset = LmdbDataset(test_data_path, transform=transform)

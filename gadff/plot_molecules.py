@@ -812,7 +812,7 @@ def plot_molecule_py3dmol(
                 }
             )
 
-    # # Build RDKit molecule (no additional hydrogens – assume coords already
+    # # Build RDKit molecule (no additional hydrogens - assume coords already
     # # contain all atoms that appear in the SMILES string).
     # mol = Chem.MolFromSmiles(smiles)
     # # Original approach when atom counts match

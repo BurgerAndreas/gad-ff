@@ -671,7 +671,7 @@ class LEFTNet(torch.nn.Module):
                 GCLMessage(hidden_channels, num_radial, legacy=legacy)
             )
             self.message_layers.append(
-                EquiMessage(hidden_channels, num_radial, reflect_equiv) #.jittable()
+                EquiMessage(hidden_channels, num_radial, reflect_equiv)  # .jittable()
             )
             self.update_layers.append(EquiUpdate(hidden_channels, reflect_equiv))
 

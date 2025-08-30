@@ -289,8 +289,15 @@ def ase_atoms_to_torch_geometric_hessian(
 
     return data
 
+
 def coord_atoms_to_torch_geometric_hessian(
-    coords, atomic_nums, cutoff, max_neighbors, use_pbc, with_grad=False, cutoff_hessian=100.0
+    coords,
+    atomic_nums,
+    cutoff,
+    max_neighbors,
+    use_pbc,
+    with_grad=False,
+    cutoff_hessian=100.0,
 ):
     """
     Convert ASE Atoms object to torch_geometric Data format expected by Equiformer.

@@ -170,7 +170,7 @@ energy, forces, eigenpred = model.forward(data, eigen=True)
 # Compute GAD
 v = eigenpred["eigvec_1"].reshape(B, -1)
 forces = forces.reshape(B, -1)
-# −∇V(x) + 2(∇V, v(x))v(x)
+# -∇V(x) + 2(∇V, v(x))v(x)
 gad = -forces + 2 * torch.einsum("bi,bi->b", forces, v) * v
 ```
 

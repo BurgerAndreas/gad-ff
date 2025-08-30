@@ -70,7 +70,7 @@ def predict_gad(batch, potential):
     v = eigenpred["eigvec_1"].reshape(B, -1)
     v = v / torch.norm(v, dim=1, keepdim=True)
     forces = forces.reshape(B, -1)
-    # −∇V(x) + 2(∇V, v(x))v(x)
+    # -∇V(x) + 2(∇V, v(x))v(x)
     gad = forces + 2 * torch.einsum("bi,bi->b", -forces, v) * v
     return gad
 
@@ -82,7 +82,7 @@ def gad_autograd_hessian(batch, potential):
     v = eigenvectors[0].reshape(-1)  # N*3
     v = v / torch.norm(v, dim=0, keepdim=True)
     forces = forces.reshape(-1)  # N*3
-    # −∇V(x) + 2(∇V, v(x))v(x)
+    # -∇V(x) + 2(∇V, v(x))v(x)
     gad = forces + 2 * torch.einsum("i,i->", -forces, v) * v
     return gad
 

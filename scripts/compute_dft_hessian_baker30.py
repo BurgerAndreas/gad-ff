@@ -22,6 +22,7 @@ BOHR2ANG = BOHR2M * 1e10
 # Hartree to eV
 AU2EV = spc.value("Hartree energy in eV")
 
+
 def read_xyz(path: str) -> List[Tuple[str, Tuple[float, float, float]]]:
     """Reads from XYZ file. Units are Angstrom.
     Returns a list of tuples (symbol, (x,y,z)).
@@ -33,7 +34,7 @@ def read_xyz(path: str) -> List[Tuple[str, Tuple[float, float, float]]]:
     except Exception as exc:
         raise ValueError(f"Invalid XYZ header in {path}: {exc}") from exc
 
-    atom_lines = lines[1 : ]
+    atom_lines = lines[1:]
     atoms: List[Tuple[str, Tuple[float, float, float]]] = []
     for i, ln in enumerate(atom_lines):
         parts = ln.split()
@@ -94,14 +95,14 @@ def compute_hessian(
     try:
         mf.kernel()
     except Exception as e:
-        print("\n" + ">"*40)
+        print("\n" + ">" * 40)
         print(f"Error in SCF: {debug_hint}: \n{e}")
-        print("<"*40)
+        print("<" * 40)
         return None
     if not mf.converged:
-        print("\n" + ">"*40)
+        print("\n" + ">" * 40)
         print(f"SCF did not converge: {debug_hint}")
-        print("<"*40)
+        print("<" * 40)
         return None
 
     # Use the generic interface available on the SCF object
@@ -123,9 +124,11 @@ def dft_hessian_from_xyz(xyz_path: str) -> None:
     Hessian is in atomic units (Hartree/Bohr^2).
     """
     xyz_path = os.path.abspath(xyz_path)
-    atoms = read_xyz(xyz_path) # Angstrom
+    atoms = read_xyz(xyz_path)  # Angstrom
     # convert Angstrom to Bohr
-    atoms = [(sym, (x / BOHR2ANG, y / BOHR2ANG, z / BOHR2ANG)) for sym, (x, y, z) in atoms]
+    atoms = [
+        (sym, (x / BOHR2ANG, y / BOHR2ANG, z / BOHR2ANG)) for sym, (x, y, z) in atoms
+    ]
     mol = build_molecule(atoms)
     hessian_dft = compute_hessian(mol, xc="wb97x")
     return hessian_dft

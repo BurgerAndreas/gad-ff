@@ -34,6 +34,7 @@ def check_symmetry(hessian, N, nsamples=100):
         f"Hessian symmetry check - Rel error: mean={sum(errors_rel) / len(errors_rel):.2e}, max={max(errors_rel):.2e}"
     )
 
+
 def add_extra_props_for_hessian(data, offset_indices=False):
     # add extra props for convience
     nedges = data.nedges_hessian
@@ -97,6 +98,7 @@ def add_extra_props_for_hessian(data, offset_indices=False):
 
     return data
 
+
 # slightly faster than add_extra_props_for_hessian, gives the same result. does not matter though
 def add_extra_props_for_hessian_optimized(data, offset_indices=False):
     # add extra props for convience
@@ -120,7 +122,9 @@ def add_extra_props_for_hessian_optimized(data, offset_indices=False):
         hess_offsets = torch.zeros_like(cumsum_hess)
         node_offsets = torch.zeros_like(cumsum_node)
         if B > 1:
-            data.ptr_1d_hessian = torch.empty(B + 1, device=data.batch.device, dtype=torch.long)
+            data.ptr_1d_hessian = torch.empty(
+                B + 1, device=data.batch.device, dtype=torch.long
+            )
             data.ptr_1d_hessian[0] = 0
             if B > 0:
                 data.ptr_1d_hessian[1:] = torch.cumsum(_sizes, dim=0)
@@ -142,6 +146,7 @@ def add_extra_props_for_hessian_optimized(data, offset_indices=False):
             data.node_transpose_idx += full_node_node_offsets
 
     return data
+
 
 def predict_hessian_1d_fast(edge_index, data, l012_edge_features, l012_node_features):
     """

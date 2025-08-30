@@ -10,12 +10,17 @@ from gadff.horm.training_module import PotentialModule
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.path_config import fix_dataset_path
 from nets.prediction_utils import compute_extra_props
-from nets.equiformer_v2.hessian_pred_utils import add_extra_props_for_hessian_optimized, add_extra_props_for_hessian
+from nets.equiformer_v2.hessian_pred_utils import (
+    add_extra_props_for_hessian_optimized,
+    add_extra_props_for_hessian,
+)
 from ocpmodels.hessian_graph_transform import HessianGraphTransform
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Speed test for Equiformer forward pass")
+    parser = argparse.ArgumentParser(
+        description="Speed test for Equiformer forward pass"
+    )
     parser.add_argument(
         "--ckpt_path",
         "-c",
@@ -27,7 +32,7 @@ def main():
         "--dataset",
         "-d",
         type=str,
-        default="ts1x-val.lmdb", # ts1x-val-hesspred.lmdb
+        default="ts1x-val.lmdb",  # ts1x-val-hesspred.lmdb
         help="Dataset file name",
     )
     # No per-sample iters; we synthesize batches for timing tests below
@@ -39,17 +44,22 @@ def main():
     checkpoint_path = "/ssd/Code/ReactBench/ckpt/hesspred/alldatagputwoalphadrop0droppathrate0projdrop0-394770-20250806-133956.ckpt"
 
     lmdb_path = args.dataset
+
     # Helper to build a synthetic batch by repeating the first dataset sample bz times
     def build_batch(bz: int):
         # base = dataset_yes[0]
         # data_list = [copy.deepcopy(base) for _ in range(bz)]
         # batched = Batch.from_data_list(data_list)
-        batched = next(iter(TGDataLoader(
-            dataset_yes, 
-            batch_size=bz, 
-            shuffle=False, 
-            follow_batch=["diag_ij", "edge_index", "message_idx_ij"]
-        )))
+        batched = next(
+            iter(
+                TGDataLoader(
+                    dataset_yes,
+                    batch_size=bz,
+                    shuffle=False,
+                    follow_batch=["diag_ij", "edge_index", "message_idx_ij"],
+                )
+            )
+        )
         batched = batched.to("cuda")
         batched = compute_extra_props(batched)
         return batched
@@ -76,8 +86,18 @@ def main():
     # Test 0: timing HessianGraphTransform using dataloaders with/without transform
     # HessianGraphTransform is extremely slow
     for _bz in [2, 4, 8, 16, 32]:
-        dataloader_yes = TGDataLoader(dataset_yes, batch_size=_bz, shuffle=False, follow_batch=["diag_ij", "edge_index", "message_idx_ij"])
-        dataloader_no = TGDataLoader(dataset_no, batch_size=_bz, shuffle=False, follow_batch=["diag_ij", "edge_index", "message_idx_ij"])
+        dataloader_yes = TGDataLoader(
+            dataset_yes,
+            batch_size=_bz,
+            shuffle=False,
+            follow_batch=["diag_ij", "edge_index", "message_idx_ij"],
+        )
+        dataloader_no = TGDataLoader(
+            dataset_no,
+            batch_size=_bz,
+            shuffle=False,
+            follow_batch=["diag_ij", "edge_index", "message_idx_ij"],
+        )
         K = 64
         # Measure no-transform loader fetch time
         times_no = []
@@ -86,7 +106,7 @@ def main():
             t0 = time.perf_counter()
             _databatch = next(it_no)
             t1 = time.perf_counter()
-            if i > 1: # first iteration is warmup
+            if i > 1:  # first iteration is warmup
                 times_no.append((t1 - t0) * 1000.0)
         # Measure with-transform loader fetch time
         times_yes = []
@@ -95,7 +115,7 @@ def main():
             t0 = time.perf_counter()
             _databatch = next(it_yes)
             t1 = time.perf_counter()
-            if i > 1: # first iteration is warmup
+            if i > 1:  # first iteration is warmup
                 times_yes.append((t1 - t0) * 1000.0)
         avg_no = sum(times_no) / len(times_no)
         avg_yes = sum(times_yes) / len(times_yes)
@@ -118,8 +138,14 @@ def main():
         # run optimized
         opt = copy.deepcopy(test_batch)
         opt = add_extra_props_for_hessian_optimized(opt, offset_indices=True)
+
         def _equal(a, b):
-            return hasattr(ref, a) and hasattr(opt, a) and torch.equal(getattr(ref, a), getattr(opt, a))
+            return (
+                hasattr(ref, a)
+                and hasattr(opt, a)
+                and torch.equal(getattr(ref, a), getattr(opt, a))
+            )
+
         fields = [
             "ptr_1d_hessian",
             "message_idx_ij",
@@ -157,12 +183,14 @@ def main():
                     batch = build_batch(bz)
                     torch.cuda.synchronize()
                     t0 = time.perf_counter()
-                    _ = add_extra_props_for_hessian_optimized(batch, offset_indices=True)
+                    _ = add_extra_props_for_hessian_optimized(
+                        batch, offset_indices=True
+                    )
                     torch.cuda.synchronize()
                     t1 = time.perf_counter()
                     t_opt.append((t1 - t0) * 1000.0)
             print(
-                f"  B={bz}: ref {sum(t_ref)/len(t_ref):.2f} | opt {sum(t_opt)/len(t_opt):.2f}"
+                f"  B={bz}: ref {sum(t_ref) / len(t_ref):.2f} | opt {sum(t_opt) / len(t_opt):.2f}"
             )
         except RuntimeError as e:
             if "CUDA out of memory" in str(e):
@@ -182,25 +210,33 @@ def main():
                 for _ in range(repeats):
                     batch = build_batch(bz)
                     batch_ref = copy.deepcopy(batch)
-                    batch_ref = add_extra_props_for_hessian(batch_ref, offset_indices=True)
+                    batch_ref = add_extra_props_for_hessian(
+                        batch_ref, offset_indices=True
+                    )
                     torch.cuda.synchronize()
                     t0 = time.perf_counter()
-                    _ = model.forward(batch_ref, otf_graph=False, hessian=True, add_props=False)
+                    _ = model.forward(
+                        batch_ref, otf_graph=False, hessian=True, add_props=False
+                    )
                     torch.cuda.synchronize()
                     t1 = time.perf_counter()
                     t_ref.append((t1 - t0) * 1000.0)
                 for _ in range(repeats):
                     batch = build_batch(bz)
                     batch_opt = copy.deepcopy(batch)
-                    batch_opt = add_extra_props_for_hessian_optimized(batch_opt, offset_indices=True)
+                    batch_opt = add_extra_props_for_hessian_optimized(
+                        batch_opt, offset_indices=True
+                    )
                     torch.cuda.synchronize()
                     t0 = time.perf_counter()
-                    _ = model.forward(batch_opt, otf_graph=False, hessian=True, add_props=False)
+                    _ = model.forward(
+                        batch_opt, otf_graph=False, hessian=True, add_props=False
+                    )
                     torch.cuda.synchronize()
                     t1 = time.perf_counter()
                     t_opt.append((t1 - t0) * 1000.0)
             print(
-                f"  B={bz}: ref {sum(t_ref)/len(t_ref):.2f} | opt {sum(t_opt)/len(t_opt):.2f}"
+                f"  B={bz}: ref {sum(t_ref) / len(t_ref):.2f} | opt {sum(t_opt) / len(t_opt):.2f}"
             )
         except RuntimeError as e:
             if "CUDA out of memory" in str(e):
@@ -211,5 +247,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-

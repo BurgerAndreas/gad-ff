@@ -52,7 +52,9 @@ class HessianGraphTransform(BaseTransform):
     Extremely slow. For training it is highly recommended to preprocess the dataset and compute this once.
     """
 
-    def __init__(self, cutoff=None, cutoff_hessian=100, max_neighbors=None, use_pbc=None):
+    def __init__(
+        self, cutoff=None, cutoff_hessian=100, max_neighbors=None, use_pbc=None
+    ):
         """
         Args:
             cutoff: cutoff radius for the graph

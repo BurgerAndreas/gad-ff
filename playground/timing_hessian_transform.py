@@ -95,7 +95,9 @@ def benchmark_diagonal_indices(batch):
 
 def benchmark_full_transform(batch, cutoff=6.0):
     """Time the full HessianGraphTransform."""
-    transform = HessianGraphTransform(cutoff=cutoff, cutoff_hessian=100.0, max_neighbors=None, use_pbc=False)
+    transform = HessianGraphTransform(
+        cutoff=cutoff, cutoff_hessian=100.0, max_neighbors=None, use_pbc=False
+    )
 
     def apply_transform():
         # Apply to each data in the batch separately (as done in training)

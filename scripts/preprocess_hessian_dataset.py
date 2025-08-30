@@ -51,7 +51,9 @@ def create_preprocessed_dataset(dataset_file="ts1x-val.lmdb", debug=False):
 
     # ---- Load dataset ----
     # Settings taken from EquiformerV2.yaml
-    transform = HessianGraphTransform(cutoff=12.0, cutoff_hessian=100.0, max_neighbors=20, use_pbc=False)
+    transform = HessianGraphTransform(
+        cutoff=12.0, cutoff_hessian=100.0, max_neighbors=20, use_pbc=False
+    )
     dataset = LmdbDataset(input_lmdb_path, transform=transform)
     print(f"Loaded dataset with {len(dataset)} samples from {input_lmdb_path}")
 

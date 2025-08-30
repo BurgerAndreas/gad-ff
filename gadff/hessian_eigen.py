@@ -697,7 +697,7 @@ def compute_modes_eckart_frame(
     coords : torch.Tensor, shape (N, 3)
         Atomic positions.
     orth_method : str, 'svd' or 'qr'
-        Method to orthonormalize rigid-body vectors ('svd' for SVD, 'qr' for Gram–Schmidt/QR).
+        Method to orthonormalize rigid-body vectors ('svd' for SVD, 'qr' for Gram-Schmidt/QR).
     threshold : float, optional
         Threshold for dropping modes. If None, drop 6 modes.
 

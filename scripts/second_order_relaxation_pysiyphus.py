@@ -26,6 +26,7 @@ from pysisyphus.optimizers.BFGS import BFGS
 from pysisyphus.optimizers.SteepestDescent import SteepestDescent
 from pysisyphus.optimizers.ConjugateGradient import ConjugateGradient
 from pysisyphus.optimizers.BacktrackingOptimizer import BacktrackingOptimizer
+
 # from pysisyphus.helpers_pure import eigval_to_wavenumber
 # from pysisyphus.helpers import _do_hessian
 # from pysisyphus.io.hessian import save_hessian
@@ -213,6 +214,7 @@ Z_TO_SYMBOL = {
     8: "O",
 }
 
+
 def load_xyz(fn):
     """Read a single-geometry XYZ (Angstrom). Returns atoms (list[str]), coords (1d array, 3N)."""
     lines = pathlib.Path(fn).read_text().strip().splitlines()
@@ -345,7 +347,15 @@ class NaiveSteepestDescent(BacktrackingOptimizer):
         return step
 
 
-def _run_opt_safely(geom, opt, method_name, out_dir, verbose=False, start_clean=True, dft_hessian_is_pd=True):
+def _run_opt_safely(
+    geom,
+    opt,
+    method_name,
+    out_dir,
+    verbose=False,
+    start_clean=True,
+    dft_hessian_is_pd=True,
+):
     # logging
     if start_clean:
         geom.calculator.reset()
@@ -356,7 +366,9 @@ def _run_opt_safely(geom, opt, method_name, out_dir, verbose=False, start_clean=
         assert geom._energy is None, f"Energy is not None: {geom._energy}"
         assert geom._forces is None, f"Forces are not None: {geom._forces}"
         assert geom._hessian is None, f"Hessian is not None: {geom._hessian}"
-        assert geom._all_energies is None, f"All energies are not None: {geom._all_energies}"
+        assert geom._all_energies is None, (
+            f"All energies are not None: {geom._all_energies}"
+        )
 
     method_name_clean = clean_str(method_name)
     log_path = os.path.join(out_dir, f"optrun_{method_name_clean}.txt")
@@ -499,14 +511,14 @@ def get_rfo_optimizer(
 #  Main harness
 # --------------------------
 
+
 def get_geom(atomssymbols, coords, coord_type, base_calc, args):
-    geom = Geometry(
-        atomssymbols, coords, coord_type=coord_type
-    )  
+    geom = Geometry(atomssymbols, coords, coord_type=coord_type)
     base_calc.reset()
     counting_calc = CountingCalc(base_calc, assert_pd_hessians=args.pdpredonly)
     geom.set_calculator(counting_calc)
     return geom
+
 
 def print_header(i, method):
     print("\n" + "=" * 10 + " " + str(i) + " " + method + " " + "=" * 10)
@@ -535,16 +547,35 @@ def do_relaxations():
     ap.add_argument("--redo", type=bool, default=False)
     ap.add_argument("--verbose", type=bool, default=False)
     ap.add_argument("--thresh", type=str, default="gau")
-    ap.add_argument("--pddftonly", type=bool, default=False, help="only run optimizers when dft hessian is positive definite")
-    ap.add_argument("--pdpredonly", type=bool, default=False, help="Stop optimization early when learned Hessian is not positive definite")
-    ap.add_argument("--pdthresh", type=float, default=0, help="Threshold for positive definiteness of DFT Hessian")
-    ap.add_argument("--noise", type=float, default=0)
+    ap.add_argument(
+        "--pddftonly",
+        type=bool,
+        default=False,
+        help="only run optimizers when dft hessian is positive definite",
+    )
+    ap.add_argument(
+        "--pdpredonly",
+        type=bool,
+        default=False,
+        help="Stop optimization early when learned Hessian is not positive definite",
+    )
+    ap.add_argument(
+        "--pdthresh",
+        type=float,
+        default=0,
+        help="Threshold for positive definiteness of DFT Hessian",
+    )
+    ap.add_argument(
+        "--noiserms",
+        type=float,
+        default=0.0,
+        help="Per-atom RMS displacement (Å) added to geometry before Hessian; 0 disables noise",
+    )
     args = ap.parse_args()
 
     # ckpt_path = "/ssd/Code/ReactBench/ckpt/hesspred/alldatagputwoalphadrop0droppathrate0projdrop0-394770-20250806-133956.ckpt"
     ckpt_path = "/ssd/Code/ReactBench/ckpt/hesspred/hesspredalldatanumlayershessian3presetluca8w10onlybz128-581483-20250826-074746.ckpt"
     wandb_id = ckpt_path.split("/")[-1].split(".")[0].split("-")[1]
-
 
     print("Loading dataset...")
     data_is_xyz = False
@@ -553,9 +584,13 @@ def do_relaxations():
     if args.xyz in ["t1x"]:
         # dataset_path = "Transition1x/data/transition1x.h5"
         dataset_path = "data/t1x_val_reactant_hessian_100.h5"
-        dataset = T1xDFTDataloader(
-            dataset_path, datasplit="val", only_final=True
-        )
+        dataset = T1xDFTDataloader(dataset_path, datasplit="val", only_final=True)
+        data_is_t1x = True
+    elif args.xyz.startswith("t1x"):
+        # dataset_path = "Transition1x/data/transition1x.h5"
+        noise_str = args.xyz.split("_")[-1]
+        dataset_path = f"data/t1x_val_reactant_hessian_100_noiserms{noise_str}.h5"
+        dataset = T1xDFTDataloader(dataset_path, datasplit="val", only_final=True)
         data_is_t1x = True
     # is xyz file
     elif os.path.isfile(args.xyz):
@@ -589,7 +624,23 @@ def do_relaxations():
     # Determine source label for logging
     source_label = dataset_path.split("/")[-1].split(".")[0]
     out_dir = os.path.join(
-        ROOT_DIR, "runs_relaxation", source_label + "_" + wandb_id + "_" + args.coord + "_" + args.thresh.replace('_', '') + "_" + str(args.max_samples) + "_pddft" + str(args.pddftonly) + "_pdpred" + str(args.pdpredonly) + "_pdthresh" + str(args.pdthresh)
+        ROOT_DIR,
+        "runs_relaxation",
+        source_label
+        + "_"
+        + wandb_id
+        + "_"
+        + args.coord
+        + "_"
+        + args.thresh.replace("_", "")
+        + "_"
+        + str(args.max_samples)
+        + "_pddft"
+        + str(args.pddftonly)
+        + "_pdpred"
+        + str(args.pdpredonly)
+        + "_pdthresh"
+        + str(args.pdthresh),
     )
     if args.redo:
         shutil.rmtree(out_dir, ignore_errors=True)
@@ -604,7 +655,7 @@ def do_relaxations():
         config_path="auto",
         device="cuda",
         hessianmethod_name="predict",
-        hessian_method="predict", # "autograd", "predict"
+        hessian_method="predict",  # "autograd", "predict"
         mem=4000,
         method="equiformer",
         mult=1,
@@ -627,24 +678,29 @@ def do_relaxations():
         atoms, coords = load_xyz(dataset[0])
     elif data_is_t1x:
         molecule = next(iter(dataset))
-        reactant = molecule["reactant"]["positions"]
+        if "positions_noised" in molecule["reactant"]:
+            coords = molecule["reactant"]["positions_noised"]
+        else:
+            coords = molecule["reactant"]["positions"]
         # ts = molecule["transition_state"]["positions"]
         # product = molecule["product"]["positions"]
         atoms = np.array(molecule["reactant"]["atomic_numbers"])
         atomssymbols = [Z_TO_SYMBOL[a] for a in atoms]
-        coords = reactant / BOHR2ANG # same as *ANG2BOHR
+        coords = coords / BOHR2ANG  # same as *ANG2BOHR
         t1xdataloader = iter(dataset)
     else:
         data = dataset[0]
-        atomssymbols = GLOBAL_ATOM_SYMBOLS[data.one_hot.long().argmax(dim=1).cpu().numpy()]
+        atomssymbols = GLOBAL_ATOM_SYMBOLS[
+            data.one_hot.long().argmax(dim=1).cpu().numpy()
+        ]
         coords = data.pos.numpy() / BOHR2ANG
-    geom = Geometry(
-        atomssymbols, coords, coord_type=args.coord
-    )  
+    geom = Geometry(atomssymbols, coords, coord_type=args.coord)
     geom.set_calculator(counting_calc)
     energy = geom.energy
     forces = geom.forces
     hessian = geom.hessian
+
+    rng = np.random.default_rng(seed=42)
 
     name_order = [
         # "NaiveSteepestDescent",
@@ -681,27 +737,43 @@ def do_relaxations():
         for cnt, idx in enumerate(random_idx):
             if optims_done >= args.max_samples:
                 break
-            print("", "=" * 80, f"\tSample {optims_done} (tried cnt={cnt}, idx={idx} / {len_dataset})\t", "=" * 80, sep="\n")
+            print(
+                "",
+                "=" * 80,
+                f"\tSample {optims_done} (tried cnt={cnt}, idx={idx} / {len_dataset})\t",
+                "=" * 80,
+                sep="\n",
+            )
             if data_is_xyz:
                 data = dataset[idx]
                 atomssymbols, coords = load_xyz(data)
                 # skip if there are any other atomsymbols than C, H, N, O
-                if not all(atomssymbols in ["C", "H", "N", "O"] for atomssymbols in atomssymbols):
-                    print("Skipping sample because it contains non-C, H, N, O atoms", atomssymbols)
+                if not all(
+                    atomssymbols in ["C", "H", "N", "O"]
+                    for atomssymbols in atomssymbols
+                ):
+                    print(
+                        "Skipping sample because it contains non-C, H, N, O atoms",
+                        atomssymbols,
+                    )
                     continue
                 hessian_path = data.replace(".xyz", ".hessian.npy")
                 initial_dft_hessian = np.load(hessian_path)
             elif data_is_t1x:
                 molecule = next(t1xdataloader)
                 idx = molecule["reactant"].get("idx", cnt)
-                print("idx", idx)
-                reactant = molecule["reactant"]["positions"]
+                if "positions_noised" in molecule["reactant"]:
+                    coords = molecule["reactant"]["positions_noised"]
+                    print("Using noised geometry")
+                else:
+                    coords = molecule["reactant"]["positions"]
+                    print("Using original geometry")
                 atoms = np.array(molecule["reactant"]["atomic_numbers"])
                 atomssymbols = [Z_TO_SYMBOL[a] for a in atoms]
-                coords = reactant / BOHR2ANG # same as *ANG2BOHR
+                coords = coords / BOHR2ANG  # same as *ANG2BOHR
                 initial_dft_hessian = molecule["reactant"]["wB97x_6-31G(d).hessian"]
                 # eV/Angstrom^2 -> Hartree/Bohr^2
-                # initial_dft_hessian = initial_dft_hessian * AU2EV * BOHR2ANG * BOHR2ANG 
+                # initial_dft_hessian = initial_dft_hessian * AU2EV * BOHR2ANG * BOHR2ANG
             else:
                 data = dataset[idx]
                 indices = data.one_hot.long().argmax(dim=1)
@@ -709,7 +781,21 @@ def do_relaxations():
                 natoms = len(atomssymbols)
                 coords = data.pos.numpy() / BOHR2ANG
                 # eV/Angstrom^2 -> Hartree/Bohr^2
-                initial_dft_hessian = data.hessian.numpy().reshape(natoms*3, natoms*3) / AU2EV * BOHR2ANG * BOHR2ANG
+                initial_dft_hessian = (
+                    data.hessian.numpy().reshape(natoms * 3, natoms * 3)
+                    / AU2EV
+                    * BOHR2ANG
+                    * BOHR2ANG
+                )
+
+            if args.noiserms and args.noiserms > 0.0:
+                print(f"Adding noise to geometry with RMS {args.noiserms} Å")
+                noise = rng.normal(0.0, 1.0, size=coords.shape)
+                # Scale noise so RMS of per-atom Euclidean displacement equals noiserms
+                current_rms = float(np.sqrt(np.mean(np.sum(noise * noise, axis=1))))
+                scale = (args.noiserms / current_rms) if current_rms > 0.0 else 0.0
+                displacement = scale * noise
+                coords = coords + (displacement / BOHR2ANG)
 
             # use a small threshold to account for numerical errors
             eigvals = np.linalg.eigvals(initial_dft_hessian)
@@ -857,7 +943,9 @@ def do_relaxations():
                 print_header(cnt, method_name)
                 # geom2 = Geometry(atomssymbols, coords, coord_type=args.coord)
                 # geom2.set_calculator(CountingCalc(base_calc))
-                geom_bfgsunit = get_geom(atomssymbols, coords, args.coord, base_calc, args)
+                geom_bfgsunit = get_geom(
+                    atomssymbols, coords, args.coord, base_calc, args
+                )
                 method_name_clean = clean_str(method_name)
                 out_dir_method = os.path.join(out_dir, method_name_clean)
                 opt = get_rfo_optimizer(
@@ -884,7 +972,9 @@ def do_relaxations():
             method_name = "RFO-BFGS (DFT init)"
             if method_name in name_order:
                 print_header(cnt, method_name)
-                geom_bfgsdft = get_geom(atomssymbols, coords, args.coord, base_calc, args)
+                geom_bfgsdft = get_geom(
+                    atomssymbols, coords, args.coord, base_calc, args
+                )
                 method_name_clean = clean_str(method_name)
                 out_dir_method = os.path.join(out_dir, method_name_clean)
                 opt = get_rfo_optimizer(
@@ -907,14 +997,18 @@ def do_relaxations():
                         dft_hessian_is_pd=dft_hessian_is_pd,
                     )
                 )
-            
+
             # Finite difference Hessian
             method_name = "RFO-BFGS (NumHess init)"
             if method_name in name_order:
                 print_header(cnt, method_name)
-                geom_bfgsnumhess = get_geom(atomssymbols, coords, args.coord, base_calc, args)
-                geom_bfgsnumhess.calculator.num_hess_kwargs = {"acc": 4} # 2 or 4
-                numerical_hessian = geom_bfgsnumhess.calculator.get_num_hessian(geom_bfgsnumhess.atoms, geom_bfgsnumhess._coords)["hessian"]
+                geom_bfgsnumhess = get_geom(
+                    atomssymbols, coords, args.coord, base_calc, args
+                )
+                geom_bfgsnumhess.calculator.num_hess_kwargs = {"acc": 4}  # 2 or 4
+                numerical_hessian = geom_bfgsnumhess.calculator.get_num_hessian(
+                    geom_bfgsnumhess.atoms, geom_bfgsnumhess._coords
+                )["hessian"]
                 eigvals = np.linalg.eigvals(numerical_hessian)
                 num_hessian_is_pd = np.all(eigvals > args.pdthresh)
                 if not num_hessian_is_pd:
@@ -942,7 +1036,6 @@ def do_relaxations():
                     )
                 )
 
-
             # we provide your H_pred through the calculator and ask RFOptimizer to pull it:
             #    hessian_init='calc' gets Hessian from the calculator at step 0;
             #    hessian_recalc=k recomputes it every k steps.
@@ -951,7 +1044,9 @@ def do_relaxations():
             method_name = "RFO-BFGS (learned init)"
             if method_name in name_order:
                 print_header(cnt, method_name)
-                geom_bfgslearned = get_geom(atomssymbols, coords, args.coord, base_calc, args)
+                geom_bfgslearned = get_geom(
+                    atomssymbols, coords, args.coord, base_calc, args
+                )
                 method_name_clean = clean_str(method_name)
                 out_dir_method = os.path.join(out_dir, method_name_clean)
                 opt = get_rfo_optimizer(
@@ -979,7 +1074,9 @@ def do_relaxations():
             method_name = "RFO-BFGS (learned k3)"
             if method_name in name_order:
                 print_header(cnt, method_name)
-                geom_bfgslearnedk3 = get_geom(atomssymbols, coords, args.coord, base_calc, args)
+                geom_bfgslearnedk3 = get_geom(
+                    atomssymbols, coords, args.coord, base_calc, args
+                )
                 method_name_clean = clean_str(method_name)
                 out_dir_method = os.path.join(out_dir, method_name_clean)
                 opt = get_rfo_optimizer(
@@ -1007,7 +1104,9 @@ def do_relaxations():
             method_name = "RFO (learned)"
             if method_name in name_order:
                 print_header(cnt, method_name)
-                geom_rfolearned = get_geom(atomssymbols, coords, args.coord, base_calc, args)
+                geom_rfolearned = get_geom(
+                    atomssymbols, coords, args.coord, base_calc, args
+                )
                 method_name_clean = clean_str(method_name)
                 out_dir_method = os.path.join(out_dir, method_name_clean)
                 opt = get_rfo_optimizer(
@@ -1037,7 +1136,9 @@ def do_relaxations():
                 print_header(cnt, method_name)
                 hessian_method_before = base_calc.hessian_method
                 base_calc.hessian_method = "autograd"
-                geom_rfolearned = get_geom(atomssymbols, coords, args.coord, base_calc, args)
+                geom_rfolearned = get_geom(
+                    atomssymbols, coords, args.coord, base_calc, args
+                )
                 method_name_clean = clean_str(method_name)
                 out_dir_method = os.path.join(out_dir, method_name_clean)
                 opt = get_rfo_optimizer(
@@ -1066,7 +1167,9 @@ def do_relaxations():
             method_name = "RFO (NumHess)"
             if method_name in name_order:
                 print_header(cnt, method_name)
-                geom_rfonumhess = get_geom(atomssymbols, coords, args.coord, base_calc, args)
+                geom_rfonumhess = get_geom(
+                    atomssymbols, coords, args.coord, base_calc, args
+                )
                 geom_rfonumhess.calculator.force_num_hessian()
                 # numerical_hessian = geom_rfonumhess.calculator.get_num_hessian(geom_rfonumhess.atoms, geom_rfonumhess._coords)
                 method_name_clean = clean_str(method_name)
@@ -1091,13 +1194,15 @@ def do_relaxations():
                         dft_hessian_is_pd=dft_hessian_is_pd,
                     )
                 )
-                
+
             # Finite difference Hessian at every step with higher accuracy
             method_name = "RFO (NumHess 4)"
             if method_name in name_order:
                 print_header(cnt, method_name)
-                geom_rfonumhess4 = get_geom(atomssymbols, coords, args.coord, base_calc, args)
-                geom_rfonumhess4.calculator.num_hess_kwargs = {"acc": 4} # 2 or 4
+                geom_rfonumhess4 = get_geom(
+                    atomssymbols, coords, args.coord, base_calc, args
+                )
+                geom_rfonumhess4.calculator.num_hess_kwargs = {"acc": 4}  # 2 or 4
                 geom_rfonumhess4.calculator.force_num_hessian()
                 # numerical_hessian = geom_rfonumhess.calculator.get_num_hessian(geom_rfonumhess.atoms, geom_rfonumhess._coords)
                 method_name_clean = clean_str(method_name)
@@ -1169,10 +1274,12 @@ def do_relaxations():
             #     steps=4000,
             # )
             # dyn.run(**_run_kwargs)
-            
+
             ###########################
             # Pretty print
-            print(f"\n{'Strategy':>24s} {'coords':>6} {'converged':>6} {'steps':>6} {'grads':>6} {'hessians':>6} {'s':>6}")
+            print(
+                f"\n{'Strategy':>24s} {'coords':>6} {'converged':>6} {'steps':>6} {'grads':>6} {'hessians':>6} {'s':>6}"
+            )
             for r in results:
                 try:
                     print(
@@ -1181,12 +1288,12 @@ def do_relaxations():
                 except:
                     print(f"Error printing {r}")
                     print(r)
-            
+
             # print positive definite status extra
             print(f"cnt_not_pd:")
             for r in results:
                 _msg = f"{r['name']}: {r['cnt_not_pd']}"
-                if r['hessian_calls'] is not None and r['hessian_calls'] > 0:
+                if r["hessian_calls"] is not None and r["hessian_calls"] > 0:
                     _msg += f" ({r['cnt_not_pd'] / r['hessian_calls'] * 100:.2f}%)"
                 print(_msg)
 
@@ -1201,7 +1308,7 @@ def do_relaxations():
                     }
                 )
                 all_results.append(r_with_ctx)
-            
+
             optims_done += 1
 
         #########################################################
@@ -1234,7 +1341,7 @@ def do_relaxations():
         for method in df["name"].unique():
             _d = df[df["name"] == method]
             print(f"{method}: {_d[metric].mean():.2f} ± {_d[metric].std():.2f}")
-    
+
     # print % of converged optims where dft_hessian_is_pd is False
     print("\n% of converged BFGS+DFT init when dft_hessian_is_pd is True:")
     _d = df[(df["dft_hessian_is_pd"] == True) & (df["name"] == "RFO-BFGS (DFT init)")]
@@ -1289,7 +1396,7 @@ def do_relaxations():
             # hue=
             # width=0.5,
             # whis=(0, 100) # show full range of data
-            showfliers=False # hide outliers
+            showfliers=False,  # hide outliers
         )
         ax.set_xlabel("Method")
         ax.set_ylabel(metric_name.replace("_", " "))
