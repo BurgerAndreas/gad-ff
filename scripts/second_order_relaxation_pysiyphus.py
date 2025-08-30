@@ -703,17 +703,17 @@ def do_relaxations():
     rng = np.random.default_rng(seed=42)
 
     name_order = [
-        # "NaiveSteepestDescent",
+        "NaiveSteepestDescent",
         "SteepestDescent",
-        # "FIRE",
+        "FIRE",
         # "ConjugateGradient",
         "RFO-BFGS (unit init)",
-        # "RFO-BFGS (DFT init)",
+        "RFO-BFGS (DFT init)",
         "RFO-BFGS (NumHess init)",
         "RFO-BFGS (learned init)",
         # "RFO-BFGS (learned k3)",
         "RFO (learned)",
-        # "RFO (NumHess)",
+        "RFO (NumHess)",
         # "RFO (NumHess 4)",
         "RFO (autograd)",
     ]

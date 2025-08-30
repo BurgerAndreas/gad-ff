@@ -44,6 +44,10 @@ def generator(formula, rxn, grp):
         # Optionally include Hessian if present (eV/Å^2)
         if "wB97x_6-31G(d).hessian" in grp:
             d["wB97x_6-31G(d).hessian"] = grp["wB97x_6-31G(d).hessian"][:]
+        if "noiserms" in grp:
+            d["noiserms"] = float(grp["noiserms"][()])
+        if "positions_noised" in grp:
+            d["positions_noised"] = grp["positions_noised"][:]
         # Optional original val index
         if "idx" in grp:
             d["idx"] = int(grp["idx"][()])
@@ -63,6 +67,11 @@ class Dataloader:
     def __init__(self, hdf5_file, datasplit="data", only_final=False):
         self.hdf5_file = hdf5_file
         self.only_final = only_final
+
+        if not os.path.exists(hdf5_file):
+            raise FileNotFoundError(f"File {hdf5_file} not found")
+        else:
+            print(f"{__name__} Dataloader: {hdf5_file} found")
 
         self.datasplit = datasplit
         if datasplit:
