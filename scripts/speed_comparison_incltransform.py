@@ -398,30 +398,184 @@ def plot_memory_usage(results_df, output_dir="./results_speed"):
     print(f"Plot saved to {output_path}")
 
 
-# if __name__ == "__main__":
-#     """
-#     python scripts/save_indices_by_natoms.py ts1x-val.lmdb
-#     python scripts/save_indices_by_natoms.py ts1x_hess_train_big.lmdb
-#     python scripts/save_indices_by_natoms.py RGD1.lmdb
-#     """
-#     parser = argparse.ArgumentParser(
-#         description="Save dataset indices grouped by the number of atoms."
-#     )
-#     # ts1x-val.lmdb ts1x_hess_train_big.lmdb
-#     parser.add_argument(
-#         "dataset_path",
-#         type=str,
-#         help="Path to the LMDB dataset file.",
-#         default="ts1x-val.lmdb",
-#     )
-#     args = parser.parse_args()
-#     results = save_idx_by_natoms(args)
+def batchsize_prediction_speed_test(
+    checkpoint_path,
+    dataset_name,
+    num_samples=100,
+    batch_sizes=None,
+    device="cuda",
+    output_dir="./results_speed",
+):
+    """Benchmark predicted Hessian speed over varying batch sizes on random samples.
 
-#     with open(results["all_path"], "r") as f:
-#         lines = f.readlines()
-#         print("First 10 lines of the output JSON file:")
-#         for line in lines[:10]:
-#             print(line.rstrip())
+    - Randomly selects num_samples items with mixed N atoms from the dataset
+    - Times only the prediction path (no autograd)
+    - Tests each batch size and records total wall time and peak memory
+    """
+    if batch_sizes is None:
+        batch_sizes = [1, 2, 4, 8, 16, 32, 64, 128, 256]
+
+    # Load model
+    ckpt = torch.load(checkpoint_path, weights_only=False)
+    model_name = ckpt["hyper_parameters"]["model_config"]["name"]
+    model = PotentialModule.load_from_checkpoint(
+        checkpoint_path,
+        strict=False,
+    ).potential.to(device)
+    model.eval()
+    model.name = model_name
+
+    # Prepare dataset (with transform to compute Hessian indices on-the-fly)
+    transform = HessianGraphTransform(
+        cutoff=model.cutoff,
+        cutoff_hessian=model.cutoff_hessian,
+        max_neighbors=model.max_neighbors,
+        use_pbc=model.use_pbc,
+    )
+    dataset = LmdbDataset(fix_dataset_path(dataset_name), transform=transform)
+
+    if len(dataset) == 0:
+        raise RuntimeError(f"Dataset {dataset_name} is empty")
+
+    # Random subset indices to mix N atoms
+    # respect global torch seed set in main
+    random_indices = torch.randperm(len(dataset))[: num_samples].tolist()
+
+    results = []
+
+    # Warmup a couple of steps
+    warm_loader = TGDataLoader(dataset, batch_size=1, shuffle=False)
+    for i, sample in enumerate(warm_loader):
+        batch = sample.to(device)
+        batch = compute_extra_props(batch)
+        if "equiformer" in model.name.lower():
+            with torch.no_grad():
+                _ener, _force, out = model.forward(
+                    batch, otf_graph=True, hessian=True, add_props=True
+                )
+        else:
+            # Fallback warmup for non-equiformer models (no prediction path)
+            batch.pos.requires_grad_()
+            _ener, _force, _out = model.forward(batch)
+            _ = compute_hessian(batch.pos, _ener, _force)
+        torch.cuda.empty_cache()
+        if i > 5:
+            break
+
+    print("Batch-size test: model warmed up")
+
+    from torch.utils.data import Subset
+
+    subset = Subset(dataset, random_indices)
+
+    for bs in batch_sizes:
+        loader = TGDataLoader(subset, batch_size=bs, shuffle=True)
+
+        torch.cuda.reset_peak_memory_stats()
+        start_event = torch.cuda.Event(enable_timing=True)
+        end_event = torch.cuda.Event(enable_timing=True)
+
+        start_event.record()
+
+        for batch in tqdm(loader, desc=f"batch_size={bs}", leave=False):
+            batch = batch.to(device)
+            batch = compute_extra_props(batch)
+
+            if "equiformer" in model.name.lower():
+                with torch.no_grad():
+                    _ener, _force, out = model.forward(
+                        batch, otf_graph=True, hessian=True, add_props=True
+                    )
+            else:
+                # For non-equiformer models, prediction path isn't available
+                # Fall back to autograd timing to keep the loop functional
+                batch.pos.requires_grad_()
+                _ener, _force, _out = model.forward(batch)
+                _ = compute_hessian(batch.pos, _ener, _force)
+
+            torch.cuda.empty_cache()
+
+        end_event.record()
+        torch.cuda.synchronize()
+
+        time_ms = start_event.elapsed_time(end_event)
+        mem_mb = torch.cuda.max_memory_allocated() / 1e6
+
+        # Guard against division by zero if loader had no batches
+        num_items = len(subset)
+        time_per_sample_ms = time_ms / max(1, num_items)
+
+        results.append(
+            {
+                "batch_size": bs,
+                "time_total_ms": time_ms,
+                "time_per_sample_ms": time_per_sample_ms,
+                "memory_mb": mem_mb,
+                "num_samples": num_items,
+                "method": "prediction" if "equiformer" in model.name.lower() else "autograd",
+            }
+        )
+
+    output_dir = Path(output_dir)
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = output_dir / f"{dataset_name}_batchsize_prediction_incltransform_results.csv"
+    df = pd.DataFrame(results)
+    df.to_csv(output_path, index=False)
+    print(f"Batch-size results saved to {output_path}")
+    return df
+
+
+def plot_batchsize_prediction(results_df, output_dir="./results_speed"):
+    output_dir = Path(output_dir)
+
+    # Time per sample vs batch size
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=results_df["batch_size"],
+            y=results_df["time_per_sample_ms"],
+            mode="lines+markers",
+            name="time/sample (ms)",
+        )
+    )
+    fig.update_layout(
+        title="Predicted Hessian: Time per sample vs Batch size",
+        xaxis_title="Batch size",
+        yaxis_title="Time per sample (ms)",
+        template=PLOTLY_TEMPLATE,
+        margin=dict(l=40, r=40, b=40, t=40),
+    )
+    output_path = output_dir / "batchsize_prediction_time_per_sample.html"
+    fig.write_html(output_path)
+    print(f"Plot saved to {output_path}")
+    output_path = output_dir / "batchsize_prediction_time_per_sample.png"
+    fig.write_image(output_path)
+    print(f"Plot saved to {output_path}")
+
+    # Peak memory vs batch size
+    fig_mem = go.Figure()
+    fig_mem.add_trace(
+        go.Scatter(
+            x=results_df["batch_size"],
+            y=results_df["memory_mb"],
+            mode="lines+markers",
+            name="peak memory (MB)",
+        )
+    )
+    fig_mem.update_layout(
+        title="Predicted Hessian: Peak memory vs Batch size",
+        xaxis_title="Batch size",
+        yaxis_title="Peak memory (MB)",
+        template=PLOTLY_TEMPLATE,
+        margin=dict(l=40, r=40, b=40, t=40),
+    )
+    output_path = output_dir / "batchsize_prediction_memory.html"
+    fig_mem.write_html(output_path)
+    print(f"Plot saved to {output_path}")
+    output_path = output_dir / "batchsize_prediction_memory.png"
+    fig_mem.write_image(output_path)
+    print(f"Plot saved to {output_path}")
+
 
 
 if __name__ == "__main__":
@@ -459,6 +613,24 @@ if __name__ == "__main__":
         default=False,
         help="Redo the speed comparison. If false attempt to load existing results.",
     )
+    parser.add_argument(
+        "--run_batchsize",
+        action="store_true",
+        help="Also run batch-size prediction speed test",
+        default=True,
+    )
+    parser.add_argument(
+        "--batch_sizes",
+        type=str,
+        default="1,2,4,8,16,32,64,128,256",
+        help="Comma-separated batch sizes to test",
+    )
+    parser.add_argument(
+        "--batchsize_num_samples",
+        type=int,
+        default=100,
+        help="Number of random samples to use in batch-size test",
+    )
 
     args = parser.parse_args()
     torch.manual_seed(42)
@@ -485,5 +657,20 @@ if __name__ == "__main__":
 
     # Plot results
     plot_speed_comparison(results_df)
+
+    if args.run_batchsize:
+        try:
+            batch_sizes = [int(x.strip()) for x in args.batch_sizes.split(",") if x.strip()]
+        except Exception as e:
+            raise ValueError(f"Failed to parse --batch_sizes '{args.batch_sizes}': {e}")
+
+        bs_df = batchsize_prediction_speed_test(
+            checkpoint_path=args.ckpt_path,
+            dataset_name=args.dataset,
+            num_samples=args.batchsize_num_samples,
+            batch_sizes=batch_sizes,
+            output_dir=output_dir,
+        )
+        plot_batchsize_prediction(bs_df, output_dir=output_dir)
 
     print("Done.")

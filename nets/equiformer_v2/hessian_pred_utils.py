@@ -306,7 +306,8 @@ def _flat_indexadd_explicit(edge_index, sym_message, data):
 
 
 # support function that can be moved to dataloader
-def _get_flat_indexadd_message_indices(N, edge_index):
+# TODO: speedup
+def _get_flat_indexadd_message_indices_slow(N, edge_index):
     E = edge_index.shape[1]
     device = edge_index.device
     # We need 2 * E * 3 * 3 indices (for both i->j and j->i contributions)
@@ -342,6 +343,24 @@ def _get_flat_indexadd_message_indices(N, edge_index):
     indices_ji = indices_ji.to(device)
     return indices_ij, indices_ji
 
+def _get_flat_indexadd_message_indices(N, edge_index):
+    # Vectorized construction of 1D indices for i->j and j->i contributions
+    # edge_index: (2, E)
+    device = edge_index.device
+    E = edge_index.shape[1]
+    i = edge_index[0].to(dtype=torch.long)
+    j = edge_index[1].to(dtype=torch.long)
+    # Prepare coordinate offsets (3x3 per edge)
+    ci = torch.arange(3, device=device, dtype=torch.long).view(1, 3, 1)
+    cj = torch.arange(3, device=device, dtype=torch.long).view(1, 1, 3)
+    i = i.view(E, 1, 1)
+    j = j.view(E, 1, 1)
+    N3 = N * 3
+    # i -> j block indices
+    idx_ij = ((i * 3 + ci) * N3 + (j * 3 + cj)).reshape(-1)
+    # j -> i block indices (transpose)
+    idx_ji = ((j * 3 + ci) * N3 + (i * 3 + cj)).reshape(-1)
+    return idx_ij, idx_ji
 
 def _flat_indexadd(edge_index, sym_message, data):
     # do the same thing in 1d, but indexing messageflat without storing it in values
@@ -418,8 +437,7 @@ def _add_node_diagonal_1d_loop(hessianflat, l012_node_features, data):
         n_entries_prev += N * 3 * N * 3
     return hessianflat
 
-
-def _get_node_diagonal_1d_indexadd_indices(N, device):
+def _get_node_diagonal_1d_indexadd_indices_slow(N, device):
     # Build diagonal indices for direct and transpose contributions
     diag_indices_direct = torch.zeros(N * 3 * 3, device=device, dtype=torch.long)
     diag_indices_transpose = torch.zeros(N * 3 * 3, device=device, dtype=torch.long)
@@ -444,6 +462,21 @@ def _get_node_diagonal_1d_indexadd_indices(N, device):
                 idx += 1
     return diag_indices_direct, diag_indices_transpose, node_transpose_idx
 
+def _get_node_diagonal_1d_indexadd_indices(N, device):
+    # Vectorized build of diagonal indices for direct and transpose contributions
+    # Shapes: (N, 3, 3) -> flatten to (N*9)
+    ii = torch.arange(N, device=device, dtype=torch.long)
+    ci = torch.arange(3, device=device, dtype=torch.long)
+    cj = torch.arange(3, device=device, dtype=torch.long)
+    Ii, Ci, Cj = torch.meshgrid(ii, ci, cj, indexing="ij")
+    # 1D index for diagonal element (ii*3 + coord_i, ii*3 + coord_j)
+    diag_idx = (Ii * 3 + Ci) * (N * 3) + (Ii * 3 + Cj)
+    diag_idx = diag_idx.reshape(-1)
+    # Transpose indices for node features: swap coord_i and coord_j
+    node_transpose_idx = Ii * 9 + Cj * 3 + Ci
+    node_transpose_idx = node_transpose_idx.reshape(-1)
+    # Both diag arrays are identical by construction
+    return diag_idx, diag_idx.clone(), node_transpose_idx
 
 def _add_node_diagonal_1d_indexadd(hessianflat, l012_node_features, data):
     """Add node embeddings to diagonal using 1D indexing with index_add"""
