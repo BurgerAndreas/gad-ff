@@ -439,7 +439,7 @@ def batchsize_prediction_speed_test(
 
     # Random subset indices to mix N atoms
     # respect global torch seed set in main
-    random_indices = torch.randperm(len(dataset))[: num_samples].tolist()
+    random_indices = torch.randperm(len(dataset))[:num_samples].tolist()
 
     results = []
 
@@ -512,13 +512,17 @@ def batchsize_prediction_speed_test(
                 "time_per_sample_ms": time_per_sample_ms,
                 "memory_mb": mem_mb,
                 "num_samples": num_items,
-                "method": "prediction" if "equiformer" in model.name.lower() else "autograd",
+                "method": "prediction"
+                if "equiformer" in model.name.lower()
+                else "autograd",
             }
         )
 
     output_dir = Path(output_dir)
     os.makedirs(output_dir, exist_ok=True)
-    output_path = output_dir / f"{dataset_name}_batchsize_prediction_incltransform_results.csv"
+    output_path = (
+        output_dir / f"{dataset_name}_batchsize_prediction_incltransform_results.csv"
+    )
     df = pd.DataFrame(results)
     df.to_csv(output_path, index=False)
     print(f"Batch-size results saved to {output_path}")
@@ -575,7 +579,6 @@ def plot_batchsize_prediction(results_df, output_dir="./results_speed"):
     output_path = output_dir / "batchsize_prediction_memory.png"
     fig_mem.write_image(output_path)
     print(f"Plot saved to {output_path}")
-
 
 
 if __name__ == "__main__":
@@ -660,7 +663,9 @@ if __name__ == "__main__":
 
     if args.run_batchsize:
         try:
-            batch_sizes = [int(x.strip()) for x in args.batch_sizes.split(",") if x.strip()]
+            batch_sizes = [
+                int(x.strip()) for x in args.batch_sizes.split(",") if x.strip()
+            ]
         except Exception as e:
             raise ValueError(f"Failed to parse --batch_sizes '{args.batch_sizes}': {e}")
 

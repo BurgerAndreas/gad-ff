@@ -32,9 +32,7 @@ def run_benchmark(
         # correctness check once per size
         d1, d2, t = _get_node_diagonal_1d_indexadd_indices_slow(num_atoms, device)
         f1, f2, ft = _get_node_diagonal_1d_indexadd_indices(num_atoms, device)
-        is_equal = (
-            torch.equal(d1, f1) and torch.equal(d2, f2) and torch.equal(t, ft)
-        )
+        is_equal = torch.equal(d1, f1) and torch.equal(d2, f2) and torch.equal(t, ft)
         if not is_equal:
             raise AssertionError(
                 f"Mismatch between slow and fast index builders for N={num_atoms}"
@@ -52,7 +50,9 @@ def run_benchmark(
             _get_node_diagonal_1d_indexadd_indices(num_atoms, device)
         synchronize_if_needed(device)
         fast_ms = (time.time() - start) * 1000.0 / repeats
-        print(f"{num_atoms}\t{sum(slow_ms)/len(slow_ms):.3f}\t{fast_ms:.3f}\t{is_equal}")
+        print(
+            f"{num_atoms}\t{sum(slow_ms) / len(slow_ms):.3f}\t{fast_ms:.3f}\t{is_equal}"
+        )
 
 
 def parse_args() -> argparse.Namespace:
@@ -95,5 +95,3 @@ if __name__ == "__main__":
     args = parse_args()
     device = torch.device(args.device)
     run_benchmark(args.sizes, device, warmup=args.warmup, repeats=args.repeats)
-
-

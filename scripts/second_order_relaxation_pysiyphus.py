@@ -592,6 +592,9 @@ def do_relaxations():
         dataset_path = f"data/t1x_val_reactant_hessian_100_noiserms{noise_str}.h5"
         dataset = T1xDFTDataloader(dataset_path, datasplit="val", only_final=True)
         data_is_t1x = True
+        dataset_path = (
+            f"data/t1x_val_reactant_hessian_100_noiserms{noise_str.replace('.', '')}.h5"
+        )
     # is xyz file
     elif os.path.isfile(args.xyz):
         dataset = [args.xyz]
@@ -723,6 +726,7 @@ def do_relaxations():
 
     print("\nRunning relaxations...")
     csv_path = os.path.join(out_dir, f"relaxation_results.csv")
+    did_compute_results = False
     if not os.path.exists(csv_path) or args.redo:
         ts = time.strftime("%Y%m%d-%H%M%S")
         # Accumulate results across all samples
@@ -1317,6 +1321,7 @@ def do_relaxations():
             df = pd.DataFrame(all_results)
             df.to_csv(csv_path, index=False)
             print(f"\nSaved relaxation results to: {csv_path}")
+            did_compute_results = True
         else:
             print(f"\nNo results to save to {csv_path}")
     else:
@@ -1423,6 +1428,19 @@ def do_relaxations():
             inner="quartile",
             cut=0,
             density_norm="width",
+            fill=False, # only outline
+            linewidth=1.5, # only outline
+        )
+        # Overlay scatter (jittered strip) with transparency
+        sns.stripplot(
+            data=_d,
+            x="name",
+            y=metric_name,
+            color="black",
+            alpha=0.25,
+            size=2,
+            jitter=0.25,
+            ax=ax,
         )
         ax.set_xlabel("Method")
         ax.set_ylabel(metric_name.replace("_", " "))
@@ -1521,14 +1539,14 @@ def do_relaxations():
         print(f"Saved {save_path}")
 
     for metric in ["steps", "grad_calls", "hessian_calls", "wall_time_s"]:
-        _d = df.copy()
-        _plot_metric_box(
-            _d[(_d["converged"] == True)],
-            metric,
-            os.path.join(plots_dir, f"{metric}_box_converged.png"),
-            title=f"{metric.replace('_', ' ').title()} (converged) ({COORD_TO_NAME[args.coord]})",
-            remove_outliers=False,
-        )
+        # _d = df.copy()
+        # _plot_metric_box(
+        #     _d[(_d["converged"] == True)],
+        #     metric,
+        #     os.path.join(plots_dir, f"{metric}_box_converged.png"),
+        #     title=f"{metric.replace('_', ' ').title()} (converged) ({COORD_TO_NAME[args.coord]})",
+        #     remove_outliers=False,
+        # )
         _d = df.copy()
         _plot_metric_box(
             _d,
@@ -1586,6 +1604,58 @@ def do_relaxations():
         print(f"Saved {fname}")
 
     print(f"Saved plots to: {plots_dir}")
+
+    # Log to Weights & Biases only when results were computed (not when loaded)
+    if did_compute_results:
+        import wandb
+
+        run_name = (
+            f"relax_{source_label}_{wandb_id}_{args.coord}_"
+            f"{args.thresh.replace('_', '')}_{args.max_samples}"
+        )
+        wandb.init(
+            project="2nd-order-relax",
+            name=run_name,
+            reinit=True,
+            config={
+                "coord": args.coord,
+                "thresh": args.thresh,
+                "max_samples": args.max_samples,
+                "redo": args.redo,
+                "pddftonly": args.pddftonly,
+                "pdpredonly": args.pdpredonly,
+                "pdthresh": args.pdthresh,
+            },
+        )
+        # Log results table
+        try:
+            wandb.log({"results_table": wandb.Table(dataframe=df)})
+        except Exception as _e:
+            print(f"wandb table log failed: {_e}")
+        # Log plots if available
+        try:
+            plot_paths = sorted(glob.glob(os.path.join(plots_dir, "*.png")))
+            if plot_paths:
+                images_log = {
+                    os.path.splitext(os.path.basename(p))[0]: wandb.Image(p)
+                    for p in plot_paths
+                }
+                wandb.log(images_log)
+            # Also log violin plots as a grouped list
+            violin_paths = sorted(
+                glob.glob(os.path.join(plots_dir, "*_violin.png"))
+            )
+            if violin_paths:
+                wandb.log({
+                    "violin_plots": [wandb.Image(p) for p in violin_paths]
+                })
+            # And log convergence plot explicitly if present
+            conv_path = os.path.join(plots_dir, "convergence_rate.png")
+            if os.path.exists(conv_path):
+                wandb.log({"convergence_plot": wandb.Image(conv_path)})
+        except Exception as _e:
+            print(f"wandb plot log failed: {_e}")
+        wandb.finish()
 
     return df
 

@@ -14,7 +14,9 @@ def synchronize_if_needed(device: torch.device) -> None:
         torch.cuda.synchronize(device)
 
 
-def make_edge_index(num_atoms: int, avg_degree: int, device: torch.device) -> torch.Tensor:
+def make_edge_index(
+    num_atoms: int, avg_degree: int, device: torch.device
+) -> torch.Tensor:
     # Approximate number of directed edges
     num_edges = max(1, int(num_atoms * avg_degree))
     # Sample random (i, j) with replacement. Exclude self-loops for realism.
@@ -43,14 +45,20 @@ def time_once_slow(num_atoms: int, edge_index: torch.Tensor) -> float:
 
 
 def run_benchmark(
-    sizes: list[int], avg_degree: int, device: torch.device, warmup: int = 3, repeats: int = 10
+    sizes: list[int],
+    avg_degree: int,
+    device: torch.device,
+    warmup: int = 3,
+    repeats: int = 10,
 ) -> None:
     print(f"Device: {device}")
     print("N\tE\tslow (ms)\tfast (ms)\tequal")
     for num_atoms in sizes:
         edge_index = make_edge_index(num_atoms, avg_degree, device)
         # correctness check
-        ij_slow, ji_slow = _get_flat_indexadd_message_indices_slow(num_atoms, edge_index)
+        ij_slow, ji_slow = _get_flat_indexadd_message_indices_slow(
+            num_atoms, edge_index
+        )
         ij_fast, ji_fast = _get_flat_indexadd_message_indices(num_atoms, edge_index)
         is_equal = torch.equal(ij_slow, ij_fast) and torch.equal(ji_slow, ji_fast)
         if not is_equal:
@@ -126,6 +134,6 @@ if __name__ == "__main__":
     """
     args = parse_args()
     device = torch.device(args.device)
-    run_benchmark(args.sizes, args.avg_degree, device, warmup=args.warmup, repeats=args.repeats)
-
-
+    run_benchmark(
+        args.sizes, args.avg_degree, device, warmup=args.warmup, repeats=args.repeats
+    )

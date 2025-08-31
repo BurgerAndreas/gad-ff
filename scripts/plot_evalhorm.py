@@ -1,5 +1,3 @@
-
-
 # if hesspred in the name, rename to EquiformerV2
 # hessian_method predict -> learned
 

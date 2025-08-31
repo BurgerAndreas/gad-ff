@@ -26,12 +26,13 @@ from torch.optim.optimizer import Optimizer
 from torch.optim.lr_scheduler import LRScheduler
 from torch.optim.lr_scheduler import _warn_get_lr_called_within_step
 
+
 class StepLR(LRScheduler):
     """Decays the learning rate of each parameter group by gamma every step_size epochs.
     The only difference from the PyTorch StepLR is that it supports a minimum learning rate.
 
     Notice that such decay can happen simultaneously with other changes to the learning rate
-    from outside this scheduler.last_epoch specifies the index of the previous epoch. 
+    from outside this scheduler.last_epoch specifies the index of the previous epoch.
     When last_epoch=-1, sets initial lr as lr.
 
     Args:
@@ -41,7 +42,7 @@ class StepLR(LRScheduler):
             Default: 0.1.
         last_epoch (int): The index of the previous epoch. Default: -1.
         min_lr (float): Minimum learning rate. Default: None.
-        
+
     Example:
         >>> # xdoctest: +SKIP
         >>> # Assuming optimizer uses lr = 0.05 for all groups
@@ -66,7 +67,7 @@ class StepLR(LRScheduler):
     ):  # noqa: D107
         self.step_size = step_size
         self.gamma = gamma
-        self.min_lr = min_lr 
+        self.min_lr = min_lr
         super().__init__(optimizer, last_epoch)
 
     def get_lr(self):
@@ -89,6 +90,7 @@ class StepLR(LRScheduler):
         if self.min_lr is not None:
             lrs = [max(lr, self.min_lr) for lr in lrs]
         return lrs
+
 
 if __name__ == "__main__":
     # plot learning rate schedule
@@ -114,8 +116,8 @@ if __name__ == "__main__":
     lrs3 = []
     epochs = list(range(num_epochs))
     for _ in epochs:
-        lrs1.append(optimizer1.param_groups[0]["lr"]) 
-        lrs2.append(optimizer2.param_groups[0]["lr"]) 
+        lrs1.append(optimizer1.param_groups[0]["lr"])
+        lrs2.append(optimizer2.param_groups[0]["lr"])
         lrs3.append(optimizer3.param_groups[0]["lr"])
         scheduler1.step()
         scheduler2.step()
