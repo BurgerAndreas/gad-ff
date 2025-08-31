@@ -108,6 +108,9 @@ def evaluate(
         f"{results_dir}/{ckpt_name}_{dataset_name}_{hessian_method}_metrics.csv"
     )
 
+    time_taken_all = None
+    n_total_samples = None
+
     # Check if results already exist and redo is False
     if os.path.exists(results_file) and not redo:
         print(f"Loading existing results from {results_file}")
@@ -129,6 +132,7 @@ def evaluate(
             transform = None
 
         dataset = LmdbDataset(fix_dataset_path(lmdb_path), transform=transform)
+        # dataset = LmdbDataset(fix_dataset_path(lmdb_path))
         dataloader = TGDataLoader(dataset, batch_size=1, shuffle=True)
 
         # Initialize metrics collection for per-sample DataFrame
@@ -136,11 +140,15 @@ def evaluate(
         n_samples = 0
 
         if max_samples is not None:
-            total = max_samples
+            n_total_samples = max_samples
         else:
-            total = len(dataloader)
+            n_total_samples = len(dataloader)
 
-        for batch in tqdm(dataloader, desc="Evaluating", total=total):
+        start_event_all = torch.cuda.Event(enable_timing=True)
+        end_event_all = torch.cuda.Event(enable_timing=True)
+        start_event_all.record()
+
+        for batch in tqdm(dataloader, desc="Evaluating", total=n_total_samples):
             batch = batch.to("cuda")
             batch = compute_extra_props(batch)
 
@@ -149,7 +157,6 @@ def evaluate(
             torch.cuda.reset_peak_memory_stats()
             start_event = torch.cuda.Event(enable_timing=True)
             end_event = torch.cuda.Event(enable_timing=True)
-
             start_event.record()
 
             # Forward pass
@@ -161,14 +168,14 @@ def evaluate(
                 if do_autograd:
                     batch.pos.requires_grad_()
                     energy_model, force_model, out = model.forward(
-                        batch, otf_graph=True, hessian=False
+                        batch, otf_graph=False, hessian=False
                     )
                     hessian_model = compute_hessian(
                         batch.pos, energy_model, force_model
                     )
                 else:
                     energy_model, force_model, out = model.forward(
-                        batch, otf_graph=False, hessian=True
+                        batch, otf_graph=False, hessian=True, add_props=True
                     )
                     hessian_model = out["hessian"].reshape(n_atoms * 3, n_atoms * 3)
             else:
@@ -176,11 +183,11 @@ def evaluate(
                 batch.pos.requires_grad_()
                 energy_model, force_model = model.forward(batch)
                 hessian_model = compute_hessian(batch.pos, energy_model, force_model)
-            
+
             end_event.record()
             torch.cuda.synchronize()
 
-            time_taken = start_event.elapsed_time(end_event)
+            time_taken = start_event.elapsed_time(end_event)  # ms
             memory_usage = torch.cuda.max_memory_allocated() / 1e6  # Convert to MB
 
             # Compute hessian eigenspectra
@@ -233,7 +240,7 @@ def evaluate(
                 "eigvec2_mae": eigvec2_mae.item(),
                 "eigvec1_cos": eigvec1_cos.item(),
                 "eigvec2_cos": eigvec2_cos.item(),
-                "time": time_taken,
+                "time": time_taken,  # ms
                 "memory": memory_usage,
             }
 
@@ -298,6 +305,11 @@ def evaluate(
             if max_samples is not None and n_samples >= max_samples:
                 break
 
+        end_event_all.record()
+        torch.cuda.synchronize()
+
+        time_taken_all = start_event_all.elapsed_time(end_event_all)  # ms
+
         # Create DataFrame from collected metrics
         df_results = pd.DataFrame(sample_metrics)
 
@@ -334,9 +346,12 @@ def evaluate(
         "model_is_ts": df_results["model_is_ts"].mean(),
         "is_ts_agree": (df_results["model_is_ts"] == df_results["true_is_ts"]).mean(),
         # Speed
-        "time": df_results["time"].mean(),
+        "time": df_results["time"].mean(),  # ms
         "memory": df_results["memory"].mean(),
     }
+    if time_taken_all is not None:
+        # ms per forward pass
+        aggregated_results["time_incltransform"] = time_taken_all / n_total_samples
 
     # print(f"\nResults for {dataset_name}:")
     # print(f"Energy MAE: {aggregated_results['energy_mae']:.6f}")

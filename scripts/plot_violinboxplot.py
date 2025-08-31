@@ -15,14 +15,14 @@ RED_DARK = "#850e00"
 # Colors taken from Dark2 palette in RColorBrewer R library
 COLOR_SCALE = ["#1B9E77", "#D95F02", "#7570B3"]
 
-# Horizontal positions for the violins. 
+# Horizontal positions for the violins.
 # They are arbitrary numbers. They could have been [-1, 0, 1] for example.
 POSITIONS = [0, 1, 2]
 
 # Horizontal lines
 HLINES = [40, 50, 60]
 
-fig, ax = plt.subplots(figsize= (14, 10))
+fig, ax = plt.subplots(figsize=(14, 10))
 
 # Some layout stuff ----------------------------------------------
 # Background color
@@ -35,18 +35,18 @@ for h in HLINES:
 
 # Add violins ----------------------------------------------------
 # bw_method="silverman" means the bandwidth of the kernel density
-# estimator is computed via Silverman's rule of thumb. 
+# estimator is computed via Silverman's rule of thumb.
 # More on this in the bonus track ;)
 
 # The output is stored in 'violins', used to customize their appearence
 violins = ax.violinplot(
-    y_data, 
+    y_data,
     positions=POSITIONS,
     widths=0.45,
     bw_method="silverman",
-    showmeans=False, 
+    showmeans=False,
     showmedians=False,
-    showextrema=False
+    showextrema=False,
 )
 
 # Customize violins (remove fill, customize line, etc.)
@@ -55,32 +55,25 @@ for pc in violins["bodies"]:
     pc.set_edgecolor(BLACK)
     pc.set_linewidth(1.4)
     pc.set_alpha(1)
-    
+
 
 # Add boxplots ---------------------------------------------------
 # Note that properties about the median and the box are passed
 # as dictionaries.
 
-medianprops = dict(
-    linewidth=4, 
-    color=GREY_DARK,
-    solid_capstyle="butt"
-)
-boxprops = dict(
-    linewidth=2, 
-    color=GREY_DARK
-)
+medianprops = dict(linewidth=4, color=GREY_DARK, solid_capstyle="butt")
+boxprops = dict(linewidth=2, color=GREY_DARK)
 
 ax.boxplot(
     y_data,
-    positions=POSITIONS, 
-    showfliers = False, # Do not show the outliers beyond the caps.
-    showcaps = False,   # Do not show the caps
-    medianprops = medianprops,
-    whiskerprops = boxprops,
-    boxprops = boxprops
+    positions=POSITIONS,
+    showfliers=False,  # Do not show the outliers beyond the caps.
+    showcaps=False,  # Do not show the caps
+    medianprops=medianprops,
+    whiskerprops=boxprops,
+    boxprops=boxprops,
 )
 
 # Add jittered dots ----------------------------------------------
 for x, y, color in zip(x_jittered, y_data, COLOR_SCALE):
-    ax.scatter(x, y, s = 100, color=color, alpha=0.4)
+    ax.scatter(x, y, s=100, color=color, alpha=0.4)

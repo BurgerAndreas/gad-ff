@@ -39,18 +39,25 @@ rename_metrics = {
     "converged_ts": "RFO Converged",
     "ts_success": "TS Success",
     "convert_ts": "RFO Converged and TS Success",
-    "irc_success": "IRC Success", # ignore
+    "irc_success": "IRC Success",  # ignore
     "intended_count": "IRC Intended",
 }
 
 df = pd.read_csv("results/eval_reactbench_wandb_export.csv", quotechar='"')
 df["Metric"] = df["Metric"].map(rename_metrics)
 
-sns.set_theme(
-    style="whitegrid",
-    palette="pastel"
-)
+sns.set_theme(style="whitegrid", palette="pastel")
 
 # data
-df = df[df["Metric"].isin(["GSM Success", "RFO Converged", "TS Success", "RFO Converged and TS Success", "IRC Intended"])]
+df = df[
+    df["Metric"].isin(
+        [
+            "GSM Success",
+            "RFO Converged",
+            "TS Success",
+            "RFO Converged and TS Success",
+            "IRC Intended",
+        ]
+    )
+]
 df = df.sort_values(by="Metric", ascending=True)

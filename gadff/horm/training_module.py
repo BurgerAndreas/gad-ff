@@ -16,10 +16,10 @@ from torch.utils.data import ConcatDataset
 from torch_geometric.loader import DataLoader as TGDataLoader
 from torch.optim.lr_scheduler import (
     CosineAnnealingWarmRestarts,
-    StepLR,
     ReduceLROnPlateau,
     # CosineAnnealingLR,
 )
+from gadff.lrscheduler import StepLR
 
 try:
     from pytorch_lightning.utilities import grad_norm as pl_grad_norm

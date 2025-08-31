@@ -6,3 +6,4 @@ training:
   lr_schedule_config:
     gamma: 0.85
     step_size: 50
+    min_lr: null

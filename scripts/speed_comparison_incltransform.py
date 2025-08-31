@@ -267,50 +267,63 @@ def speed_comparison(
         subset = Subset(dataset, indices_to_test)
         loader = TGDataLoader(subset, batch_size=1, shuffle=False)
 
-        for _batch in tqdm(loader, desc=f"N={n_atoms}", leave=False):
-            batch = _batch.clone().to(device)
-            batch = compute_extra_props(batch)
+        for hessian_method in ["prediction", "autograd"]:
+            do_autograd = hessian_method == "autograd"
+            torch.cuda.reset_peak_memory_stats()
+            start_event = torch.cuda.Event(enable_timing=True)
+            end_event = torch.cuda.Event(enable_timing=True)
 
-            # Time prediction
-            time_prediction, mem_prediction = time_hessian_computation(
-                model, batch, "prediction"
-            )
+            start_event.record()
+
+            for batch in tqdm(loader, desc=f"N={n_atoms}", leave=False):
+                batch = batch.to(device)
+                batch = compute_extra_props(batch)
+
+                # Time prediction
+                if "equiformer" in model.name.lower():
+                    if do_autograd:
+                        batch.pos.requires_grad_()
+                        ener, force, out = model.forward(
+                            batch, otf_graph=True, hessian=False
+                        )
+                        hess = compute_hessian(batch.pos, ener, force)
+                    else:
+                        with torch.no_grad():
+                            # for a fair comparison
+                            # compute graph and Hessian indices on the fly
+                            ener, force, out = model.forward(
+                                batch, otf_graph=True, hessian=True, add_props=True
+                            )
+                            hess = out["hessian"]
+                else:
+                    batch.pos.requires_grad_()
+                    ener, force, out = model.forward(batch)
+                    hess = compute_hessian(batch.pos, ener, force)
+
+                # clear memory
+                torch.cuda.empty_cache()
+
+            end_event.record()
+            torch.cuda.synchronize()
+
+            time_taken = start_event.elapsed_time(end_event)
+            memory_usage = torch.cuda.max_memory_allocated() / 1e6  # Convert to MB
+
             results.append(
                 {
                     "n_atoms": n_atoms,
-                    "method": "prediction",
-                    "time": time_prediction,
-                    "memory": mem_prediction,
+                    "time": time_taken,
+                    "memory": memory_usage,
+                    "method": hessian_method,
                 }
             )
-
-            # clear memory
-            torch.cuda.empty_cache()
-
-            # fresh batch
-            batch = _batch.clone().to(device)
-            batch = compute_extra_props(batch)
-
-            # Time autograd
-            time_autograd, mem_autograd = time_hessian_computation(
-                model, batch, "autograd"
-            )
-            results.append(
-                {
-                    "n_atoms": n_atoms,
-                    "method": "autograd",
-                    "time": time_autograd,
-                    "memory": mem_autograd,
-                }
-            )
-
-            # clear memory
-            torch.cuda.empty_cache()
 
     # Save results
     output_dir = Path(output_dir)
     os.makedirs(output_dir, exist_ok=True)
-    output_path = output_dir / f"{dataset_name}_speed_comparison_results.csv"
+    output_path = (
+        output_dir / f"{dataset_name}_speed_comparison_incltransform_results.csv"
+    )
     results_df = pd.DataFrame(results)
     results_df.to_csv(output_path, index=False)
     print(f"Results saved to {output_path}")

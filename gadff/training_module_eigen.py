@@ -10,9 +10,9 @@ import torch
 # from torch_geometric.loader import DataLoader as TGDataLoader
 from torch.optim.lr_scheduler import (
     CosineAnnealingWarmRestarts,
-    StepLR,
     ConstantLR,
 )
+from gadff.lrscheduler import StepLR
 
 try:
     import pytorch_lightning as pl

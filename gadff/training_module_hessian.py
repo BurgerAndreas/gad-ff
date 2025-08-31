@@ -16,9 +16,9 @@ from torch import nn
 from torch.utils.data import ConcatDataset
 from torch.optim.lr_scheduler import (
     CosineAnnealingWarmRestarts,
-    StepLR,
     ConstantLR,
 )
+from gadff.lrscheduler import StepLR
 
 from torch_geometric.loader import DataLoader as TGDataLoader
 # from torchmetrics import (
