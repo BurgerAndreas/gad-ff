@@ -33,7 +33,7 @@ def build_molecule(
     mol.atom = atoms_bohr  # list[(Z|(symbol), (x,y,z))]
     mol.charge = int(charge)
     mol.spin = int(spin)
-    mol.basis = "6-31g(d)"
+    mol.basis = "6-31g(d)" # wB97x_6-31G(d)
     mol.unit = "Bohr"
     mol.build()
     return mol
@@ -46,15 +46,20 @@ def compute_hessian_au_bohr2(
     Compute DFT Hessian with PySCF. Returns Hessian in atomic units (Hartree/Bohr^2)
     with shape (3N, 3N). Returns None if SCF fails.
     """
-    is_open_shell = multiplicity != 1
+    is_open_shell = (multiplicity != 1)
     if is_open_shell:
         mf = dft.UKS(mol)
     else:
         mf = dft.RKS(mol)
     mf.xc = xc
-    mf.conv_tol = 1e-9
+    mf.conv_tol = 1e-12
     mf.max_cycle = 200
     mf.verbose = 0
+    print("level:", mf.grids.level, "atom_grid:", mf.grids.atom_grid, "prune:", mf.grids.prune)
+    # # Denser, unpruned grid for XC integration
+    # mf.grids.level = 5
+    mf.grids.atom_grid = (99, 590)  # try (175, 974) if needed
+    mf.grids.prune = None
     try:
         mf.kernel()
     except Exception as e:
@@ -68,8 +73,12 @@ def compute_hessian_au_bohr2(
         print("<" * 40)
         return None
 
+    hobj = mf.Hessian()
+    # If these attributes exist in your PySCF version:
+    setattr(hobj, "conv_tol", 1e-10)
+    setattr(hobj, "max_cycle", 100)
+    hessian = hobj.kernel()
     # (N, N, 3, 3) where N is number of atoms
-    hessian = mf.Hessian().kernel()
     N = mol.natm
     hes = hessian.transpose(0, 2, 1, 3).reshape(3 * N, 3 * N)
     return hes
@@ -111,6 +120,7 @@ def main():
     )
     args = ap.parse_args()
 
+    args.dest_h5 = args.dest_h5.replace(".h5", f"_tight2.h5")
     if args.noiserms > 0.0:
         args.dest_h5 = args.dest_h5.replace(".h5", f"_noiserms{args.noiserms:.2f}.h5")
 
@@ -183,6 +193,7 @@ def main():
                     # On failure, remove the copied reaction to avoid partial data
                     del g_formula[rxn]
                     val_index += 1
+                    print(f"Skipping {formula}/{rxn} due to SCF failure")
                     continue
 
                 hessian_ev_ang2 = au_bohr2_to_ev_ang2(hessian_au)

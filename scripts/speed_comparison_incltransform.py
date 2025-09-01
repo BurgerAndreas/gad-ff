@@ -15,6 +15,9 @@ from gadff.horm.training_module import PotentialModule, compute_extra_props
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.path_config import fix_dataset_path, DATASET_FILES_HORM
 from ocpmodels.hessian_graph_transform import HessianGraphTransform
+from gadff.horm.training_module import (
+    SchemaUniformDataset,
+)
 
 #!/usr/bin/env python3
 """
@@ -44,7 +47,6 @@ import sys
 import json
 
 from gadff.horm.training_module import PotentialModule, compute_extra_props
-from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.path_config import fix_dataset_path, DATASET_FILES_HORM
 from ocpmodels.hessian_graph_transform import HessianGraphTransform
 
@@ -53,6 +55,8 @@ from ocpmodels.hessian_graph_transform import HessianGraphTransform
 # 'plotly_white', 'plotly_dark', 'presentation', 'xgridoff',
 # 'ygridoff', 'gridon', 'none']
 PLOTLY_TEMPLATE = "plotly_white"
+
+FOLLOW_BATCH = ["diag_ij", "edge_index", "message_idx_ij"]
 
 
 def save_idx_by_natoms(args):
@@ -203,8 +207,10 @@ def speed_comparison(
     max_samples_per_n,
     device="cuda",
     output_dir="./results_speed",
+    output_path=None,
 ):
     """Compares the speed of autograd vs prediction for Hessian computation."""
+    print("\nSpeed comparison")
     # Load model
     ckpt = torch.load(checkpoint_path, weights_only=False)
     model_name = ckpt["hyper_parameters"]["model_config"]["name"]
@@ -239,6 +245,7 @@ def speed_comparison(
         use_pbc=model.use_pbc,
     )
     dataset = LmdbDataset(fix_dataset_path(dataset_name), transform=transform)
+    dataset = SchemaUniformDataset(dataset)
 
     # do a couple of forward passes to warm up the model
     # populate caches, jit, load cuda kernels, and what not
@@ -265,7 +272,7 @@ def speed_comparison(
         indices_to_test = indices[:max_samples_per_n]
 
         subset = Subset(dataset, indices_to_test)
-        loader = TGDataLoader(subset, batch_size=1, shuffle=False)
+        loader = TGDataLoader(subset, batch_size=1, shuffle=False, follow_batch=FOLLOW_BATCH)
 
         for hessian_method in ["prediction", "autograd"]:
             do_autograd = hessian_method == "autograd"
@@ -312,7 +319,9 @@ def speed_comparison(
             results.append(
                 {
                     "n_atoms": n_atoms,
+                    "nsamples": len(indices_to_test),
                     "time": time_taken,
+                    "time_per_sample": time_taken / len(indices_to_test),
                     "memory": memory_usage,
                     "method": hessian_method,
                 }
@@ -321,9 +330,9 @@ def speed_comparison(
     # Save results
     output_dir = Path(output_dir)
     os.makedirs(output_dir, exist_ok=True)
-    output_path = (
-        output_dir / f"{dataset_name}_speed_comparison_incltransform_results.csv"
-    )
+    # output_path = (
+    #     output_dir / f"{dataset_name}_speed_comparison_incltransform_results.csv"
+    # )
     results_df = pd.DataFrame(results)
     results_df.to_csv(output_path, index=False)
     print(f"Results saved to {output_path}")
@@ -333,8 +342,8 @@ def speed_comparison(
 def plot_speed_comparison(results_df, output_dir="./results_speed"):
     output_dir = Path(output_dir)
     # Plot results for speed
-    avg_times = results_df.groupby(["n_atoms", "method"])["time"].mean().unstack()
-    std_times = results_df.groupby(["n_atoms", "method"])["time"].std().unstack()
+    avg_times = results_df.groupby(["n_atoms", "method"])["time_per_sample"].mean().unstack()
+    std_times = results_df.groupby(["n_atoms", "method"])["time_per_sample"].std().unstack()
 
     fig = go.Figure()
     for method in avg_times.columns:
@@ -356,10 +365,10 @@ def plot_speed_comparison(results_df, output_dir="./results_speed"):
         template=PLOTLY_TEMPLATE,
         margin=dict(l=40, r=40, b=40, t=40),
     )
-    output_path = output_dir / "speed_comparison_plot.html"
-    fig.write_html(output_path)
-    print(f"Plot saved to {output_path}")
-    output_path = output_dir / "speed_comparison_plot.png"
+    # output_path = output_dir / "speed_comparison_plot_incltransform.html"
+    # fig.write_html(output_path)
+    # print(f"Plot saved to {output_path}")
+    output_path = output_dir / "speed_comparison_plot_incltransform.png"
     fig.write_image(output_path)
     print(f"Plot saved to {output_path}")
 
@@ -390,10 +399,10 @@ def plot_memory_usage(results_df, output_dir="./results_speed"):
         template=PLOTLY_TEMPLATE,
         margin=dict(l=40, r=40, b=40, t=40),
     )
-    output_path = output_dir / "memory_usage_plot.html"
-    fig.write_html(output_path)
-    print(f"Plot saved to {output_path}")
-    output_path = output_dir / "memory_usage_plot.png"
+    # output_path = output_dir / "memory_usage_plot_incltransform.html"
+    # fig.write_html(output_path)
+    # print(f"Plot saved to {output_path}")
+    output_path = output_dir / "memory_usage_plot_incltransform.png"
     fig.write_image(output_path)
     print(f"Plot saved to {output_path}")
 
@@ -405,6 +414,7 @@ def batchsize_prediction_speed_test(
     batch_sizes=None,
     device="cuda",
     output_dir="./results_speed",
+    output_path=None,
 ):
     """Benchmark predicted Hessian speed over varying batch sizes on random samples.
 
@@ -412,6 +422,7 @@ def batchsize_prediction_speed_test(
     - Times only the prediction path (no autograd)
     - Tests each batch size and records total wall time and peak memory
     """
+    print("\nBatch-size prediction speed test")
     if batch_sizes is None:
         batch_sizes = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 
@@ -433,6 +444,7 @@ def batchsize_prediction_speed_test(
         use_pbc=model.use_pbc,
     )
     dataset = LmdbDataset(fix_dataset_path(dataset_name), transform=transform)
+    dataset = SchemaUniformDataset(dataset)
 
     if len(dataset) == 0:
         raise RuntimeError(f"Dataset {dataset_name} is empty")
@@ -464,12 +476,18 @@ def batchsize_prediction_speed_test(
 
     print("Batch-size test: model warmed up")
 
-    from torch.utils.data import Subset
 
     subset = Subset(dataset, random_indices)
 
     for bs in batch_sizes:
-        loader = TGDataLoader(subset, batch_size=bs, shuffle=True)
+        print(f"Batch size: {bs}")
+        transform = HessianGraphTransform(
+            cutoff=model.cutoff,
+            cutoff_hessian=model.cutoff_hessian,
+            max_neighbors=model.max_neighbors,
+            use_pbc=model.use_pbc,
+        )
+        loader = TGDataLoader(subset, batch_size=bs, shuffle=True, follow_batch=FOLLOW_BATCH)
 
         torch.cuda.reset_peak_memory_stats()
         start_event = torch.cuda.Event(enable_timing=True)
@@ -479,12 +497,12 @@ def batchsize_prediction_speed_test(
 
         for batch in tqdm(loader, desc=f"batch_size={bs}", leave=False):
             batch = batch.to(device)
-            batch = compute_extra_props(batch)
+            batch = compute_extra_props(batch, pos_require_grad=False)
 
             if "equiformer" in model.name.lower():
                 with torch.no_grad():
                     _ener, _force, out = model.forward(
-                        batch, otf_graph=True, hessian=True, add_props=True
+                        batch, otf_graph=False, hessian=True, add_props=True
                     )
             else:
                 # For non-equiformer models, prediction path isn't available
@@ -520,9 +538,6 @@ def batchsize_prediction_speed_test(
 
     output_dir = Path(output_dir)
     os.makedirs(output_dir, exist_ok=True)
-    output_path = (
-        output_dir / f"{dataset_name}_batchsize_prediction_incltransform_results.csv"
-    )
     df = pd.DataFrame(results)
     df.to_csv(output_path, index=False)
     print(f"Batch-size results saved to {output_path}")
@@ -583,9 +598,7 @@ def plot_batchsize_prediction(results_df, output_dir="./results_speed"):
 
 if __name__ == "__main__":
     """
-    python scripts/speed_comparison.py --dataset RGD1.lmdb --max_samples_per_n 10 --ckpt_path ../ReactBench/ckpt/hesspred/eqv2hp1.ckpt
-    python scripts/speed_comparison.py --dataset ts1x-val.lmdb --max_samples_per_n 100
-    python scripts/speed_comparison.py --dataset ts1x_hess_train_big.lmdb --max_samples_per_n 1000
+    python scripts/speed_comparison_incltransform.py --dataset RGD1.lmdb --max_samples_per_n 10 --ckpt_path ../ReactBench/ckpt/hesspred/eqv2hp1.ckpt
     """
     parser = argparse.ArgumentParser(description="Speed comparison")
 
@@ -601,13 +614,13 @@ if __name__ == "__main__":
         "--dataset",
         "-d",
         type=str,
-        default="ts1x-val.lmdb",
+        default="RGD1.lmdb",#"ts1x-val.lmdb",
         help="Dataset file name",
     )
     parser.add_argument(
         "--max_samples_per_n",
         type=int,
-        default=100,
+        default=10,
         help="Maximum number of samples per N atoms to test.",
     )
     parser.add_argument(
@@ -641,9 +654,9 @@ if __name__ == "__main__":
     redo = args.redo
 
     output_dir = "./results_speed"
+    output_dir = Path(output_dir)
+    output_path = output_dir / f"{args.dataset}_speed_comparison_incltransform_results.csv"
     if not redo:
-        output_dir = Path(output_dir)
-        output_path = output_dir / f"{args.dataset}_speed_comparison_results.csv"
         if output_path.exists():
             results_df = pd.read_csv(output_path)
             print(f"Loaded existing results from {output_path}")
@@ -656,6 +669,7 @@ if __name__ == "__main__":
             dataset_name=args.dataset,
             max_samples_per_n=args.max_samples_per_n,
             output_dir=output_dir,
+            output_path=output_path,
         )
 
     # Plot results
@@ -669,13 +683,28 @@ if __name__ == "__main__":
         except Exception as e:
             raise ValueError(f"Failed to parse --batch_sizes '{args.batch_sizes}': {e}")
 
-        bs_df = batchsize_prediction_speed_test(
-            checkpoint_path=args.ckpt_path,
-            dataset_name=args.dataset,
-            num_samples=args.batchsize_num_samples,
-            batch_sizes=batch_sizes,
-            output_dir=output_dir,
+        output_path = (
+            output_dir / f"{args.dataset}_batchsize_prediction_incltransform_results.csv"
         )
+
+        redo = args.redo
+
+        if not redo:
+            if output_path.exists():
+                results_df = pd.read_csv(output_path)
+                print(f"Loaded existing results from {output_path}")
+            else:
+                redo = True
+
+        if redo:
+            bs_df = batchsize_prediction_speed_test(
+                checkpoint_path=args.ckpt_path,
+                dataset_name=args.dataset,
+                num_samples=args.batchsize_num_samples,
+                batch_sizes=batch_sizes,
+                output_dir=output_dir,
+            )
+
         plot_batchsize_prediction(bs_df, output_dir=output_dir)
 
     print("Done.")

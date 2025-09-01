@@ -716,7 +716,7 @@ def do_relaxations():
         "RFO-BFGS (learned init)",
         # "RFO-BFGS (learned k3)",
         "RFO (learned)",
-        "RFO (NumHess)",
+        # "RFO (NumHess)",
         # "RFO (NumHess 4)",
         "RFO (autograd)",
     ]

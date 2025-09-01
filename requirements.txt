@@ -13,6 +13,7 @@ openbabel-wheel
 plotly
 imageio
 seaborn
+kaleido
 nglview
 py3Dmol==2.5.0
 # Development and formatting

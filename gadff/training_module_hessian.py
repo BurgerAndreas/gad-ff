@@ -60,26 +60,6 @@ from gadff.loss_functions import (
 )
 
 
-class HessianBatchedRMSELoss(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, pred, target, data):
-        pred = pred.view(-1)
-        target = target.view(-1)
-        # element wise squared difference
-        diff = (pred - target).pow(2)
-        # sum over elements within batch
-        B = data.batch.max().item() + 1
-        loss_per_batch = torch.ones(B)
-        loss_per_batch.index_add_(0, data.hessian_batch, diff)
-        # divide by number of elements per batch
-        loss_per_batch = loss_per_batch / data.hessian_batch.bincount()
-        # sqrt per batch
-        loss_per_batch = loss_per_batch.sqrt()
-        # mean over batches
-        return loss_per_batch.mean()
-
 
 class MyPLTrainer(pl.Trainer):
     # Does not do anything?
