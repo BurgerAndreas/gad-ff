@@ -272,7 +272,9 @@ def speed_comparison(
         indices_to_test = indices[:max_samples_per_n]
 
         subset = Subset(dataset, indices_to_test)
-        loader = TGDataLoader(subset, batch_size=1, shuffle=False, follow_batch=FOLLOW_BATCH)
+        loader = TGDataLoader(
+            subset, batch_size=1, shuffle=False, follow_batch=FOLLOW_BATCH
+        )
 
         for hessian_method in ["prediction", "autograd"]:
             do_autograd = hessian_method == "autograd"
@@ -342,8 +344,12 @@ def speed_comparison(
 def plot_speed_comparison(results_df, output_dir="./results_speed"):
     output_dir = Path(output_dir)
     # Plot results for speed
-    avg_times = results_df.groupby(["n_atoms", "method"])["time_per_sample"].mean().unstack()
-    std_times = results_df.groupby(["n_atoms", "method"])["time_per_sample"].std().unstack()
+    avg_times = (
+        results_df.groupby(["n_atoms", "method"])["time_per_sample"].mean().unstack()
+    )
+    std_times = (
+        results_df.groupby(["n_atoms", "method"])["time_per_sample"].std().unstack()
+    )
 
     fig = go.Figure()
     for method in avg_times.columns:
@@ -476,7 +482,6 @@ def batchsize_prediction_speed_test(
 
     print("Batch-size test: model warmed up")
 
-
     subset = Subset(dataset, random_indices)
 
     for bs in batch_sizes:
@@ -487,7 +492,9 @@ def batchsize_prediction_speed_test(
             max_neighbors=model.max_neighbors,
             use_pbc=model.use_pbc,
         )
-        loader = TGDataLoader(subset, batch_size=bs, shuffle=True, follow_batch=FOLLOW_BATCH)
+        loader = TGDataLoader(
+            subset, batch_size=bs, shuffle=True, follow_batch=FOLLOW_BATCH
+        )
 
         torch.cuda.reset_peak_memory_stats()
         start_event = torch.cuda.Event(enable_timing=True)
@@ -614,7 +621,7 @@ if __name__ == "__main__":
         "--dataset",
         "-d",
         type=str,
-        default="RGD1.lmdb",#"ts1x-val.lmdb",
+        default="RGD1.lmdb",  # "ts1x-val.lmdb",
         help="Dataset file name",
     )
     parser.add_argument(
@@ -655,7 +662,9 @@ if __name__ == "__main__":
 
     output_dir = "./results_speed"
     output_dir = Path(output_dir)
-    output_path = output_dir / f"{args.dataset}_speed_comparison_incltransform_results.csv"
+    output_path = (
+        output_dir / f"{args.dataset}_speed_comparison_incltransform_results.csv"
+    )
     if not redo:
         if output_path.exists():
             results_df = pd.read_csv(output_path)
@@ -684,7 +693,8 @@ if __name__ == "__main__":
             raise ValueError(f"Failed to parse --batch_sizes '{args.batch_sizes}': {e}")
 
         output_path = (
-            output_dir / f"{args.dataset}_batchsize_prediction_incltransform_results.csv"
+            output_dir
+            / f"{args.dataset}_batchsize_prediction_incltransform_results.csv"
         )
 
         redo = args.redo

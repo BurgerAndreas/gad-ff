@@ -13,6 +13,7 @@ import traceback
 import logging
 import h5py
 import pandas as pd
+import wandb
 
 import torch
 from torch_geometric.data import DataLoader as TGDataLoader
@@ -54,6 +55,7 @@ from nets.prediction_utils import (
 from ReactBench.Calculators.equiformer import PysisEquiformer
 
 from gadff.t1x_dft_dataloader import Dataloader as T1xDFTDataloader
+
 # try:
 #     from transition1x import Dataloader as T1xDataloader
 # except ImportError:
@@ -63,7 +65,7 @@ from gadff.t1x_dft_dataloader import Dataloader as T1xDFTDataloader
 #         "uv run Transition1x/download_t1x.py Transition1x/data" + "\n"
 #         "uv pip install -e Transition1x" + "\n"
 #     )
-
+from gadff.colours import COLOUR_LIST, OPTIM_TO_COLOUR
 
 """
 run as:
@@ -524,6 +526,37 @@ def print_header(i, method):
     print("\n" + "=" * 10 + " " + str(i) + " " + method + " " + "=" * 10)
 
 
+# match OPTIM_TO_COLOUR
+METHOD_TO_CATEGORY = {
+    "NaiveSteepestDescent": "firstorder",
+    "SteepestDescent": "firstorder",
+    "FIRE": "firstorder",
+    "ConjugateGradient": "firstorder",
+    "RFO-BFGS (unit init)": "bfgs",
+    "RFO-BFGS (DFT init)": "bfgs",
+    "RFO-BFGS (NumHess init)": "bfgs",
+    "RFO-BFGS (learned init)": "bfgs",
+    "RFO-BFGS (learned k3)": "bfgs",
+    "RFO (learned)": "ours",
+    "RFO (NumHess)": "secondorder",
+    "RFO (NumHess 4)": "secondorder",
+    "RFO (autograd)": "secondorder",
+}
+METHOD_TO_COLOUR = {
+    m: OPTIM_TO_COLOUR[METHOD_TO_CATEGORY[m]] for m in METHOD_TO_CATEGORY
+}
+
+# Plot again
+COMPETATIVE_METHODS = [
+    "RFO-BFGS (unit init)",
+    "RFO-BFGS (DFT init)",
+    "RFO-BFGS (NumHess init)",
+    "RFO-BFGS (learned init)",
+    "RFO-BFGS (learned k3)",
+    "RFO (learned)",
+]
+
+
 def do_relaxations():
     ap = argparse.ArgumentParser()
     ap.add_argument(
@@ -705,7 +738,7 @@ def do_relaxations():
 
     rng = np.random.default_rng(seed=42)
 
-    name_order = [
+    DO_METHOD = [
         "NaiveSteepestDescent",
         "SteepestDescent",
         "FIRE",
@@ -720,9 +753,6 @@ def do_relaxations():
         # "RFO (NumHess 4)",
         "RFO (autograd)",
     ]
-    # name_order = [
-    #     "RFO-BFGS (DFT init)",
-    # ]
 
     print("\nRunning relaxations...")
     csv_path = os.path.join(out_dir, f"relaxation_results.csv")
@@ -817,7 +847,7 @@ def do_relaxations():
 
             # first order:
             method_name = "NaiveSteepestDescent"
-            if method_name in name_order:
+            if method_name in DO_METHOD:
                 print_header(cnt, method_name)
                 method_name_clean = clean_str(method_name)
                 out_dir_method = os.path.join(out_dir, method_name_clean)
@@ -842,7 +872,7 @@ def do_relaxations():
 
             # first order, with backtracking line search
             method_name = "SteepestDescent"
-            if method_name in name_order:
+            if method_name in DO_METHOD:
                 print_header(cnt, method_name)
                 geom_sd = get_geom(atomssymbols, coords, args.coord, base_calc, args)
                 method_name_clean = clean_str(method_name)
@@ -866,7 +896,7 @@ def do_relaxations():
 
             # first-order optimization (FIRE)
             method_name = "FIRE"
-            if method_name in name_order:
+            if method_name in DO_METHOD:
                 method_name_clean = clean_str(method_name)
                 out_dir_method = os.path.join(out_dir, method_name_clean)
                 print_header(cnt, method_name)
@@ -917,7 +947,7 @@ def do_relaxations():
 
             # first order:
             method_name = "ConjugateGradient"
-            if method_name in name_order:
+            if method_name in DO_METHOD:
                 print_header(cnt, method_name)
                 geom_cg = get_geom(atomssymbols, coords, args.coord, base_calc, args)
                 method_name_clean = clean_str(method_name)
@@ -943,7 +973,7 @@ def do_relaxations():
             # 2) No Hessian: BFGS with non-Hessian initial guess (unit) - pure quasi-Newton
             #    RFOptimizer accepts hessian_init and BFGS updates.
             method_name = "RFO-BFGS (unit init)"
-            if method_name in name_order:
+            if method_name in DO_METHOD:
                 print_header(cnt, method_name)
                 # geom2 = Geometry(atomssymbols, coords, coord_type=args.coord)
                 # geom2.set_calculator(CountingCalc(base_calc))
@@ -974,7 +1004,7 @@ def do_relaxations():
 
             # 3) Initial-only: RFO+BFGS with DFT Hessian at step 0
             method_name = "RFO-BFGS (DFT init)"
-            if method_name in name_order:
+            if method_name in DO_METHOD:
                 print_header(cnt, method_name)
                 geom_bfgsdft = get_geom(
                     atomssymbols, coords, args.coord, base_calc, args
@@ -1004,7 +1034,7 @@ def do_relaxations():
 
             # Finite difference Hessian
             method_name = "RFO-BFGS (NumHess init)"
-            if method_name in name_order:
+            if method_name in DO_METHOD:
                 print_header(cnt, method_name)
                 geom_bfgsnumhess = get_geom(
                     atomssymbols, coords, args.coord, base_calc, args
@@ -1046,7 +1076,7 @@ def do_relaxations():
 
             # Initial-only: RFO+BFGS with learned only at step 0
             method_name = "RFO-BFGS (learned init)"
-            if method_name in name_order:
+            if method_name in DO_METHOD:
                 print_header(cnt, method_name)
                 geom_bfgslearned = get_geom(
                     atomssymbols, coords, args.coord, base_calc, args
@@ -1076,7 +1106,7 @@ def do_relaxations():
 
             # Periodic replace: k=3
             method_name = "RFO-BFGS (learned k3)"
-            if method_name in name_order:
+            if method_name in DO_METHOD:
                 print_header(cnt, method_name)
                 geom_bfgslearnedk3 = get_geom(
                     atomssymbols, coords, args.coord, base_calc, args
@@ -1106,7 +1136,7 @@ def do_relaxations():
 
             # Periodic replace: k=1 (every step)
             method_name = "RFO (learned)"
-            if method_name in name_order:
+            if method_name in DO_METHOD:
                 print_header(cnt, method_name)
                 geom_rfolearned = get_geom(
                     atomssymbols, coords, args.coord, base_calc, args
@@ -1136,7 +1166,7 @@ def do_relaxations():
 
             # Periodic replace: k=1 (every step)
             method_name = "RFO (autograd)"
-            if method_name in name_order:
+            if method_name in DO_METHOD:
                 print_header(cnt, method_name)
                 hessian_method_before = base_calc.hessian_method
                 base_calc.hessian_method = "autograd"
@@ -1169,7 +1199,7 @@ def do_relaxations():
 
             # Finite difference Hessian at every step
             method_name = "RFO (NumHess)"
-            if method_name in name_order:
+            if method_name in DO_METHOD:
                 print_header(cnt, method_name)
                 geom_rfonumhess = get_geom(
                     atomssymbols, coords, args.coord, base_calc, args
@@ -1201,7 +1231,7 @@ def do_relaxations():
 
             # Finite difference Hessian at every step with higher accuracy
             method_name = "RFO (NumHess 4)"
-            if method_name in name_order:
+            if method_name in DO_METHOD:
                 print_header(cnt, method_name)
                 geom_rfonumhess4 = get_geom(
                     atomssymbols, coords, args.coord, base_calc, args
@@ -1382,10 +1412,6 @@ def do_relaxations():
 
     def _plot_metric_box(_df, metric_name, save_path, title, remove_outliers=False):
         _d = _df.dropna(subset=[metric_name])
-        _d = _d.sort_values(
-            by="name",
-            key=lambda s: s.map({name: i for i, name in enumerate(name_order)}),
-        )
         if len(_d) == 0:
             return
         if remove_outliers:
@@ -1393,17 +1419,24 @@ def do_relaxations():
             if len(_d) == 0:
                 return
         plt.figure(figsize=(10, 6))
+        order = sorted(
+            _d["name"].unique(),
+            key=lambda s: {n: i for i, n in enumerate(DO_METHOD)}.get(s, 10**9),
+        )
+        palette = [METHOD_TO_COLOUR[n] for n in order]
         ax = sns.boxplot(
             data=_d,
             x="name",
             y=metric_name,
+            order=order,
+            palette=palette,
             # palette="tab10",
             # hue=
             # width=0.5,
             # whis=(0, 100) # show full range of data
             showfliers=False,  # hide outliers
         )
-        ax.set_xlabel("Method")
+        ax.set_xlabel("")
         ax.set_ylabel(metric_name.replace("_", " "))
         ax.set_title(title)
         plt.xticks(rotation=25, ha="right")
@@ -1421,31 +1454,44 @@ def do_relaxations():
             if len(_d) == 0:
                 return
         plt.figure(figsize=(10, 6))
+        order = sorted(
+            _d["name"].unique(),
+            key=lambda s: {n: i for i, n in enumerate(DO_METHOD)}.get(s, 10**9),
+        )
+        palette = [METHOD_TO_COLOUR[n] for n in order]
         ax = sns.violinplot(
             data=_d,
             x="name",
             y=metric_name,
+            order=order,
+            palette=palette,
             inner="quartile",
             cut=0,
             density_norm="width",
-            fill=False, # only outline
-            linewidth=1.5, # only outline
+            fill=False,  # only outline
+            linewidth=1.5,  # only outline
         )
         # Overlay scatter (jittered strip) with transparency
         sns.stripplot(
             data=_d,
             x="name",
             y=metric_name,
-            color="black",
+            order=order,
+            hue="name",
+            palette=METHOD_TO_COLOUR,
             alpha=0.25,
             size=2,
             jitter=0.25,
             ax=ax,
+            dodge=False,
         )
-        ax.set_xlabel("Method")
-        ax.set_ylabel(metric_name.replace("_", " "))
+        # remove legend added by hue
+        if ax.get_legend() is not None:
+            ax.get_legend().remove()
+        ax.set_xlabel("")
+        ax.set_ylabel(metric_name.replace("_", " ").title())
         ax.set_title(
-            f"{metric_name.replace('_', ' ').title()} by method ({COORD_TO_NAME[args.coord]})"
+            f"{metric_name.replace('_', ' ').title()} ({COORD_TO_NAME[args.coord]})"
         )
         plt.xticks(rotation=25, ha="right")
         plt.tight_layout()
@@ -1466,11 +1512,14 @@ def do_relaxations():
             data=_d,
             x="name",
             y=metric_name,
-            # palette="tab10",
-            # hue=
+            hue="name",
+            palette=METHOD_TO_COLOUR,
             alpha=0.5,
         )
-        ax.set_xlabel("Method")
+        # remove legend added by hue
+        if ax.get_legend() is not None:
+            ax.get_legend().remove()
+        ax.set_xlabel("")
         ax.set_ylabel(metric_name.replace("_", " "))
         ax.set_title(
             f"{metric_name.replace('_', ' ').title()} by method ({COORD_TO_NAME[args.coord]})"
@@ -1498,7 +1547,7 @@ def do_relaxations():
         # sort by predefined order if available
         agg = agg.sort_values(
             by="name",
-            key=lambda s: s.map({name: i for i, name in enumerate(name_order)}),
+            key=lambda s: s.map({name: i for i, name in enumerate(DO_METHOD)}),
         )
 
         plt.figure(figsize=(10, 6))
@@ -1527,16 +1576,26 @@ def do_relaxations():
             zorder=3,
         )
         ax.legend()
-        ax.set_xlabel("Method")
+        ax.set_xlabel("")
         ax.set_ylabel(metric_name.replace("_", " "))
         ax.set_title(
-            f"{metric_name.replace('_', ' ').title()} by method ({COORD_TO_NAME[args.coord]})"
+            f"{metric_name.replace('_', ' ').title()} ({COORD_TO_NAME[args.coord]})"
         )
         plt.xticks(rotation=25, ha="right")
         plt.tight_layout()
         plt.savefig(save_path, dpi=150)
         plt.close()
         print(f"Saved {save_path}")
+
+    # df = df.sort_values(
+    #     by="name",
+    #     key=lambda s: s.map({name: i for i, name in enumerate(DO_METHOD)}),
+    # )
+    # sort df by average number of steps (highest first)
+    df = df.sort_values(by="steps", ascending=False)
+
+    # for DFT init, add 5min to the wall time
+    df.loc[df["name"] == "RFO-BFGS (DFT init)", "wall_time_s"] += 5 * 60
 
     for metric in ["steps", "grad_calls", "hessian_calls", "wall_time_s"]:
         # _d = df.copy()
@@ -1547,14 +1606,13 @@ def do_relaxations():
         #     title=f"{metric.replace('_', ' ').title()} (converged) ({COORD_TO_NAME[args.coord]})",
         #     remove_outliers=False,
         # )
-        _d = df.copy()
-        _plot_metric_box(
-            _d,
-            metric,
-            os.path.join(plots_dir, f"{metric}_box.png"),
-            title=f"{metric.replace('_', ' ').title()} (incl. not converged) ({COORD_TO_NAME[args.coord]})",
-            remove_outliers=False,
-        )
+        # _plot_metric_box(
+        #     df.copy(),
+        #     metric,
+        #     os.path.join(plots_dir, f"{metric}_box.png"),
+        #     title=f"{metric.replace('_', ' ').title()} (incl. not converged) ({COORD_TO_NAME[args.coord]})",
+        #     remove_outliers=False,
+        # )
         # _plot_metric_scatter(
         #     df.copy(),
         #     metric,
@@ -1567,12 +1625,18 @@ def do_relaxations():
             os.path.join(plots_dir, f"{metric}_violin.png"),
             remove_outliers=False,
         )
-        _plot_metric_mean(
-            df.copy(),
+        _plot_metric_violin(
+            df.copy()[df["name"].isin(COMPETATIVE_METHODS)],
             metric,
-            os.path.join(plots_dir, f"{metric}_mean.png"),
+            os.path.join(plots_dir, f"{metric}_violin_competative.png"),
             remove_outliers=False,
         )
+        # _plot_metric_mean(
+        #     df.copy(),
+        #     metric,
+        #     os.path.join(plots_dir, f"{metric}_mean.png"),
+        #     remove_outliers=False,
+        # )
 
     # Convergence rate per method
     if "converged" in df.columns:
@@ -1582,7 +1646,7 @@ def do_relaxations():
         # sort by human name:
         conv = conv.sort_values(
             by="name",
-            key=lambda s: s.map({name: i for i, name in enumerate(name_order)}),
+            key=lambda s: s.map({name: i for i, name in enumerate(DO_METHOD)}),
         )
         plt.figure(figsize=(10, 6))
         ax = sns.barplot(
@@ -1593,7 +1657,7 @@ def do_relaxations():
             # hue="coord",
         )
         ax.set_ylim(0, 1)
-        ax.set_xlabel("Method")
+        ax.set_xlabel("")
         ax.set_ylabel("Convergence rate")
         ax.set_title(f"Convergence rate by method ({COORD_TO_NAME[args.coord]})")
         plt.xticks(rotation=25, ha="right")
@@ -1605,57 +1669,37 @@ def do_relaxations():
 
     print(f"Saved plots to: {plots_dir}")
 
-    # Log to Weights & Biases only when results were computed (not when loaded)
-    if did_compute_results:
-        import wandb
+    # Log to Weights & Biases
 
-        run_name = (
-            f"relax_{source_label}_{wandb_id}_{args.coord}_"
-            f"{args.thresh.replace('_', '')}_{args.max_samples}"
-        )
-        wandb.init(
-            project="2nd-order-relax",
-            name=run_name,
-            reinit=True,
-            config={
-                "coord": args.coord,
-                "thresh": args.thresh,
-                "max_samples": args.max_samples,
-                "redo": args.redo,
-                "pddftonly": args.pddftonly,
-                "pdpredonly": args.pdpredonly,
-                "pdthresh": args.pdthresh,
-            },
-        )
-        # Log results table
-        try:
-            wandb.log({"results_table": wandb.Table(dataframe=df)})
-        except Exception as _e:
-            print(f"wandb table log failed: {_e}")
-        # Log plots if available
-        try:
-            plot_paths = sorted(glob.glob(os.path.join(plots_dir, "*.png")))
-            if plot_paths:
-                images_log = {
-                    os.path.splitext(os.path.basename(p))[0]: wandb.Image(p)
-                    for p in plot_paths
-                }
-                wandb.log(images_log)
-            # Also log violin plots as a grouped list
-            violin_paths = sorted(
-                glob.glob(os.path.join(plots_dir, "*_violin.png"))
-            )
-            if violin_paths:
-                wandb.log({
-                    "violin_plots": [wandb.Image(p) for p in violin_paths]
-                })
-            # And log convergence plot explicitly if present
-            conv_path = os.path.join(plots_dir, "convergence_rate.png")
-            if os.path.exists(conv_path):
-                wandb.log({"convergence_plot": wandb.Image(conv_path)})
-        except Exception as _e:
-            print(f"wandb plot log failed: {_e}")
-        wandb.finish()
+    run_name = (
+        f"relax_{source_label}_{wandb_id}_{args.coord}_"
+        f"{args.thresh.replace('_', '')}_{args.max_samples}"
+    )
+    wandb.init(
+        project="2nd-order-relax",
+        name=run_name,
+        reinit=True,
+        config={
+            "xyz": args.xyz,
+            "coord": args.coord,
+            "thresh": args.thresh,
+            "max_samples": args.max_samples,
+            "redo": args.redo,
+            "pddftonly": args.pddftonly,
+            "pdpredonly": args.pdpredonly,
+            "pdthresh": args.pdthresh,
+        },
+    )
+    # Log results table
+    wandb.log({"results_table": wandb.Table(dataframe=df)})
+    # Log plots if available
+    plot_paths = sorted(glob.glob(os.path.join(plots_dir, "*.png")))
+    if plot_paths:
+        images_log = {
+            os.path.splitext(os.path.basename(p))[0]: wandb.Image(p) for p in plot_paths
+        }
+        wandb.log(images_log)
+    wandb.finish()
 
     return df
 

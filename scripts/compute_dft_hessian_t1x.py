@@ -33,7 +33,7 @@ def build_molecule(
     mol.atom = atoms_bohr  # list[(Z|(symbol), (x,y,z))]
     mol.charge = int(charge)
     mol.spin = int(spin)
-    mol.basis = "6-31g(d)" # wB97x_6-31G(d)
+    mol.basis = "6-31g(d)"  # wB97x_6-31G(d)
     mol.unit = "Bohr"
     mol.build()
     return mol
@@ -46,7 +46,7 @@ def compute_hessian_au_bohr2(
     Compute DFT Hessian with PySCF. Returns Hessian in atomic units (Hartree/Bohr^2)
     with shape (3N, 3N). Returns None if SCF fails.
     """
-    is_open_shell = (multiplicity != 1)
+    is_open_shell = multiplicity != 1
     if is_open_shell:
         mf = dft.UKS(mol)
     else:
@@ -55,8 +55,7 @@ def compute_hessian_au_bohr2(
     mf.conv_tol = 1e-12
     mf.max_cycle = 200
     mf.verbose = 0
-    print("level:", mf.grids.level, "atom_grid:", mf.grids.atom_grid, "prune:", mf.grids.prune)
-    # # Denser, unpruned grid for XC integration
+    # Denser, unpruned grid for XC integration
     # mf.grids.level = 5
     mf.grids.atom_grid = (99, 590)  # try (175, 974) if needed
     mf.grids.prune = None

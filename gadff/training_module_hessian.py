@@ -60,7 +60,6 @@ from gadff.loss_functions import (
 )
 
 
-
 class MyPLTrainer(pl.Trainer):
     # Does not do anything?
     # self.trainer.strategy.load_model_state_dict
