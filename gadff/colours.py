@@ -2,6 +2,12 @@ import seaborn as sns
 
 SNSPALETTE = sns.color_palette("pastel", 10).as_hex()
 
+import plotly.colors
+
+PLOTLY_DEFAULT_COLOURS = plotly.colors.qualitative.Plotly
+# ['#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', '#19D3F3', '#FF6692', '#B6E880', '#FF97FF', '#FECB52']
+
+
 COLOUR_LIST = [
     "#1b85b8",
     "#89CFF0",
@@ -32,6 +38,14 @@ METHOD_TO_COLOUR = {
     "eqv2": "#89CFF0",  # "#b8d6ec", #89CFF0
     "hesspred": "#f6cf71",
 }
+HESSIAN_METHOD_TO_COLOUR = {
+    # "autograd": "#89CFF0",
+    # "predict": "#f6cf71",
+    "predict": PLOTLY_DEFAULT_COLOURS[0],
+    "autograd": PLOTLY_DEFAULT_COLOURS[1],
+}
+HESSIAN_METHOD_TO_COLOUR["prediction"] = HESSIAN_METHOD_TO_COLOUR["predict"]
+HESSIAN_METHOD_TO_COLOUR["learned"] = HESSIAN_METHOD_TO_COLOUR["predict"]
 
 # Relaxations
 OPTIM_TO_COLOUR = {

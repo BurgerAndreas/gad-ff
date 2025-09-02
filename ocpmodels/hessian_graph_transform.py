@@ -31,6 +31,8 @@ from torch_geometric.data.data import BaseData
 from torch_geometric.data.datapipes import DatasetAdapter
 from torch_geometric.typing import TensorFrame, torch_frame
 
+FOLLOW_BATCH = ["diag_ij", "edge_index", "message_idx_ij"]
+
 
 class HessianGraphTransform(BaseTransform):
     """

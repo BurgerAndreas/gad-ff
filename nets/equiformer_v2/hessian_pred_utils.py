@@ -36,6 +36,12 @@ def check_symmetry(hessian, N, nsamples=100):
 
 
 def add_extra_props_for_hessian(data, offset_indices=False):
+    """Fix indices for batched Hessian prediction.
+
+    If you encounter the following error:
+    AttributeError: 'GlobalStorage' object has no attribute 'edge_index_ptr'. Did you mean: 'edge_index'
+    You need to add follow_batch=['diag_ij', 'edge_index', 'message_idx_ij'] to the dataloader.
+    """
     # add extra props for convience
     nedges = data.nedges_hessian
     B = data.batch.max().item() + 1

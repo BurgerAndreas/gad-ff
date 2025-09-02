@@ -11,44 +11,14 @@ import json
 from pathlib import Path
 import os
 
+import math
 from gadff.horm.training_module import PotentialModule, compute_extra_props
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.path_config import fix_dataset_path, DATASET_FILES_HORM
-from ocpmodels.hessian_graph_transform import HessianGraphTransform
+from ocpmodels.hessian_graph_transform import HessianGraphTransform, FOLLOW_BATCH
 from gadff.horm.training_module import (
     SchemaUniformDataset,
 )
-
-#!/usr/bin/env python3
-"""
-Script to load a dataset and save the indices of samples grouped by the number of atoms.
-"""
-
-import argparse
-import json
-from collections import defaultdict
-from pathlib import Path
-import os
-
-import torch
-from torch.utils.data import Subset
-from tqdm import tqdm
-import json
-
-from gadff.horm.ff_lmdb import LmdbDataset
-from gadff.path_config import fix_dataset_path
-
-import wandb
-from torch_geometric.loader import DataLoader as TGDataLoader
-import pandas as pd
-import plotly.graph_objects as go
-import time
-import sys
-import json
-
-from gadff.horm.training_module import PotentialModule, compute_extra_props
-from gadff.path_config import fix_dataset_path, DATASET_FILES_HORM
-from ocpmodels.hessian_graph_transform import HessianGraphTransform
 
 # https://plotly.com/python/templates/
 # ['ggplot2', 'seaborn', 'simple_white', 'plotly',
@@ -56,7 +26,8 @@ from ocpmodels.hessian_graph_transform import HessianGraphTransform
 # 'ygridoff', 'gridon', 'none']
 PLOTLY_TEMPLATE = "plotly_white"
 
-FOLLOW_BATCH = ["diag_ij", "edge_index", "message_idx_ij"]
+from torch.utils.data import Subset
+from collections import defaultdict
 
 
 def save_idx_by_natoms(args):
@@ -430,7 +401,7 @@ def batchsize_prediction_speed_test(
     """
     print("\nBatch-size prediction speed test")
     if batch_sizes is None:
-        batch_sizes = [1, 2, 4, 8, 16, 32, 64, 128, 256]
+        batch_sizes = [1, 2, 4, 8, 16, 32, 64, 128]
 
     # Load model
     ckpt = torch.load(checkpoint_path, weights_only=False)
@@ -462,7 +433,9 @@ def batchsize_prediction_speed_test(
     results = []
 
     # Warmup a couple of steps
-    warm_loader = TGDataLoader(dataset, batch_size=1, shuffle=False)
+    warm_loader = TGDataLoader(
+        dataset, batch_size=1, shuffle=False, follow_batch=FOLLOW_BATCH
+    )
     for i, sample in enumerate(warm_loader):
         batch = sample.to(device)
         batch = compute_extra_props(batch)
@@ -578,6 +551,36 @@ def plot_batchsize_prediction(results_df, output_dir="./results_speed"):
     fig.write_image(output_path)
     print(f"Plot saved to {output_path}")
 
+    # Time per batch vs batch size
+    num_batches = [
+        max(1, math.ceil(ns / bs))
+        for bs, ns in zip(results_df["batch_size"], results_df["num_samples"])
+    ]
+    time_per_batch_ms = results_df["time_total_ms"] / num_batches
+
+    fig_batch = go.Figure()
+    fig_batch.add_trace(
+        go.Scatter(
+            x=results_df["batch_size"],
+            y=time_per_batch_ms,
+            mode="lines+markers",
+            name="time/batch (ms)",
+        )
+    )
+    fig_batch.update_layout(
+        title="Predicted Hessian: Time per batch vs Batch size",
+        xaxis_title="Batch size",
+        yaxis_title="Time per batch (ms)",
+        template=PLOTLY_TEMPLATE,
+        margin=dict(l=40, r=40, b=40, t=40),
+    )
+    output_path = output_dir / "batchsize_prediction_time_per_batch.html"
+    fig_batch.write_html(output_path)
+    print(f"Plot saved to {output_path}")
+    output_path = output_dir / "batchsize_prediction_time_per_batch.png"
+    fig_batch.write_image(output_path)
+    print(f"Plot saved to {output_path}")
+
     # Peak memory vs batch size
     fig_mem = go.Figure()
     fig_mem.add_trace(
@@ -645,7 +648,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--batch_sizes",
         type=str,
-        default="1,2,4,8,16,32,64,128,256",
+        default="1,2,4,8,16,32,64,128",
         help="Comma-separated batch sizes to test",
     )
     parser.add_argument(

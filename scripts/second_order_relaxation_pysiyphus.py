@@ -611,10 +611,17 @@ def do_relaxations():
     wandb_id = ckpt_path.split("/")[-1].split(".")[0].split("-")[1]
 
     print("Loading dataset...")
+    print(f"Dataset: {args.xyz}. is file: {os.path.isfile(args.xyz)}")
     data_is_xyz = False
     data_is_t1x = False
     data_is_lmdb = False
-    if args.xyz in ["t1x"]:
+    if "t1x" in args.xyz and os.path.isfile(args.xyz):
+        # /ssd/Code/gad-ff/data/t1x_val_reactant_hessian_100_tight2_noiserms0.03.h5
+        dataset_path = args.xyz
+        print(f"Loading T1x dataset from {dataset_path}")
+        dataset = T1xDFTDataloader(dataset_path, datasplit="val", only_final=True)
+        data_is_t1x = True
+    elif args.xyz in ["t1x"]:
         # dataset_path = "Transition1x/data/transition1x.h5"
         dataset_path = "data/t1x_val_reactant_hessian_100.h5"
         dataset = T1xDFTDataloader(dataset_path, datasplit="val", only_final=True)
@@ -747,10 +754,11 @@ def do_relaxations():
         "RFO-BFGS (DFT init)",
         "RFO-BFGS (NumHess init)",
         "RFO-BFGS (learned init)",
+        "RFO-BFGS (autograd init)",
         # "RFO-BFGS (learned k3)",
         "RFO (learned)",
-        # "RFO (NumHess)",
-        # "RFO (NumHess 4)",
+        "RFO (NumHess)",
+        "RFO (NumHess 4)",
         "RFO (autograd)",
     ]
 
@@ -1104,6 +1112,43 @@ def do_relaxations():
                     )
                 )
 
+            # Initial-only: RFO+BFGS with autograd Hessian only at step 0
+            method_name = "RFO-BFGS (autograd init)"
+            if method_name in DO_METHOD:
+                print_header(cnt, method_name)
+                geom_bfgsautograd = get_geom(
+                    atomssymbols, coords, args.coord, base_calc, args
+                )
+                # initial autograd hessian
+                hessian_method_before = base_calc.hessian_method
+                base_calc.hessian_method = "autograd"
+                initial_autograd_hessian = base_calc.get_hessian(
+                    geom_bfgsautograd.atoms, geom_bfgsautograd._coords
+                )["hessian"]
+                base_calc.hessian_method = hessian_method_before
+                method_name_clean = clean_str(method_name)
+                out_dir_method = os.path.join(out_dir, method_name_clean)
+                opt = get_rfo_optimizer(
+                    geom_bfgsautograd,
+                    hessian_init=initial_autograd_hessian,
+                    hessian_update="bfgs",
+                    hessian_recalc=None,
+                    out_dir=out_dir_method,
+                    verbose=args.verbose,
+                    thresh=args.thresh,
+                    max_cycles=args.max_cycles,
+                )
+                results.append(
+                    _run_opt_safely(
+                        geom=geom_bfgsautograd,
+                        opt=opt,
+                        method_name=method_name,
+                        out_dir=out_dir_method,
+                        verbose=args.verbose,
+                        dft_hessian_is_pd=dft_hessian_is_pd,
+                    )
+                )
+
             # Periodic replace: k=3
             method_name = "RFO-BFGS (learned k3)"
             if method_name in DO_METHOD:
@@ -1170,13 +1215,13 @@ def do_relaxations():
                 print_header(cnt, method_name)
                 hessian_method_before = base_calc.hessian_method
                 base_calc.hessian_method = "autograd"
-                geom_rfolearned = get_geom(
+                geom_rfoautograd = get_geom(
                     atomssymbols, coords, args.coord, base_calc, args
                 )
                 method_name_clean = clean_str(method_name)
                 out_dir_method = os.path.join(out_dir, method_name_clean)
                 opt = get_rfo_optimizer(
-                    geom_rfolearned,
+                    geom_rfoautograd,
                     hessian_init="calc",
                     hessian_update="bfgs",
                     hessian_recalc=1,
@@ -1187,7 +1232,7 @@ def do_relaxations():
                 )
                 results.append(
                     _run_opt_safely(
-                        geom=geom_rfolearned,
+                        geom=geom_rfoautograd,
                         opt=opt,
                         method_name=method_name,
                         out_dir=out_dir_method,
@@ -1377,21 +1422,21 @@ def do_relaxations():
             _d = df[df["name"] == method]
             print(f"{method}: {_d[metric].mean():.2f} ± {_d[metric].std():.2f}")
 
-    # print % of converged optims where dft_hessian_is_pd is False
-    print("\n% of converged BFGS+DFT init when dft_hessian_is_pd is True:")
-    _d = df[(df["dft_hessian_is_pd"] == True) & (df["name"] == "RFO-BFGS (DFT init)")]
-    print(f"{_d['converged'].mean() * 100:.2f}%")
-    print("\n% of converged BFGS+DFT init when dft_hessian_is_pd is False:")
-    _d = df[(df["dft_hessian_is_pd"] == False) & (df["name"] == "RFO-BFGS (DFT init)")]
-    print(f"{_d['converged'].mean() * 100:.2f}%")
+    # # print % of converged optims where dft_hessian_is_pd is False
+    # print("\n% of converged BFGS+DFT init when dft_hessian_is_pd is True:")
+    # _d = df[(df["dft_hessian_is_pd"] == True) & (df["name"] == "RFO-BFGS (DFT init)")]
+    # print(f"{_d['converged'].mean() * 100:.2f}%")
+    # print("\n% of converged BFGS+DFT init when dft_hessian_is_pd is False:")
+    # _d = df[(df["dft_hessian_is_pd"] == False) & (df["name"] == "RFO-BFGS (DFT init)")]
+    # print(f"{_d['converged'].mean() * 100:.2f}%")
 
-    # print % of converged optims where no pd Hessian was encountered in calculator
-    print("\n% of converged RFO (learned) when all Hessians were pd:")
-    _d = df[(df["cnt_not_pd"] == 0) & (df["name"] == "RFO (learned)")]
-    print(f"{_d['converged'].mean() * 100:.2f}%")
-    print("\n% of converged RFO (learned) when some Hessians were not pd:")
-    _d = df[(df["cnt_not_pd"] > 0) & (df["name"] == "RFO (learned)")]
-    print(f"{_d['converged'].mean() * 100:.2f}%")
+    # # print % of converged optims where no pd Hessian was encountered in calculator
+    # print("\n% of converged RFO (learned) when all Hessians were pd:")
+    # _d = df[(df["cnt_not_pd"] == 0) & (df["name"] == "RFO (learned)")]
+    # print(f"{_d['converged'].mean() * 100:.2f}%")
+    # print("\n% of converged RFO (learned) when some Hessians were not pd:")
+    # _d = df[(df["cnt_not_pd"] > 0) & (df["name"] == "RFO (learned)")]
+    # print(f"{_d['converged'].mean() * 100:.2f}%")
 
     #########################################################
     # do plotting
@@ -1522,7 +1567,7 @@ def do_relaxations():
         ax.set_xlabel("")
         ax.set_ylabel(metric_name.replace("_", " "))
         ax.set_title(
-            f"{metric_name.replace('_', ' ').title()} by method ({COORD_TO_NAME[args.coord]})"
+            f"{metric_name.replace('_', ' ').title()} ({COORD_TO_NAME[args.coord]})"
         )
         plt.xticks(rotation=25, ha="right")
         plt.tight_layout()
@@ -1659,7 +1704,7 @@ def do_relaxations():
         ax.set_ylim(0, 1)
         ax.set_xlabel("")
         ax.set_ylabel("Convergence rate")
-        ax.set_title(f"Convergence rate by method ({COORD_TO_NAME[args.coord]})")
+        ax.set_title(f"Convergence rate ({COORD_TO_NAME[args.coord]})")
         plt.xticks(rotation=25, ha="right")
         plt.tight_layout()
         fname = os.path.join(plots_dir, "convergence_rate.png")
