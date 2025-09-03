@@ -28,6 +28,14 @@ COLOUR_LIST = [
     "#b8d6ec",
     "#295c7e",
     "#444f97",
+    "#b5e2da",
+    "#95b3c0",
+    "#656a95",
+    "#db95a6",
+    "#5a5255",
+    "#559e83",
+    "#ae5a41",
+    "#c3cb71",
 ]
 
 METHOD_TO_COLOUR = {
@@ -50,7 +58,10 @@ HESSIAN_METHOD_TO_COLOUR["learned"] = HESSIAN_METHOD_TO_COLOUR["predict"]
 # Relaxations
 OPTIM_TO_COLOUR = {
     "firstorder": "#295c7e",
-    "bfgs": "#ffaaa5",
-    "secondorder": "#ffaaa5",
-    "ours": "#f6cf71",
+    "bfgs": "#636EFA",
+    "secondorder": "#db95a6",  # #EF553B
+    "ours": "#d96002",
 }
+OPTIM_TO_COLOUR["First-Order"] = OPTIM_TO_COLOUR["firstorder"]
+OPTIM_TO_COLOUR["Second-Order"] = OPTIM_TO_COLOUR["secondorder"]
+OPTIM_TO_COLOUR["Quasi-Second-Order"] = OPTIM_TO_COLOUR["bfgs"]

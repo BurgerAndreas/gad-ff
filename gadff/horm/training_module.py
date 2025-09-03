@@ -347,53 +347,12 @@ class PotentialModule(LightningModule):
         forces,
         batch,
         hessian_label,
-        num_samples=2,
+        num_samples=2,  # number of HVPs
         looped=False,
         finite_differences=False,
         forward=None,
         collater=None,
     ):
-        """
-        Compute Hessian loss using stochastic row sampling strategy for efficient training.
-
-        This function implements the core innovation of HORM's Hessian-informed training by using
-        stochastic sampling to make second-order derivative training computationally tractable.
-        Instead of computing expensive full Hessian matrices (N×3 × N×3), it randomly samples
-        a small number of matrix elements per molecule and compares predicted vs. ground truth values.
-
-        Args:
-            forces (torch.Tensor): Predicted forces from the model, shape (total_atoms, 3)
-            batch: Batch object containing molecular data including:
-                - natoms (torch.Tensor): Number of atoms per molecule
-                - pos (torch.Tensor): Atomic positions with requires_grad=True
-                - hessian (torch.Tensor): Ground truth Hessian data from HORM dataset
-            hessian_label (torch.Tensor): Flattened ground truth Hessian matrices
-            num_samples (int, optional): Number of Hessian elements to sample per molecule.
-                Defaults to 2.
-            looped (bool, optional): Whether to use looped Jacobian computation. Defaults to False.
-            finite_differences (bool, optional): Whether to use finite differences (unused).
-                Defaults to False.
-            forward (callable, optional): Forward function for finite differences (unused).
-                Defaults to None.
-            collater (callable, optional): Data collation function (unused). Defaults to None.
-
-        Returns:
-            torch.Tensor: Scalar Hessian loss value normalized by batch size and scaled by 1/10
-
-        Implementation Details:
-            1. **Stochastic Sampling**: Uses sample_with_mask() to randomly select matrix elements
-            2. **Batch Processing**: Handles variable molecule sizes via cumulative indexing
-            3. **Jacobian Computation**: Calls get_jacobian() with sparse grad_outputs
-            4. **Loss Calculation**: L2 norm between predicted and true Jacobian elements
-            5. **Outlier Filtering**: Scales loss for Hessians with extreme values (>10000)
-
-        Note:
-            This approach enables training with second-order information while maintaining
-            computational efficiency, addressing the "dramatically increased cost and complexity"
-            mentioned in the HORM paper. The stochastic sampling allows models to learn
-            Hessian patterns without computing full expensive matrices.
-        """
-
         natoms = batch.natoms
         total_num_atoms = forces.shape[0]
 
@@ -417,8 +376,8 @@ class PotentialModule(LightningModule):
                 offset_samples[:, 0],
                 offset_samples[:, 1],
             ] = 1
-        # Compute the jacobian using grad_outputs
 
+        # Compute the jacobian using grad_outputs
         jac = self.get_jacobian(
             forces, batch.pos, grad_outputs, create_graph=True, looped=looped
         )

@@ -21,6 +21,7 @@ results*/
 runs_*/
 runs_relaxation/
 **/Transition1x/
+!**/*.csv
 
 _*
 plots/
@@ -30,11 +31,13 @@ tmp_quacc*/
 vib
 
 Data
-.csv
+# .csv
 rgd1_raw/
 *.html
-*.json
+# *.json
 *.trj
+logs_gad
+logs_hormtssearch
 
 *.whl
 *env

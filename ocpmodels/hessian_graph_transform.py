@@ -218,6 +218,8 @@ class HessianGraphTransform(BaseTransform):
 
 def generate_fullyconnected_graph_nopbc(data, cutoff, max_neighbors: int = 32):
     # used by HORM
+    if max_neighbors is None:
+        max_neighbors = 32
     pos = data.pos
     edge_index = radius_graph(
         pos, r=cutoff, batch=data.batch, max_num_neighbors=max_neighbors

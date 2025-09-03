@@ -5,12 +5,11 @@ import argparse
 from tqdm import tqdm
 import pandas as pd
 import plotly.graph_objects as go
- 
- 
+
+
 import json
 from pathlib import Path
 import os
-import gc
 from collections import defaultdict
 
 from gadff.horm.training_module import PotentialModule, compute_extra_props
@@ -339,7 +338,7 @@ def plot_speed_comparison(results_df, output_dir="./results_speed"):
                     axref="x",
                     ayref="y",
                     showarrow=True,
-                    arrowhead=3,
+                    arrowhead=2,
                     arrowsize=1,
                     arrowwidth=2,
                     arrowcolor="rgba(50,50,50,0.6)",
@@ -400,10 +399,10 @@ def plot_memory_usage(results_df, output_dir="./results_speed"):
                     axref="x",
                     ayref="y",
                     showarrow=True,
-                    arrowhead=3,
+                    arrowhead=2,
                     arrowsize=1,
                     arrowwidth=2,
-                    arrowcolor="rgba(50,50,50,0.6)",
+                    arrowcolor="rgba(50,50,50,0.8)",
                 )
         except Exception:
             pass
@@ -422,10 +421,11 @@ def prediction_batchsize_benchmark(
     checkpoint_path,
     dataset_name,
     # bz 128 only sometimes fits into memory of a RTX3060
-    batch_sizes=(1, 2, 4, 8, 16, 32, 64),
-    num_batches=50,
+    batch_sizes=(1, 2, 3, 4, 5, 6, 7, 8, 16, 32, 64),
+    num_batches=10,
     device="cuda",
-    output_dir="./results_speed",
+    output_path="./results_speed/speed_bz.csv",
+    max_autograd_batch_size=8,
 ):
     """Benchmark Hessian prediction speed vs batch size using random batches of any N atoms.
 
@@ -460,11 +460,13 @@ def prediction_batchsize_benchmark(
         batch = compute_extra_props(batch)
         time_hessian_computation(model, batch, "prediction")
         torch.cuda.empty_cache()
+        time_hessian_computation(model, batch, "autograd")
+        torch.cuda.empty_cache()
         if i >= 5:
             break
     del warm_loader
-    gc.collect()
-    torch.cuda.empty_cache()
+    # gc.collect()
+    # torch.cuda.empty_cache()
 
     results = []
     dataset_len = len(dataset)
@@ -486,43 +488,73 @@ def prediction_batchsize_benchmark(
 
         measured = 0
         for sample in loader:
-            batch = sample.to(device)
+            batch = sample.clone().to(device)
             batch = compute_extra_props(batch)
-            # t_pred, m_pred = time_hessian_computation(model, batch, "prediction")
-            torch.cuda.reset_peak_memory_stats()
-            start_event = torch.cuda.Event(enable_timing=True)
-            end_event = torch.cuda.Event(enable_timing=True)
-            start_event.record()
-            with torch.no_grad():
-                _ener, _force, out = model.forward(
-                    batch, otf_graph=False, hessian=True, add_props=True
-                )
-            end_event.record()
-            torch.cuda.synchronize()
-            t_pred = start_event.elapsed_time(end_event)
-            m_pred = torch.cuda.max_memory_allocated() / 1e6
-            results.append({"batch_size": bsz, "time": t_pred, "memory": m_pred})
+
+            # Time prediction
+            time_prediction, mem_prediction = time_hessian_computation(
+                model, batch, "prediction"
+            )
+            results.append(
+                {
+                    # "n_atoms": n_atoms,
+                    "method": "prediction",
+                    "time": time_prediction,
+                    "memory": mem_prediction,
+                    "batch_size": bsz,
+                }
+            )
+
+            # clear memory
             torch.cuda.empty_cache()
+
+            if bsz < max_autograd_batch_size:
+                # fresh batch
+                batch = sample.clone().to(device)
+                batch = compute_extra_props(batch)
+
+                # Time autograd
+                time_autograd, mem_autograd = time_hessian_computation(
+                    model, batch, "autograd"
+                )
+                results.append(
+                    {
+                        # "n_atoms": n_atoms,
+                        "method": "autograd",
+                        "time": time_autograd,
+                        "memory": mem_autograd,
+                        "batch_size": bsz,
+                    }
+                )
+
+                # clear memory
+                torch.cuda.empty_cache()
+
+            msg = f"Batch size={bsz}, avg n_atoms={batch.n_atoms.mean():.1f}"
+            msg += f", prediction={time_prediction:.3f} ms"
+            if bsz < max_autograd_batch_size:
+                msg += f", autograd={time_autograd:.3f} ms"
+            print(msg)
+
             measured += 1
             if measured >= num_batches:
                 break
 
     # Save results
-    output_dir = Path(output_dir)
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = output_dir / f"{dataset_name}_prediction_batchsize_results.csv"
     results_df = pd.DataFrame(results)
     results_df.to_csv(output_path, index=False)
     print(f"Batch size benchmark results saved to {output_path}")
     return results_df
 
 
-def plot_prediction_batchsize(results_df, output_dir="./results_speed"):
+def plot_prediction_batchsize(results_df, output_dir="./results_speed", logy=False):
     output_dir = Path(output_dir)
-    avg_times = results_df.groupby(["batch_size"])["time"].mean()
     width = 1600
     height = 450
     fig = go.Figure()
+    # prediction
+    pred_results_df = results_df[results_df["method"] == "prediction"]
+    avg_times = pred_results_df.groupby(["batch_size"])["time"].mean()
     fig.add_trace(
         go.Scatter(
             x=avg_times.index,
@@ -532,8 +564,19 @@ def plot_prediction_batchsize(results_df, output_dir="./results_speed"):
             # error_y=dict(type="data", array=std_times.values),
         )
     )
+    # autograd
+    autograd_results_df = results_df[results_df["method"] == "autograd"]
+    avg_times_autograd = autograd_results_df.groupby(["batch_size"])["time"].mean()
+    fig.add_trace(
+        go.Scatter(
+            x=avg_times_autograd.index,
+            y=avg_times_autograd.values,
+            mode="lines+markers",
+            name="autograd",
+        )
+    )
     fig.update_layout(
-        title="Hessian Prediction Speed vs Batch Size",
+        title="Prediction Speed vs Batch Size",
         xaxis_title="Batch Size",
         yaxis_title="Average Time (ms)",
         legend_title="Method",
@@ -549,12 +592,12 @@ def plot_prediction_batchsize(results_df, output_dir="./results_speed"):
 
     #######################
     # plot time per sample
-    avg_times = (
-        results_df.groupby(["batch_size"])["time"].mean()
-        / results_df.groupby(["batch_size"])["batch_size"].mean()
-    )
-
     fig = go.Figure()
+    # prediction
+    avg_times = (
+        pred_results_df.groupby(["batch_size"])["time"].mean()
+        / pred_results_df.groupby(["batch_size"])["batch_size"].mean()
+    )
     fig.add_trace(
         go.Scatter(
             x=avg_times.index,
@@ -564,7 +607,19 @@ def plot_prediction_batchsize(results_df, output_dir="./results_speed"):
             # error_y=dict(type="data", array=std_times.values),
         )
     )
-
+    # autograd
+    avg_times_autograd = (
+        autograd_results_df.groupby(["batch_size"])["time"].mean()
+        / autograd_results_df.groupby(["batch_size"])["batch_size"].mean()
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=avg_times_autograd.index,
+            y=avg_times_autograd.values,
+            mode="lines+markers",
+            name="autograd",
+        )
+    )
     fig.update_layout(
         # title="Hessian Prediction Speed vs Batch Size",
         xaxis_title="Batch Size",
@@ -582,51 +637,59 @@ def plot_prediction_batchsize(results_df, output_dir="./results_speed"):
             orientation="h",
             bgcolor="rgba(255,255,255,0.6)",
         ),
+        yaxis=dict(type="log") if logy else None,
     )
     # output_path = output_dir / "prediction_batchsize_plot.html"
     # fig.write_html(output_path)
     # print(f"Plot saved to {output_path}")
-    output_path = output_dir / "prediction_batchsize_time_per_sample.png"
-    fig.write_image(output_path, width=width, height=height, scale=2)
+    output_path = (
+        output_dir
+        / f"prediction_batchsize_time_per_sample{'_logy' if logy else ''}.png"
+    )
+    fig.write_image(output_path)
     print(f"Plot saved to {output_path}")
 
 
 def plot_combined_speed_memory_batchsize(
-    results_df, pred_results_df, output_dir="./results_speed"
+    results_df, bz_results_df, output_dir="./results_speed"
 ):
     from plotly.subplots import make_subplots
 
     output_dir = Path(output_dir)
     height = 400
     width = height * 3
+
     # Map method names to colours (handle both "predict" and "prediction")
     def _color_for_method(method):
         key = method
         if method == "prediction":
             key = "predict"
         return HESSIAN_METHOD_TO_COLOUR.get(key)
+
     # Aggregations for speed and memory vs N
     avg_times = results_df.groupby(["n_atoms", "method"])["time"].mean().unstack()
     avg_memory = results_df.groupby(["n_atoms", "method"])["memory"].mean().unstack()
 
     # Aggregation for prediction vs batch size (per-sample)
+    autograd_results_df = bz_results_df[bz_results_df["method"] == "autograd"]
+    pred_results_df = bz_results_df[bz_results_df["method"] == "prediction"]
     pred_avg_times = (
         pred_results_df.groupby(["batch_size"])["time"].mean()
         / pred_results_df.groupby(["batch_size"])["batch_size"].mean()
+    )
+    autograd_avg_times = (
+        autograd_results_df.groupby(["batch_size"])["time"].mean()
+        / autograd_results_df.groupby(["batch_size"])["batch_size"].mean()
     )
 
     fig = make_subplots(
         rows=1,
         cols=3,
-        subplot_titles=(
-            "Speed vs N (ms)",
-            "Memory vs N (MB)",
-            "Time per sample vs Batch Size (ms/sample)",
-        ),
+        # subplot_titles=("", "", ""),
         horizontal_spacing=0.03,
         vertical_spacing=0.0,
     )
-    
+
     # # Add subplot labels
     # labels = ['d', 'e', 'f']
     # for ax, label in zip(axes, labels):
@@ -639,7 +702,7 @@ def plot_combined_speed_memory_batchsize(
         fig.add_trace(
             go.Scatter(
                 x=avg_times.index,
-                y=avg_times[method],
+                y=avg_times[method] / 1000.0,
                 mode="lines+markers",
                 name=method,
                 legend="legend",
@@ -671,65 +734,86 @@ def plot_combined_speed_memory_batchsize(
 
     # Add arrows for subplots 1 and 2: from max autograd to max prediction
     if "autograd" in avg_times.columns and "prediction" in avg_times.columns:
-        try:
-            _auto = avg_times["autograd"].dropna()
-            _pred = avg_times["prediction"].dropna()
-            if len(_auto) > 0 and len(_pred) > 0:
-                _x_auto = _auto.idxmax()
-                _y_auto = _auto.loc[_x_auto]
-                _x_pred = _pred.idxmax()
-                _y_pred = _pred.loc[_x_pred]
-                fig.add_annotation(
-                    x=_x_pred,
-                    y=_y_pred,
-                    ax=_x_auto,
-                    ay=_y_auto,
-                    xref="x1",
-                    yref="y1",
-                    axref="x1",
-                    ayref="y1",
-                    showarrow=True,
-                    arrowhead=3,
-                    arrowsize=1,
-                    arrowwidth=2,
-                    arrowcolor="rgba(50,50,50,0.6)",
-                )
-        except Exception:
-            pass
+        _auto = avg_times["autograd"].dropna()
+        _pred = avg_times["prediction"].dropna()
+        if len(_auto) > 0 and len(_pred) > 0:
+            _x_auto = _auto.idxmax()
+            _y_auto = _auto.loc[_x_auto]
+            _x_pred = _pred.idxmax()
+            _y_pred = _pred.loc[_x_pred]
+            # Shorten arrow a bit to avoid overlapping the destination
+            _x_head = _x_auto + (_x_pred - _x_auto) * 0.97
+            # Convert to seconds for plotting
+            _y_auto_s = _y_auto / 1000.0
+            _y_pred_s = _y_pred / 1000.0
+            _y_head_s = _y_auto_s + (_y_pred_s - _y_auto_s) * 0.97
+            fig.add_annotation(
+                x=_x_head,
+                y=_y_head_s,
+                ax=_x_auto,
+                ay=_y_auto_s,
+                xref="x1",
+                yref="y1",
+                axref="x1",
+                ayref="y1",
+                showarrow=True,
+                arrowhead=2,
+                arrowsize=1,
+                arrowwidth=2,
+                arrowcolor="rgba(50,50,50,0.8)",
+            )
 
     if "autograd" in avg_memory.columns and "prediction" in avg_memory.columns:
-        try:
-            _auto_m = avg_memory["autograd"].dropna()
-            _pred_m = avg_memory["prediction"].dropna()
-            if len(_auto_m) > 0 and len(_pred_m) > 0:
-                _x_auto_m = _auto_m.idxmax()
-                _y_auto_m = _auto_m.loc[_x_auto_m]
-                _x_pred_m = _pred_m.idxmax()
-                _y_pred_m = _pred_m.loc[_x_pred_m]
-                fig.add_annotation(
-                    x=_x_pred_m,
-                    y=_y_pred_m,
-                    ax=_x_auto_m,
-                    ay=_y_auto_m,
-                    xref="x2",
-                    yref="y2",
-                    axref="x2",
-                    ayref="y2",
-                    showarrow=True,
-                    arrowhead=3,
-                    arrowsize=1,
-                    arrowwidth=2,
-                    arrowcolor="rgba(50,50,50,0.6)",
-                )
-        except Exception:
-            pass
+        _auto_m = avg_memory["autograd"].dropna()
+        _pred_m = avg_memory["prediction"].dropna()
+        if len(_auto_m) > 0 and len(_pred_m) > 0:
+            _x_auto_m = _auto_m.idxmax()
+            _y_auto_m = _auto_m.loc[_x_auto_m]
+            _x_pred_m = _pred_m.idxmax()
+            _y_pred_m = _pred_m.loc[_x_pred_m]
+            _x_head_m = _x_auto_m + (_x_pred_m - _x_auto_m) * 0.97
+            _y_head_m = _y_auto_m + (_y_pred_m - _y_auto_m) * 0.97
+            fig.add_annotation(
+                x=_x_head_m,
+                y=_y_head_m,
+                ax=_x_auto_m,
+                ay=_y_auto_m,
+                xref="x2",
+                yref="y2",
+                axref="x2",
+                ayref="y2",
+                showarrow=True,
+                arrowhead=2,
+                arrowsize=1,
+                arrowwidth=2,
+                arrowcolor="rgba(50,50,50,0.8)",
+            )
 
     # Col 3: Prediction vs Batch Size (per-sample)
+    # Ensure strictly positive values for log scale
+    pred_avg_times_plot = pred_avg_times.copy()
+    autograd_avg_times_plot = autograd_avg_times.copy()
+
+    color = _color_for_method("autograd")
+    fig.add_trace(
+        go.Scatter(
+            x=autograd_avg_times_plot.index,
+            y=autograd_avg_times_plot.values,
+            mode="lines+markers",
+            name="autograd",
+            legend="legend3",
+            showlegend=True,
+            line=dict(color=color) if color else None,
+            marker=dict(color=color) if color else None,
+        ),
+        row=1,
+        col=3,
+    )
     color = _color_for_method("prediction")
     fig.add_trace(
         go.Scatter(
-            x=pred_avg_times.index,
-            y=pred_avg_times.values,
+            x=pred_avg_times_plot.index,
+            y=pred_avg_times_plot.values,
             mode="lines+markers",
             name="prediction",
             legend="legend3",
@@ -749,12 +833,24 @@ def plot_combined_speed_memory_batchsize(
     x2 = 0.5 * (dom2[0] + dom2[1])
     x3 = 0.5 * (dom3[0] + dom3[1])
 
+    # Add axis titles for each subplot
+    fig.update_xaxes(title_text="Number of Atoms (N)", title_standoff=1, row=1, col=1)
+    fig.update_yaxes(title_text="Average Time (s)", title_standoff=10, row=1, col=1)
+    # fig.update_yaxes(tickformat=".0e", exponentformat="e",  row=1, col=1)
+    fig.update_xaxes(title_text="Number of Atoms (N)", title_standoff=1, row=1, col=2)
+    fig.update_yaxes(title_text="Peak Memory (MB)", title_standoff=0, row=1, col=2)
+    fig.update_xaxes(title_text="Batch Size", title_standoff=1, row=1, col=3)
+    fig.update_yaxes(
+        title_text="Average Time per Sample (ms)", title_standoff=0, row=1, col=3
+    )
+
     fig.update_layout(
         template=PLOTLY_TEMPLATE,
-        margin=dict(l=20, r=0, b=10, t=20),
+        margin=dict(l=10, r=0, b=0, t=20),
         # margin=dict(l=0, r=0, b=0, t=0),
         width=width,
         height=height,
+        yaxis3=dict(type="log"),
         legend=dict(
             x=x1,
             y=0.98,
@@ -781,11 +877,65 @@ def plot_combined_speed_memory_batchsize(
         ),
     )
 
+    # Add subplot panel labels (a, b, c) at top-left outside each subplot
+    fig.add_annotation(
+        x=dom1[0],  # -0.005
+        y=0.999,
+        xref="paper",
+        yref="paper",
+        text="<b>a</b>",
+        showarrow=False,
+        xanchor="right",
+        yanchor="bottom",
+        font=dict(size=14),
+    )
+    fig.add_annotation(
+        x=dom2[0],
+        y=0.999,
+        xref="paper",
+        yref="paper",
+        text="<b>b</b>",
+        showarrow=False,
+        xanchor="right",
+        yanchor="bottom",
+        font=dict(size=14),
+    )
+    fig.add_annotation(
+        x=dom3[0],
+        y=0.999,
+        xref="paper",
+        yref="paper",
+        text="<b>c</b>",
+        showarrow=False,
+        xanchor="right",
+        yanchor="bottom",
+        font=dict(size=14),
+    )
+
+    # add manual arrow for subplot 3 in normalized domain coords
+    fig.add_annotation(
+        x=0.93,  # lower means left
+        y=0.1,  # lower means lower
+        # tail
+        ax=0.08,
+        ay=0.71,  # lower means lower
+        xref="x3 domain",
+        yref="y3 domain",
+        # what coordinates the tail of the annotation (ax,ay) is specified
+        axref="x3 domain",
+        ayref="y3 domain",
+        showarrow=True,
+        arrowhead=2,
+        arrowsize=1,
+        arrowwidth=2,
+        arrowcolor="rgba(50,50,50,0.8)",
+    )
+
     # Save only PNG to keep output concise
     output_path = output_dir / "combined_speed_memory_batchsize.png"
     # The height of the exported image in layout pixels. If the scale property is 1.0, this will also be the height of the exported image in physical pixels.
     # Scale > 1 increases the image resolution
-    fig.write_image(output_path, width=width, height=height, scale=1)
+    fig.write_image(output_path, width=width, height=height)
     print(f"Plot saved to {output_path}")
 
 
@@ -819,7 +969,19 @@ if __name__ == "__main__":
         help="Maximum number of samples per N atoms to test.",
     )
     parser.add_argument(
+        "--max_autograd_bz",
+        type=int,
+        default=8,
+        help="Maximum batch size for autograd.",
+    )
+    parser.add_argument(
         "--redo",
+        type=bool,
+        default=False,
+        help="Redo the speed comparison. If false attempt to load existing results.",
+    )
+    parser.add_argument(
+        "--redobz",
         type=bool,
         default=False,
         help="Redo the speed comparison. If false attempt to load existing results.",
@@ -851,26 +1013,36 @@ if __name__ == "__main__":
     # Plot results
     plot_speed_comparison(results_df)
 
+    ##############################################################
     # Second benchmark: prediction-only vs batch size (random N)
-    pred_output_dir = Path("./results_speed")
-    pred_output_path = (
-        pred_output_dir / f"{args.dataset}_prediction_batchsize_results.csv"
+    print()
+
+    # dataset_name = args.dataset
+    dataset_name = "ts1x-val.lmdb"
+    output_dir = Path("./results_speed")
+    output_path_speedbz = (
+        output_dir
+        / f"{dataset_name}_prediction_batchsize_results_agbz{args.max_autograd_bz}.csv"
     )
-    if pred_output_path.exists() and not args.redo:
-        pred_results_df = pd.read_csv(pred_output_path)
-        print(f"Loaded existing prediction batch-size results from {pred_output_path}")
+    if output_path_speedbz.exists() and not args.redobz:
+        bz_results_df = pd.read_csv(output_path_speedbz)
+        print(
+            f"Loaded existing prediction batch-size results from {output_path_speedbz}"
+        )
     else:
-        pred_results_df = prediction_batchsize_benchmark(
+        bz_results_df = prediction_batchsize_benchmark(
             checkpoint_path=args.ckpt_path,
-            dataset_name=args.dataset,
-            output_dir=pred_output_dir,
+            dataset_name=dataset_name,
+            output_path=output_path_speedbz,
+            max_autograd_batch_size=args.max_autograd_bz,
         )
 
-    plot_prediction_batchsize(pred_results_df, output_dir=pred_output_dir)
+    plot_prediction_batchsize(bz_results_df, output_dir=output_dir)
+    plot_prediction_batchsize(bz_results_df, output_dir=output_dir, logy=True)
 
     # Combined side-by-side plot
     plot_combined_speed_memory_batchsize(
-        results_df, pred_results_df, output_dir=pred_output_dir
+        results_df, bz_results_df, output_dir=output_dir
     )
 
     print("Done.")

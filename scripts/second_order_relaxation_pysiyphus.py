@@ -66,6 +66,9 @@ from gadff.t1x_dft_dataloader import Dataloader as T1xDFTDataloader
 #         "uv pip install -e Transition1x" + "\n"
 #     )
 from gadff.colours import COLOUR_LIST, OPTIM_TO_COLOUR
+import plotly.graph_objects as go
+from matplotlib.ticker import FixedLocator
+from matplotlib.patches import Patch
 
 """
 run as:
@@ -528,33 +531,71 @@ def print_header(i, method):
 
 # match OPTIM_TO_COLOUR
 METHOD_TO_CATEGORY = {
-    "NaiveSteepestDescent": "firstorder",
-    "SteepestDescent": "firstorder",
-    "FIRE": "firstorder",
-    "ConjugateGradient": "firstorder",
-    "RFO-BFGS (unit init)": "bfgs",
-    "RFO-BFGS (DFT init)": "bfgs",
-    "RFO-BFGS (NumHess init)": "bfgs",
-    "RFO-BFGS (learned init)": "bfgs",
-    "RFO-BFGS (learned k3)": "bfgs",
-    "RFO (learned)": "ours",
-    "RFO (NumHess)": "secondorder",
-    "RFO (NumHess 4)": "secondorder",
-    "RFO (autograd)": "secondorder",
+    "NaiveSteepestDescent": "First-Order",
+    "SteepestDescent": "First-Order",
+    "FIRE": "First-Order",
+    "ConjugateGradient": "First-Order",
+    "RFO-BFGS (unit init)": "Quasi-Second-Order",
+    "RFO-BFGS (DFT init)": "Quasi-Second-Order",
+    "RFO-BFGS (autograd init)": "Quasi-Second-Order",
+    "RFO-BFGS (NumHess init)": "Quasi-Second-Order",
+    "RFO-BFGS (learned init)": "Quasi-Second-Order",
+    "RFO-BFGS (learned k3)": "Quasi-Second-Order",
+    "RFO (NumHess)": "Second-Order",
+    "RFO (NumHess 4)": "Second-Order",
+    "RFO (autograd)": "Second-Order",
+    # "RFO (learned)": "ours",
+    "RFO (learned)": "Second-Order",
 }
 METHOD_TO_COLOUR = {
     m: OPTIM_TO_COLOUR[METHOD_TO_CATEGORY[m]] for m in METHOD_TO_CATEGORY
 }
+DO_METHOD = [
+    "NaiveSteepestDescent",
+    "RFO (autograd)",
+    # "SteepestDescent",
+    "FIRE",
+    "RFO (NumHess)",
+    # "ConjugateGradient",
+    "RFO-BFGS (unit init)",
+    # "RFO-BFGS (DFT init)",
+    "RFO-BFGS (autograd init)",
+    "RFO-BFGS (NumHess init)",
+    # "RFO-BFGS (learned k3)",
+    # "RFO (NumHess 4)",
+    "RFO (learned)",
+    "RFO-BFGS (learned init)",
+]
 
 # Plot again
-COMPETATIVE_METHODS = [
+COMPETATIVE_METHODS_STEPS = [
     "RFO-BFGS (unit init)",
     "RFO-BFGS (DFT init)",
     "RFO-BFGS (NumHess init)",
     "RFO-BFGS (learned init)",
     "RFO-BFGS (learned k3)",
+    "RFO-BFGS (autograd init)",
     "RFO (learned)",
 ]
+COMPETATIVE_METHODS_WALL_TIME = [
+    "NaiveSteepestDescent",
+    "SteepestDescent",
+    "FIRE",
+    "ConjugateGradient",
+    "RFO-BFGS (unit init)",
+    # "RFO-BFGS (DFT init)",
+    "RFO-BFGS (NumHess init)",
+    "RFO-BFGS (learned init)",
+    "RFO-BFGS (learned k3)",
+    "RFO-BFGS (autograd init)",
+    "RFO (learned)",
+]
+
+RENAME_METHODS_PLOT = {
+    "NaiveSteepestDescent": "SteepestDescent",
+    "RFO-BFGS (NumHess init)": "RFO-BFGS (FiniteDifference init)",
+    "RFO (NumHess)": "RFO (FiniteDifference)",
+}
 
 
 def do_relaxations():
@@ -603,6 +644,12 @@ def do_relaxations():
         type=float,
         default=0.0,
         help="Per-atom RMS displacement (Å) added to geometry before Hessian; 0 disables noise",
+    )
+    ap.add_argument(
+        "--highlight_method",
+        type=str,
+        default=None,
+        help="If set, bold this method's x-label in plots",
     )
     args = ap.parse_args()
 
@@ -744,23 +791,6 @@ def do_relaxations():
     hessian = geom.hessian
 
     rng = np.random.default_rng(seed=42)
-
-    DO_METHOD = [
-        "NaiveSteepestDescent",
-        "SteepestDescent",
-        "FIRE",
-        # "ConjugateGradient",
-        "RFO-BFGS (unit init)",
-        "RFO-BFGS (DFT init)",
-        "RFO-BFGS (NumHess init)",
-        "RFO-BFGS (learned init)",
-        "RFO-BFGS (autograd init)",
-        # "RFO-BFGS (learned k3)",
-        "RFO (learned)",
-        "RFO (NumHess)",
-        "RFO (NumHess 4)",
-        "RFO (autograd)",
-    ]
 
     print("\nRunning relaxations...")
     csv_path = os.path.join(out_dir, f"relaxation_results.csv")
@@ -1403,6 +1433,9 @@ def do_relaxations():
         df = pd.read_csv(csv_path)
         print(f"\nLoaded relaxation results from: {csv_path}")
 
+    # remove all rows where the method is not in DO_METHOD
+    df = df[df["name"].isin(DO_METHOD)]
+
     # print mean and std for each method and metric
     print("\nMean and std for each method and metric:")
     for metric in [
@@ -1455,7 +1488,9 @@ def do_relaxations():
         print(f"Removed {len_before - len_after} outliers for {metric_name}")
         return _d
 
-    def _plot_metric_box(_df, metric_name, save_path, title, remove_outliers=False):
+    def _plot_metric_box(
+        _df, metric_name, save_path, title, remove_outliers=False, highlight_method=None
+    ):
         _d = _df.dropna(subset=[metric_name])
         if len(_d) == 0:
             return
@@ -1485,12 +1520,19 @@ def do_relaxations():
         ax.set_ylabel(metric_name.replace("_", " "))
         ax.set_title(title)
         plt.xticks(rotation=25, ha="right")
+        # Highlight requested method label
+        if highlight_method is not None:
+            for lbl in ax.get_xticklabels():
+                if lbl.get_text() == highlight_method:
+                    lbl.set_fontweight("bold")
         plt.tight_layout()
         plt.savefig(save_path, dpi=150)
         plt.close()
         print(f"Saved {save_path}")
 
-    def _plot_metric_violin(_df, metric_name, save_path, remove_outliers=False):
+    def _plot_metric_violin(
+        _df, metric_name, save_path, remove_outliers=False, highlight_method=None
+    ):
         _d = _df.dropna(subset=[metric_name])
         if len(_d) == 0:
             return
@@ -1508,9 +1550,12 @@ def do_relaxations():
             data=_d,
             x="name",
             y=metric_name,
+            hue="name",
             order=order,
+            hue_order=order,
             palette=palette,
             inner="quartile",
+            inner_kws={"linewidth": 2.0},
             cut=0,
             density_norm="width",
             fill=False,  # only outline
@@ -1525,7 +1570,7 @@ def do_relaxations():
             hue="name",
             palette=METHOD_TO_COLOUR,
             alpha=0.25,
-            size=2,
+            size=6,
             jitter=0.25,
             ax=ax,
             dodge=False,
@@ -1533,18 +1578,76 @@ def do_relaxations():
         # remove legend added by hue
         if ax.get_legend() is not None:
             ax.get_legend().remove()
+        # add legend mapping colour -> category using METHOD_TO_CATEGORY/OPTIM_TO_COLOUR
+
+        categories_in_plot = []
+        for method in order:
+            category = METHOD_TO_CATEGORY.get(method)
+            if category is not None and category not in categories_in_plot:
+                categories_in_plot.append(category)
+        handles = [
+            Patch(facecolor=OPTIM_TO_COLOUR[c], edgecolor="black", label=c)
+            for c in categories_in_plot
+        ]
+        if len(handles) > 0:
+            ax.legend(handles=handles, title="Category", frameon=False)
         ax.set_xlabel("")
         ax.set_ylabel(metric_name.replace("_", " ").title())
         ax.set_title(
             f"{metric_name.replace('_', ' ').title()} ({COORD_TO_NAME[args.coord]})"
         )
         plt.xticks(rotation=25, ha="right")
-        plt.tight_layout()
+        # Highlight requested method label
+        if highlight_method is not None:
+            for lbl in ax.get_xticklabels():
+                if lbl.get_text() == highlight_method:
+                    lbl.set_fontweight("bold")
+        # Rename x tick labels according to RENAME_METHODS_PLOT for display
+        try:
+            new_labels = []
+            for lbl in ax.get_xticklabels():
+                original = lbl.get_text()
+                renamed = RENAME_METHODS_PLOT.get(original, original)
+                new_labels.append(renamed)
+            tick_positions = ax.get_xticks()
+            ax.xaxis.set_major_locator(FixedLocator(tick_positions))
+            ax.set_xticklabels(new_labels, rotation=25, ha="right")
+        except Exception:
+            pass
+        # Annotate "ours" over highest values of selected methods
+        try:
+            target_methods = [
+                "RFO-BFGS (learned init)",
+                "RFO (learned)",
+            ]
+            y_min, y_max = ax.get_ylim()
+            y_pad = 0.02 * (y_max - y_min)
+            for method in target_methods:
+                if method in order:
+                    series = _d[_d["name"] == method][metric_name].dropna()
+                    if len(series) == 0:
+                        continue
+                    y_top = float(series.max())
+                    x_idx = order.index(method)
+                    ax.text(
+                        x_idx,
+                        y_top + y_pad,
+                        "ours",
+                        ha="center",
+                        va="bottom",
+                        fontsize=10,
+                        fontweight="bold",
+                    )
+        except Exception:
+            pass
+        plt.tight_layout(pad=0.0)
         plt.savefig(save_path, dpi=150)
         plt.close()
         print(f"Saved {save_path}")
 
-    def _plot_metric_scatter(_df, metric_name, save_path, remove_outliers=False):
+    def _plot_metric_scatter(
+        _df, metric_name, save_path, remove_outliers=False, highlight_method=None
+    ):
         _d = _df.dropna(subset=[metric_name])
         if len(_d) == 0:
             return
@@ -1553,6 +1656,12 @@ def do_relaxations():
             if len(_d) == 0:
                 return
         plt.figure(figsize=(10, 6))
+        # enforce x order according to DO_METHOD
+        order = sorted(
+            _d["name"].unique(),
+            key=lambda s: {n: i for i, n in enumerate(DO_METHOD)}.get(s, 10**9),
+        )
+        _d = _d.assign(name=pd.Categorical(_d["name"], categories=order, ordered=True))
         ax = sns.scatterplot(
             data=_d,
             x="name",
@@ -1570,12 +1679,19 @@ def do_relaxations():
             f"{metric_name.replace('_', ' ').title()} ({COORD_TO_NAME[args.coord]})"
         )
         plt.xticks(rotation=25, ha="right")
+        # Highlight requested method label
+        if highlight_method is not None:
+            for lbl in ax.get_xticklabels():
+                if lbl.get_text() == highlight_method:
+                    lbl.set_fontweight("bold")
         plt.tight_layout()
         plt.savefig(save_path, dpi=150)
         plt.close()
         print(f"Saved {save_path}")
 
-    def _plot_metric_mean(_df, metric_name, save_path, remove_outliers=False):
+    def _plot_metric_mean(
+        _df, metric_name, save_path, remove_outliers=False, highlight_method=None
+    ):
         _d = _df.dropna(subset=[metric_name])
         if len(_d) == 0:
             return
@@ -1627,10 +1743,272 @@ def do_relaxations():
             f"{metric_name.replace('_', ' ').title()} ({COORD_TO_NAME[args.coord]})"
         )
         plt.xticks(rotation=25, ha="right")
+        # Highlight requested method label
+        if highlight_method is not None:
+            for lbl in ax.get_xticklabels():
+                if lbl.get_text() == highlight_method:
+                    lbl.set_fontweight("bold")
         plt.tight_layout()
         plt.savefig(save_path, dpi=150)
         plt.close()
         print(f"Saved {save_path}")
+
+    def _plot_metric_violin_plotly(_df, metric_name, save_path):
+        _d = _df.dropna(subset=[metric_name])
+        if len(_d) == 0:
+            return
+        # compute order by descending mean (most left -> least right)
+        order = (
+            _d.groupby("name")[metric_name]
+            .mean()
+            .sort_values(ascending=False)
+            .index.tolist()
+        )
+        fig = go.Figure()
+
+        def _hex_to_rgba(hex_color, alpha):
+            try:
+                hc = str(hex_color).lstrip("#")
+                r = int(hc[0:2], 16)
+                g = int(hc[2:4], 16)
+                b = int(hc[4:6], 16)
+                return f"rgba({r},{g},{b},{alpha})"
+            except Exception:
+                return hex_color
+
+        display_order = []
+        for method in order:
+            series = _d[_d["name"] == method][metric_name].dropna()
+            if len(series) == 0:
+                continue
+            display_name = RENAME_METHODS_PLOT.get(method, method)
+            color = METHOD_TO_COLOUR.get(method, "#1f77b4")
+            display_order.append(display_name)
+            fig.add_trace(
+                go.Violin(
+                    y=series.astype(float),
+                    name=display_name,
+                    line_color=color,
+                    # Defaults to a half-transparent variant of the line color
+                    # fillcolor=color,
+                    fillcolor=_hex_to_rgba(color, 0.25),
+                    opacity=1.0,
+                    box_visible=True,
+                    meanline_visible=False,
+                    spanmode="hard",
+                    points="all",
+                    jitter=0.3,
+                    pointpos=0,
+                    marker=dict(color=color, opacity=0.5, size=4),
+                )
+            )
+        bold_targets = {
+            RENAME_METHODS_PLOT.get("RFO (learned)", "RFO (learned)"),
+            RENAME_METHODS_PLOT.get(
+                "RFO-BFGS (learned init)", "RFO-BFGS (learned init)"
+            ),
+        }
+        ticktext = [
+            f"<b>{name}</b>" if name in bold_targets else name for name in display_order
+        ]
+        fig.update_layout(
+            template="plotly_white",
+            yaxis_title=metric_name.replace("_", " ").title(),
+            xaxis_title="",
+            xaxis=dict(
+                categoryorder="array",
+                categoryarray=display_order,
+                tickvals=display_order,
+                ticktext=ticktext,
+                tickangle=-25,
+            ),
+            showlegend=False,
+            height=600,
+            width=1000,
+            # margin=dict(t=0, b=0, l=0, r=0),
+            margin=dict(t=0, b=40, l=20, r=0),
+        )
+        fig.write_image(save_path)
+        print(f"Saved {save_path}")
+
+    def _plot_metric_violin_broken(
+        _df, metric_name, save_path, remove_outliers=False, highlight_method=None
+    ):
+        _d = _df.dropna(subset=[metric_name])
+        if len(_d) == 0:
+            return
+        if remove_outliers:
+            _d = _remove_outliers(_d, metric_name)
+            if len(_d) == 0:
+                return
+        # order and palette
+        order = sorted(
+            _d["name"].unique(),
+            key=lambda s: {n: i for i, n in enumerate(DO_METHOD)}.get(s, 10**9),
+        )
+        palette = [METHOD_TO_COLOUR[n] for n in order]
+
+        # competitive vs non-competitive split
+        comp_set = set(COMPETATIVE_METHODS_WALL_TIME)
+        d_comp = _d[_d["name"].isin(comp_set)]
+        d_other = _d[~_d["name"].isin(comp_set)]
+
+        # determine y limits for the two panels
+        y_min = float(_d[metric_name].min())
+        y_max = float(_d[metric_name].max())
+        low_max = (
+            float(d_comp[metric_name].quantile(0.99))
+            if len(d_comp)
+            else float(_d[metric_name].quantile(0.5))
+        )
+        high_min = (
+            float(d_other[metric_name].quantile(0.01))
+            if len(d_other)
+            else min(y_max, low_max * 1.05)
+        )
+        if high_min <= low_max:
+            high_min = low_max * 1.05
+
+        fig, (ax_top, ax_bottom) = plt.subplots(
+            2,
+            1,
+            sharex=True,
+            figsize=(10, 8),
+            gridspec_kw={"height_ratios": [2, 1]},
+        )
+
+        # draw both panels with same plotting logic
+        for ax in (ax_top, ax_bottom):
+            sns.violinplot(
+                data=_d,
+                x="name",
+                y=metric_name,
+                hue="name",
+                order=order,
+                hue_order=order,
+                palette=palette,
+                inner="quartile",
+                inner_kws={"linewidth": 2.0},
+                cut=0,
+                density_norm="width",
+                fill=False,
+                linewidth=1.5,
+                ax=ax,
+            )
+            sns.stripplot(
+                data=_d,
+                x="name",
+                y=metric_name,
+                order=order,
+                hue="name",
+                palette=METHOD_TO_COLOUR,
+                alpha=0.25,
+                size=6,
+                jitter=0.25,
+                ax=ax,
+                dodge=False,
+            )
+            if ax.get_legend() is not None:
+                ax.get_legend().remove()
+
+        # set y-lims to create the break
+        ax_top.set_ylim(y_min, low_max)
+        ax_bottom.set_ylim(high_min, y_max * 1.02)
+
+        # hide the spines between axes and add diagonal marks
+        ax_top.spines["bottom"].set_visible(False)
+        ax_bottom.spines["top"].set_visible(False)
+        ax_top.tick_params(labeltop=False)
+        ax_bottom.xaxis.tick_bottom()
+        d = 0.015
+        ax_top.plot(
+            [0, 1], [0, 0], transform=ax_top.transAxes
+        )  # ensure axes initialized
+        ax_bottom.plot([0, 1], [1, 1], transform=ax_bottom.transAxes)
+        ax_top.plot(
+            (-d, +d), (-d, +d), transform=ax_top.transAxes, color="k", clip_on=False
+        )
+        ax_top.plot(
+            (1 - d, 1 + d),
+            (-d, +d),
+            transform=ax_top.transAxes,
+            color="k",
+            clip_on=False,
+        )
+        ax_bottom.plot(
+            (-d, +d),
+            (1 - d, 1 + d),
+            transform=ax_bottom.transAxes,
+            color="k",
+            clip_on=False,
+        )
+        ax_bottom.plot(
+            (1 - d, 1 + d),
+            (1 - d, 1 + d),
+            transform=ax_bottom.transAxes,
+            color="k",
+            clip_on=False,
+        )
+
+        # common labels and title on the top axis
+        ax_top.set_xlabel("")
+        ax_top.set_ylabel(metric_name.replace("_", " ").title())
+        ax_top.set_title(
+            f"{metric_name.replace('_', ' ').title()} (Combined, {COORD_TO_NAME[args.coord]})"
+        )
+
+        # legend on top axis: category colours
+        categories_in_plot = []
+        for method in order:
+            category = METHOD_TO_CATEGORY.get(method)
+            if category is not None and category not in categories_in_plot:
+                categories_in_plot.append(category)
+        handles = [
+            Patch(facecolor=OPTIM_TO_COLOUR[c], edgecolor="black", label=c)
+            for c in categories_in_plot
+        ]
+        if len(handles) > 0:
+            ax_top.legend(handles=handles, title="Category", frameon=False)
+
+        # rotate and optionally bold a highlighted label on the bottom axis
+        plt.setp(ax_bottom.get_xticklabels(), rotation=25, ha="right")
+        if highlight_method is not None:
+            for lbl in ax_bottom.get_xticklabels():
+                if lbl.get_text() == highlight_method:
+                    lbl.set_fontweight("bold")
+        # rename x tick labels for display
+        try:
+            new_labels = []
+            for lbl in ax_bottom.get_xticklabels():
+                original = lbl.get_text()
+                renamed = RENAME_METHODS_PLOT.get(original, original)
+                new_labels.append(renamed)
+            tick_positions = ax_bottom.get_xticks()
+            ax_bottom.xaxis.set_major_locator(FixedLocator(tick_positions))
+            ax_bottom.set_xticklabels(new_labels, rotation=25, ha="right")
+        except Exception:
+            pass
+
+        plt.subplots_adjust(hspace=0.05)
+        plt.tight_layout()
+        plt.savefig(save_path, dpi=150)
+        plt.close()
+        print(f"Saved {save_path}")
+
+    def _get_best_method_by_mean(_df, metric_name, prefer="min"):
+        # prefer: "min" for metrics where lower is better; "max" where higher is better
+        if _df is None or len(_df) == 0 or metric_name not in _df.columns:
+            return None
+        try:
+            means = _df.groupby("name")[metric_name].mean()
+            means = means.dropna()
+            if len(means) == 0:
+                return None
+            if prefer == "max":
+                return str(means.idxmax())
+            return str(means.idxmin())
+        except Exception:
+            return None
 
     # df = df.sort_values(
     #     by="name",
@@ -1642,7 +2020,8 @@ def do_relaxations():
     # for DFT init, add 5min to the wall time
     df.loc[df["name"] == "RFO-BFGS (DFT init)", "wall_time_s"] += 5 * 60
 
-    for metric in ["steps", "grad_calls", "hessian_calls", "wall_time_s"]:
+    # for metric in ["steps", "grad_calls", "hessian_calls", "wall_time_s"]:
+    for metric in ["steps", "wall_time_s"]:
         # _d = df.copy()
         # _plot_metric_box(
         #     _d[(_d["converged"] == True)],
@@ -1664,18 +2043,60 @@ def do_relaxations():
         #     os.path.join(plots_dir, f"{metric}_scatter.png"),
         #     remove_outliers=False,
         # )
+        # Determine best method (lowest mean) for this metric, allow CLI override
+        best_all = _get_best_method_by_mean(df.copy(), metric, prefer="min")
+        highlight_all = args.highlight_method if args.highlight_method else best_all
         _plot_metric_violin(
             df.copy(),
             metric,
             os.path.join(plots_dir, f"{metric}_violin.png"),
             remove_outliers=False,
+            highlight_method=highlight_all,
+        )
+        if metric == "steps":
+            _d = df.copy()[df["name"].isin(COMPETATIVE_METHODS_STEPS)]
+        elif metric == "wall_time_s":
+            _d = df.copy()[df["name"].isin(COMPETATIVE_METHODS_WALL_TIME)]
+        else:
+            continue
+        best_subset = _get_best_method_by_mean(_d, metric, prefer="min")
+        highlight_subset = (
+            args.highlight_method if args.highlight_method else best_subset
         )
         _plot_metric_violin(
-            df.copy()[df["name"].isin(COMPETATIVE_METHODS)],
+            _d,
             metric,
             os.path.join(plots_dir, f"{metric}_violin_competative.png"),
             remove_outliers=False,
+            highlight_method=highlight_subset,
         )
+        if metric == "steps":
+            # Also create interactive Plotly violin ordered by descending mean steps
+            _plot_metric_violin_plotly(
+                df.copy(),
+                metric,
+                os.path.join(plots_dir, f"{metric}_violin_plotly.png"),
+            )
+        if metric == "wall_time_s":
+            _plot_metric_violin_broken(
+                df.copy(),
+                metric,
+                os.path.join(plots_dir, f"{metric}_violin_combined.png"),
+                remove_outliers=False,
+                highlight_method=highlight_all,
+            )
+            # Autograd vs Learned comparison only
+            _d_pair = df.copy()[df["name"].isin(["RFO (autograd)", "RFO (learned)"])]
+            if len(_d_pair) > 0:
+                _plot_metric_violin(
+                    _d_pair,
+                    metric,
+                    os.path.join(plots_dir, f"{metric}_violin_autograd_vs_learned.png"),
+                    remove_outliers=False,
+                    highlight_method=args.highlight_method
+                    if args.highlight_method
+                    else None,
+                )
         # _plot_metric_mean(
         #     df.copy(),
         #     metric,
@@ -1693,11 +2114,14 @@ def do_relaxations():
             by="name",
             key=lambda s: s.map({name: i for i, name in enumerate(DO_METHOD)}),
         )
+        # explicit order for x based on DO_METHOD
+        order = [name for name in DO_METHOD if name in conv["name"].unique()]
         plt.figure(figsize=(10, 6))
         ax = sns.barplot(
             data=conv,
             x="name",
             y="convergence_rate",
+            order=order,
             # palette="tab10",
             # hue="coord",
         )
@@ -1706,6 +2130,18 @@ def do_relaxations():
         ax.set_ylabel("Convergence rate")
         ax.set_title(f"Convergence rate ({COORD_TO_NAME[args.coord]})")
         plt.xticks(rotation=25, ha="right")
+        # Highlight best method for convergence (highest mean converged), allow CLI override
+        best_conv = None
+        if len(conv) > 0 and "convergence_rate" in conv.columns:
+            try:
+                best_conv = str(conv.loc[conv["convergence_rate"].idxmax(), "name"])
+            except Exception:
+                best_conv = None
+        chosen = args.highlight_method if args.highlight_method else best_conv
+        if chosen is not None:
+            for lbl in ax.get_xticklabels():
+                if lbl.get_text() == chosen:
+                    lbl.set_fontweight("bold")
         plt.tight_layout()
         fname = os.path.join(plots_dir, "convergence_rate.png")
         plt.savefig(fname, dpi=150)

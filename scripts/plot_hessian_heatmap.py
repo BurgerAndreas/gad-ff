@@ -206,16 +206,17 @@ def plot_heatmaps(h_pred, h_true, save_path=None, absolute=False, show_relative=
     axes[2].set_title("(c) Absolute Difference", pad=2)
     if show_relative:
         axes[3].set_title("(d) Relative Difference", pad=2)
+    # ax.set_xlabel("")
+    # ax.set_ylabel("")
+    # for spine in ax.spines.values():
+    #     spine.set_visible(False)
     for ax in axes:
-        # ax.set_xticks([])
-        # ax.set_yticks([])
-        # ax.set_xlabel("")
-        # ax.set_ylabel("")
-        # for spine in ax.spines.values():
-        #     spine.set_visible(False)
+        ax.set_xticks([])
+        ax.set_yticks([])
         ax.set_xlabel("DoF")
-        ax.set_ylabel("DoF")
-        ax.tick_params(axis="both", which="both", labelsize=6, length=2, pad=1)
+        ax.set_ylabel("")
+    axes[0].set_ylabel("DoF")  # only leftmost axis
+    ax.tick_params(axis="both", which="both", labelsize=6, length=2, pad=1)
 
     fig.tight_layout(pad=0.0, w_pad=0.0, h_pad=0.0)
     fig.subplots_adjust(left=0, right=1, top=1, bottom=0, wspace=0.02, hspace=0.0)
