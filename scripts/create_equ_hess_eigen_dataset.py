@@ -132,7 +132,7 @@ def create_eigen_dataset(save_hessian=False, dataset_file="ts1x-val.lmdb"):
         for batch_idx, batch in tqdm(enumerate(dataloader), total=len(dataset)):
             # atomization energy. shape used by equiformerv2
             if not hasattr(batch, "ae"):
-                batch.ae = torch.zeros_like(batch.energy)
+                batch.ae = batch.energy.clone()
 
             # tqdm.write(f"Size of batch: {batch.pos.shape}")
 

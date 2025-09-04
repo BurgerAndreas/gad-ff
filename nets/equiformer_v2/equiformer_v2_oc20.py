@@ -1117,9 +1117,9 @@ class EquiformerV2_OC20(BaseModel):
                 outputs["l012_edge_features_irreps"] = l012_edge_features
 
             outputs["hessian"] = hessian
-
-        print(f"energy: {energy.shape}, {data.ae.shape}, forces: {forces.shape}, natoms={data.natoms.shape}, {data.natoms}") # TODO remove
-        return energy.reshape(data.ae.shape), forces, outputs
+        
+        # return energy.reshape(data.ae.shape), forces, outputs
+        return energy, forces, outputs
 
     # Initialize the edge rotation matrics
     def _init_edge_rot_mat(self, data, edge_index, edge_distance_vec):

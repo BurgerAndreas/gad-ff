@@ -153,9 +153,9 @@ def process_subset(dataset_file, start_idx, end_idx, job_id, save_hessian=False)
             # Make a deep copy to avoid modifying the original data object in memory
             data_copy = copy.deepcopy(subset_dataset[local_idx])
 
-            # atomization energy. shape used by equiformerv2
-            if not hasattr(batch, "ae"):
-                batch.ae = torch.zeros_like(batch.energy)
+            # # atomization energy. shape used by equiformerv2
+            # if not hasattr(batch, "ae"):
+            #     batch.ae = batch.energy.clone()
 
             # tqdm.write(f"Processing global index {global_idx}, batch size: {batch.pos.shape}")
 

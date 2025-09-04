@@ -36,11 +36,8 @@ def compute_extra_props(batch, pos_require_grad=True):
     batch.pos = remove_mean_batch(batch.pos, batch.batch)
     # atomization energy. shape used by equiformerv2
     if not hasattr(batch, "ae"):
-        if hasattr(batch, "ae"):
-            batch.ae = torch.zeros_like(batch.energy)
-        else:
-            # will only work for bz=1
-            batch.ae = torch.tensor(0.0, device=device, dtype=torch.float64)
+        if hasattr(batch, "energy"):
+            batch.ae = batch.energy.clone()
     if pos_require_grad:
         batch.pos.requires_grad_(True)
     return batch
