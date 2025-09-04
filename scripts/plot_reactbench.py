@@ -6,6 +6,8 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 from gadff.colours import COLOUR_LIST, METHOD_TO_COLOUR
+import plotly.graph_objects as go
+import plotly.express as px
 
 api = wandb.Api()
 
@@ -17,32 +19,6 @@ OUTFILE = os.path.join(OUT_DIR, "reactbench.csv")
 # for plots
 PLOTS_DIR = "results_reactbench/plots/reactbench"
 os.makedirs(PLOTS_DIR, exist_ok=True)
-
-
-# Project is specified by <entity/project-name>
-runs = api.runs("andreas-burger/reactbench")
-
-summary_list, config_list, name_list = [], [], []
-for run in runs:
-    if "final" not in run.tags:
-        continue
-    # .summary contains the output keys/values for metrics like accuracy.
-    #  We call ._json_dict to omit large files
-    summary_list.append(run.summary._json_dict)
-
-    # .config contains the hyperparameters.
-    #  We remove special values that start with _.
-    config_list.append({k: v for k, v in run.config.items() if not k.startswith("_")})
-
-    # .name is the human-readable name of the run.
-    name_list.append(run.name)
-
-runs_df = pd.DataFrame(
-    {"summary": summary_list, "config": config_list, "name": name_list}
-)
-
-runs_df.to_csv(OUTFILE)
-print(f"Saved csv to {OUTFILE}")
 
 """
 Make a grouped bar plot
@@ -89,9 +65,35 @@ rename_metrics = {
 
 # Try to use the eval export if present; otherwise derive from runs_df
 try:
-    df = pd.read_csv("results/eval_reactbench_wandb_export.csv", quotechar='"')
+    df = pd.read_csv(OUTFILE, quotechar='"')
     df["Metric"] = df["Metric"].map(rename_metrics)
+    print(f"Loaded eval csv from {OUTFILE}")
 except Exception:
+    # Project is specified by <entity/project-name>
+    runs = api.runs("andreas-burger/reactbench")
+
+    summary_list, config_list, name_list = [], [], []
+    for run in runs:
+        if "final" not in run.tags:
+            continue
+        # .summary contains the output keys/values for metrics like accuracy.
+        #  We call ._json_dict to omit large files
+        summary_list.append(run.summary._json_dict)
+
+        # .config contains the hyperparameters.
+        #  We remove special values that start with _.
+        config_list.append({k: v for k, v in run.config.items() if not k.startswith("_")})
+
+        # .name is the human-readable name of the run.
+        name_list.append(run.name)
+
+    runs_df = pd.DataFrame(
+        {"summary": summary_list, "config": config_list, "name": name_list}
+    )
+
+    runs_df.to_csv(OUTFILE)
+    print(f"Saved csv to {OUTFILE}")
+    
     records = []
     for _, row in runs_df.iterrows():
         cfg = row.get("config", {}) or {}
@@ -122,7 +124,7 @@ sns.set_theme(style="whitegrid", palette="pastel")
 allowed_metrics = [
     "GSM Success",
     "RFO Converged",
-    "TS Success",
+    # "TS Success",
     "RFO Converged and TS Success",
     "IRC Intended",
 ]
@@ -165,49 +167,105 @@ outfile = os.path.join(PLOTS_DIR, "reactbench.png")
 plt.savefig(outfile, dpi=300)
 print(f"Saved plot to {outfile}")
 
-# Second plot: difference to the previous stage (exclude GSM Success)
-prev_map = {
-    "RFO Converged": "GSM Success",
-    "TS Success": "RFO Converged",
-    "RFO Converged and TS Success": "TS Success",
-    "IRC Intended": "RFO Converged and TS Success",
+
+# Build a Plotly lollipop plot for two specific methods
+desired_methods = ["predict-equiformer", "autograd-equiformer"]
+method_display_name = {
+    "predict-equiformer": "predict",
+    "autograd-equiformer": "autograd",
 }
 
-wide = df.pivot_table(
-    index="Method", columns="Metric", values="Value", aggfunc="first"
-).fillna(0)
+df_plot = df[df["Method"].isin(desired_methods)].copy()
+if df_plot.empty:
+    print("No data available for Plotly lollipop plot (predict/autograd).")
+else:
+    # Ensure consistent metric ordering
+    df_plot["Metric"] = pd.Categorical(
+        df_plot["Metric"], categories=allowed_metrics, ordered=True
+    )
 
-delta_records = []
-for method, row in wide.iterrows():
-    for current_metric in order[1:]:  # skip GSM Success
-        prev_metric = prev_map[current_metric]
-        delta_value = row[prev_metric] - row[current_metric]
-        delta_records.append(
-            {
-                "Metric": current_metric,
-                "Value": float(delta_value),
-                "Method": method,
-            }
+    # Ensure GSM Success is identical across methods by averaging
+    # should only not be the case due to randomness
+    gsm_mask = df_plot["Metric"] == "GSM Success"
+    gsm_vals = df_plot[gsm_mask].groupby("Method")["Value"].first()
+    if len(gsm_vals) >= 2:
+        gsm_mean = gsm_vals.mean()
+        df_plot.loc[gsm_mask, "Value"] = gsm_mean
+
+    fig = go.Figure()
+    default_colorway = px.colors.qualitative.Plotly
+
+    # Draw background first (wider), then foreground on top (narrower)
+    render_order = ["predict-equiformer", "autograd-equiformer"]
+    for method_key in render_order:
+        sub = df_plot[df_plot["Method"] == method_key].sort_values("Metric")
+        if sub.empty:
+            continue
+
+        colour = default_colorway[desired_methods.index(method_key) % len(default_colorway)]
+        display = method_display_name.get(method_key, method_key)
+        is_background = (method_key == render_order[0])
+
+        # Vertical stems per category (x,0)->(x,y)
+        xs, ys = [], []
+        for _, r in sub.iterrows():
+            xs.extend([r["Metric"], r["Metric"], None])
+            ys.extend([0, r["Value"], None])
+
+        fig.add_trace(
+            go.Scatter(
+                x=xs,
+                y=ys,
+                mode="lines",
+                line=dict(color=colour, width=(12 if is_background else 8)),
+                showlegend=False,
+                hoverinfo="skip",
+                opacity=(0.6 if is_background else 1.0),
+            )
         )
 
-delta_df = pd.DataFrame.from_records(delta_records)
+        # Lollipop heads; only show GSM Success label for foreground
+        show_text = []
+        for _, r in sub.iterrows():
+            if r["Metric"] == "GSM Success" and is_background:
+                show_text.append("")
+            else:
+                show_text.append(f"{r['Value']:.0f}")
 
-fig2, ax2 = plt.subplots(figsize=(10, 6))
-sns.barplot(
-    data=delta_df,
-    x="Metric",
-    y="Value",
-    hue="Method",
-    order=order[1:],
-    palette=palette,
-    ax=ax2,
-)
-ax2.set_xlabel("")
-ax2.set_ylabel("Count difference vs previous stage")
-plt.setp(ax2.get_xticklabels(), rotation=45, ha="right")
-ax2.legend(title="Method", bbox_to_anchor=(1.02, 1), loc="upper left")
-plt.tight_layout()
+        fig.add_trace(
+            go.Scatter(
+                x=sub["Metric"],
+                y=sub["Value"],
+                mode="markers+text",
+                name=display,
+                marker=dict(color=colour, size=(22 if is_background else 16)),
+                text=show_text,
+                texttemplate="%{text}",
+                textposition="middle right",
+                cliponaxis=False,
+                opacity=(0.75 if is_background else 1.0),
+            )
+        )
 
-outfile2 = os.path.join(PLOTS_DIR, "reactbench_diff.png")
-plt.savefig(outfile2, dpi=300)
-print(f"Saved plot to {outfile2}")
+    fig.update_layout(
+        xaxis_title="",
+        yaxis_title="Count",
+        xaxis=dict(categoryorder="array", categoryarray=allowed_metrics),
+        margin=dict(l=40, r=20, t=0, b=20),
+        template="plotly_white",
+        legend=dict(
+            title=dict(text="Method"),
+            x=0.4,
+            y=0.98,
+            xanchor="left",
+            yanchor="top",
+            bgcolor="rgba(255,255,255,0.5)",
+        ),
+    )
+
+    # outfile_html = os.path.join(PLOTS_DIR, "reactbench_lollipop.html")
+    # fig.write_html(outfile_html, include_plotlyjs="cdn")
+    # print(f"Saved Plotly lollipop to {outfile_html}")
+    outfile = os.path.join(PLOTS_DIR, "reactbench_lollipop.png")
+    fig.write_image(outfile, width=1000, height=600, scale=2)
+    print(f"Saved Plotly lollipop to {outfile}")

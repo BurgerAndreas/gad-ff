@@ -1118,6 +1118,7 @@ class EquiformerV2_OC20(BaseModel):
 
             outputs["hessian"] = hessian
 
+        print(f"energy: {energy.shape}, {data.ae.shape}, forces: {forces.shape}, natoms={data.natoms.shape}, {data.natoms}") # TODO remove
         return energy.reshape(data.ae.shape), forces, outputs
 
     # Initialize the edge rotation matrics
