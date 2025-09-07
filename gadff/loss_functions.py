@@ -426,7 +426,7 @@ def _reduce_diff(diff, dist):
         return diff.abs().mean()
     elif dist == "frosq":
         return torch.linalg.norm(diff, ord="fro") ** 2
-    elif dist == "fros":
+    elif dist == "fro":
         return torch.linalg.norm(diff, ord="fro")
     elif dist == "1":
         return torch.linalg.norm(diff, ord=1)
