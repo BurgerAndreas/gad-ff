@@ -43,6 +43,7 @@ training:
     k: null
     alpha: null
     dof_filter_fn: null
+    dist: "frosq"
 
   max_train_samples: null
   max_val_samples: null

@@ -418,6 +418,22 @@ class BatchHessianLoss(torch.nn.Module):
             pred, target, data, self.loss_fn, mask_hessian=self.mask_hessian, **_kwargs
         )
 
+def _reduce_diff(diff, dist):
+    dist = str(dist).lower()
+    if dist == "mse":
+        return diff.pow(2).mean()
+    elif dist == "mae":
+        return diff.abs().mean()
+    elif dist == "frosq":
+        return torch.linalg.norm(diff, ord="fro") ** 2
+    elif dist == "fros":
+        return torch.linalg.norm(diff, ord="fro")
+    elif dist == "1":
+        return torch.linalg.norm(diff, ord=1)
+    elif dist == "2":
+        return torch.linalg.norm(diff, ord=2)
+    else:
+        raise ValueError(f"Invalid distance: {dist}")
 
 def eigenspectrum_loss(
     hessian_pred,
@@ -427,6 +443,7 @@ def eigenspectrum_loss(
     alpha=1.0,
     dof_filter_fn=None,
     loss_type="eigen",
+    dist="mse", # MAE, MSE, frosq
 ):
     """Inspired by wavefunction alignment loss from
     Enhancing the Scalability and Applicability of Kohn-Sham Hamiltonians for Molecular Systems
@@ -467,7 +484,7 @@ def eigenspectrum_loss(
         if k_i is None:
             # easy case: use all eigenvalues/vectors
             diff = (evecs_true.T @ (hessian_pred @ evecs_true)) - torch.diag(evals_true)
-            loss += alpha_i * torch.linalg.norm(diff, "fro") ** 2
+            loss += alpha_i * _reduce_diff(diff, dist)
         else:
             # use a subspace (subset) of the smallest eigenvalues/vectors
             evecs_true_k = evecs_true[:, :k_i]  # (N*3, k)
@@ -480,12 +497,14 @@ def eigenspectrum_loss(
                     diff = (
                         evec_true_i.T @ (hessian_pred @ evec_true_i)
                     ) - eval_true_i  # (1)
+                    # TODO: how was wa loss in the original paper computed?
                     loss += alpha_i * diff.squeeze().squeeze() ** 2
+                    # loss += alpha_i * _reduce_diff(diff, dist)
             elif loss_type == "eigen":
                 diff = (evecs_true_k.T @ (hessian_pred @ evecs_true_k)) - torch.diag(
                     evals_true_k
-                )
-                loss += alpha_i * torch.linalg.norm(diff, "fro") ** 2
+                ) # (3N, 3N)
+                loss += alpha_i * _reduce_diff(diff, dist)
             else:
                 raise ValueError(f"Invalid loss type: {loss_type}")
     return loss
