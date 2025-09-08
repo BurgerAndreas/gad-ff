@@ -54,13 +54,45 @@ intended_count
 converged to initial reactant and product
 """
 
+# extra metrics, verified by DFT
+extra_metrics = {
+    "predict": {
+        "one negative eigenvalue and force RMS < 2.0e-03 Ha/Bohr:": {
+            "correct_proposed_estimated": 642.24, # "DFT-Verified Converged and TS Success"
+            "false_proposed_estimated": 26.76,
+            "true_positive_rate": 0.96,
+            "false_positive_rate": 0.04,
+        },
+        "one negative eigenvalue:": {
+            "correct_proposed_estimated": 669.0, # "DFT-Verified TS Success" 
+            "false_proposed_estimated": 0.0,
+            "true_positive_rate": 1.0,
+            "false_positive_rate": 0.0,
+        },
+    },
+    "autograd": {
+        "one negative eigenvalue and force RMS < 2.0e-03 Ha/Bohr:": {
+            "correct_proposed_estimated": 571.48,
+            "false_proposed_estimated": 56.519999999999996,
+            "true_positive_rate": 0.91,
+            "false_positive_rate": 0.09,
+        },
+        "one negative eigenvalue:": {
+            "correct_proposed_estimated": 621.72,
+            "false_proposed_estimated": 6.28,
+            "true_positive_rate": 0.99,
+            "false_positive_rate": 0.01,
+        },
+    },
+}
+
 rename_metrics = {
     "gsm_success": "GSM Success",
     "converged_ts": "RFO Converged",
     "ts_success": "TS Success",
     "convert_ts": "RFO Converged and TS Success",
     "irc_success": "IRC Success",  # ignore
-    "intended_count": "IRC Intended",
+    "intended_count": "IRC Verified",
 }
 
 # Try to use the eval export if present; otherwise derive from runs_df
@@ -82,7 +114,9 @@ except Exception:
 
         # .config contains the hyperparameters.
         #  We remove special values that start with _.
-        config_list.append({k: v for k, v in run.config.items() if not k.startswith("_")})
+        config_list.append(
+            {k: v for k, v in run.config.items() if not k.startswith("_")}
+        )
 
         # .name is the human-readable name of the run.
         name_list.append(run.name)
@@ -93,7 +127,7 @@ except Exception:
 
     runs_df.to_csv(OUTFILE)
     print(f"Saved csv to {OUTFILE}")
-    
+
     records = []
     for _, row in runs_df.iterrows():
         cfg = row.get("config", {}) or {}
@@ -118,6 +152,34 @@ except Exception:
             )
     df = pd.DataFrame.from_records(records)
 
+# Append DFT-verified metrics (correct_proposed_estimated) for predict/autograd
+method_key_map = {"predict": "predict-equiformer", "autograd": "autograd-equiformer"}
+extra_records = []
+for src_key, method_label in method_key_map.items():
+    metrics_block = extra_metrics.get(src_key, {})
+    ts_block = metrics_block.get("one negative eigenvalue:")
+    conv_ts_block = metrics_block.get(
+        "one negative eigenvalue and force RMS < 2.0e-03 Ha/Bohr:"
+    )
+    if ts_block is not None:
+        extra_records.append(
+            {
+                "Metric": "DFT-Verified TS Success",
+                "Value": ts_block.get("correct_proposed_estimated"),
+                "Method": method_label,
+            }
+        )
+    if conv_ts_block is not None:
+        extra_records.append(
+            {
+                "Metric": "DFT-Verified Converged and TS Success",
+                "Value": conv_ts_block.get("correct_proposed_estimated"),
+                "Method": method_label,
+            }
+        )
+if extra_records:
+    df = pd.concat([df, pd.DataFrame.from_records(extra_records)], ignore_index=True)
+
 sns.set_theme(style="whitegrid", palette="pastel")
 
 # data
@@ -126,7 +188,9 @@ allowed_metrics = [
     "RFO Converged",
     # "TS Success",
     "RFO Converged and TS Success",
-    "IRC Intended",
+    "IRC Verified",
+    "DFT-Verified TS Success",
+    "DFT-Verified Converged and TS Success",
 ]
 df = df[df["Metric"].isin(allowed_metrics)]
 
@@ -159,7 +223,7 @@ sns.barplot(
 )
 ax.set_xlabel("")
 ax.set_ylabel("Count")
-plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
+plt.setp(ax.get_xticklabels(), rotation=-25, ha="right", fontsize=12)
 ax.legend(title="Method", bbox_to_anchor=(1.02, 1), loc="upper left")
 plt.tight_layout()
 
@@ -167,7 +231,7 @@ outfile = os.path.join(PLOTS_DIR, "reactbench.png")
 plt.savefig(outfile, dpi=300)
 print(f"Saved plot to {outfile}")
 
-
+###################################################################################
 # Build a Plotly lollipop plot for two specific methods
 desired_methods = ["predict-equiformer", "autograd-equiformer"]
 method_display_name = {
@@ -178,6 +242,7 @@ method_display_name = {
 df_plot = df[df["Method"].isin(desired_methods)].copy()
 if df_plot.empty:
     print("No data available for Plotly lollipop plot (predict/autograd).")
+    
 else:
     # Ensure consistent metric ordering
     df_plot["Metric"] = pd.Categorical(
@@ -202,9 +267,11 @@ else:
         if sub.empty:
             continue
 
-        colour = default_colorway[desired_methods.index(method_key) % len(default_colorway)]
+        colour = default_colorway[
+            desired_methods.index(method_key) % len(default_colorway)
+        ]
         display = method_display_name.get(method_key, method_key)
-        is_background = (method_key == render_order[0])
+        is_background = method_key == render_order[0]
 
         # Vertical stems per category (x,0)->(x,y)
         xs, ys = [], []
@@ -250,12 +317,12 @@ else:
     fig.update_layout(
         xaxis_title="",
         yaxis_title="Count",
-        xaxis=dict(categoryorder="array", categoryarray=allowed_metrics),
+        xaxis=dict(categoryorder="array", categoryarray=allowed_metrics, tickangle=-25, tickfont=dict(size=12)),
         margin=dict(l=40, r=20, t=0, b=20),
         template="plotly_white",
         legend=dict(
             title=dict(text="Method"),
-            x=0.4,
+            x=0.45,
             y=0.98,
             xanchor="left",
             yanchor="top",
