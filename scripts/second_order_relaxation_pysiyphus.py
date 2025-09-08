@@ -22,13 +22,16 @@ from torch_geometric.data import DataLoader as TGDataLoader
 try:
     from pysisyphus.Geometry import Geometry  # Geometry API + coordinate systems
     from pysisyphus.calculators.MLFF import MLFF
-    from pysisyphus.calculators.Calculator import Calculator  # base class to wrap/override
+    from pysisyphus.calculators.Calculator import (
+        Calculator,
+    )  # base class to wrap/override
     from pysisyphus.optimizers.FIRE import FIRE  # first-order baseline
     from pysisyphus.optimizers.RFOptimizer import RFOptimizer  # second-order RFO + BFGS
     from pysisyphus.optimizers.BFGS import BFGS
     from pysisyphus.optimizers.SteepestDescent import SteepestDescent
     from pysisyphus.optimizers.ConjugateGradient import ConjugateGradient
     from pysisyphus.optimizers.BacktrackingOptimizer import BacktrackingOptimizer
+
     # from pysisyphus.helpers_pure import eigval_to_wavenumber
     # from pysisyphus.helpers import _do_hessian
     # from pysisyphus.io.hessian import save_hessian

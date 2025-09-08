@@ -1,7 +1,15 @@
-# GAD-FF
+# Molecular Hessians Without Derivatives
 
-Directly predict the lowest Hessian eigenvalues and their eigenvectors for fast transition state search.
-Based on the HORM EquiformerV2 model, finetuned with extra prediction heads on the HORM DFT Hessians.
+A ML force field (interactomic potential) to directly predict the Hessian.
+Trained on small molecules from T1x and RGD1.
+
+Compared to autograd Hessians:
+- 10-70x faster for a single molecule of 5-30 atoms
+- 70x faster for a typical T1x batch in batched prediction
+- 3x memory reduction
+- Better accuracy (Hessian, Hessian eigenvalues and eigenvectors)
+- Better downstream accuracy (relaxation, transition state search, frequency analysis)
+
 
 ## Installation
 
@@ -76,7 +84,8 @@ wget https://springernature.figshare.com/ndownloader/files/18112775 -O data/rela
 ```
 
 ### Setting up the dataset
-Kaggle automatically downloads to the `~/.cache` folder. I highly recommend to set up a symbolic link to a local folder to avoid running out of space:
+Kaggle automatically downloads to the `~/.cache` folder. 
+I highly recommend to set up a symbolic link to a local folder to avoid running out of space on your home directory:
 ```bash
 PROJECT = <folder where you want to store the dataset>
 mkdir -p ${PROJECT}/.cache
@@ -110,12 +119,6 @@ wget https://huggingface.co/yhong55/HORM/resolve/main/eqv2.ckpt -O ckpt/eqv2.ckp
 wget https://huggingface.co/yhong55/HORM/resolve/main/left-df.ckpt -O ckpt/left-df.ckpt
 wget https://huggingface.co/yhong55/HORM/resolve/main/left.ckpt -O ckpt/left.ckpt
 wget https://huggingface.co/yhong55/HORM/resolve/main/alpha.ckpt -O ckpt/alpha.ckpt
-```
-
-Get our HessianLearning model: # TODO
-```bash
-# download from HuggingFace
-wget https://huggingface.co/andreasburger/heigen -O ckpt/heigen.ckpt
 ```
 
 
@@ -222,4 +225,5 @@ The evaluation is based on the ReactBench [paper](https://chemrxiv.org/engage/ch
 }
 ```
 
-We thank the authors of HORM and ReactBench from DeepPrinciple for making their code and data openly available. Please consider citing their work if you use this code or data.
+We thank the authors of HORM and ReactBench from DeepPrinciple for making their code and data openly available. 
+Please consider citing their work if you use this code or data.

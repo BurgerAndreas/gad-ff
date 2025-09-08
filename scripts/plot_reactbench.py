@@ -58,13 +58,13 @@ converged to initial reactant and product
 extra_metrics = {
     "predict": {
         "one negative eigenvalue and force RMS < 2.0e-03 Ha/Bohr:": {
-            "correct_proposed_estimated": 642.24, # "DFT-Verified Converged and TS Success"
+            "correct_proposed_estimated": 642.24,  # "DFT-Verified Converged and TS Success"
             "false_proposed_estimated": 26.76,
             "true_positive_rate": 0.96,
             "false_positive_rate": 0.04,
         },
         "one negative eigenvalue:": {
-            "correct_proposed_estimated": 669.0, # "DFT-Verified TS Success" 
+            "correct_proposed_estimated": 669.0,  # "DFT-Verified TS Success"
             "false_proposed_estimated": 0.0,
             "true_positive_rate": 1.0,
             "false_positive_rate": 0.0,
@@ -242,7 +242,7 @@ method_display_name = {
 df_plot = df[df["Method"].isin(desired_methods)].copy()
 if df_plot.empty:
     print("No data available for Plotly lollipop plot (predict/autograd).")
-    
+
 else:
     # Ensure consistent metric ordering
     df_plot["Metric"] = pd.Categorical(
@@ -317,7 +317,12 @@ else:
     fig.update_layout(
         xaxis_title="",
         yaxis_title="Count",
-        xaxis=dict(categoryorder="array", categoryarray=allowed_metrics, tickangle=-25, tickfont=dict(size=12)),
+        xaxis=dict(
+            categoryorder="array",
+            categoryarray=allowed_metrics,
+            tickangle=-25,
+            tickfont=dict(size=12),
+        ),
         margin=dict(l=40, r=20, t=0, b=20),
         template="plotly_white",
         legend=dict(

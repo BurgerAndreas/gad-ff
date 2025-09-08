@@ -7,34 +7,20 @@ python gadff/find_checkpoint.py wandb_run_id gadff
 # get checkpoint
 cp checkpoints/mycheckpoint ckpt/
 
-
 cd ../heigen 
 
+# rsync -av --exclude='__pycache__' ../gad-ff/ocpmodels ./
+# rsync -av --exclude='__pycache__' ../gad-ff/nets ./
 
-# remove all files except ckpt
-find . -mindepth 1 ! -name 'ckpt' ! -path './ckpt/*' -exec rm -rf {} +
 
-# copy over files
-cp ../gad-ff/gadff/equiformer_ase_calculator.py ./
-cp ../gad-ff/gadff/equiformer_calculator.py ./
-cp ../gad-ff/playground/example_inference.py ./
-
-rsync -av --exclude='__pycache__' ../gad-ff/ocpmodels ./
-rsync -av --exclude='__pycache__' ../gad-ff/nets ./
-
-# cp -r ../gad-ff/ckpt ./
+cp ../gad-ff/ckpt/hesspred_v1.ckpt ./ckpt/ # hesspredalldatanumlayershessian3presetluca8w10onlybz128-581483-20250826-074746
+cp ../gad-ff/ckpt/hesspred_v2.ckpt ./ckpt/ # 
+cp ../gad-ff/ckpt/hesspred_v3.ckpt ./ckpt/
 
 # cp ../gad-ff/scripts/download_horm_data_kaggle.py ./
 
-cp -r ../gad-ff/docs ./
-cp ../gad-ff/README.md ./
-
 mkdir data
-cp ../gad-ff/data/ff_lmdb.py ./data/
-cp ../gad-ff/data/sample_100-dft-hess-eigen.lmdb ./data/
-
-mkdir configs
-cp ../gad-ff/configs/equiformer_v2.yaml ./configs/
+cp ../gad-ff/data/sample_100.lmdb ./data/
 
 # upload to huggingface
 huggingface-cli upload andreasburger/heigen .

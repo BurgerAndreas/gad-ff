@@ -174,6 +174,7 @@ def speed_comparison(
     max_samples_per_n,
     device="cuda",
     output_dir="./results_speed",
+    output_path=None,
 ):
     """Compares the speed of autograd vs prediction for Hessian computation."""
     # Load model
@@ -286,7 +287,6 @@ def speed_comparison(
     # Save results
     output_dir = Path(output_dir)
     os.makedirs(output_dir, exist_ok=True)
-    output_path = output_dir / f"{dataset_name}_speed_comparison_results.csv"
     results_df = pd.DataFrame(results)
     results_df.to_csv(output_path, index=False)
     print(f"Results saved to {output_path}")
@@ -471,7 +471,7 @@ def prediction_batchsize_benchmark(
     results = []
     dataset_len = len(dataset)
     for bsz in batch_sizes:
-        print(f"Batch size: {bsz}")
+        print(f"\n# Batch size: {bsz}")
         # Prepare a subset with random indices; allow duplicates via randint
         num_needed = num_batches * bsz
         if dataset_len == 0:
@@ -530,10 +530,10 @@ def prediction_batchsize_benchmark(
                 # clear memory
                 torch.cuda.empty_cache()
 
-            msg = f"Batch size={bsz}, avg n_atoms={batch.n_atoms.mean():.1f}"
-            msg += f", prediction={time_prediction:.3f} ms"
+            msg = f"Bz={bsz}, avg natoms={batch.natoms.clone().to(torch.float32).mean():.1f}"
+            msg += f", pred={time_prediction:.1f} ms"
             if bsz < max_autograd_batch_size:
-                msg += f", autograd={time_autograd:.3f} ms"
+                msg += f", grad={time_autograd:.1f} ms"
             print(msg)
 
             measured += 1
@@ -1052,7 +1052,7 @@ def plot_combined_speed_memory_batchsize(
         arrowwidth=2,
         arrowcolor="rgba(50,50,50,0.8)",
     )
-    # Labels at tail/head for subplot 3 
+    # Labels at tail/head for subplot 3
     bz_tail_label_x = 0.10
     bz_tail_label_y = 0.77
     bz_head_label_x = 0.85
@@ -1153,9 +1153,12 @@ if __name__ == "__main__":
     redo = args.redo
 
     output_dir = "./results_speed"
+    output_dir = Path(output_dir)
+    output_path = (
+        output_dir
+        / f"{args.dataset}_speed_comparison_results_{args.max_samples_per_n}.csv"
+    )
     if not redo:
-        output_dir = Path(output_dir)
-        output_path = output_dir / f"{args.dataset}_speed_comparison_results.csv"
         if output_path.exists():
             results_df = pd.read_csv(output_path)
             print(f"Loaded existing results from {output_path}")
@@ -1168,6 +1171,7 @@ if __name__ == "__main__":
             dataset_name=args.dataset,
             max_samples_per_n=args.max_samples_per_n,
             output_dir=output_dir,
+            output_path=output_path,
         )
 
     # Plot results
@@ -1182,7 +1186,7 @@ if __name__ == "__main__":
     output_dir = Path("./results_speed")
     output_path_speedbz = (
         output_dir
-        / f"{dataset_name}_prediction_batchsize_results_agbz{args.max_autograd_bz}.csv"
+        / f"{dataset_name}_prediction_batchsize_results_agbz{args.max_autograd_bz}_{args.max_samples_per_n}.csv"
     )
     if output_path_speedbz.exists() and not args.redobz:
         bz_results_df = pd.read_csv(output_path_speedbz)

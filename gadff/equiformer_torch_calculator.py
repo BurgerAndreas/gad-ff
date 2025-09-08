@@ -4,118 +4,28 @@ import yaml
 import os
 import torch
 import warnings
-
-# Suppress the FutureWarning from e3nn about torch.load weights_only parameter
-warnings.filterwarnings("ignore", category=FutureWarning, module="e3nn")
+from pathlib import Path
+import json
 
 from torch_geometric.data import Batch
 from torch_geometric.data import Data as TGData
 from torch_geometric.loader import DataLoader as TGDataLoader
 
-from nets.equiformer_v2.equiformer_v2_oc20 import EquiformerV2_OC20
-from nets.prediction_utils import compute_extra_props
 from ocpmodels.common.relaxation.ase_utils import (
-    batch_to_atoms,
-    ase_atoms_to_torch_geometric,
+    # batch_to_atoms,
+    # ase_atoms_to_torch_geometric,
+    ase_atoms_to_torch_geometric_hessian,
+    coord_atoms_to_torch_geometric_hessian,
 )
-from ocpmodels.datasets import data_list_collater
-from ocpmodels.preprocessing import AtomsToGraphs
 
-from ase.calculators.calculator import Calculator
-from ase import Atoms
-from gadff.hessian_eigen import (
-    projector_vibrational_modes,
-    get_modes_geometric,
-    compute_cartesian_modes,
-    compute_vibrational_modes,
+from nets.prediction_utils import compute_extra_props
+
+from gadff.horm.hessian_utils import compute_hessian
+from gadff.inference_utils import get_model_from_checkpoint, get_dataloader
+from gadff.frequency_analysis import (
+    analyze_frequencies_torch,
+    eckart_projection_notmw_torch,
 )
-from ocpmodels.ff_lmdb import LmdbDataset
-from ocpmodels.hessian_graph_transform import HessianGraphTransform
-
-
-def get_model(config_path):
-    with open(config_path, "r") as file:
-        config = yaml.safe_load(file)
-    model_config = config["model"]
-    # model_config["otf_graph"] = False
-    print("model_config", model_config)
-    return EquiformerV2_OC20(**model_config), model_config
-
-
-def get_model_and_dataloader_for_hessian_prediction(
-    batch_size,
-    shuffle,
-    device,
-    dataset_path=None,
-    config_path=None,
-    checkpoint_path=None,
-    dataloader_kwargs={},
-):
-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-    # Model
-    if config_path is None:
-        config_path = os.path.join(project_root, "configs/equiformer_v2.yaml")
-    with open(config_path, "r") as file:
-        config = yaml.safe_load(file)
-    model_config = config["model"]
-    model_config["do_hessian"] = True
-    model_config["otf_graph"] = False
-    model = EquiformerV2_OC20(**model_config)
-    # Checkpoint
-    if checkpoint_path is None:
-        checkpoint_path = os.path.join(project_root, "ckpt/eqv2.ckpt")
-    state_dict = torch.load(checkpoint_path, weights_only=True)["state_dict"]
-    state_dict = {k.replace("potential.", ""): v for k, v in state_dict.items()}
-    model.load_state_dict(state_dict, strict=False)
-    model.train()
-    model.to(device)
-    # Dataset
-    transform = HessianGraphTransform(
-        cutoff=model.cutoff,
-        cutoff_hessian=model.cutoff_hessian,
-        max_neighbors=model.max_neighbors,
-        use_pbc=model.use_pbc,
-    )
-    if dataset_path is None:
-        dataset_path = os.path.join(project_root, "data/sample_100.lmdb")
-    dataset = LmdbDataset(dataset_path, transform=transform)
-    # Dataloader
-    follow_batch = ["diag_ij", "edge_index", "message_idx_ij"]
-    dataloader = TGDataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        follow_batch=follow_batch,
-        **dataloader_kwargs,
-    )
-    return model, dataloader
-
-
-# https://github.com/deepprinciple/HORM/blob/eval/eval.py
-def _get_derivatives(x, y, retain_graph=None, create_graph=False):
-    """Helper function to compute derivatives"""
-    grad = torch.autograd.grad(
-        [y.sum()], [x], retain_graph=retain_graph, create_graph=create_graph
-    )[0]
-    return grad
-
-
-def compute_hessian(coords, forces, retain_graph=True):
-    """Compute Hessian matrix using autograd."""
-
-    # Get number of components (n_atoms * 3)
-    n_comp = forces.reshape(-1).shape[0]
-
-    # Initialize hessian
-    hess = []
-    for f in forces.reshape(-1):
-        # Compute second-order derivative for each element
-        hess_row = _get_derivatives(coords, -f, retain_graph=retain_graph)
-        hess.append(hess_row)
-
-    # Stack hessian
-    hessian = torch.stack(hess)
-    return hessian.reshape(n_comp, -1)
 
 
 class EquiformerTorchCalculator:
@@ -123,106 +33,118 @@ class EquiformerTorchCalculator:
         self,
         checkpoint_path: Optional[str] = None,
         device: Optional[torch.device] = None,
-        eigen_dof_method: str = None,
-        # pass in a model directly to avoid loading another model into memory
+        hessian_method: str = "predict",
         model: torch.nn.Module = None,
+        **kwargs,
     ):
+        """
+        Initialize the Equiformer calculator.
+
+        Args:
+            checkpoint_path: Path to the trained Equiformer checkpoint file
+            device: Optional device specification (defaults to auto-detect)
+            hessian_method: Method to compute the Hessian
+            model: Optional model (otherwise loaded from checkpoint)
+        """
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
 
         if model is None:
-            project_root = os.path.dirname(os.path.dirname(__file__))
+            model = get_model_from_checkpoint(checkpoint_path, device)
 
-            config_path = os.path.join(project_root, "configs/equiformer_v2.yaml")
-            self.model, self.model_config = get_model(config_path)
+        self.potential = model
 
-            if checkpoint_path is None:
-                checkpoint_path = os.path.join(project_root, "ckpt/eqv2.ckpt")
-            state_dict = torch.load(checkpoint_path, weights_only=True)["state_dict"]
-            state_dict = {k.replace("potential.", ""): v for k, v in state_dict.items()}
-            self.model.load_state_dict(state_dict, strict=False)
-        else:
-            self.model = model
+        self.hessian_method = hessian_method
 
-        self.model.eval()
-        self.model.to(device)
+    def predict(
+        self,
+        batch=None,
+        coords=None,
+        atomic_nums=None,
+        hessian_method=None,
+        do_hessian=True,
+    ):
+        """Predict one or multiple samples"""
+        if hessian_method is None:
+            hessian_method = self.hessian_method
+        do_autograd = (hessian_method == "autodiff") and (do_hessian)
 
-        # Method to compute the eigenvectors of the Hessian
-        # qr: QR-based projector method (default)
-        # svd: SVD-based projector method
-        # inertia: Inertia tensor-based projector with auto-linearity detection
-        # geo: Use Geometric library (external dependency)
-        # ase: Use ASE library (external dependency)
-        # eckart: Eckart frame alignment with principal axes
-        self.eigen_dof_method = eigen_dof_method
+        if batch is None:
+            assert coords is not None and atomic_nums is not None, (
+                "coords and atomic_nums must be provided if batch is not provided"
+            )
+            batch = coord_atoms_to_torch_geometric_hessian(
+                coords,
+                atomic_nums,
+                cutoff=self.potential.cutoff,
+                max_neighbors=self.potential.max_neighbors,
+                use_pbc=self.potential.use_pbc,
+                with_grad=do_autograd,
+                cutoff_hessian=100.0,
+            )
 
-        # ocpmodels/common/relaxation/ase_utils.py
-        self.a2g = AtomsToGraphs(
-            max_neigh=self.model.max_neighbors,
-            radius=self.model.cutoff,
-            r_energy=False,
-            r_forces=False,
-            r_distances=False,
-            r_edges=False,
-            r_pbc=True,
-        )
-
-    def predict(self, batch):
-        """Predict one or multiple batches"""
-        batch = batch.to(self.model.device)
-        batch = compute_extra_props(batch, pos_require_grad=False)
-        energy, forces, eigenpred = self.model.forward(batch, eigen=True)
-        return energy, forces, eigenpred
-
-    def get_forces(self, batch):
-        """Get forces from the model"""
-        batch = batch.to(self.model.device)
-        batch = compute_extra_props(batch, pos_require_grad=False)
-        _, forces, _ = self.model.forward(batch, eigen=False)
-        return forces
-
-    def get_energy(self, batch):
-        """Get energy from the model"""
-        batch = batch.to(self.model.device)
-        batch = compute_extra_props(batch, pos_require_grad=False)
-        energy, _, _ = self.model.forward(batch, eigen=False)
-        return energy
-
-    def predict_with_hessian(self, batch):
-        """Predict one batch with autodiff Hessian"""
-        B = batch.batch.max() + 1
-        assert B == 1, "Only one batch is supported for Hessian prediction"
-        N = batch.natoms
+        # Store results
+        self.results = {}
 
         # Prepare batch with extra properties
-        batch = batch.to(self.model.device)
-        batch = compute_extra_props(batch, pos_require_grad=True)
+        batch = batch.to(self.potential.device)
+        batch = compute_extra_props(batch, pos_require_grad=do_autograd)
 
         # Run prediction
-        with torch.enable_grad():
-            energy, forces, eigenpred = self.model.forward(batch, eigen=True)
+        if do_hessian:
+            if hessian_method == "autograd":
+                # Compute energy and forces with autograd
+                with torch.enable_grad():
+                    # batch.pos.requires_grad = True # already set in ase_atoms_to_torch_geometric_hessian
+                    energy, forces, _ = self.potential.forward(
+                        batch,
+                        otf_graph=False,  # TODO: does that work? we should have gradients from ase_atoms_to_torch_geometric_hessian
+                        hessian=False,
+                        add_props=False,
+                    )
+                    # Use autograd to compute hessian
+                    hessian = compute_hessian(
+                        coords=batch.pos,
+                        energy=energy,
+                        forces=forces,  # allow_unused=True
+                    )
 
-        # 3D coordinates -> 3N^2 Hessian elements
-        hessian = compute_hessian(batch.pos, forces, retain_graph=True)
+            elif hessian_method == "predict":
+                with torch.no_grad():
+                    energy, forces, out = self.potential.forward(
+                        batch,
+                        hessian=True,
+                        otf_graph=False,
+                        add_props=True,  # not necessary for single molecule (only needed for batching)
+                    )
+                    hessian = out["hessian"]
 
-        # A named tuple (eigenvalues, eigenvectors) which corresponds to Λ and Q in: M = Qdiag(Λ)Q^T
-        # eigenvalues will always be real-valued. It will also be ordered in ascending order.
-        # eigenvectors contain the eigenvectors as its columns.
-        # eigenvalues, eigenvectors = torch.linalg.eigh(hessian)
-        eigenvalues, eigenvectors = compute_vibrational_modes(
-            hessian,
-            batch.z,
-            batch.pos,
-            forces=forces,
-            method=self.eigen_dof_method,
-        )
-        smallest_eigenvals = eigenvalues[:2]
-        smallest_eigenvecs = eigenvectors[:, :2]  # [N*3, 2]
-        eigenvalues = smallest_eigenvals
-        eigenvectors = smallest_eigenvecs.T.view(2, N, 3)
-        return energy, forces, hessian, eigenvalues, eigenvectors, eigenpred
+            else:
+                raise ValueError(f"Invalid hessian method: {hessian_method}")
 
-    def predict_gad(self, batch):
+            N = batch.pos.shape[0]
+            self.results["hessian"] = (
+                hessian  # .reshape(N * 3, N * 3) # only reshape for a single molecule
+            )
+
+        else:
+            # just predict energy and forces
+            energy, forces, _ = self.potential.forward(
+                batch,
+                otf_graph=False,
+                hessian=False,
+                add_props=False,
+            )
+
+        # Energy is per molecule, extract scalar value
+        self.results["energy"] = energy.detach()
+
+        # Forces shape: [n_atoms, 3]
+        self.results["forces"] = forces.detach()
+
+        return self.results
+
+    def get_gad(self, batch, hessian_method=None):
         """
         Gentlest Ascent Dynamics (GAD)
         dx/dt = -∇V(x) + 2(∇V, v(x))v(x)
@@ -230,93 +152,68 @@ class EquiformerTorchCalculator:
         since F=-∇V(x)
         where v(x) is the eigenvector of the Hessian with the smallest eigenvalue.
         """
-        B = batch.batch.max() + 1
-        energy, forces, eigenpred = self.predict(batch)
-        v = eigenpred["eigvec_1"].reshape(B, -1)
-        # normalize eigenvector
-        v = v / torch.norm(v, dim=1, keepdim=True)
-        forces = forces.reshape(B, -1)
-        # -∇V(x) + 2(∇V, v(x))v(x)
-        gad = forces + 2 * torch.einsum("bi,bi->b", -forces, v) * v
-        out = {
-            "energy": energy,
-            "forces": forces,
-        }
-        out.update(eigenpred)
-        return gad, out
-
-    def gad_autograd_hessian(self, batch):
-        B = batch.batch.max() + 1
-        assert B == 1, "Only one batch is supported for Hessian prediction"
-        N = batch.natoms
-
-        # Prepare batch with extra properties
-        batch = batch.to(self.model.device)
-        batch = compute_extra_props(batch, pos_require_grad=True)
-
-        # Run prediction
-        with torch.enable_grad():
-            energy, forces, eigenpred = self.model.forward(batch, eigen=False)
-
-        hessian = compute_hessian(batch.pos, forces, retain_graph=True)
-
-        # A named tuple (eigenvalues, eigenvectors) which corresponds to Λ and Q in: M = Qdiag(Λ)Q^T
-        # eigenvalues will always be real-valued. It will also be ordered in ascending order.
-        # eigenvectors contain the eigenvectors as its columns.
-        # eigenvalues, eigenvectors = torch.linalg.eigh(hessian)
-        # eigenvalues, eigenvectors = projector_vibrational_modes(
-        #     pos=batch.pos,
-        #     atom_types=batch.z,
-        #     H=hessian,
-        # )
-        # eigenvalues, eigenvectors = get_modes_geometric(
-        #     hessian, batch.z, batch.pos, True, True
-        # )
-        eigenvalues, eigenvectors = compute_vibrational_modes(
-            hessian,
-            batch.z,
-            batch.pos,
-            forces=forces,
-            method=self.eigen_dof_method,
+        assert batch.batch.max() + 1 == 1, (
+            "Only one batch is supported for GAD prediction"
         )
+        results = self.predict(batch, hessian_method=hessian_method)
+        N = batch.pos.shape[0]
+        hessian = results["hessian"].reshape(N * 3, N * 3)
+        eigenvalues, eigenvectors = torch.linalg.eigh(hessian)
+        # eigval1 = eigenvalues[0]
+        v = eigenvectors[:, 0]  # N*3
+        forces = results["forces"].reshape(-1)  # N*3
+        # -∇V(x) + 2(∇V, v(x))v(x)
+        gad = forces + 2 * torch.einsum("i,i->", -forces, v) * v
+        results.update(
+            {
+                "gad": gad,
+            }
+        )
+        return results
 
-        eigenvalues = eigenvalues[:2]
-        eigenvectors = eigenvectors[:, :2]
-        v = eigenvectors[:, 0].reshape(-1)  # [N*3]
 
-        # eigenvector should be normalized anyway
-        v = v.to(dtype=forces.dtype)
-        v = v / torch.norm(v)
+if __name__ == "__main__":
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        forces = forces.reshape(-1)  # [N*3]
+    # you might need to change this
+    project_root = os.path.dirname(os.path.dirname(__file__))
+    checkpoint_path = os.path.join(project_root, "ckpt/hesspred_v1.ckpt")
+    calculator = EquiformerTorchCalculator(
+        checkpoint_path=checkpoint_path,
+        hessian_method="predict",
+    )
 
-        # dx/dt = -∇V(x) + 2(∇V, v(x))v(x)
-        # = F + 2(-F, v(x))v(x)
-        # since F = -∇V(x)
-        dot_product = torch.dot(-forces, v)
-        gad = forces + (2 * dot_product * v)
-        out = {
-            "energy": energy,
-            "forces": forces,
-            "hessian": hessian,
-            "eigenvalues": eigenvalues,
-            "eigenvectors": eigenvectors,
-        }
-        out.update(eigenpred)
-        return gad, out
+    # Example 1: load a dataset file and predict the first batch
+    dataset_path = os.path.join(project_root, "data/sample_100.lmdb")
+    dataloader = get_dataloader(
+        dataset_path, calculator.potential, batch_size=1, shuffle=False
+    )
+    batch = next(iter(dataloader))
+    results = calculator.predict(batch)
+    print("\nExample 1:")
+    print(f"  Energy: {results['energy'].shape}")
+    print(f"  Forces: {results['forces'].shape}")
+    print(f"  Hessian: {results['hessian'].shape}")
 
-    def find_transitionstate_with_gad_from_hessian(self, batch):
-        """Integrate the equations of motion of the GAD vector field."""
-        raise NotImplementedError("Not implemented")
+    print("\nGAD:")
+    gad = calculator.get_gad(batch)
+    print(f"  GAD: {gad['gad'].shape}")
 
-    def ase_to_batch(self, atoms: Atoms):
-        # Call base class to set atoms attribute
-        Calculator.calculate(self, atoms)
+    # Example 2: create a random data object with random positions and predict
+    n_atoms = 10
+    elements = torch.tensor([1, 6, 7, 8])  # H, C, N, O
+    pos = torch.randn(n_atoms, 3)  # (N, 3)
+    atomic_nums = elements[torch.randint(0, 4, (n_atoms,))]  # (N,)
+    results = calculator.predict(coords=pos, atomic_nums=atomic_nums)
+    print("\nExample 2:")
+    print(f"  Energy: {results['energy'].shape}")
+    print(f"  Forces: {results['forces'].shape}")
+    print(f"  Hessian: {results['hessian'].shape}")
 
-        # ocpmodels/common/relaxation/ase_utils.py
-        # data_object = self.a2g.convert(atoms)
-        # batch = data_list_collater([data_object], otf_graph=True)
-
-        # Convert ASE atoms to torch_geometric format
-        batch = ase_atoms_to_torch_geometric(atoms)
-        return batch
+    print("\nFrequency analysis:")
+    hessian = results["hessian"]
+    frequency_analysis = analyze_frequencies_torch(hessian, pos, atomic_nums)
+    print(f"eigvals: {frequency_analysis['eigvals'].shape}")
+    print(f"eigvecs: {frequency_analysis['eigvecs'].shape}")
+    print(f"neg_num: {frequency_analysis['neg_num']}")
+    print(f"natoms: {frequency_analysis['natoms']}")

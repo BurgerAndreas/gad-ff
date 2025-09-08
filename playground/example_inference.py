@@ -7,6 +7,8 @@ from nets.equiformer_v2.equiformer_v2_oc20 import EquiformerV2_OC20
 from nets.prediction_utils import compute_extra_props
 import yaml
 
+# TODO: not up to date!
+
 
 def get_model(config_path):
     with open(config_path, "r") as file:
@@ -89,34 +91,19 @@ def gad_autograd_hessian(batch, potential):
 
 if __name__ == "__main__":
     from torch_geometric.data import Data as TGData
-    from torch_geometric.loader import DataLoader as TGDataLoader
+    from gadff.inference_utils import get_model_from_checkpoint, get_dataloader
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # you might need to change this
     project_root = os.path.dirname(os.path.dirname(__file__))
-
-    config_path = os.path.join(project_root, "configs/equiformer_v2.yaml")
-    model, model_config = get_model(config_path)
-
-    checkpoint_path = os.path.join(project_root, "ckpt/eqv2.ckpt")
-    state_dict = torch.load(checkpoint_path, weights_only=True)["state_dict"]
-    state_dict = {k.replace("potential.", ""): v for k, v in state_dict.items()}
-    model.load_state_dict(state_dict, strict=False)
-
-    model.eval()
-    model.to("cuda")
+    checkpoint_path = os.path.join(project_root, "ckpt/hesspred_v1.ckpt")
+    model = get_model_from_checkpoint(checkpoint_path, device)
 
     # Example 1: load a dataset file and predict the first batch
-    from ocpmodels.ff_lmdb import LmdbDataset
-
     dataset_path = os.path.join(project_root, "data/sample_100.lmdb")
-    dataset = LmdbDataset(dataset_path)
-    # either use the dataset directly or use a dataloader
-    batch = dataset[0]
-    for k, v in batch.items():
-        print(k, v.shape)
-    batch = Batch.from_data_list([batch])
-    # dataloader = TGDataLoader(dataset, batch_size=1, shuffle=False)
-    # batch = next(iter(dataloader))
+    dataloader = get_dataloader(dataset_path, model, batch_size=1, shuffle=False)
+    batch = next(iter(dataloader))
     energy, forces, eigenpred = predict(batch, model)
     print("\nExample 1:")
     print(f"  Energy: {energy.shape}")

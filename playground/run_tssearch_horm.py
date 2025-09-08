@@ -51,6 +51,7 @@ try:
     from pysisyphus.calculators.MLFF import MLFF
     from pysisyphus.constants import BOHR2ANG
     from pysisyphus.optimizers.RFOptimizer import RFOptimizer
+
     # PyGSM imports for Growing String Method
     from pyGSM.coordinate_systems.delocalized_coordinates import (
         DelocalizedInternalCoordinates,
@@ -114,7 +115,6 @@ from recipes.ts_search import (
 )
 from recipes.trajectorysaver import MyTrajectory
 import traceback
-
 
 
 @contextmanager

@@ -35,7 +35,7 @@ def check_symmetry(hessian, N, nsamples=100):
     )
 
 
-def add_extra_props_for_hessian(data, offset_indices=False):
+def add_extra_props_for_hessian_slow(data, offset_indices=False):
     """Fix indices for batched Hessian prediction.
 
     If you encounter the following error:
@@ -106,7 +106,7 @@ def add_extra_props_for_hessian(data, offset_indices=False):
 
 
 # slightly faster than add_extra_props_for_hessian, gives the same result. does not matter though
-def add_extra_props_for_hessian_optimized(data, offset_indices=False):
+def add_extra_props_for_hessian(data, offset_indices=False):
     # add extra props for convience
     nedges = data.nedges_hessian
     B = data.batch.max().item() + 1

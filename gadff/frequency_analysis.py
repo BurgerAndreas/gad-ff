@@ -6,6 +6,7 @@ import h5py
 import torch
 
 from gadff.masses import MASS_DICT
+from nets.prediction_utils import Z_TO_ATOM_SYMBOL
 
 """
 Adapted from 
@@ -324,16 +325,20 @@ def get_trans_rot_projector_torch(cart_coords, masses, full=False):
 
 def mass_weigh_hessian_torch(hessian, masses3d):
     """mass-weighted hessian M^(-1/2) H M^(-1/2) using torch."""
-    h_t = _to_torch_double(hessian)
-    m_t = _to_torch_double(masses3d)
-    mm_sqrt_inv = torch.diag(1.0 / torch.sqrt(m_t))
+    h_t = _to_torch_double(hessian, device=hessian.device)
+    m_t = _to_torch_double(masses3d, device=hessian.device)
+    mm_sqrt_inv = torch.diag(
+        1.0 / torch.sqrt(m_t),
+    )
     return mm_sqrt_inv @ h_t @ mm_sqrt_inv
 
 
 def unweight_mw_hessian_torch(mw_hessian, masses3d):
-    m_t = _to_torch_double(masses3d)
-    h_t = _to_torch_double(mw_hessian)
-    mm_sqrt = torch.diag(torch.sqrt(m_t))
+    h_t = _to_torch_double(mw_hessian, device=mw_hessian.device)
+    m_t = _to_torch_double(masses3d, device=mw_hessian.device)
+    mm_sqrt = torch.diag(
+        torch.sqrt(m_t),
+    )
     return mm_sqrt @ h_t @ mm_sqrt
 
 
@@ -345,7 +350,7 @@ def eckart_projection_notmw_torch(hessian, cart_coords, atomsymbols, ev_thresh=-
     atomsymbols: list[str] (N)
     """
     masses_np = np.array([MASS_DICT[atom.lower()] for atom in atomsymbols])
-    masses_t = _to_torch_double(masses_np)
+    masses_t = _to_torch_double(masses_np, device=hessian.device)
     masses3d_t = masses_t.repeat_interleave(3)
 
     mw_hessian_t = mass_weigh_hessian_torch(hessian, masses3d_t)
@@ -353,6 +358,43 @@ def eckart_projection_notmw_torch(hessian, cart_coords, atomsymbols, ev_thresh=-
     proj_hessian_t = P_t @ mw_hessian_t @ P_t.T
     proj_hessian_t = (proj_hessian_t + proj_hessian_t.T) / 2.0
     return proj_hessian_t
+
+
+def analyze_frequencies_torch(
+    hessian: torch.Tensor,  # eV/Angstrom^2
+    cart_coords: torch.Tensor,  # Angstrom
+    atomsymbols: list[str],
+    ev_thresh: float = -1e-6,
+):
+    cart_coords = cart_coords.reshape(-1, 3).to(hessian.device)
+    hessian = hessian.reshape(cart_coords.numel(), cart_coords.numel())
+
+    if isinstance(atomsymbols[0], torch.Tensor):
+        atomsymbols = atomsymbols.tolist()
+    if not isinstance(atomsymbols[0], str):
+        # atomic numbers were passed instead of symbols
+        atomsymbols = [Z_TO_ATOM_SYMBOL[z] for z in atomsymbols]
+
+    proj_hessian = eckart_projection_notmw_torch(hessian, cart_coords, atomsymbols)
+    eigvals, eigvecs = torch.linalg.eigh(proj_hessian)
+
+    neg_inds = eigvals < ev_thresh
+    neg_eigvals = eigvals[neg_inds]
+    neg_num = sum(neg_inds)
+    # # eigval_str = np.array2string(eigvals[:10], precision=4)
+    # if neg_num > 0:
+    #     wavenumbers = eigval_to_wavenumber(neg_eigvals)
+    #     # wavenum_str = np.array2string(wavenumbers, precision=2)
+    # else:
+    #     wavenumbers = None
+    return {
+        "eigvals": eigvals,
+        "eigvecs": eigvecs,
+        # "wavenumbers": wavenumbers,
+        "neg_eigvals": neg_eigvals,
+        "neg_num": neg_num,
+        "natoms": len(atomsymbols),
+    }
 
 
 if __name__ == "__main__":

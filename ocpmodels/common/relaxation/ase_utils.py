@@ -291,8 +291,8 @@ def ase_atoms_to_torch_geometric_hessian(
 
 
 def coord_atoms_to_torch_geometric_hessian(
-    coords,
-    atomic_nums,
+    coords,  # (N, 3)
+    atomic_nums,  # (N,)
     cutoff,
     max_neighbors,
     use_pbc,
@@ -313,10 +313,10 @@ def coord_atoms_to_torch_geometric_hessian(
 
     # Convert to torch tensors
     data = TGData(
-        pos=torch.tensor(coords, dtype=torch.float32),
+        pos=torch.as_tensor(coords, dtype=torch.float32).reshape(-1, 3),
         # TODO: difference between z and charges?
-        z=torch.tensor(atomic_nums, dtype=torch.int64),
-        charges=torch.tensor(atomic_nums, dtype=torch.int64),
+        z=torch.as_tensor(atomic_nums, dtype=torch.int64),
+        charges=torch.as_tensor(atomic_nums, dtype=torch.int64),
         natoms=torch.tensor([len(atomic_nums)], dtype=torch.int64),
         cell=None,
         pbc=torch.tensor(False, dtype=torch.bool),
@@ -337,8 +337,7 @@ def coord_atoms_to_torch_geometric_hessian(
             max_neighbors=max_neighbors,
             use_pbc=use_pbc,
         )(data)
-    data = Batch.from_data_list(
+
+    return Batch.from_data_list(
         [data], follow_batch=["diag_ij", "edge_index", "message_idx_ij"]
     )
-
-    return data

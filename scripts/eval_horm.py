@@ -140,9 +140,49 @@ def evaluate(
         n_samples = 0
 
         if max_samples is not None:
-            n_total_samples = max_samples
+            n_total_samples = min(max_samples, len(dataloader))
         else:
             n_total_samples = len(dataloader)
+
+        # Warmup
+        for _i, batch in tqdm(enumerate(dataloader), desc="Warmup", total=10):
+            if _i >= 10:
+                break
+            batch = batch.to("cuda")
+            batch = compute_extra_props(batch)
+
+            n_atoms = batch.pos.shape[0]
+
+            torch.cuda.reset_peak_memory_stats()
+            start_event = torch.cuda.Event(enable_timing=True)
+            end_event = torch.cuda.Event(enable_timing=True)
+            start_event.record()
+
+            # Forward pass
+            if model_name == "LEFTNet":
+                batch.pos.requires_grad_()
+                energy_model, force_model = model.forward_autograd(batch)
+                hessian_model = compute_hessian(batch.pos, energy_model, force_model)
+            elif "equiformer" in model_name.lower():
+                if do_autograd:
+                    batch.pos.requires_grad_()
+                    energy_model, force_model, out = model.forward(
+                        batch, otf_graph=False, hessian=False
+                    )
+                    hessian_model = compute_hessian(
+                        batch.pos, energy_model, force_model
+                    )
+                else:
+                    with torch.no_grad():
+                        energy_model, force_model, out = model.forward(
+                            batch, otf_graph=False, hessian=True, add_props=True
+                        )
+                    hessian_model = out["hessian"].reshape(n_atoms * 3, n_atoms * 3)
+            else:
+                # AlphaNet
+                batch.pos.requires_grad_()
+                energy_model, force_model = model.forward(batch)
+                hessian_model = compute_hessian(batch.pos, energy_model, force_model)
 
         start_event_all = torch.cuda.Event(enable_timing=True)
         end_event_all = torch.cuda.Event(enable_timing=True)
@@ -174,10 +214,11 @@ def evaluate(
                         batch.pos, energy_model, force_model
                     )
                 else:
-                    energy_model, force_model, out = model.forward(
-                        batch, otf_graph=False, hessian=True, add_props=True
-                    )
-                    hessian_model = out["hessian"].reshape(n_atoms * 3, n_atoms * 3)
+                    with torch.no_grad():
+                        energy_model, force_model, out = model.forward(
+                            batch, otf_graph=False, hessian=True, add_props=True
+                        )
+                    hessian_model = out["hessian"]
             else:
                 # AlphaNet
                 batch.pos.requires_grad_()
@@ -189,6 +230,8 @@ def evaluate(
 
             time_taken = start_event.elapsed_time(end_event)  # ms
             memory_usage = torch.cuda.max_memory_allocated() / 1e6  # Convert to MB
+
+            hessian_model = hessian_model.reshape(n_atoms * 3, n_atoms * 3)
 
             # Compute hessian eigenspectra
             eigvals_model, eigvecs_model = torch.linalg.eigh(hessian_model)
