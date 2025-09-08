@@ -18,7 +18,7 @@ from gadff.path_config import fix_dataset_path
 from nets.prediction_utils import compute_extra_props, Z_TO_ATOM_SYMBOL
 from ocpmodels.hessian_graph_transform import HessianGraphTransform
 
-from ReactBench.utils.frequency_analysis import analyze_frequencies
+from gadff.frequency_analysis import analyze_frequencies
 
 
 def _get_derivatives(x, y, retain_graph=None, create_graph=False):

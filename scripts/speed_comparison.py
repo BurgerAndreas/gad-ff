@@ -686,7 +686,7 @@ def plot_combined_speed_memory_batchsize(
         rows=1,
         cols=3,
         # subplot_titles=("", "", ""),
-        horizontal_spacing=0.03,
+        horizontal_spacing=0.05,
         vertical_spacing=0.0,
     )
 
@@ -702,7 +702,7 @@ def plot_combined_speed_memory_batchsize(
         fig.add_trace(
             go.Scatter(
                 x=avg_times.index,
-                y=avg_times[method] / 1000.0,
+                y=avg_times[method],
                 mode="lines+markers",
                 name=method,
                 legend="legend",
@@ -732,62 +732,31 @@ def plot_combined_speed_memory_batchsize(
             col=2,
         )
 
-    # Add arrows for subplots 1 and 2: from max autograd to max prediction
-    if "autograd" in avg_times.columns and "prediction" in avg_times.columns:
-        _auto = avg_times["autograd"].dropna()
-        _pred = avg_times["prediction"].dropna()
-        if len(_auto) > 0 and len(_pred) > 0:
-            _x_auto = _auto.idxmax()
-            _y_auto = _auto.loc[_x_auto]
-            _x_pred = _pred.idxmax()
-            _y_pred = _pred.loc[_x_pred]
-            # Shorten arrow a bit to avoid overlapping the destination
-            _x_head = _x_auto + (_x_pred - _x_auto) * 0.97
-            # Convert to seconds for plotting
-            _y_auto_s = _y_auto / 1000.0
-            _y_pred_s = _y_pred / 1000.0
-            _y_head_s = _y_auto_s + (_y_pred_s - _y_auto_s) * 0.97
-            fig.add_annotation(
-                x=_x_head,
-                y=_y_head_s,
-                ax=_x_auto,
-                ay=_y_auto_s,
-                xref="x1",
-                yref="y1",
-                axref="x1",
-                ayref="y1",
-                showarrow=True,
-                arrowhead=2,
-                arrowsize=1,
-                arrowwidth=2,
-                arrowcolor="rgba(50,50,50,0.8)",
-            )
-
-    if "autograd" in avg_memory.columns and "prediction" in avg_memory.columns:
-        _auto_m = avg_memory["autograd"].dropna()
-        _pred_m = avg_memory["prediction"].dropna()
-        if len(_auto_m) > 0 and len(_pred_m) > 0:
-            _x_auto_m = _auto_m.idxmax()
-            _y_auto_m = _auto_m.loc[_x_auto_m]
-            _x_pred_m = _pred_m.idxmax()
-            _y_pred_m = _pred_m.loc[_x_pred_m]
-            _x_head_m = _x_auto_m + (_x_pred_m - _x_auto_m) * 0.97
-            _y_head_m = _y_auto_m + (_y_pred_m - _y_auto_m) * 0.97
-            fig.add_annotation(
-                x=_x_head_m,
-                y=_y_head_m,
-                ax=_x_auto_m,
-                ay=_y_auto_m,
-                xref="x2",
-                yref="y2",
-                axref="x2",
-                ayref="y2",
-                showarrow=True,
-                arrowhead=2,
-                arrowsize=1,
-                arrowwidth=2,
-                arrowcolor="rgba(50,50,50,0.8)",
-            )
+    # add arrow from the largest autograd value to the largest prediction value
+    _auto_m = avg_memory["autograd"].dropna()
+    _pred_m = avg_memory["prediction"].dropna()
+    if len(_auto_m) > 0 and len(_pred_m) > 0:
+        _x_auto_m = _auto_m.idxmax()
+        _y_auto_m = _auto_m.loc[_x_auto_m]
+        _x_pred_m = _pred_m.idxmax()
+        _y_pred_m = _pred_m.loc[_x_pred_m]
+        _x_head_m = _x_auto_m + (_x_pred_m - _x_auto_m) * 0.97
+        _y_head_m = _y_auto_m + (_y_pred_m - _y_auto_m) * 0.97
+        fig.add_annotation(
+            x=_x_head_m,
+            y=_y_head_m,
+            ax=_x_auto_m,
+            ay=_y_auto_m,
+            xref="x2",
+            yref="y2",
+            axref="x2",
+            ayref="y2",
+            showarrow=True,
+            arrowhead=2,
+            arrowsize=1,
+            arrowwidth=2,
+            arrowcolor="rgba(50,50,50,0.8)",
+        )
 
     # Col 3: Prediction vs Batch Size (per-sample)
     # Ensure strictly positive values for log scale
@@ -835,7 +804,7 @@ def plot_combined_speed_memory_batchsize(
 
     # Add axis titles for each subplot
     fig.update_xaxes(title_text="Number of Atoms (N)", title_standoff=1, row=1, col=1)
-    fig.update_yaxes(title_text="Average Time (s)", title_standoff=10, row=1, col=1)
+    fig.update_yaxes(title_text="Average Time (ms)", title_standoff=10, row=1, col=1)
     # fig.update_yaxes(tickformat=".0e", exponentformat="e",  row=1, col=1)
     fig.update_xaxes(title_text="Number of Atoms (N)", title_standoff=1, row=1, col=2)
     fig.update_yaxes(title_text="Peak Memory (MB)", title_standoff=0, row=1, col=2)
@@ -850,6 +819,7 @@ def plot_combined_speed_memory_batchsize(
         # margin=dict(l=0, r=0, b=0, t=0),
         width=width,
         height=height,
+        yaxis=dict(type="log"),
         yaxis3=dict(type="log"),
         legend=dict(
             x=x1,
@@ -912,7 +882,159 @@ def plot_combined_speed_memory_batchsize(
         font=dict(size=14),
     )
 
-    # add manual arrow for subplot 3 in normalized domain coords
+    ############ Subplot 1 ############
+    # Add arrow for subplot 1 manually in normalized domain coordinates (log scale friendly)
+    # and add separate labels for tail (autograd) and head (prediction), in ms
+    last_n = avg_times.index.max()
+    final_vals_speed = {}
+    for m in ["autograd", "prediction"]:
+        if m in avg_times.columns and last_n in avg_times.index:
+            val = avg_times[m].loc[last_n]
+            if pd.notna(val):
+                final_vals_speed[m] = float(val)
+    speed_auto_text = (
+        # f"<b>{round(final_vals_speed['autograd'])} ms</b>"
+        f"{round(final_vals_speed['autograd'])} ms"
+        if "autograd" in final_vals_speed
+        else ""
+    )
+    speed_pred_text = (
+        # f"<b>{round(final_vals_speed['prediction'])} ms</b>"
+        f"{round(final_vals_speed['prediction'])} ms"
+        if "prediction" in final_vals_speed
+        else ""
+    )
+    # Manual label positions (domain coordinates) for subplot 1
+    speed_tail_label_x = 0.9
+    speed_tail_label_y = 0.8
+    speed_head_label_x = 0.9
+    speed_head_label_y = 0.2
+    fig.add_annotation(
+        x=0.94,
+        y=0.2,
+        ax=0.94,
+        ay=0.95,
+        xref="x domain",
+        yref="y domain",
+        axref="x domain",
+        ayref="y domain",
+        showarrow=True,
+        arrowhead=2,
+        arrowsize=1,
+        arrowwidth=2,
+        arrowcolor="rgba(50,50,50,0.8)",
+    )
+    # Labels at tail/head for subplot 1
+    if speed_auto_text:
+        fig.add_annotation(
+            x=speed_tail_label_x,
+            y=speed_tail_label_y,
+            xref="x domain",
+            yref="y domain",
+            showarrow=False,
+            text=speed_auto_text,
+            font=dict(size=14),
+        )
+    if speed_pred_text:
+        fig.add_annotation(
+            x=speed_head_label_x,
+            y=speed_head_label_y,
+            xref="x domain",
+            yref="y domain",
+            showarrow=False,
+            text=speed_pred_text,
+            font=dict(size=14),
+        )
+    # Reduction label (autograd vs prediction) in the middle, vertical
+    if "autograd" in final_vals_speed and "prediction" in final_vals_speed:
+        _r = final_vals_speed["autograd"] / max(1e-12, final_vals_speed["prediction"])
+        speed_mid_text = f"<b>{int(round(_r))}x</b>"
+        speed_mid_label_x = 0.92
+        speed_mid_label_y = 0.48
+        fig.add_annotation(
+            x=speed_mid_label_x,
+            y=speed_mid_label_y,
+            xref="x domain",
+            yref="y domain",
+            showarrow=False,
+            text=speed_mid_text,
+            # textangle=-90,
+            font=dict(size=14),
+        )
+    ############ Subplot 2 ############
+    last_n = avg_memory.index.max()
+    final_vals_memory = {}
+    for m in ["autograd", "prediction"]:
+        if m in avg_memory.columns and last_n in avg_memory.index:
+            val = avg_memory[m].loc[last_n]
+            if pd.notna(val):
+                final_vals_memory[m] = float(val)
+    memory_auto_text = (
+        # f"<b>{round(final_vals_memory['autograd'])} MB</b>"
+        f"{round(final_vals_memory['autograd'])} MB"
+        if "autograd" in final_vals_memory
+        else ""
+    )
+    memory_pred_text = (
+        # f"<b>{round(final_vals_memory['prediction'])} MB</b>"
+        f"{round(final_vals_memory['prediction'])} MB"
+        if "prediction" in final_vals_memory
+        else ""
+    )
+    # Manual label positions (domain coordinates) for subplot 2
+    memory_tail_label_x = 0.83
+    memory_tail_label_y = 0.89
+    memory_head_label_x = 0.9
+    memory_head_label_y = 0.25
+    # Labels at tail/head for subplot 2
+    fig.add_annotation(
+        x=memory_tail_label_x,
+        y=memory_tail_label_y,
+        xref="x2 domain",
+        yref="y2 domain",
+        showarrow=False,
+        text=memory_auto_text,
+        font=dict(size=14),
+    )
+    fig.add_annotation(
+        x=memory_head_label_x,
+        y=memory_head_label_y,
+        xref="x2 domain",
+        yref="y2 domain",
+        showarrow=False,
+        text=memory_pred_text,
+        font=dict(size=14),
+    )
+    memory_mid_text = f"<b>{int(round(final_vals_memory['autograd'] / final_vals_memory['prediction']))}x</b>"
+    memory_mid_label_x = 0.90
+    memory_mid_label_y = 0.50
+    fig.add_annotation(
+        x=memory_mid_label_x,
+        y=memory_mid_label_y,
+        xref="x2 domain",
+        yref="y2 domain",
+        showarrow=False,
+        text=memory_mid_text,
+        # textangle=-90,
+        font=dict(size=14),
+    )
+    ############ Subplot 3 ############
+    # add manual arrow for subplot 3 in normalized domain coords with labels
+    # For prediction use the final (largest bsz); for autograd use the first (smallest bsz)
+    pred_text = ""
+    auto_text = ""
+    if len(pred_avg_times_plot.index) > 0:
+        last_bz = pred_avg_times_plot.index.max()
+        pred_val = float(pred_avg_times_plot.loc[last_bz])
+        # pred_text = f"{last_bz}: {pred_val:.2f} ms"
+        # pred_text = f"<b>{round(pred_val)} ms</b>"
+        pred_text = f"{round(pred_val)} ms"
+    if len(autograd_avg_times_plot.index) > 0:
+        first_bz = autograd_avg_times_plot.index.min()
+        auto_val = float(autograd_avg_times_plot.loc[first_bz])
+        # auto_text = f"{first_bz}: {auto_val:.2f} ms"
+        # auto_text = f"<b>{round(auto_val)} ms</b>"
+        auto_text = f"{round(auto_val)} ms"
     fig.add_annotation(
         x=0.93,  # lower means left
         y=0.1,  # lower means lower
@@ -930,6 +1052,44 @@ def plot_combined_speed_memory_batchsize(
         arrowwidth=2,
         arrowcolor="rgba(50,50,50,0.8)",
     )
+    # Labels at tail/head for subplot 3 
+    bz_tail_label_x = 0.10
+    bz_tail_label_y = 0.77
+    bz_head_label_x = 0.85
+    bz_head_label_y = 0.09
+    fig.add_annotation(
+        x=bz_tail_label_x,
+        y=bz_tail_label_y,
+        xref="x3 domain",
+        yref="y3 domain",
+        showarrow=False,
+        text=auto_text,
+        font=dict(size=14),
+    )
+    fig.add_annotation(
+        x=bz_head_label_x,
+        y=bz_head_label_y,
+        xref="x3 domain",
+        yref="y3 domain",
+        showarrow=False,
+        text=pred_text,
+        font=dict(size=14),
+    )
+    # Reduction label (autograd first vs prediction last) in the middle, vertical
+    if ("auto_val" in locals()) and ("pred_val" in locals()) and pred_val > 0:
+        bz_mid_text = f"<b>{int(round(auto_val / pred_val))}x</b>"
+        bz_mid_label_x = 0.60
+        bz_mid_label_y = 0.40
+        fig.add_annotation(
+            x=bz_mid_label_x,
+            y=bz_mid_label_y,
+            xref="x3 domain",
+            yref="y3 domain",
+            showarrow=False,
+            text=bz_mid_text,
+            textangle=32,
+            font=dict(size=14),
+        )
 
     # Save only PNG to keep output concise
     output_path = output_dir / "combined_speed_memory_batchsize.png"

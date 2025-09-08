@@ -14,26 +14,34 @@ import logging
 import h5py
 import pandas as pd
 import wandb
+import shutil
 
 import torch
 from torch_geometric.data import DataLoader as TGDataLoader
 
-from pysisyphus.Geometry import Geometry  # Geometry API + coordinate systems
-from pysisyphus.calculators.MLFF import MLFF
-from pysisyphus.calculators.Calculator import Calculator  # base class to wrap/override
-from pysisyphus.optimizers.FIRE import FIRE  # first-order baseline
-from pysisyphus.optimizers.RFOptimizer import RFOptimizer  # second-order RFO + BFGS
-from pysisyphus.optimizers.BFGS import BFGS
-from pysisyphus.optimizers.SteepestDescent import SteepestDescent
-from pysisyphus.optimizers.ConjugateGradient import ConjugateGradient
-from pysisyphus.optimizers.BacktrackingOptimizer import BacktrackingOptimizer
+try:
+    from pysisyphus.Geometry import Geometry  # Geometry API + coordinate systems
+    from pysisyphus.calculators.MLFF import MLFF
+    from pysisyphus.calculators.Calculator import Calculator  # base class to wrap/override
+    from pysisyphus.optimizers.FIRE import FIRE  # first-order baseline
+    from pysisyphus.optimizers.RFOptimizer import RFOptimizer  # second-order RFO + BFGS
+    from pysisyphus.optimizers.BFGS import BFGS
+    from pysisyphus.optimizers.SteepestDescent import SteepestDescent
+    from pysisyphus.optimizers.ConjugateGradient import ConjugateGradient
+    from pysisyphus.optimizers.BacktrackingOptimizer import BacktrackingOptimizer
+    # from pysisyphus.helpers_pure import eigval_to_wavenumber
+    # from pysisyphus.helpers import _do_hessian
+    # from pysisyphus.io.hessian import save_hessian
+    from pysisyphus.constants import AU2EV, BOHR2ANG
+    from pysisyphus.helpers import procrustes
 
-# from pysisyphus.helpers_pure import eigval_to_wavenumber
-# from pysisyphus.helpers import _do_hessian
-# from pysisyphus.io.hessian import save_hessian
-from pysisyphus.constants import AU2EV, BOHR2ANG
-from pysisyphus.helpers import procrustes
-import shutil
+    from ReactBench.Calculators.equiformer import PysisEquiformer
+except ImportError:
+    print()
+    traceback.print_exc()
+    print("\nFollow the instructions here: https://github.com/BurgerAndreas/ReactBench")
+    exit()
+
 
 from ase import Atoms
 from ase.io import read
@@ -52,7 +60,6 @@ from nets.prediction_utils import (
     GLOBAL_ATOM_NUMBERS,
     compute_extra_props,
 )
-from ReactBench.Calculators.equiformer import PysisEquiformer
 
 from gadff.t1x_dft_dataloader import Dataloader as T1xDFTDataloader
 
@@ -445,57 +452,58 @@ def get_rfo_optimizer(
 ):
     # RFO with flexible Hessian policies. hessian_init ∈ {'unit','calc',...}; hessian_recalc = k or None.
     opt = RFOptimizer(
-        # line_search
+        # line_search: bool = True
         # Whether to carry out implicit line searches.
-        # gediis
+        # gediis: bool = False
         # Whether to enable GEDIIS.
-        # gdiis
+        # gdiis: bool = True
         # Whether to enable GDIIS.
-        # gdiis_thresh
+        # gdiis_thresh: float = 2.5e-3
         # Threshold for rms(forces) to enable GDIIS.
-        # gediis_thresh
+        # gediis_thresh: float = 1e-2
         # Threshold for rms(step) to enable GEDIIS.
-        # gdiis_test_direction
+        # gdiis_test_direction: bool = True
         # Whether to the overlap of the RFO step and the GDIIS step.
-        # max_micro_cycles
+        # max_micro_cycles: int = 25
         # Number of restricted-step microcycles. Disabled by default.
-        # adapt_step_func
+        # adapt_step_func: bool = False
+        # # HessianOptimizer
         # Whether to switch between shifted Newton and RFO-steps.
-        # trust_radius
+        # trust_radius: float = 0.5
         # Initial trust radius in whatever unit the optimization is carried out.
-        # trust_update
+        # trust_update: bool = True
         # Whether to update the trust radius throughout the optimization.
-        # trust_min
+        # trust_min: float = 0.1
         # Minimum trust radius.
-        # trust_max
+        # trust_max: float = 1
         # Maximum trust radius.
-        # max_energy_incr
+        # max_energy_incr: Optional[float] = None
         # Maximum allowed energy increased after a faulty step. Optimization is
         # aborted when the threshold is exceeded.
-        # hessian_update
+        # hessian_update: HessUpdate = "bfgs"
         # Type of Hessian update. Defaults to BFGS for minimizations and Bofill
         # for saddle point searches.
-        # hessian_init
+        # hessian_init: HessInit = "fischer"
         # Type of initial model Hessian.
-        # hessian_recalc
+        # hessian_recalc: Optional[int] = None
         # Recalculate exact Hessian every n-th cycle instead of updating it.
-        # hessian_recalc_adapt
+        # hessian_recalc_adapt: Optional[float] = None
         # Use a more flexible scheme to determine Hessian recalculation. Undocumented.
-        # hessian_xtb
+        # hessian_xtb: bool = False
         # Recalculate the Hessian at the GFN2-XTB level of theory.
-        # hessian_recalc_reset
+        # hessian_recalc_reset: bool = False
         # Whether to skip Hessian recalculation after reset. Undocumented.
-        # small_eigval_thresh
+        # small_eigval_thresh: float = 1e-8
         # Threshold for small eigenvalues. Eigenvectors belonging to eigenvalues
         # below this threshold are discardewd.
-        # line_search
+        # line_search: bool = False
         # Whether to carry out a line search. Not implemented by a subclassing
         # optimizers.
-        # alpha0
+        # alpha0: float = 1.0
         # Initial alpha for restricted-step (RS) procedure.
-        # max_micro_cycles
+        # max_micro_cycles: int = 25
         # Maximum number of RS iterations.
-        # rfo_overlaps
+        # rfo_overlaps: bool = False
         # Enable mode-following in RS procedure.
         # Geometry to be optimized.
         geom,
@@ -508,6 +516,13 @@ def get_rfo_optimizer(
         line_search=True,
         out_dir=out_dir,
         max_cycles=max_cycles,
+        # # TS opt in ReactBench uses
+        # type: rsprfo
+        # do_hess: True
+        # thresh: gau
+        # max_cycles: 50
+        # trust_radius: 0.2 # here we use 0.3
+        # hessian_recalc: 1
     )
     return opt
 

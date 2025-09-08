@@ -1,5 +1,5 @@
 """
-GAD-RGD1: Gentlest Ascent Dynamics for Transition State Finding
+GAD-RGD1: Gentlest Ascent Dynamics for Finding Transition State
 
 This script implements Gentlest Ascent Dynamics (GAD) to find transition states
 using different eigenvalue calculation methods for the Hessian matrix.
@@ -42,15 +42,36 @@ from contextlib import contextmanager
 import logging
 import traceback
 
-# pysisyphus imports for TS optimization and IRC
-from pysisyphus.Geometry import Geometry
-from pysisyphus.tsoptimizers.RSPRFOptimizer import RSPRFOptimizer
-from pysisyphus.irc.EulerPC import EulerPC
-from pysisyphus.calculators.FakeASE import FakeASE
-from pysisyphus.calculators.MLFF import MLFF
-from pysisyphus.constants import BOHR2ANG
-from pysisyphus.optimizers.RFOptimizer import RFOptimizer
-
+try:
+    # pysisyphus imports for TS optimization and IRC
+    from pysisyphus.Geometry import Geometry
+    from pysisyphus.tsoptimizers.RSPRFOptimizer import RSPRFOptimizer
+    from pysisyphus.irc.EulerPC import EulerPC
+    from pysisyphus.calculators.FakeASE import FakeASE
+    from pysisyphus.calculators.MLFF import MLFF
+    from pysisyphus.constants import BOHR2ANG
+    from pysisyphus.optimizers.RFOptimizer import RFOptimizer
+    # PyGSM imports for Growing String Method
+    from pyGSM.coordinate_systems.delocalized_coordinates import (
+        DelocalizedInternalCoordinates,
+    )
+    from pyGSM.coordinate_systems.primitive_internals import (
+        PrimitiveInternalCoordinates,
+    )
+    from pyGSM.coordinate_systems.topology import Topology
+    from pyGSM.growing_string_methods import DE_GSM
+    from pyGSM.level_of_theories.ase import ASELoT
+    from pyGSM.optimizers.eigenvector_follow import eigenvector_follow
+    from pyGSM.optimizers.lbfgs import lbfgs
+    from pyGSM.potential_energy_surfaces import PES
+    from pyGSM.utilities import nifty
+    from pyGSM.utilities.elements import ElementData
+    from pyGSM.molecule.molecule import Molecule
+except ImportError:
+    print()
+    traceback.print_exc()
+    print("\nFollow the instructions here: https://github.com/BurgerAndreas/ReactBench")
+    exit()
 
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.equiformer_torch_calculator import EquiformerTorchCalculator
@@ -94,22 +115,6 @@ from recipes.ts_search import (
 from recipes.trajectorysaver import MyTrajectory
 import traceback
 
-# PyGSM imports for Growing String Method
-from pyGSM.coordinate_systems.delocalized_coordinates import (
-    DelocalizedInternalCoordinates,
-)
-from pyGSM.coordinate_systems.primitive_internals import (
-    PrimitiveInternalCoordinates,
-)
-from pyGSM.coordinate_systems.topology import Topology
-from pyGSM.growing_string_methods import DE_GSM
-from pyGSM.level_of_theories.ase import ASELoT
-from pyGSM.optimizers.eigenvector_follow import eigenvector_follow
-from pyGSM.optimizers.lbfgs import lbfgs
-from pyGSM.potential_energy_surfaces import PES
-from pyGSM.utilities import nifty
-from pyGSM.utilities.elements import ElementData
-from pyGSM.molecule.molecule import Molecule
 
 
 @contextmanager
