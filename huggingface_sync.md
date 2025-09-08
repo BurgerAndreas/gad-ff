@@ -14,16 +14,16 @@ cd ../heigen
 
 
 cp ../gad-ff/ckpt/hesspred_v1.ckpt ./ckpt/ # hesspredalldatanumlayershessian3presetluca8w10onlybz128-581483-20250826-074746
-cp ../gad-ff/ckpt/hesspred_v2.ckpt ./ckpt/ # 
-cp ../gad-ff/ckpt/hesspred_v3.ckpt ./ckpt/
+cp ../gad-ff/ckpt/hesspred_v2.ckpt ./ckpt/ # hesspredalldatanumlayershessian3presetmaebz128-676539-20250906-003158
+cp ../gad-ff/ckpt/hesspred_v3.ckpt ./ckpt/ # hesspredalldatanumlayershessian3presetluca8w10onlybz128-654857-20250903-011356
 
 # cp ../gad-ff/scripts/download_horm_data_kaggle.py ./
 
-mkdir data
-cp ../gad-ff/data/sample_100.lmdb ./data/
+# mkdir data
+# cp ../gad-ff/data/sample_100.lmdb ./data/
 
 # upload to huggingface
-huggingface-cli upload andreasburger/heigen .
+hf upload andreasburger/heigen .
 
 cd ../gad-ff
 ```
