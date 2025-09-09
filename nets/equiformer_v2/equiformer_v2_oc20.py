@@ -205,7 +205,7 @@ class EquiformerV2_OC20(BaseModel):
         reuse_source_target_embedding_hessian=True,
         reinit_edge_degree_embedding_hessian=False,
         cutoff_hessian=100.0,
-        symmetric_messages=True,
+        symmetric_messages=False,
         symmetric_edges=False,
         name=None, # not used
     ):

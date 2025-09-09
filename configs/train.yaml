@@ -3,9 +3,9 @@ defaults:
   - ./equiformer_v2
   - _self_
   - lr: step10
-  - trgt: eigen
+  - trgt: hessian
   - preset: blank
-  - experiment: base
+  - experiment: hesspred_alldata
   - gpu: single
 
 # Model configuration
@@ -16,14 +16,12 @@ project: "gadff"
 # Optimizer configuration
 optimizer:
   lr: 5e-4  # paper says 3e-4, code uses 5e-4
-  betas: [0.9, 0.999]
-  weight_decay: 0
+  betas: [0.9, 0.999] # todo: tune betas
+  weight_decay: 0 # todo: tune weight_decay
   amsgrad: true
 
 # Training configuration  
 training:
-  trn_path: "data/sample_100-dft-hess-eigen.lmdb"
-  val_path: "data/sample_100-dft-hess-eigen.lmdb"
   bz: 128
   bz_val: 128
   num_workers: 2 # 48
@@ -39,6 +37,14 @@ training:
     save_ema_state: true       # Save EMA state in checkpoints
     use_buffers: true          # Apply EMA to model buffers (BatchNorm stats, etc.)
 
+  # horm used: loss = floss * 100 + eloss * 4 + hessian_loss * 4
+  hessian_loss_weight: 1.0
+  energy_loss_weight: 1.0
+  force_loss_weight: 25.0
+
+  hessian_loss_type: "mse"
+  mask_hessian: false
+
   train_heads_only: true
 
   # Checkpoint loading options
@@ -49,15 +55,13 @@ training:
   max_val_samples: null
   drop_last: false
 
-  do_hessiangraphtransform: false
-
 # Pytorch Lightning Trainer configuration
 pltrainer:
   max_epochs: 10000
   gradient_clip_val: 0.1
   accumulate_grad_batches: 1
   limit_train_batches: 1600
-  limit_val_batches: 80 # 50844 samples / 64 bz = 794.4375 batches
+  limit_val_batches: 200 # 50844 samples / 64 bz = 794.4375 batches
   log_every_n_steps: 1
   check_val_every_n_epoch: 4  # Run validation every N epochs (default: 1)
   # val_check_interval: 0.5    # Alternative: Run validation every N steps or fraction of epoch

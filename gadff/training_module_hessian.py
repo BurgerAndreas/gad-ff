@@ -104,6 +104,10 @@ class HessianPotentialModule(PotentialModule):
         # Only needed to predict forces from energy of Hessian from forces
         self.pos_require_grad = False
 
+        # energy and force loss
+        self.loss_fn = nn.L1Loss()
+
+        # Hessian loss
         if self.training_config["hessian_loss_type"] == "mse":
             self.loss_fn_hessian = torch.nn.MSELoss()
             # self.loss_fn_hessian = torch.nn.functional.mse_loss
@@ -118,7 +122,7 @@ class HessianPotentialModule(PotentialModule):
         self.MSE = torch.nn.MSELoss()
         self.MAE = torch.nn.L1Loss()
 
-        print(f"Training config: {training_config['eigen_loss']}")
+
         self.loss_fn_eigen = get_hessian_loss_fn(**training_config["eigen_loss"])
 
         _alpha = self.training_config["eigen_loss"]["alpha"]
@@ -349,9 +353,6 @@ class HessianPotentialModule(PotentialModule):
         info = {}
         batch.pos.requires_grad_()
         batch = compute_extra_props(batch, pos_require_grad=self.pos_require_grad)
-        # MISC
-        # batch specific index offsetting
-        # batch = add_extra_props_for_hessian(batch, offset_indices=True)
 
         hat_ae, hat_forces, outputs = self.potential.forward(
             batch.to(self.device), hessian=True, add_props=False
@@ -408,10 +409,15 @@ class HessianPotentialModule(PotentialModule):
             )
             loss += eigen_loss
             info["Loss Eigen"] = eigen_loss.detach().item()
-
-        # self.MAEEval.reset()
-        # self.MAPEEval.reset()
-        # self.cosineEval.reset()
+        
+        # hat_ae = hat_ae.squeeze().to(self.device)
+        # hat_forces = hat_forces.to(self.device)
+        # ae = batch.ae.to(self.device)
+        # forces = batch.forces.to(self.device)
+        # eloss = self.loss_fn(ae, hat_ae)
+        # floss = self.loss_fn(forces, hat_forces)
+        # info["MAE_E"] = eloss.detach().item()
+        # info["MAE_F"] = floss.detach().item()
 
         return loss, info
 
