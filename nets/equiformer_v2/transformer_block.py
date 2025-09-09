@@ -109,6 +109,11 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
         self.use_atom_edge_embedding = use_atom_edge_embedding
         self.use_m_share_rad = use_m_share_rad
 
+        self.use_s2_act_attn = use_s2_act_attn
+        self.use_attn_renorm = use_attn_renorm
+        self.use_gate_act = use_gate_act
+        self.use_sep_s2_act = use_sep_s2_act
+
         if self.use_atom_edge_embedding:
             self.source_embedding = nn.Embedding(
                 self.max_num_elements, self.edge_channels_list[-1]
@@ -125,11 +130,6 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
             # do not use atomic embedding for edge scalar features
             # only relative distance
             self.source_embedding, self.target_embedding = None, None
-
-        self.use_s2_act_attn = use_s2_act_attn
-        self.use_attn_renorm = use_attn_renorm
-        self.use_gate_act = use_gate_act
-        self.use_sep_s2_act = use_sep_s2_act
 
         assert not self.use_s2_act_attn  # since this is not used
 
@@ -242,6 +242,7 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
         return_attn_messages=False,
         # message node_i->node_j = message node_j->node_i
         symmetric_messages=False,
+        symmetric_edges=False,
     ):
         """
         x: SO3_Embedding (N, L, C)
@@ -262,9 +263,15 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
             source_embedding = self.source_embedding(source_element)
             target_embedding = self.target_embedding(target_element)
             # (E, num_edge_features + 2 * num_atom_embedding_features)
-            x_edge = torch.cat(
-                (edge_distance, source_embedding, target_embedding), dim=1
-            )
+            if symmetric_edges:
+                avg_embedding = (source_embedding + target_embedding) / 2
+                x_edge = torch.cat(
+                    (edge_distance, avg_embedding, avg_embedding), dim=1
+                )
+            else:
+                x_edge = torch.cat(
+                    (edge_distance, source_embedding, target_embedding), dim=1
+                )
         else:
             # Do not use atomic embedding for edge scalar features
             # just use relative distance

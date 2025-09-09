@@ -205,10 +205,11 @@ class EquiformerV2_OC20(BaseModel):
         reuse_source_target_embedding_hessian=True,
         reinit_edge_degree_embedding_hessian=False,
         cutoff_hessian=100.0,
-        **kwargs,
+        symmetric_messages=True,
+        symmetric_edges=False,
+        name=None, # not used
     ):
         super().__init__()
-        print(f"EquiformerV2_OC20: ignoring kwargs: {kwargs}")
 
         self.use_pbc = use_pbc
         self.regress_forces = regress_forces
@@ -259,6 +260,8 @@ class EquiformerV2_OC20(BaseModel):
         self.drop_path_rate = drop_path_rate
         self.proj_drop = proj_drop
         self.hessian_alpha_drop = hessian_alpha_drop
+        self.symmetric_messages = symmetric_messages
+        self.symmetric_edges = symmetric_edges
 
         self.weight_init = weight_init
         assert self.weight_init in ["normal", "uniform"]
@@ -515,6 +518,7 @@ class EquiformerV2_OC20(BaseModel):
 
         self.do_hessian = do_hessian
         self.cutoff_hessian = cutoff_hessian
+        self.hessian_module_list = []
         if do_hessian:
             # if to also use atom type embedding or just relative distances for edge features
             # in edge_distance
@@ -535,6 +539,7 @@ class EquiformerV2_OC20(BaseModel):
             self.SO3_rotation_hessian = torch.nn.ModuleList()
             for i in range(self.num_resolutions):
                 self.SO3_rotation_hessian.append(SO3_Rotation(self.lmax_list[i]))
+            # self.hessian_module_list.append(self.SO3_rotation_hessian) # no trainable parameters
 
             self.num_gaussians_distance_hessian = num_gaussians_distance_hessian
             self.distance_expansion_hessian = GaussianSmearing(
@@ -543,13 +548,17 @@ class EquiformerV2_OC20(BaseModel):
                 num_gaussians=self.num_gaussians_distance_hessian,  # 600,
                 basis_width_scalar=2.0,
             )
+            # self.hessian_module_list.append(self.distance_expansion_hessian) # no trainable parameters
 
             # Initialize the sizes of radial functions (input channels and 2 hidden channels)
             self.edge_channels_list_hessian = [
                 int(self.distance_expansion_hessian.num_output)
             ] + [self.edge_channels] * 2
 
+            self.reuse_source_target_embedding_hessian = reuse_source_target_embedding_hessian
             if reuse_source_target_embedding_hessian:
+                # if we are using the same embedding modules
+                # make sure we use the same embedding settings as the backbone
                 assert (
                     self.share_atom_edge_embedding_hessian
                     == self.share_atom_edge_embedding
@@ -575,6 +584,8 @@ class EquiformerV2_OC20(BaseModel):
                         self.edge_channels_list_hessian[0]
                         + 2 * self.edge_channels_list_hessian[-1]
                     )
+                    self.hessian_module_list.append(self.source_embedding_hessian)
+                    self.hessian_module_list.append(self.target_embedding_hessian)
                 else:
                     self.source_embedding_hessian, self.target_embedding_hessian = (
                         None,
@@ -600,8 +611,9 @@ class EquiformerV2_OC20(BaseModel):
                 self.block_use_atom_edge_embedding_hessian,
                 rescale_factor=_AVG_DEGREE,
             )
+            self.hessian_module_list.append(self.edge_degree_embedding_hessian)
 
-            # ["hessian_layers", "hessian_head", "hessian_edge_message_proj", "hessian_node_proj"]
+            self.hessian_module_list += ["hessian_layers", "hessian_head", "hessian_edge_message_proj", "hessian_node_proj"]
             # Initialize the blocks for each layer of EquiformerV2
             self.hessian_layers = torch.nn.ModuleList()
             self.num_layers_hessian = num_layers_hessian
@@ -1063,7 +1075,8 @@ class EquiformerV2_OC20(BaseModel):
                 edge_distance=edge_distance_hessian,
                 edge_index=edge_index_hessian,
                 return_attn_messages=True,
-                symmetric_messages=True,
+                symmetric_messages=self.symmetric_messages,
+                symmetric_edges=self.symmetric_edges,
             )
             # select l0, l1, l2 features
             l012_message_emb = x_message.embedding.narrow(

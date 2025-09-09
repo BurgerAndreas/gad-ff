@@ -203,6 +203,8 @@ class HessianPotentialModule(PotentialModule):
         print("Configuring optimizer")
         # Only optimize parameters that require gradients (unfrozen heads)
         if self.training_config["train_heads_only"]:
+            print(f"Updating heads_to_train from \n {self.heads_to_train} to \n {self.potential.hessian_module_list}")
+            self.heads_to_train = self.potential.hessian_module_list
             self._freeze_except_heads(self.heads_to_train)
         trainable_params = [p for p in self.potential.parameters() if p.requires_grad]
         return self._configure_optimizer_for_params(trainable_params)
