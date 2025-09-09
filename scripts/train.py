@@ -247,7 +247,7 @@ def setup_training(cfg: DictConfig):
     return trainer, pm
 
 
-@hydra.main(version_base=None, config_path="../configs", config_name="train_eigen")
+@hydra.main(version_base=None, config_path="../configs", config_name="train")
 def main(cfg: DictConfig) -> None:
     torch.set_float32_matmul_precision("high")
     trainer, pm = setup_training(cfg)
@@ -258,7 +258,7 @@ def main(cfg: DictConfig) -> None:
 
 if __name__ == "__main__":
     """Try:
-    python scripts/train_eigen.py experiment=debug
-    python scripts/train_eigen.py training.bz=2
+    python scripts/train.py experiment=debug
+    python scripts/train.py training.bz=2
     """
     main()

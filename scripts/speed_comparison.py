@@ -634,7 +634,7 @@ def plot_prediction_batchsize(results_df, output_dir="./results_speed", logy=Fal
             y=0.98,
             xanchor="center",
             yanchor="top",
-            orientation="h",
+            orientation="v",
             bgcolor="rgba(255,255,255,0.6)",
         ),
         yaxis=dict(type="log") if logy else None,
@@ -682,20 +682,22 @@ def plot_combined_speed_memory_batchsize(
         / autograd_results_df.groupby(["batch_size"])["batch_size"].mean()
     )
 
+    ANNOTATION_FONT_SIZE = 16
+    ANNOTATION_BOLD_FONT_SIZE = 18
+    AXES_FONT_SIZE = 14
+    AXES_TITLE_FONT_SIZE = 16
+    LEGEND_FONT_SIZE = 16
+    TITLE_FONT_SIZE = 20
+
     fig = make_subplots(
         rows=1,
         cols=3,
-        # subplot_titles=("", "", ""),
+        subplot_titles=("Time (Single Sample)", "Memory", "Time (Batching)"),
         horizontal_spacing=0.05,
         vertical_spacing=0.0,
     )
 
-    # # Add subplot labels
-    # labels = ['d', 'e', 'f']
-    # for ax, label in zip(axes, labels):
-    #     ax.text(-0.1, 1.05, label, transform=ax.transAxes,
-    #             fontsize=14, fontweight='bold', va='top', ha='right')
-
+    #########################################################
     # Col 1: Speed vs N
     for method in avg_times.columns:
         color = _color_for_method(method)
@@ -704,7 +706,7 @@ def plot_combined_speed_memory_batchsize(
                 x=avg_times.index,
                 y=avg_times[method],
                 mode="lines+markers",
-                name=method,
+                name=method.capitalize(),
                 legend="legend",
                 showlegend=True,
                 line=dict(color=color) if color else None,
@@ -722,9 +724,9 @@ def plot_combined_speed_memory_batchsize(
                 x=avg_memory.index,
                 y=avg_memory[method],
                 mode="lines+markers",
-                name=method,
-                legend="legend2",
-                showlegend=True,
+                name=method.capitalize(),
+                # legend="legend2",
+                showlegend=False,
                 line=dict(color=color) if color else None,
                 marker=dict(color=color) if color else None,
             ),
@@ -769,9 +771,9 @@ def plot_combined_speed_memory_batchsize(
             x=autograd_avg_times_plot.index,
             y=autograd_avg_times_plot.values,
             mode="lines+markers",
-            name="autograd",
-            legend="legend3",
-            showlegend=True,
+            name="Autograd (Batching)",
+            # legend="legend3",
+            showlegend=False,
             line=dict(color=color) if color else None,
             marker=dict(color=color) if color else None,
         ),
@@ -784,9 +786,9 @@ def plot_combined_speed_memory_batchsize(
             x=pred_avg_times_plot.index,
             y=pred_avg_times_plot.values,
             mode="lines+markers",
-            name="prediction",
-            legend="legend3",
-            showlegend=True,
+            name="Prediction (Batching)",
+            # legend="legend3",
+            showlegend=False,
             line=dict(color=color) if color else None,
             marker=dict(color=color) if color else None,
         ),
@@ -803,10 +805,10 @@ def plot_combined_speed_memory_batchsize(
     x3 = 0.5 * (dom3[0] + dom3[1])
 
     # Add axis titles for each subplot
-    fig.update_xaxes(title_text="Number of Atoms (N)", title_standoff=1, row=1, col=1)
+    fig.update_xaxes(title_text="Number of Atoms (N)", title_standoff=5, row=1, col=1)
     fig.update_yaxes(title_text="Average Time (ms)", title_standoff=10, row=1, col=1)
     # fig.update_yaxes(tickformat=".0e", exponentformat="e",  row=1, col=1)
-    fig.update_xaxes(title_text="Number of Atoms (N)", title_standoff=1, row=1, col=2)
+    fig.update_xaxes(title_text="Number of Atoms (N)", title_standoff=5, row=1, col=2)
     fig.update_yaxes(title_text="Peak Memory (MB)", title_standoff=0, row=1, col=2)
     fig.update_xaxes(title_text="Batch Size", title_standoff=1, row=1, col=3)
     fig.update_yaxes(
@@ -819,33 +821,51 @@ def plot_combined_speed_memory_batchsize(
         # margin=dict(l=0, r=0, b=0, t=0),
         width=width,
         height=height,
-        yaxis=dict(type="log"),
-        yaxis3=dict(type="log"),
+        yaxis=dict(
+            type="log",
+            dtick=1, # ticks are set every 10^(n"dtick)
+            exponentformat="power", # "none" | "e" | "E" | "power" | "SI" | "B"
+            showexponent="all",
+            showgrid=True,
+            minor=dict(
+                showgrid=True,
+                gridcolor="#eee", # "rgba(50,50,50,0.1)",
+                # gridwidth=1,
+            ),
+        ),
+        yaxis3=dict(
+            type="log",
+            dtick=1,
+            exponentformat="power",
+            showexponent="all",
+            showgrid=True,
+            minor=dict(
+                showgrid=True,
+                gridcolor="#eee", # "rgba(50,50,50,0.1)",
+                # gridwidth=1,
+            ),
+        ),
         legend=dict(
-            x=x1,
-            y=0.98,
+            x=x2 - 0.07,
+            y=0.91,
             xanchor="center",
             yanchor="top",
-            orientation="h",
+            orientation="v",
             bgcolor="rgba(255,255,255,0.6)",
-        ),
-        legend2=dict(
-            x=x2,
-            y=0.98,
-            xanchor="center",
-            yanchor="top",
-            orientation="h",
-            bgcolor="rgba(255,255,255,0.6)",
-        ),
-        legend3=dict(
-            x=x3,
-            y=0.98,
-            xanchor="center",
-            yanchor="top",
-            orientation="h",
-            bgcolor="rgba(255,255,255,0.6)",
+            font=dict(size=LEGEND_FONT_SIZE),
+            # title_text="Hessian",
         ),
     )
+
+    # Increase global font sizes for axes and annotations
+    fig.update_xaxes(tickfont=dict(size=AXES_FONT_SIZE), title_font=dict(size=AXES_TITLE_FONT_SIZE))
+    fig.update_yaxes(tickfont=dict(size=AXES_FONT_SIZE), title_font=dict(size=AXES_TITLE_FONT_SIZE))
+    fig.update_annotations(font=dict(size=ANNOTATION_FONT_SIZE))
+
+    # Set subplot title fonts specifically to TITLE_FONT_SIZE
+    for ann in fig.layout.annotations:
+        if ann.text in ("Time (Single Sample)", "Memory", "Time (Batching)"):
+            ann.update(font=dict(size=TITLE_FONT_SIZE))
 
     # Add subplot panel labels (a, b, c) at top-left outside each subplot
     fig.add_annotation(
@@ -857,7 +877,7 @@ def plot_combined_speed_memory_batchsize(
         showarrow=False,
         xanchor="right",
         yanchor="bottom",
-        font=dict(size=14),
+        font=dict(size=ANNOTATION_BOLD_FONT_SIZE),
     )
     fig.add_annotation(
         x=dom2[0],
@@ -868,7 +888,7 @@ def plot_combined_speed_memory_batchsize(
         showarrow=False,
         xanchor="right",
         yanchor="bottom",
-        font=dict(size=14),
+        font=dict(size=ANNOTATION_BOLD_FONT_SIZE),
     )
     fig.add_annotation(
         x=dom3[0],
@@ -879,7 +899,7 @@ def plot_combined_speed_memory_batchsize(
         showarrow=False,
         xanchor="right",
         yanchor="bottom",
-        font=dict(size=14),
+        font=dict(size=ANNOTATION_BOLD_FONT_SIZE),
     )
 
     ############ Subplot 1 ############
@@ -933,7 +953,7 @@ def plot_combined_speed_memory_batchsize(
             yref="y domain",
             showarrow=False,
             text=speed_auto_text,
-            font=dict(size=14),
+            font=dict(size=ANNOTATION_FONT_SIZE),
         )
     if speed_pred_text:
         fig.add_annotation(
@@ -943,7 +963,7 @@ def plot_combined_speed_memory_batchsize(
             yref="y domain",
             showarrow=False,
             text=speed_pred_text,
-            font=dict(size=14),
+            font=dict(size=ANNOTATION_FONT_SIZE),
         )
     # Reduction label (autograd vs prediction) in the middle, vertical
     if "autograd" in final_vals_speed and "prediction" in final_vals_speed:
@@ -959,7 +979,7 @@ def plot_combined_speed_memory_batchsize(
             showarrow=False,
             text=speed_mid_text,
             # textangle=-90,
-            font=dict(size=14),
+            font=dict(size=ANNOTATION_BOLD_FONT_SIZE),
         )
     ############ Subplot 2 ############
     last_n = avg_memory.index.max()
@@ -994,7 +1014,7 @@ def plot_combined_speed_memory_batchsize(
         yref="y2 domain",
         showarrow=False,
         text=memory_auto_text,
-        font=dict(size=14),
+        font=dict(size=ANNOTATION_FONT_SIZE),
     )
     fig.add_annotation(
         x=memory_head_label_x,
@@ -1003,7 +1023,7 @@ def plot_combined_speed_memory_batchsize(
         yref="y2 domain",
         showarrow=False,
         text=memory_pred_text,
-        font=dict(size=14),
+        font=dict(size=ANNOTATION_FONT_SIZE),
     )
     memory_mid_text = f"<b>{int(round(final_vals_memory['autograd'] / final_vals_memory['prediction']))}x</b>"
     memory_mid_label_x = 0.90
@@ -1016,7 +1036,7 @@ def plot_combined_speed_memory_batchsize(
         showarrow=False,
         text=memory_mid_text,
         # textangle=-90,
-        font=dict(size=14),
+        font=dict(size=ANNOTATION_BOLD_FONT_SIZE),
     )
     ############ Subplot 3 ############
     # add manual arrow for subplot 3 in normalized domain coords with labels
@@ -1064,7 +1084,7 @@ def plot_combined_speed_memory_batchsize(
         yref="y3 domain",
         showarrow=False,
         text=auto_text,
-        font=dict(size=14),
+        font=dict(size=ANNOTATION_FONT_SIZE),
     )
     fig.add_annotation(
         x=bz_head_label_x,
@@ -1073,7 +1093,7 @@ def plot_combined_speed_memory_batchsize(
         yref="y3 domain",
         showarrow=False,
         text=pred_text,
-        font=dict(size=14),
+        font=dict(size=ANNOTATION_FONT_SIZE),
     )
     # Reduction label (autograd first vs prediction last) in the middle, vertical
     if ("auto_val" in locals()) and ("pred_val" in locals()) and pred_val > 0:
@@ -1088,14 +1108,14 @@ def plot_combined_speed_memory_batchsize(
             showarrow=False,
             text=bz_mid_text,
             textangle=32,
-            font=dict(size=14),
+            font=dict(size=ANNOTATION_BOLD_FONT_SIZE),
         )
 
     # Save only PNG to keep output concise
     output_path = output_dir / "combined_speed_memory_batchsize.png"
     # The height of the exported image in layout pixels. If the scale property is 1.0, this will also be the height of the exported image in physical pixels.
     # Scale > 1 increases the image resolution
-    fig.write_image(output_path, width=width, height=height)
+    fig.write_image(output_path, width=width, height=height, scale=2)
     print(f"Plot saved to {output_path}")
 
 
@@ -1175,7 +1195,7 @@ if __name__ == "__main__":
         )
 
     # Plot results
-    plot_speed_comparison(results_df)
+    # plot_speed_comparison(results_df)
 
     ##############################################################
     # Second benchmark: prediction-only vs batch size (random N)
@@ -1201,12 +1221,12 @@ if __name__ == "__main__":
             max_autograd_batch_size=args.max_autograd_bz,
         )
 
-    plot_prediction_batchsize(bz_results_df, output_dir=output_dir)
-    plot_prediction_batchsize(bz_results_df, output_dir=output_dir, logy=True)
+    # plot_prediction_batchsize(bz_results_df, output_dir=output_dir)
+    # plot_prediction_batchsize(bz_results_df, output_dir=output_dir, logy=True)
 
     # Combined side-by-side plot
     plot_combined_speed_memory_batchsize(
         results_df, bz_results_df, output_dir=output_dir
     )
 
-    print("Done.")
+    print("\nDone!")

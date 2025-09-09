@@ -10,6 +10,7 @@ Compared to autograd Hessians:
 - Better accuracy (Hessian, Hessian eigenvalues and eigenvectors)
 - Better downstream accuracy (relaxation, transition state search, frequency analysis)
 
+![Speed and memory comparison](static/combined_speed_memory_batchsize.png)
 
 ## Installation
 
@@ -147,7 +148,7 @@ print(f"natoms: {frequency_analysis['natoms']}")
 
 Training run we used: 
 ```bash
-uv run scripts/train_eigen.py trgt=hessian experiment=hesspred_alldata preset=luca8w10only training.bz=128 model.num_layers_hessian=3
+uv run scripts/train.py trgt=hessian experiment=hesspred_alldata preset=luca8w10only training.bz=128 model.num_layers_hessian=3
 ```
 
 Evaluation: 

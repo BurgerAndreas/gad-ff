@@ -26,6 +26,9 @@ model:
   otf_graph: false
   hessian_build_method: "1d"
 
+  symmetric_messages: True
+  symmetric_edges: False
+
 
 training:
   # trn_path: "data/sample_100-dft-hess-eigen.lmdb"

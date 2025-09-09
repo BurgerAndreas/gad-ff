@@ -15,19 +15,19 @@ source .env
 
 Verify the training script and environment are working
 ```bash
-python scripts/train_eigen.py experiment=debug
-sbatch scripts/killarney.sh scripts/train_eigen.py experiment=debug
+python scripts/train.py experiment=debug
+sbatch scripts/killarney.sh scripts/train.py experiment=debug
 ```
 
 Verify that we can overfit to the tiny dataset (using one L40s)
 ```bash
-sbatch scripts/killarney.sh scripts/train_eigen.py experiment=overfit100
-sbatch scripts/killarney.sh scripts/train_eigen.py experiment=overfit100 training.loss_type_vec=cosine
+sbatch scripts/killarney.sh scripts/train.py experiment=overfit100
+sbatch scripts/killarney.sh scripts/train.py experiment=overfit100 training.loss_type_vec=cosine
 ```
 
 Fit on both datasets (RGD1 and TS1x), test on TS1x
 ```bash
-sbatch scripts/killarney_h100.sh scripts/train_eigen.py experiment=alldata
+sbatch scripts/killarney_h100.sh scripts/train.py experiment=alldata
 ```
 
 ## Background
