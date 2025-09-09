@@ -1,7 +1,7 @@
 # Molecular Hessians Without Derivatives
 
-A ML force field (interactomic potential) to directly predict the Hessian.
-Trained on small molecules from T1x and RGD1.
+A machine learning force field (interactomic potential) to directly predict the Hessian.
+Trained on the [HORM Hessian dataset](https://github.com/deepprinciple/HORM), which consists of off-equilibrium geometries of small, neutral organic molecules, contained H, C, N, O, based on the T1x and RGD1 datasets, at the $\omega$B97X/6-31G(d) level of theory.
 
 Compared to autograd Hessians:
 - 10-70x faster for a single molecule of 5-30 atoms
@@ -33,55 +33,11 @@ uv pip install torch-scatter -f https://data.pyg.org/whl/torch-2.7.0+cu126.html
 uv pip install torch-cluster -f https://data.pyg.org/whl/torch-2.7.0+cu126.html
 uv pip install torch-geometric
 
-# fairchem-core==1.10.0
+uv pip install -r requirements.txt
 
 uv pip install -e .
-
-uv pip install -U "jax[cuda12]"==0.6.2
-uv pip install -e sella
-uv pip install git+https://github.com/virtualzx-nad/geodesic-interpolate.git
-
-uv pip install gpu4pyscf-cuda12x cutensor-cu12
 ```
 
-To run the evals you need the sister repository as well:
-```bash
-cd ..
-git clone git@github.com:BurgerAndreas/ReactBench.git
-cd ReactBench/dependencies 
-git clone git@github.com:BurgerAndreas/pysisyphus.git 
-git clone git@github.com:BurgerAndreas/pyGSM.git 
-cd ..
-
-uv pip install -e . # install ReactBench
-
-# install leftnet env
-uv pip install -e ReactBench/MLIP/leftnet/
-
-# Mace requires e3nn<5.*, but pytorch 2.7.0 only supports e3nn>=5.0.0
-# install mace env
-# uv pip install -e ReactBench/MLIP/mace
-
-
-# Get the recomputed Transition1x subset for validation, 960 datapoints
-mkdir -p data 
-tar -xzf ts1x.tar.gz -C data
-find data/ts1x -type f | wc -l # 960
-
-cd ../gad-ff
-uv pip install -r requirements.txt
-```
-
-For the relaxations:
-```bash
-git clone https://gitlab.com/matschreiner/Transition1x
-cd Transition1x
-uv pip install .
-uv run download_t1x.py
-cd ..
-
-wget https://springernature.figshare.com/ndownloader/files/18112775 -O data/relaxations/ani1x/ani1x.h5
-```
 
 ### Setting up the dataset
 Kaggle automatically downloads to the `~/.cache` folder. 
@@ -124,74 +80,186 @@ wget https://huggingface.co/yhong55/HORM/resolve/main/alpha.ckpt -O ckpt/alpha.c
 
 ## Use our model
 
-Use our model, that 
+Download checkpoints from HuggingFace
 ```bash
-# download from HuggingFace
-https://huggingface.co/andreasburger/heigen
+wget https://huggingface.co/andreasburger/heigen/resolve/main/ckpt/hesspred_v1.ckpt?download=true -O ckpt/hesspred_v1.ckpt
 ```
 
 See [example_inference.py](example_inference.py) for a full example how to use our model.
 
 ```python
-from torch_geometric.data import Batch
-from torch_geometric.data import Data as TGData
-from torch_geometric.loader import DataLoader as TGDataLoader
+import os
+import torch
+from gadff.equiformer_torch_calculator import EquiformerTorchCalculator
+from gadff.equiformer_ase_calculator import EquiformerASECalculator # also try this
+from gadff.inference_utils import get_dataloader
+from gadff.frequency_analysis import analyze_frequencies_torch
 
-from nets.equiformer_v2.equiformer_v2_oc20 import EquiformerV2_OC20
-from nets.prediction_utils import compute_extra_props
 
-config_path = "configs/equiformer_v2.yaml"
-with open(config_path, "r") as file:
-    config = yaml.safe_load(file)
-model_config = config["model"]
-model = EquiformerV2_OC20(**model_config)
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
-checkpoint_path = "ckpt/eqv2.ckpt"
-model.load_state_dict(
-    torch.load(checkpoint_path, weights_only=True)["state_dict"], 
-    strict=False
+# you might need to change this
+project_root = os.path.dirname(os.path.dirname(__file__))
+checkpoint_path = os.path.join(project_root, "ckpt/hesspred_v1.ckpt")
+calculator = EquiformerTorchCalculator(
+    checkpoint_path=checkpoint_path,
+    hessian_method="predict",
 )
-model.eval()
-model.to("cuda")
 
-# random batch of data
+# Example 1: load a dataset file and predict the first batch
+dataset_path = os.path.join(project_root, "data/sample_100.lmdb")
+dataloader = get_dataloader(
+    dataset_path, calculator.potential, batch_size=1, shuffle=False
+)
+batch = next(iter(dataloader))
+results = calculator.predict(batch)
+print("\nExample 1:")
+print(f"  Energy: {results['energy'].shape}")
+print(f"  Forces: {results['forces'].shape}")
+print(f"  Hessian: {results['hessian'].shape}")
+
+print("\nGAD:")
+gad = calculator.get_gad(batch)
+print(f"  GAD: {gad['gad'].shape}")
+
+# Example 2: create a random data object with random positions and predict
 n_atoms = 10
-elements = torch.tensor([1, 6, 7, 8]) # H, C, N, O
-data = TGData(
-    pos=torch.randn(n_atoms, 3),
-    batch=torch.zeros(n_atoms),
-    z=elements[torch.randint(0, 4, (n_atoms,))],
-    natoms=n_atoms,
-)
-data = Batch.from_data_list([data])
-# dataloader = TGDataLoader(dataset, batch_size=1, shuffle=False)
-# data = next(iter(dataloader))
+elements = torch.tensor([1, 6, 7, 8])  # H, C, N, O
+pos = torch.randn(n_atoms, 3)  # (N, 3)
+atomic_nums = elements[torch.randint(0, 4, (n_atoms,))]  # (N,)
+results = calculator.predict(coords=pos, atomic_nums=atomic_nums)
+print("\nExample 2:")
+print(f"  Energy: {results['energy'].shape}")
+print(f"  Forces: {results['forces'].shape}")
+print(f"  Hessian: {results['hessian'].shape}")
 
-data = data.to(model.device)
-energy, forces, eigenpred = model.forward(data, eigen=True)
-
-# Compute GAD
-v = eigenpred["eigvec_1"].reshape(B, -1)
-forces = forces.reshape(B, -1)
-# -∇V(x) + 2(∇V, v(x))v(x)
-gad = -forces + 2 * torch.einsum("bi,bi->b", forces, v) * v
+print("\nFrequency analysis:")
+hessian = results["hessian"]
+frequency_analysis = analyze_frequencies_torch(hessian, pos, atomic_nums)
+print(f"eigvals: {frequency_analysis['eigvals'].shape}")
+print(f"eigvecs: {frequency_analysis['eigvecs'].shape}")
+print(f"neg_num: {frequency_analysis['neg_num']}")
+print(f"natoms: {frequency_analysis['natoms']}")
 ```
 
 
 ## Reproduce results from our paper
 
-Training run we used: # TODO
+Training run we used: 
 ```bash
 uv run scripts/train_eigen.py trgt=hessian experiment=hesspred_alldata preset=luca8w10only training.bz=128 model.num_layers_hessian=3
 ```
 
 Evaluation: 
 
-DFT Hessians for reactant geometries in T1x validation set, which we use to evaluate geometry optimization (relaxation)
+DFT Hessians for reactant geometries in T1x validation set, which we use to evaluate geometry optimization (relaxations)
 ```bash
 uv run scripts/compute_dft_hessian_t1x.py --noiserms 0.05
 ```
 
+## Evaluations
+
+### Evluation setup
+To run the transition state workflow and the relaxation evaluations you need the sister repository as well:
+```bash
+cd ..
+git clone git@github.com:BurgerAndreas/ReactBench.git
+cd ReactBench/dependencies 
+git clone git@github.com:BurgerAndreas/pysisyphus.git 
+git clone git@github.com:BurgerAndreas/pyGSM.git 
+cd ..
+
+uv pip install -e . # install ReactBench
+
+# install leftnet env
+uv pip install -e ReactBench/MLIP/leftnet/
+
+# Mace requires e3nn<5.*, but pytorch 2.7.0 only supports e3nn>=5.0.0
+# install mace env
+# uv pip install -e ReactBench/MLIP/mace
+
+# Get the recomputed Transition1x subset for validation, 960 datapoints
+mkdir -p data 
+tar -xzf ts1x.tar.gz -C data
+find data/ts1x -type f | wc -l # 960
+
+cd ../gad-ff
+uv pip install -r requirements.txt
+```
+
+For the relaxations:
+```bash
+uv pip install gpu4pyscf-cuda12x cutensor-cu12
+
+wget https://huggingface.co/andreasburger/heigen/resolve/main/data/t1x_val_reactant_hessian_100_noiserms0.03.h5?download=true -O data/t1x_val_reactant_hessian_100_noiserms0.03.h5
+
+wget https://huggingface.co/andreasburger/heigen/resolve/main/data/t1x_val_reactant_hessian_100_noiserms0.05.h5?download=true -O data/t1x_val_reactant_hessian_100_noiserms0.05.h5
+```
+
+### Run evaluations
+
+```bash
+export REACTBENCHDIR=/ssd/Code/ReactBench
+export GADFFDIR=/ssd/Code/gad-ff
+export HPCKPT="${GADFFDIR}/ckpt/hesspred_v1_.ckpt"
+
+cd $GADFFDIR
+source .venv/bin/activate
+
+# Table 1: MAE, cosine similarity, ...
+# other HORM autograd models
+uv run scripts/eval_horm.py --max_samples=1000 --ckpt_path=ckpt/alpha.ckpt --redo=True; 
+uv run scripts/eval_horm.py --max_samples=1000 --ckpt_path=ckpt/left.ckpt --redo=True; 
+uv run scripts/eval_horm.py --max_samples=1000 --ckpt_path=ckpt/left-df.ckpt --redo=True; 
+# autograd EquiformerV2
+uv run scripts/eval_horm.py --max_samples=1000 --ckpt_path=ckpt/eqv2.ckpt --redo=True; 
+# Learned EquiformerV2
+uv run scripts/eval_horm.py --ckpt_path=$HPCKPT --hessian_method=predict  --max_samples=1000;
+
+# Plot results in ../gad-ff/results/eqv2_ts1x-val_autograd_metrics.csv / wandb export
+uv run scripts/plot_frequency_analysis.py
+
+# Speed and memory comparison (plot included)
+cd $GADFFDIR
+uv run scripts/speed_comparison.py --dataset RGD1.lmdb --max_samples_per_n 100 --ckpt_path $GADFFDIR/ckpt/eqv2.ckpt
+
+# Transition state workflow
+cd $REACTBENCHDIR
+uv run ReactBench/main.py config.yaml --calc=equiformer --hessian_method=autograd --redo_all=True --config_path=null
+uv run ReactBench/main.py config.yaml --calc=equiformer --ckpt_path=$HPCKPT --hessian_method=predict --redo_all=True
+
+cd $REACTBENCHDIR
+# # /ssd/Code/ReactBench/runs/leftnet-d_hormleft-df_ts1x_autograd/ts_proposal_geoms
+# uv run verify_ts_with_dft.py leftnet-d_hormleft-df --hessian_method autograd --max_samples 100
+# # /ssd/Code/ReactBench/runs/leftnet_hormleft_ts1x_autograd/ts_proposal_geoms
+# uv run verify_ts_with_dft.py leftnet_hormleft --hessian_method autograd --max_samples 100
+uv run verify_ts_with_dft.py equiformer_hesspred_v1 --max_samples 100
+uv run verify_ts_with_dft.py $REACTBENCHDIR/runs/equiformer_ts1x_autograd --hessian_method autograd --max_samples 100
+# plot
+uv run verify_ts_with_dft.py plot
+
+# lollipop plots for TS workflow
+cd $GADFFDIR
+uv run scripts/plot_reactbench.py
+
+# relaxations (2nd order geometry optimization)
+cd $GADFFDIR
+# uv run scripts/compute_dft_hessian_t1x.py --noiserms 0.03
+# uv run scripts/compute_dft_hessian_t1x.py --noiserms 0.05
+# --redo True --coord cart
+# uv run scripts/second_order_relaxation_pysiyphus.py --max_samples 80 --thresh gau --max_cycles 150 --xyz $GADFFDIR/data/t1x_val_reactant_hessian_100_noiserms0.03.h5
+uv run scripts/second_order_relaxation_pysiyphus.py --max_samples 80 --thresh gau --max_cycles 150 --xyz $GADFFDIR/data/t1x_val_reactant_hessian_100_noiserms0.05.h5
+
+# Optional: equivariance test
+# uv run scripts/test_hessian_prediction.py
+```
+
+### Sella: work in progress
+```bash
+uv pip install -U "jax[cuda12]"==0.6.2
+uv pip install -e sella
+uv pip install git+https://github.com/virtualzx-nad/geodesic-interpolate.git
+```
 
 
 ## Citation

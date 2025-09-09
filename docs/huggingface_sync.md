@@ -17,6 +17,9 @@ cp ../gad-ff/ckpt/hesspred_v1.ckpt ./ckpt/ # hesspredalldatanumlayershessian3pre
 cp ../gad-ff/ckpt/hesspred_v2.ckpt ./ckpt/ # hesspredalldatanumlayershessian3presetmaebz128-676539-20250906-003158
 cp ../gad-ff/ckpt/hesspred_v3.ckpt ./ckpt/ # hesspredalldatanumlayershessian3presetluca8w10onlybz128-654857-20250903-011356
 
+cp ../gad-ff/data/t1x_val_reactant_hessian_100_noiserms0.03.h5 ./data/
+cp ../gad-ff/data/t1x_val_reactant_hessian_100_noiserms0.05.h5 ./data/
+
 # cp ../gad-ff/scripts/download_horm_data_kaggle.py ./
 
 # mkdir data

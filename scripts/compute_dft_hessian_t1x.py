@@ -119,7 +119,6 @@ def main():
     )
     args = ap.parse_args()
 
-    args.dest_h5 = args.dest_h5.replace(".h5", f"_tight2.h5")
     if args.noiserms > 0.0:
         args.dest_h5 = args.dest_h5.replace(".h5", f"_noiserms{args.noiserms:.2f}.h5")
 
