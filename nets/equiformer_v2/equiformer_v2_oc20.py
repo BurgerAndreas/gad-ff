@@ -539,7 +539,7 @@ class EquiformerV2_OC20(BaseModel):
             self.SO3_rotation_hessian = torch.nn.ModuleList()
             for i in range(self.num_resolutions):
                 self.SO3_rotation_hessian.append(SO3_Rotation(self.lmax_list[i]))
-            # self.hessian_module_list.append(self.SO3_rotation_hessian) # no trainable parameters
+            # self.hessian_module_list.append("SO3_rotation_hessian") # no trainable parameters
 
             self.num_gaussians_distance_hessian = num_gaussians_distance_hessian
             self.distance_expansion_hessian = GaussianSmearing(
@@ -548,7 +548,7 @@ class EquiformerV2_OC20(BaseModel):
                 num_gaussians=self.num_gaussians_distance_hessian,  # 600,
                 basis_width_scalar=2.0,
             )
-            # self.hessian_module_list.append(self.distance_expansion_hessian) # no trainable parameters
+            # self.hessian_module_list.append("distance_expansion_hessian") # no trainable parameters
 
             # Initialize the sizes of radial functions (input channels and 2 hidden channels)
             self.edge_channels_list_hessian = [
@@ -584,8 +584,8 @@ class EquiformerV2_OC20(BaseModel):
                         self.edge_channels_list_hessian[0]
                         + 2 * self.edge_channels_list_hessian[-1]
                     )
-                    self.hessian_module_list.append(self.source_embedding_hessian)
-                    self.hessian_module_list.append(self.target_embedding_hessian)
+                    self.hessian_module_list.append("source_embedding_hessian")
+                    self.hessian_module_list.append("target_embedding_hessian")
                 else:
                     self.source_embedding_hessian, self.target_embedding_hessian = (
                         None,
@@ -611,7 +611,7 @@ class EquiformerV2_OC20(BaseModel):
                 self.block_use_atom_edge_embedding_hessian,
                 rescale_factor=_AVG_DEGREE,
             )
-            self.hessian_module_list.append(self.edge_degree_embedding_hessian)
+            self.hessian_module_list.append("edge_degree_embedding_hessian")
 
             self.hessian_module_list += ["hessian_layers", "hessian_head", "hessian_edge_message_proj", "hessian_node_proj"]
             # Initialize the blocks for each layer of EquiformerV2
