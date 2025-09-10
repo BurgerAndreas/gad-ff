@@ -101,19 +101,8 @@ from transition1x import Dataloader as T1xDataloader
 # from sella.peswrapper import InternalPES
 # from sella.internal import Internals
 
-from recipes.ts_search import (
-    integrate_dynamics,
-    run_sella,
-    before_ase_opt,
-    after_ase_opt,
-    run_irc,
-    run_neb,
-    run_relaxation,
-    run_geodesic_interpolate,
-    get_hessian_function,
-    copy_atoms,
-)
-from recipes.trajectorysaver import MyTrajectory
+from gadff.geodesic_interpolate import geodesic_interpolate_wrapper
+from gadff.trajectorysaver import MyTrajectory
 import traceback
 
 
@@ -138,6 +127,12 @@ log_dir = os.path.join(this_dir, "logs_hormtssearch")
 os.makedirs(plot_dir, exist_ok=True)
 os.makedirs(log_dir, exist_ok=True)
 
+def to_numpy(x):
+    if x is None:
+        return None
+    if torch.is_tensor(x):
+        return x.detach().cpu().numpy()
+    return x
 
 def run_gsm_horm(
     atoms_reactant, atoms_product, calculator, idx=0, display_log_level=logging.WARNING
@@ -899,9 +894,15 @@ def run_horm_ts_search(
         save=True,
     )
 
+    # Create ASE Atoms object 
+    reactant = Atoms(numbers=to_numpy(sample.z), positions=to_numpy(pos_reactant))
+    reactant.calc = asecalc
+    product = Atoms(numbers=to_numpy(sample.z), positions=to_numpy(pos_product))
+    product.calc = asecalc
+
     # geodesic interpolation
-    geointer_atoms_list = run_geodesic_interpolate(
-        pos_reactant, pos_product, z=sample.z, calc=asecalc, return_middle_image=True
+    geointer_atoms_list = geodesic_interpolate_wrapper(
+        reactant, product, n_images=3, return_middle_image=True
     )
     x_geointer_rp = geointer_atoms_list.get_positions()
     plot_molecule_mpl(

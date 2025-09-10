@@ -47,7 +47,7 @@ from ase.vibrations import Vibrations
 from ase.optimize import BFGS
 from ase.mep import NEB
 from sella import Sella, Constraints, IRC
-from recipes.trajectorysaver import MyTrajectory
+from gadff.trajectorysaver import MyTrajectory
 from gadff.equiformer_ase_calculator import EquiformerASECalculator
 
 # https://github.com/virtualzx-nad/geodesic-interpolate
@@ -156,101 +156,31 @@ def clean_dict(data):
         # Discard other non-serializable types
         return None
 
+def get_hessian_function(hessian_method, asecalc):
+    """Function that returns a (N*3, N*3) hessian matrix"""
+    if hessian_method == "autodiff":
+
+        def _hessian_function(atoms):
+            return asecalc.get_hessian_autodiff(atoms).reshape(
+                (len(atoms) * 3, len(atoms) * 3)
+            )
+
+    elif hessian_method == "predict":
+
+        def _hessian_function(atoms):
+            return asecalc.get_hessian_prediction(atoms).reshape(
+                (len(atoms) * 3, len(atoms) * 3)
+            )
+
+    elif hessian_method is None:
+        _hessian_function = None
+    else:
+        raise ValueError(f"Invalid method: {hessian_method}")
+    return _hessian_function
 
 ###########################################################################
 # Sella-specific functions
 ###########################################################################
-
-
-def before_ase_opt(start_pos, z, true_pos=None, calc=None):
-    # Create ASE Atoms object from the initial guess position
-    start_pos = to_numpy(start_pos)
-    atomic_numbers_np = to_numpy(z)
-    mol_ase = Atoms(numbers=atomic_numbers_np, positions=start_pos)
-    if calc is None:
-        mol_ase.calc = EMT()
-    else:
-        mol_ase.calc = calc
-    calcname = calc.__class__.__name__
-
-    summary = {
-        "calcname": calcname,
-    }
-
-    # Measure RMSD between start_pos and true_pos
-    if true_pos is not None:
-        true_pos = to_numpy(true_pos)
-        rmsd_initial = align_ordered_and_get_rmsd(start_pos, true_pos)
-        print(f"RMSD start: {rmsd_initial:.6f} Å")
-        summary["rmsd_initial"] = rmsd_initial
-    return mol_ase, summary
-
-
-def after_ase_opt(summary, z, title, true_pos=None, plot_dir=None):
-    """Computes RMSD between predicted and true transition state, and plots trajectory"""
-    if plot_dir is None:
-        # Auto-detect plot directory based on main script
-        main_script = sys.argv[0]
-        main_dir = os.path.dirname(os.path.abspath(main_script))
-        plot_dir = os.path.join(main_dir, "plots")
-        print(f"Autodetected plot directory: {plot_dir}")
-    trajectory = summary.get("trajectory", None)
-    rmsd_initial = summary.get("rmsd_initial", float("inf"))
-    calcname = summary.get("calcname", "")
-    endsummary = {}
-    if (trajectory is not None) and (true_pos is not None):
-        pred_pos = trajectory[-1]
-        # Compute RMSD between Sella-optimized structure and true transition state
-        rmsd_final = align_ordered_and_get_rmsd(pred_pos, true_pos)
-        print(f"RMSD end: {rmsd_final:.6f} Å")
-        print(f"Improvement: {rmsd_initial - rmsd_final:.6f} Å")
-        endsummary["rmsd_final"] = rmsd_final
-        endsummary["rmsd_improvement"] = rmsd_initial - rmsd_final
-
-    _this_plot_dir = os.path.join(plot_dir, clean_filename(title, None, None))
-    os.makedirs(_this_plot_dir, exist_ok=True)
-
-    # plot trajectory
-    if len(trajectory) > 0:
-        plot_traj_mpl(
-            coords_traj=trajectory,
-            title=title,
-            plot_dir=_this_plot_dir,
-            atomic_numbers=z,
-            save=True,
-        )
-        # plot_molecule_mpl(
-        #     mol_ase.get_positions(),
-        #     atomic_numbers=z,
-        #     title=f"Sella {calcname} {title}",
-        #     plot_dir=_this_plot_dir,
-        #     save=True,
-        # )
-        save_trajectory_to_xyz(trajectory, z, plotfolder=_this_plot_dir, filename=title)
-
-    # save summary dict
-    summary.update(endsummary)
-    cleansummary = clean_dict(summary)
-    with open(os.path.join(_this_plot_dir, "summary.json"), "w") as f:
-        json.dump(cleansummary, f)
-    print(f"Saved summary to {os.path.join(_this_plot_dir, 'summary.json')}")
-    with open(os.path.join(_this_plot_dir, "summary.txt"), "w") as f:
-        f.write(json.dumps(cleansummary, indent=4))
-    print(f"Saved summary to {os.path.join(_this_plot_dir, 'summary.txt')}")
-    return endsummary
-
-
-def run_with_ase_wrapper(
-    run_fn: Callable, start_pos, z, title, true_pos=None, calc=None, plot_dir=None
-):
-    # build atoms object
-    mol_ase, initsummary = before_ase_opt(start_pos, z, true_pos, calc)
-    # run function
-    summary = run_fn(mol_ase)
-    summary.update(initsummary)
-    # eval and plot
-    summary = after_ase_opt(summary, z, title, true_pos, plot_dir)
-    return summary
 
 
 sella_default_kwargs = dict(
@@ -281,6 +211,7 @@ def run_sella(
     natoms,
     true_pos,
     title,
+    order, # 1 = first-order saddle point, 0 = minimum
     calc=None,
     hessian_function=None,
     hessian_method=None,
@@ -314,7 +245,23 @@ def run_sella(
         plot_dir = os.path.join(main_dir, "plots_sella")
         print(f"Sella autodetected plot directory: {plot_dir}")
 
-    mol_ase, initsummary = before_ase_opt(start_pos, z, true_pos, calc)
+    # Create ASE Atoms object from the initial guess position
+    start_pos = to_numpy(start_pos)
+    atomic_numbers_np = to_numpy(z)
+    mol_ase = Atoms(numbers=atomic_numbers_np, positions=start_pos)
+    mol_ase.calc = calc
+    calcname = calc.__class__.__name__
+
+    summary = {
+        "calcname": calcname,
+    }
+
+    # Measure RMSD between start_pos and true_pos
+    if true_pos is not None:
+        true_pos = to_numpy(true_pos)
+        rmsd_initial = align_ordered_and_get_rmsd(start_pos, true_pos)
+        print(f"RMSD start: {rmsd_initial:.6f} Å")
+        summary["rmsd_initial"] = rmsd_initial
 
     # Set up a Sella Dynamics object with improved parameters for TS search
     _sella_kwargs = dict(
@@ -322,7 +269,7 @@ def run_sella(
         # constraints=cons,
         # trajectory=os.path.join(logfolder, "cu_sella_ts.traj"),
         trajectory=MyTrajectory(atoms=mol_ase),
-        order=1,  # Explicitly search for first-order saddle point
+        order=order,  
         # eta=5e-5,  # Smaller finite difference step for higher accuracy
         # delta0=5e-3,  # Larger initial trust radius for TS search
         # gamma=0.1,  # Much tighter convergence for iterative diagonalization
@@ -347,11 +294,11 @@ def run_sella(
     )
     _run_kwargs.update(run_kwargs)
 
-    summary = {
+    summary.update({
         "sella_kwargs": _sella_kwargs,
         "run_kwargs": _run_kwargs,
         "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-    }
+    })
 
     # Run the optimization
     t1 = time.time()
@@ -383,13 +330,48 @@ def run_sella(
             "time_taken": t2 - t1,
         }
     )
-    summary.update(initsummary)
 
-    if do_freq:
-        pass
-        # freq_summary = run_freq(mol_ase, calc)
-        # summary.update(freq_summary)
+    """Computes RMSD between predicted and true transition state, and plots trajectory"""
+    trajectory = summary.get("trajectory", None)
+    rmsd_initial = summary.get("rmsd_initial", float("inf"))
+    calcname = summary.get("calcname", "")
+    if (trajectory is not None) and (true_pos is not None):
+        pred_pos = trajectory[-1]
+        # Compute RMSD between Sella-optimized structure and true transition state
+        rmsd_final = align_ordered_and_get_rmsd(pred_pos, true_pos)
+        print(f"RMSD end: {rmsd_final:.6f} Å")
+        print(f"Improvement: {rmsd_initial - rmsd_final:.6f} Å")
+        summary["rmsd_final"] = rmsd_final
+        summary["rmsd_improvement"] = rmsd_initial - rmsd_final
 
-    endsummary = after_ase_opt(summary, z, title, true_pos, plot_dir=plot_dir)
-    summary.update(endsummary)
+    _this_plot_dir = os.path.join(plot_dir, clean_filename(title, None, None))
+    os.makedirs(_this_plot_dir, exist_ok=True)
+
+    # plot trajectory
+    if len(trajectory) > 0:
+        plot_traj_mpl(
+            coords_traj=trajectory,
+            title=title,
+            plot_dir=_this_plot_dir,
+            atomic_numbers=z,
+            save=True,
+        )
+        # plot_molecule_mpl(
+        #     mol_ase.get_positions(),
+        #     atomic_numbers=z,
+        #     title=f"Sella {calcname} {title}",
+        #     plot_dir=_this_plot_dir,
+        #     save=True,
+        # )
+        save_trajectory_to_xyz(trajectory, z, plotfolder=_this_plot_dir, filename=title)
+
+    # save summary dict
+    cleansummary = clean_dict(summary)
+    with open(os.path.join(_this_plot_dir, "summary.json"), "w") as f:
+        json.dump(cleansummary, f)
+    print(f"Saved summary to {os.path.join(_this_plot_dir, 'summary.json')}")
+    with open(os.path.join(_this_plot_dir, "summary.txt"), "w") as f:
+        f.write(json.dumps(cleansummary, indent=4))
+    print(f"Saved summary to {os.path.join(_this_plot_dir, 'summary.txt')}")
+
     return summary

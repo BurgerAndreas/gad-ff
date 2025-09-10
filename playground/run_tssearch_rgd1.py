@@ -78,9 +78,9 @@ from recipes.ts_search import (
     get_hessian_function,
     copy_atoms,
 )
-from recipes.trajectorysaver import MyTrajectory
+from gadff.trajectorysaver import MyTrajectory
 
-from quacc.atoms.ts import geodesic_interpolate_wrapper
+from gadff.geodesic_interpolate import geodesic_interpolate_wrapper
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
 plot_dir = os.path.join(this_dir, "plots_gad")

@@ -671,10 +671,10 @@ class EquiformerV2_OC20(BaseModel):
                 use_atom_edge_embedding=self.block_use_atom_edge_embedding_hessian,
                 use_m_share_rad=self.use_m_share_rad,
                 activation=self.attn_activation,
-                use_s2_act_attn=self.use_s2_act_attn,
-                use_attn_renorm=self.use_attn_renorm,
-                use_gate_act=self.use_gate_act,
-                use_sep_s2_act=self.use_sep_s2_act,
+                use_s2_act_attn=self.use_s2_act_attn, # ?
+                use_attn_renorm=self.use_attn_renorm, # True
+                use_gate_act=self.use_gate_act, # False -> use S2 activation
+                use_sep_s2_act=self.use_sep_s2_act, # True -> use Separable S2 activation
                 alpha_drop=self.hessian_alpha_drop,
             )
             self.hessian_edge_message_proj = SO3_LinearV2(
@@ -1075,6 +1075,7 @@ class EquiformerV2_OC20(BaseModel):
                 edge_distance=edge_distance_hessian,
                 edge_index=edge_index_hessian,
                 return_attn_messages=True,
+                # deprecated
                 symmetric_messages=self.symmetric_messages,
                 symmetric_edges=self.symmetric_edges,
             )

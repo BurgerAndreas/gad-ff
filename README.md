@@ -40,7 +40,7 @@ uv pip install -e .
 ```
 
 
-### Setting up the dataset
+### Setting up the HORM dataset
 Kaggle automatically downloads to the `~/.cache` folder. 
 I highly recommend to set up a symbolic link to a local folder to avoid running out of space on your home directory:
 ```bash
@@ -63,27 +63,18 @@ python scripts/preprocess_hessian_dataset.py --dataset-file RGD1.lmdb
 python scripts/preprocess_hessian_dataset.py --dataset-file ts1x_hess_train_big.lmdb
 ```
 
-### Get model checkpoints
-
-Get the baseline model:
-- `ckpt/eqv2.ckpt`: HORM EquiformerV2 finetuned on the HORM Hessian dataset. Can be used to get the Hessian via autograd. Used as starting point for training our HessianLearning model as well as baseline for evaluation.
+### Coming soon: RGD1 dataset
 
 ```bash
-# Download HORM EquiformerV2 with Energy-Force-Hessian Training
-mkdir -p ckpt
-wget https://huggingface.co/yhong55/HORM/resolve/main/eqv2.ckpt -O ckpt/eqv2.ckpt
-# Other models from the HORM paper
-wget https://huggingface.co/yhong55/HORM/resolve/main/left-df.ckpt -O ckpt/left-df.ckpt
-wget https://huggingface.co/yhong55/HORM/resolve/main/left.ckpt -O ckpt/left.ckpt
-wget https://huggingface.co/yhong55/HORM/resolve/main/alpha.ckpt -O ckpt/alpha.ckpt
+uv run scripts/process_rgd1_minimal_to_lmdb.py
 ```
 
 
 ## Use our model
 
-Download checkpoints from HuggingFace
+Download the checkpoint from HuggingFace
 ```bash
-wget https://huggingface.co/andreasburger/heigen/resolve/main/ckpt/hesspred_v1.ckpt?download=true -O ckpt/hesspred_v1.ckpt
+wget https://huggingface.co/andreasburger/heigen/resolve/main/ckpt/hesspred_v1.ckpt -O ckpt/hesspred_v1.ckpt
 ```
 
 See [example_inference.py](example_inference.py) for a full example how to use our model.
@@ -192,9 +183,22 @@ For the relaxations:
 ```bash
 uv pip install gpu4pyscf-cuda12x cutensor-cu12
 
-wget https://huggingface.co/andreasburger/heigen/resolve/main/data/t1x_val_reactant_hessian_100_noiserms0.03.h5?download=true -O data/t1x_val_reactant_hessian_100_noiserms0.03.h5
+wget https://huggingface.co/andreasburger/heigen/resolve/main/data/t1x_val_reactant_hessian_100_noiserms0.03.h5 -O data/t1x_val_reactant_hessian_100_noiserms0.03.h5
 
-wget https://huggingface.co/andreasburger/heigen/resolve/main/data/t1x_val_reactant_hessian_100_noiserms0.05.h5?download=true -O data/t1x_val_reactant_hessian_100_noiserms0.05.h5
+wget https://huggingface.co/andreasburger/heigen/resolve/main/data/t1x_val_reactant_hessian_100_noiserms0.05.h5 -O data/t1x_val_reactant_hessian_100_noiserms0.05.h5
+```
+
+Get the baseline model checkpoints:
+- `ckpt/eqv2.ckpt`: HORM EquiformerV2 finetuned on the HORM Hessian dataset. Can be used to get the Hessian via autograd. Used as starting point for training our HessianLearning model as well as baseline for evaluation.
+
+```bash
+# Download HORM EquiformerV2 with Energy-Force-Hessian Training
+mkdir -p ckpt
+wget https://huggingface.co/yhong55/HORM/resolve/main/eqv2.ckpt -O ckpt/eqv2.ckpt
+# Other models from the HORM paper
+wget https://huggingface.co/yhong55/HORM/resolve/main/left-df.ckpt -O ckpt/left-df.ckpt
+wget https://huggingface.co/yhong55/HORM/resolve/main/left.ckpt -O ckpt/left.ckpt
+wget https://huggingface.co/yhong55/HORM/resolve/main/alpha.ckpt -O ckpt/alpha.ckpt
 ```
 
 ### Run evaluations

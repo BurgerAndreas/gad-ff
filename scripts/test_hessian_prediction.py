@@ -42,6 +42,7 @@ from nets.equiformer_v2.transformer_block import (
 from e3nn import o3
 from ocpmodels.hessian_graph_transform import HessianGraphTransform
 from nets.equiformer_v2.hessian_pred_utils import run_hessian_tests
+from ocpmodels.ff_lmdb import LmdbDataset
 
 from gadff.inference_utils import get_model_from_checkpoint
 
@@ -251,166 +252,160 @@ if __name__ == "__main__":
 
     # for _hessian_build_method in ["1d", "blockdiagonal"]:
     for _hessian_build_method in ["1d"]:
-        for _symmetric_messages in [True, False]:
-            for _symmetric_edges in [True, False]:
-                for initialization in [True, False]:
-                    print()
-                    print("=" * 100)
-                    print(f"Testing with initialization: {initialization}, symmetric_messages: {_symmetric_messages}, symmetric_edges: {_symmetric_edges}")
-                    print("=" * 100)
-                    
-                    config_path = os.path.join(project_root, "configs/equiformer_v2.yaml")
-                    with open(config_path, "r") as file:
-                        config = yaml.safe_load(file)
-                    model_config = config["model"]
-                    model_config["do_hessian"] = True
-                    model_config["otf_graph"] = False
-                    model_config["hessian_build_method"] = _hessian_build_method
-                    model_config["symmetric_messages"] = _symmetric_messages
-                    model_config["symmetric_edges"] = _symmetric_edges
-                    model = EquiformerV2_OC20(**model_config)
+        for initialization in [True, False]:
+            print()
+            print("=" * 100)
+            print(f"Testing with initialization: {initialization}, hessian_build_method: {_hessian_build_method}")
+            print("=" * 100)
+            
+            config_path = os.path.join(project_root, "configs/equiformer_v2.yaml")
+            with open(config_path, "r") as file:
+                config = yaml.safe_load(file)
+            model_config = config["model"]
+            model_config["do_hessian"] = True
+            model_config["otf_graph"] = False
+            model_config["hessian_build_method"] = _hessian_build_method
+            model = EquiformerV2_OC20(**model_config)
 
-                    checkpoint_path = os.path.join(project_root, "ckpt/eqv2.ckpt")
-                    state_dict = torch.load(checkpoint_path, weights_only=True)["state_dict"]
-                    state_dict = {k.replace("potential.", ""): v for k, v in state_dict.items()}
-                    model.load_state_dict(state_dict, strict=False)
+            checkpoint_path = os.path.join(project_root, "ckpt/eqv2.ckpt")
+            state_dict = torch.load(checkpoint_path, weights_only=True)["state_dict"]
+            state_dict = {k.replace("potential.", ""): v for k, v in state_dict.items()}
+            model.load_state_dict(state_dict, strict=False)
 
-                    model.train()
-                    model.to("cuda")
-                    
-                    if not initialization:
-                        # randomize weights of modules in hessian_module_list
-                        for module_str in model.hessian_module_list:
-                            module = getattr(model, module_str)
-                            for param in module.parameters():
-                                param.data = torch.randn_like(param.data)
+            model.train()
+            model.to("cuda")
+            
+            if not initialization:
+                # randomize weights of modules in hessian_module_list
+                for module_str in model.hessian_module_list:
+                    module = getattr(model, module_str)
+                    for param in module.parameters():
+                        param.data = torch.randn_like(param.data)
 
-                    from ocpmodels.ff_lmdb import LmdbDataset
+            dataset_path = os.path.join(project_root, "data/sample_100.lmdb")
+            transform = HessianGraphTransform(
+                cutoff=model.cutoff,
+                cutoff_hessian=model.cutoff_hessian,
+                max_neighbors=model.max_neighbors,
+                use_pbc=model.use_pbc,
+            )
+            dataset = LmdbDataset(dataset_path, transform=transform)
 
-                    dataset_path = os.path.join(project_root, "data/sample_100.lmdb")
-                    transform = HessianGraphTransform(
-                        cutoff=model.cutoff,
-                        cutoff_hessian=model.cutoff_hessian,
-                        max_neighbors=model.max_neighbors,
-                        use_pbc=model.use_pbc,
+            follow_batch = ["diag_ij", "edge_index", "message_idx_ij"]
+
+            # print("\n" + "=" * 100)
+            print("\n# Single sample")
+            dataloader = TGDataLoader(
+                dataset, batch_size=1, shuffle=False, follow_batch=follow_batch
+            )
+            for _b, batch_base in enumerate(dataloader):
+                N = batch_base.natoms.sum().item()
+                batch = batch_base.clone()
+                batch = batch.to(model.device)
+                batch = compute_extra_props(batch, pos_require_grad=False)
+                energy, forces, out = model.forward(
+                    batch, eigen=True, hessian=True, return_l_features=True
+                )
+                pred_hessian = out["hessian"]
+
+                # print("\n" + "-")
+                # print(
+                #     f"## Checking each method separately for B={batch.batch.max().item() + 1}"
+                # )
+                if args.equ_only:
+                    print("\n")
+                    print("### Equivariance test:")
+                    equivariance_test(model, batch)
+                    break
+                elif args.sym_only:
+                    print("\n")
+                    print("### Symmetry test:")
+                    pred_hessian = pred_hessian.reshape(N * 3, N * 3)
+                    diff = pred_hessian - pred_hessian.T
+                    print(f"Symmetry abs diff: {diff.abs().mean().item():.2e}")
+                    print(f"Symmetry rel diff: {save_rel_error(pred_hessian, diff):.2e}")
+                    break
+                run_hessian_tests(
+                    batch.edge_index,
+                    out["l012_edge_features"],
+                    out["l012_node_features"],
+                    batch,
+                )
+
+                if _b == 1:
+                    print("\n")
+                    print("### Equivariance test:")
+                    equivariance_test(model, batch)
+                    print("\n### Parity test:")
+                    test_parity_l_features(model, batch)
+                    print("\n### Symmetry test:")
+                    pred_hessian = pred_hessian.reshape(N * 3, N * 3)
+                    diff = pred_hessian - pred_hessian.T
+                    print(f"Symmetry abs diff: {diff.abs().mean().item():.2e}")
+                    print(f"Symmetry rel diff: {save_rel_error(pred_hessian, diff):.2e}")
+                    break
+
+            if not (args.equ_only or args.sym_only):
+                print("\n" + "=" * 100)
+                print("\n# Batching")
+                dataloader = TGDataLoader(
+                    dataset, batch_size=2, shuffle=False, follow_batch=follow_batch
+                )
+                for batch_base in dataloader:
+                    N = batch_base.natoms.sum().item()
+
+                    print("\n")
+                    print("## Checking gradients")
+
+                    batch = batch_base.clone()
+                    batch = batch.to(model.device)
+                    batch = compute_extra_props(batch, pos_require_grad=False)
+                    energy, forces, out = model.forward(
+                        batch, eigen=True, hessian=True, return_l_features=True
                     )
-                    dataset = LmdbDataset(dataset_path, transform=transform)
+                    pred_hessian = out["hessian"]
 
-                    follow_batch = ["diag_ij", "edge_index", "message_idx_ij"]
+                    true_hessian = batch.hessian
+                    # true_hessian = true_hessian.reshape(pred_hessian.shape)
 
-                    # print("\n" + "=" * 100)
-                    print("\n# Single sample")
-                    dataloader = TGDataLoader(
-                        dataset, batch_size=1, shuffle=False, follow_batch=follow_batch
-                    )
-                    for _b, batch_base in enumerate(dataloader):
-                        N = batch_base.natoms.sum().item()
-                        batch = batch_base.clone()
-                        batch = batch.to(model.device)
-                        batch = compute_extra_props(batch, pos_require_grad=False)
-                        energy, forces, out = model.forward(
-                            batch, eigen=True, hessian=True, return_l_features=True
+                    # compute loss
+                    loss_fn = torch.nn.functional.mse_loss
+                    if pred_hessian.numel() > true_hessian.numel():
+                        # we computed a block diagonal hessian
+                        loss = compute_loss_blockdiagonal_hessian(
+                            pred_hessian, true_hessian, loss_fn, batch
                         )
-                        pred_hessian = out["hessian"]
+                    else:
+                        loss = loss_fn(pred_hessian, true_hessian)
 
-                        # print("\n" + "-")
-                        # print(
-                        #     f"## Checking each method separately for B={batch.batch.max().item() + 1}"
-                        # )
-                        if args.equ_only:
-                            print("\n")
-                            print("### Equivariance test:")
-                            equivariance_test(model, batch)
-                            break
-                        elif args.sym_only:
-                            print("\n")
-                            print("### Symmetry test:")
-                            pred_hessian = pred_hessian.reshape(N * 3, N * 3)
-                            diff = pred_hessian - pred_hessian.T
-                            print(f"Symmetry abs diff: {diff.abs().mean().item():.2e}")
-                            print(f"Symmetry rel diff: {save_rel_error(pred_hessian, diff):.2e}")
-                            break
-                        run_hessian_tests(
-                            batch.edge_index,
-                            out["l012_edge_features"],
-                            out["l012_node_features"],
-                            batch,
-                        )
+                    # backprop
+                    loss.backward()
 
-                        if _b == 1:
-                            print("\n")
-                            print("### Equivariance test:")
-                            equivariance_test(model, batch)
-                            print("\n### Parity test:")
-                            test_parity_l_features(model, batch)
-                            print("\n### Symmetry test:")
-                            pred_hessian = pred_hessian.reshape(N * 3, N * 3)
-                            diff = pred_hessian - pred_hessian.T
-                            print(f"Symmetry abs diff: {diff.abs().mean().item():.2e}")
-                            print(f"Symmetry rel diff: {save_rel_error(pred_hessian, diff):.2e}")
-                            break
-
-                    if not (args.equ_only or args.sym_only):
-                        print("\n" + "=" * 100)
-                        print("\n# Batching")
-                        dataloader = TGDataLoader(
-                            dataset, batch_size=2, shuffle=False, follow_batch=follow_batch
-                        )
-                        for batch_base in dataloader:
-                            N = batch_base.natoms.sum().item()
-
-                            print("\n")
-                            print("## Checking gradients")
-
-                            batch = batch_base.clone()
-                            batch = batch.to(model.device)
-                            batch = compute_extra_props(batch, pos_require_grad=False)
-                            energy, forces, out = model.forward(
-                                batch, eigen=True, hessian=True, return_l_features=True
-                            )
-                            pred_hessian = out["hessian"]
-
-                            true_hessian = batch.hessian
-                            # true_hessian = true_hessian.reshape(pred_hessian.shape)
-
-                            # compute loss
-                            loss_fn = torch.nn.functional.mse_loss
-                            if pred_hessian.numel() > true_hessian.numel():
-                                # we computed a block diagonal hessian
-                                loss = compute_loss_blockdiagonal_hessian(
-                                    pred_hessian, true_hessian, loss_fn, batch
-                                )
+                    grad = []
+                    none_grad = 0
+                    for name, param in model.named_parameters():
+                        if param.requires_grad:
+                            if param.grad is not None:
+                                grad.append(param.grad.norm().item())
                             else:
-                                loss = loss_fn(pred_hessian, true_hessian)
+                                none_grad += 1
+                    print(f"num grad entries: {len(grad)} (none: {none_grad})")
+                    grad = torch.tensor(grad)
+                    print(f"Grad norm: {grad.mean().item():.2e}")
+                    assert grad.numel() > 0, "No gradients found"
 
-                            # backprop
-                            loss.backward()
+                    print("\n" + "-")
+                    print(
+                        f"## Checking each method separately for B={batch.batch.max().item() + 1}"
+                    )
 
-                            grad = []
-                            none_grad = 0
-                            for name, param in model.named_parameters():
-                                if param.requires_grad:
-                                    if param.grad is not None:
-                                        grad.append(param.grad.norm().item())
-                                    else:
-                                        none_grad += 1
-                            print(f"num grad entries: {len(grad)} (none: {none_grad})")
-                            grad = torch.tensor(grad)
-                            print(f"Grad norm: {grad.mean().item():.2e}")
-                            assert grad.numel() > 0, "No gradients found"
+                    run_hessian_tests(
+                        batch.edge_index,
+                        out["l012_edge_features"],
+                        out["l012_node_features"],
+                        batch,
+                    )
 
-                            print("\n" + "-")
-                            print(
-                                f"## Checking each method separately for B={batch.batch.max().item() + 1}"
-                            )
-
-                            run_hessian_tests(
-                                batch.edge_index,
-                                out["l012_edge_features"],
-                                out["l012_node_features"],
-                                batch,
-                            )
-
-                            break
+                    break
 
     print("\n\nPassed! ✅")

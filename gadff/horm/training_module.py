@@ -184,6 +184,8 @@ class PotentialModule(LightningModule):
 
         self.wandb_run_id = None
 
+        self.grad_norm_history = []
+
     def set_wandb_run_id(self, run_id: str) -> None:
         """Set the WandB run ID for checkpoint continuation."""
         self.wandb_run_id = run_id
@@ -636,12 +638,21 @@ class PotentialModule(LightningModule):
         self.val_start_time = time.time()
         super().on_validation_epoch_start()
 
+    def on_train_start(self):
+        """Log the starting epoch to Weights & Biases."""
+        # Route through Lightning logger so it reaches WandB and respects rank_zero_only
+        self.log("start_epoch", int(self.current_epoch), rank_zero_only=True, prog_bar=False)
+        super().on_train_start()
+
     def on_before_optimizer_step(self, optimizer):
         # Compute the 2-norm for each layer
         # If using mixed precision, the gradients are already unscaled here
         # norms: The dictionary of p-norms of each parameter's gradient and
         # a special entry for the total p-norm of the gradients viewed as a single vector
         norms = pl_grad_norm(module=self.potential, norm_type=2)
+        self.grad_norm_history.append(norms["grad_2_norm_total"])
+        if (self.global_step % 100 == 0) and self.global_step > 10:
+            norms["grad_2_norm_std"] = torch.std(self.grad_norm_history)
         self.log_dict(norms)
         # super().on_before_optimizer_step(optimizer)
 
