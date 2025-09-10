@@ -203,14 +203,20 @@ def run_sella(
     natoms,
     true_pos,
     title,
+    sella_kwargs={},
+    run_kwargs={},
     calc=None,
     hessian_method=None,
     rmsd_threshold: float = 0.5,
-    run_kwargs = dict(
+    plot_dir=None,
+    plot_traj=False,
+    plot_final_mol=False,
+):
+    default_run_kwargs = dict(
         fmax=1e-3,
         steps=4000,
-    ),
-    sella_kwargs = dict(
+    )
+    default_sella_kwargs = dict(
         order=1, # 1 = first-order saddle point, 0 = minimum
         eta=5e-5,  # Smaller finite difference step for higher accuracy
         delta0=5e-3,  # Larger initial trust radius for TS search
@@ -223,11 +229,12 @@ def run_sella(
         diag_every_n=None,  # brute force. paper set this to 1. try 0
         nsteps_per_diag=3,  # adaptive
         internal=False,  # paper set this to True
-    ),
-    plot_dir=None,
-    plot_traj=False,
-    plot_final_mol=False,
-):
+    )
+    default_sella_kwargs.update(sella_kwargs)
+    sella_kwargs = default_sella_kwargs
+    default_run_kwargs.update(run_kwargs)
+    run_kwargs = default_run_kwargs
+
     title += f" | Hessian={hessian_method}"
     if sella_kwargs["internal"]:
         title += " | Internal"
@@ -406,7 +413,7 @@ def _init_calculators(device: torch.device):
     return torchcalc, asecalc
 
 
-def main(
+def run_tssearch_rgd1_sella(
     idx: int = 104_000,
     hessian_method: str = "predict",
     rmsd_threshold: float = 0.5,
@@ -449,6 +456,33 @@ def main(
     run_kwargs = {"fmax": 1e-3, "steps": steps}
 
     out = {}
+    # Aggregators per (start_point, coordinate_system)
+    # keys: 'reactant_cart', 'reactant_internal', 'geodesic_cart', 'geodesic_internal'
+    stats = {}
+
+    def _update_stats(group_key: str, summary: dict):
+        if group_key not in stats:
+            stats[group_key] = {
+                "count": 0,
+                "sum_nsteps": 0,
+                "count_nsteps": 0,
+                "freq_success": 0,  # neg modes == 1
+                "freq_attempts": 0,
+                "rmsd_success": 0,  # rmsd <= threshold
+            }
+        s = stats[group_key]
+        s["count"] += 1
+        nsteps = summary.get("nsteps", None)
+        if isinstance(nsteps, int):
+            s["sum_nsteps"] += nsteps
+            s["count_nsteps"] += 1
+        if "freq_neg_num" in summary:
+            s["freq_attempts"] += 1
+            if summary.get("freq_neg_num", None) == 1:
+                s["freq_success"] += 1
+        if summary.get("rmsd_within_threshold", False):
+            s["rmsd_success"] += 1
+
     for ii in indices:
         print(f"\nLoading sample {ii}")
         sample = dataset[ii]
@@ -495,40 +529,54 @@ def main(
         )
 
         # Run Sella from two starts
-        summary_r = run_sella(
-            start_pos=sample.pos_reactant,
-            z=sample.z,
-            natoms=sample.natoms,
-            true_pos=sample.pos_transition,
-            title=f"Sella TS from R idx{ii}",
-            calc=asecalc,
-            hessian_method=hessian_method,
-            rmsd_threshold=rmsd_threshold,
-            run_kwargs=run_kwargs,
-            plot_traj=plot_traj,
-            plot_final_mol=plot_final_mol,
-        )
+        for internal in [False, True]:
+            summary_r = run_sella(
+                start_pos=sample.pos_reactant,
+                z=sample.z,
+                natoms=sample.natoms,
+                true_pos=sample.pos_transition,
+                title=f"Sella TS from R idx{ii}",
+                calc=asecalc,
+                hessian_method=hessian_method,
+                rmsd_threshold=rmsd_threshold,
+                run_kwargs=run_kwargs,
+                plot_traj=plot_traj,
+                plot_final_mol=plot_final_mol,
+                sella_kwargs=dict(
+                    internal=internal,
+                ),
+            )
+            _update_stats("reactant_internal" if internal else "reactant_cart", summary_r)
 
-        summary_geo = run_sella(
-            start_pos=x_geointer_rp,
-            z=sample.z,
-            natoms=sample.natoms,
-            true_pos=sample.pos_transition,
-            title=f"Sella TS from geodesic R-P idx{ii}",
-            calc=asecalc,
-            hessian_method=hessian_method,
-            rmsd_threshold=rmsd_threshold,
-            run_kwargs=run_kwargs,
-            plot_traj=plot_traj,
-            plot_final_mol=plot_final_mol,
-        )
+            summary_geo = run_sella(
+                start_pos=x_geointer_rp,
+                z=sample.z,
+                natoms=sample.natoms,
+                true_pos=sample.pos_transition,
+                title=f"Sella TS from geodesic R-P idx{ii}",
+                calc=asecalc,
+                hessian_method=hessian_method,
+                rmsd_threshold=rmsd_threshold,
+                run_kwargs=run_kwargs,
+                plot_traj=plot_traj,
+                plot_final_mol=plot_final_mol,
+                sella_kwargs=dict(
+                    internal=internal,
+                ),
+            )
+            _update_stats("geodesic_internal" if internal else "geodesic_cart", summary_geo)
 
         out[ii] = {"reactant": summary_r, "geodesic": summary_geo}
 
+    out["__stats__"] = stats
     return out
 
 
 if __name__ == "__main__":
+    """
+    # --max-samples 10 --seed 0 --hessian-method predict
+    uv run /ssd/Code/gad-ff/playground/run_tssearch_rgd1_sella.py 
+    """
     parser = argparse.ArgumentParser(description="Run Sella TS search with predicted Hessians.")
     parser.add_argument("--idx", type=int, default=104_000, help="Sample index in RGD1 dataset")
     parser.add_argument(
@@ -544,7 +592,7 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=0, help="Random seed for sampling")
     args = parser.parse_args()
 
-    results = main(
+    results = run_tssearch_rgd1_sella(
         idx=args.idx,
         hessian_method=args.hessian_method,
         rmsd_threshold=args.rmsd_threshold,
@@ -554,6 +602,8 @@ if __name__ == "__main__":
     )
     print("\nResults:")
     for ii, res in results.items():
+        if ii == "__stats__":
+            continue
         print(f"idx {ii}:")
         for start, v in res.items():
             rmsd = v.get("rmsd_final", None)
@@ -561,3 +611,14 @@ if __name__ == "__main__":
             ok = v.get("is_index_one_saddle", None)
             rmsdok = v.get("rmsd_within_threshold", None)
             print(f"  {start}: rmsd={rmsd}, neg_modes={neg}, is_ts={ok}, rmsd_ok={rmsdok}")
+
+    # Summary statistics
+    stats = results.get("__stats__", {})
+    if stats:
+        print("\nSummary (avg nsteps, freq success rate, rmsd success rate):")
+        for key in sorted(stats.keys()):
+            s = stats[key]
+            avg_nsteps = (s["sum_nsteps"] / s["count_nsteps"]) if s["count_nsteps"] > 0 else None
+            freq_rate = (s["freq_success"] / s["freq_attempts"]) if s["freq_attempts"] > 0 else None
+            rmsd_rate = (s["rmsd_success"] / s["count"]) if s["count"] > 0 else None
+            print(f"  {key}: avg_nsteps={avg_nsteps}, freq_ok={freq_rate}, rmsd_ok={rmsd_rate}")
