@@ -410,14 +410,19 @@ class HessianPotentialModule(PotentialModule):
             loss += eigen_loss
             info["Loss Eigen"] = eigen_loss.detach().item()
         
-        # hat_ae = hat_ae.squeeze().to(self.device)
-        # hat_forces = hat_forces.to(self.device)
-        # ae = batch.ae.to(self.device)
-        # forces = batch.forces.to(self.device)
-        # eloss = self.loss_fn(ae, hat_ae)
-        # floss = self.loss_fn(forces, hat_forces)
-        # info["MAE_E"] = eloss.detach().item()
-        # info["MAE_F"] = floss.detach().item()
+        if not self.training_config["train_heads_only"]:
+            # energy
+            hat_ae = hat_ae.squeeze().to(self.device)
+            ae = batch.ae.to(self.device)
+            eloss = self.loss_fn(ae, hat_ae)
+            loss += eloss * self.training_config["energy_loss_weight"]
+            info["Loss E"] = eloss.detach().item()
+            # forces
+            hat_forces = hat_forces.to(self.device)
+            forces = batch.forces.to(self.device)
+            floss = self.loss_fn(forces, hat_forces)
+            loss += floss * self.training_config["force_loss_weight"]
+            info["Loss F"] = floss.detach().item()
 
         return loss, info
 
