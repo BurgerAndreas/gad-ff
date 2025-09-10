@@ -12,7 +12,7 @@ from torch.optim.lr_scheduler import (
     CosineAnnealingWarmRestarts,
     ConstantLR,
 )
-from gadff.lrscheduler import StepLR
+from gadff.lrscheduler import StepLR, CosineAnnealingLR
 
 try:
     import pytorch_lightning as pl
@@ -149,6 +149,7 @@ class EigenPotentialModule(PotentialModule):
 
         if self.training_config["lr_schedule_type"] is not None:
             LR_SCHEDULER = {
+                "cosine": CosineAnnealingLR,
                 "cos": CosineAnnealingWarmRestarts,
                 "step": StepLR,
                 "constant": ConstantLR,

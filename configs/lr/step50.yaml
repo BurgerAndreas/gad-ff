@@ -7,3 +7,5 @@ training:
     gamma: 0.85
     step_size: 50
     min_lr: null
+    warmup_epochs: 0          # number of epochs to warm up (0 disables)
+    warmup_init_lr: 0.0      # start LR for warmup

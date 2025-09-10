@@ -1,11 +1,10 @@
 # @package _global_
 
-# Step decay learning rate schedule
+# Cosine decay learning rate schedule
 training:
-  lr_schedule_type: "step"
+  lr_schedule_type: "cosine"
   lr_schedule_config:
-    gamma: 0.85
-    step_size: 10
-    min_lr: null
+    T_max: 1e6 # Maximum number of iterations.
+    eta_min: 1e-6 # Minimum learning rate. Default: 0.
     warmup_epochs: 0          # number of epochs to warm up (0 disables)
     warmup_init_lr: 0.0      # start LR for warmup

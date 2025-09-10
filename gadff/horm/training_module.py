@@ -19,7 +19,7 @@ from torch.optim.lr_scheduler import (
     ReduceLROnPlateau,
     # CosineAnnealingLR,
 )
-from gadff.lrscheduler import StepLR
+from gadff.lrscheduler import StepLR, CosineAnnealingLR
 
 try:
     from pytorch_lightning.utilities import grad_norm as pl_grad_norm
@@ -42,6 +42,7 @@ from gadff.path_config import find_project_root, fix_dataset_path
 from nets.prediction_utils import compute_extra_props
 
 LR_SCHEDULER = {
+    "cosine": CosineAnnealingLR,
     "cos": CosineAnnealingWarmRestarts,
     "step": StepLR,
     "plateau": ReduceLROnPlateau,
