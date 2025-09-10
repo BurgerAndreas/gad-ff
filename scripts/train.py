@@ -71,7 +71,9 @@ def setup_training(cfg: DictConfig):
     pm = eval(cfg.potential_module_class)(
         model_config, optimizer_config, training_config
     )
-    if cfg.ckpt_model_path == "horm":
+    if cfg.ckpt_model_path in [None, "None", "null"]:
+        print(f"Not loading model checkpoint from {cfg.ckpt_model_path}")
+    elif cfg.ckpt_model_path == "horm":
         ckpt = torch.load(
             CHECKPOINT_PATH_EQUIFORMER_HORM, map_location="cuda", weights_only=True
         )
