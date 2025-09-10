@@ -17,7 +17,7 @@ from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.path_config import fix_dataset_path
 from ocpmodels.hessian_graph_transform import HessianGraphTransform, FOLLOW_BATCH
 from gadff.horm.training_module import SchemaUniformDataset
-from gadff.colours import HESSIAN_METHOD_TO_COLOUR
+from gadff.colours import HESSIAN_METHOD_TO_COLOUR, ANNOTATION_FONT_SIZE, ANNOTATION_BOLD_FONT_SIZE, AXES_FONT_SIZE, AXES_TITLE_FONT_SIZE, LEGEND_FONT_SIZE, TITLE_FONT_SIZE
 
 
 # https://plotly.com/python/templates/
@@ -662,7 +662,7 @@ def plot_combined_speed_memory_batchsize(
     # Map method names to colours (handle both "predict" and "prediction")
     def _color_for_method(method):
         key = method
-        if method == "prediction":
+        if method.lower().startswith("pred"):
             key = "predict"
         return HESSIAN_METHOD_TO_COLOUR.get(key)
 
@@ -682,13 +682,6 @@ def plot_combined_speed_memory_batchsize(
         / autograd_results_df.groupby(["batch_size"])["batch_size"].mean()
     )
 
-    ANNOTATION_FONT_SIZE = 16
-    ANNOTATION_BOLD_FONT_SIZE = 18
-    AXES_FONT_SIZE = 14
-    AXES_TITLE_FONT_SIZE = 16
-    LEGEND_FONT_SIZE = 16
-    TITLE_FONT_SIZE = 20
-
     fig = make_subplots(
         rows=1,
         cols=3,
@@ -701,12 +694,13 @@ def plot_combined_speed_memory_batchsize(
     # Col 1: Speed vs N
     for method in avg_times.columns:
         color = _color_for_method(method)
+        display_name = "Prediction (ours)" if str(method).lower() == "prediction" else str(method).capitalize()
         fig.add_trace(
             go.Scatter(
                 x=avg_times.index,
                 y=avg_times[method],
                 mode="lines+markers",
-                name=method.capitalize(),
+                name=display_name,
                 legend="legend",
                 showlegend=True,
                 line=dict(color=color) if color else None,
@@ -719,12 +713,13 @@ def plot_combined_speed_memory_batchsize(
     # Col 2: Memory vs N
     for method in avg_memory.columns:
         color = _color_for_method(method)
+        display_name = "Prediction (ours)" if str(method).lower() == "prediction" else str(method).capitalize()
         fig.add_trace(
             go.Scatter(
                 x=avg_memory.index,
                 y=avg_memory[method],
                 mode="lines+markers",
-                name=method.capitalize(),
+                name=display_name,
                 # legend="legend2",
                 showlegend=False,
                 line=dict(color=color) if color else None,

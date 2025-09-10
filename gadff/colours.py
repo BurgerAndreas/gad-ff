@@ -1,6 +1,7 @@
 import seaborn as sns
 
 SNSPALETTE = sns.color_palette("pastel", 10).as_hex()
+# ['#a1c9f4', '#ffb482', '#8de5a1', '#ff9f9b', '#d0bbff', '#debb9b', '#fab0e4', '#cfcfcf', '#fffea3', '#b9f2f0']
 
 import plotly.colors
 
@@ -46,12 +47,38 @@ METHOD_TO_COLOUR = {
     "eqv2": "#89CFF0",  # "#b8d6ec", #89CFF0
     "hesspred": "#f6cf71",
 }
+# autograd is red
+# HESSIAN_METHOD_TO_COLOUR = {
+#     "predict": "#295c7e", 
+#     "autograd": "#db95a6",
+# }
+# HESSIAN_METHOD_TO_COLOUR = {
+#     "predict": "#1b85b8", 
+#     "autograd": "#db95a6",
+# }
 HESSIAN_METHOD_TO_COLOUR = {
-    # "autograd": "#89CFF0",
-    # "predict": "#f6cf71",
-    "predict": PLOTLY_DEFAULT_COLOURS[0],
-    "autograd": PLOTLY_DEFAULT_COLOURS[1],
+    "predict": "#295c7e", 
+    "autograd": "#ae5a41",
 }
+# brighter colours
+# HESSIAN_METHOD_TO_COLOUR = {
+#     "predict": "#68c4af", 
+#     "autograd": "#db95a6",
+# }
+# HESSIAN_METHOD_TO_COLOUR = {
+#     "predict": "#ffb482", 
+#     "autograd": "#cfcfcf",
+# }
+# our method with signalling colours
+# HESSIAN_METHOD_TO_COLOUR = {
+#     "predict": "#ae5a41", 
+#     "autograd": "#295c7e",
+# }
+# HESSIAN_METHOD_TO_COLOUR = {
+#     "predict": "#ffb482", 
+#     "autograd": "#295c7e",
+# }
+
 HESSIAN_METHOD_TO_COLOUR["prediction"] = HESSIAN_METHOD_TO_COLOUR["predict"]
 HESSIAN_METHOD_TO_COLOUR["learned"] = HESSIAN_METHOD_TO_COLOUR["predict"]
 
@@ -59,9 +86,16 @@ HESSIAN_METHOD_TO_COLOUR["learned"] = HESSIAN_METHOD_TO_COLOUR["predict"]
 OPTIM_TO_COLOUR = {
     "firstorder": "#295c7e",
     "bfgs": "#636EFA",
-    "secondorder": "#db95a6",  # #EF553B
-    "ours": "#d96002",
+    "secondorder": "#db95a6",  
 }
 OPTIM_TO_COLOUR["First-Order"] = OPTIM_TO_COLOUR["firstorder"]
 OPTIM_TO_COLOUR["Second-Order"] = OPTIM_TO_COLOUR["secondorder"]
 OPTIM_TO_COLOUR["Quasi-Second-Order"] = OPTIM_TO_COLOUR["bfgs"]
+
+
+ANNOTATION_FONT_SIZE = 16
+ANNOTATION_BOLD_FONT_SIZE = 18
+AXES_FONT_SIZE = 14
+AXES_TITLE_FONT_SIZE = 16
+LEGEND_FONT_SIZE = 16
+TITLE_FONT_SIZE = 20

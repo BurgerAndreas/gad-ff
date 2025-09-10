@@ -5,7 +5,7 @@ import wandb
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from gadff.colours import COLOUR_LIST, METHOD_TO_COLOUR
+from gadff.colours import COLOUR_LIST, METHOD_TO_COLOUR, HESSIAN_METHOD_TO_COLOUR, ANNOTATION_FONT_SIZE, AXES_FONT_SIZE, AXES_TITLE_FONT_SIZE, LEGEND_FONT_SIZE
 import plotly.graph_objects as go
 import plotly.express as px
 
@@ -235,8 +235,8 @@ print(f"Saved plot to {outfile}")
 # Build a Plotly lollipop plot for two specific methods
 desired_methods = ["predict-equiformer", "autograd-equiformer"]
 method_display_name = {
-    "predict-equiformer": "predict",
-    "autograd-equiformer": "autograd",
+    "predict-equiformer": "Learned Hessians (ours)",
+    "autograd-equiformer": "Autograd Hessians",
 }
 
 df_plot = df[df["Method"].isin(desired_methods)].copy()
@@ -267,9 +267,13 @@ else:
         if sub.empty:
             continue
 
-        colour = default_colorway[
-            desired_methods.index(method_key) % len(default_colorway)
-        ]
+        # Prefer explicit colours: METHOD_TO_COLOUR by full key, else HESSIAN_METHOD_TO_COLOUR by prefix
+        base_key = method_key.split("-")[0]
+        colour = (
+            METHOD_TO_COLOUR.get(method_key)
+            or HESSIAN_METHOD_TO_COLOUR.get(base_key)
+            or default_colorway[desired_methods.index(method_key) % len(default_colorway)]
+        )
         display = method_display_name.get(method_key, method_key)
         is_background = method_key == render_order[0]
 
@@ -287,7 +291,8 @@ else:
                 line=dict(color=colour, width=(12 if is_background else 8)),
                 showlegend=False,
                 hoverinfo="skip",
-                opacity=(0.6 if is_background else 1.0),
+                # opacity=(0.6 if is_background else 1.0),
+                opacity=1.0,
             )
         )
 
@@ -309,24 +314,30 @@ else:
                 text=show_text,
                 texttemplate="%{text}",
                 textposition="middle right",
+                textfont=dict(size=ANNOTATION_FONT_SIZE),
                 cliponaxis=False,
-                opacity=(0.75 if is_background else 1.0),
+                # opacity=(0.75 if is_background else 1.0),
+                opacity=1.0,
             )
         )
 
     fig.update_layout(
         xaxis_title="",
-        yaxis_title="Count",
         xaxis=dict(
             categoryorder="array",
             categoryarray=allowed_metrics,
             tickangle=-25,
-            tickfont=dict(size=12),
+            tickfont=dict(size=AXES_FONT_SIZE),
+        ),
+        yaxis=dict(
+            title=dict(text="Count", font=dict(size=AXES_TITLE_FONT_SIZE)),
+            tickfont=dict(size=AXES_FONT_SIZE),
         ),
         margin=dict(l=40, r=20, t=0, b=20),
         template="plotly_white",
         legend=dict(
-            title=dict(text="Method"),
+            title=dict(text=""),
+            font=dict(size=LEGEND_FONT_SIZE),
             x=0.45,
             y=0.98,
             xanchor="left",

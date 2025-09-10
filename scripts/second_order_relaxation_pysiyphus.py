@@ -75,7 +75,7 @@ from gadff.t1x_dft_dataloader import Dataloader as T1xDFTDataloader
 #         "uv run Transition1x/download_t1x.py Transition1x/data" + "\n"
 #         "uv pip install -e Transition1x" + "\n"
 #     )
-from gadff.colours import COLOUR_LIST, OPTIM_TO_COLOUR
+from gadff.colours import COLOUR_LIST, OPTIM_TO_COLOUR, ANNOTATION_FONT_SIZE, ANNOTATION_BOLD_FONT_SIZE, AXES_FONT_SIZE, AXES_TITLE_FONT_SIZE, LEGEND_FONT_SIZE, TITLE_FONT_SIZE
 import plotly.graph_objects as go
 from matplotlib.ticker import FixedLocator
 from matplotlib.patches import Patch
@@ -1795,13 +1795,19 @@ def do_relaxations():
                 return hex_color
 
         display_order = []
+        methods_plotted = []
+        method_to_display_name = {}
         for method in order:
             series = _d[_d["name"] == method][metric_name].dropna()
             if len(series) == 0:
                 continue
             display_name = RENAME_METHODS_PLOT.get(method, method)
+            if method in ("RFO (learned)", "RFO-BFGS (learned init)"):
+                display_name = f"{display_name} (ours)"
             color = METHOD_TO_COLOUR.get(method, "#1f77b4")
             display_order.append(display_name)
+            methods_plotted.append(method)
+            method_to_display_name[method] = display_name
             fig.add_trace(
                 go.Violin(
                     y=series.astype(float),
@@ -1818,17 +1824,33 @@ def do_relaxations():
                     jitter=0.3,
                     pointpos=0,
                     marker=dict(color=color, opacity=0.5, size=4),
+                    showlegend=False,
                 )
             )
-        bold_targets = {
-            RENAME_METHODS_PLOT.get("RFO (learned)", "RFO (learned)"),
-            RENAME_METHODS_PLOT.get(
-                "RFO-BFGS (learned init)", "RFO-BFGS (learned init)"
-            ),
-        }
-        ticktext = [
-            f"<b>{name}</b>" if name in bold_targets else name for name in display_order
-        ]
+        # Add legend for categories (three colours) using dummy scatter traces
+        categories_in_plot = []
+        for m in methods_plotted:
+            cat = METHOD_TO_CATEGORY.get(m)
+            if cat is not None and cat not in categories_in_plot:
+                categories_in_plot.append(cat)
+        for cat in categories_in_plot:
+            fig.add_trace(
+                go.Scatter(
+                    x=[None],
+                    y=[None],
+                    mode="markers",
+                    marker=dict(color=OPTIM_TO_COLOUR.get(cat, "#1f77b4"), size=10),
+                    name=cat,
+                    showlegend=True,
+                )
+            )
+
+        # Bold our two methods in tick labels
+        bold_targets = set()
+        for m in ("RFO (learned)", "RFO-BFGS (learned init)"):
+            if m in method_to_display_name:
+                bold_targets.add(method_to_display_name[m])
+        ticktext = [f"<b>{name}</b>" if name in bold_targets else name for name in display_order]
         fig.update_layout(
             template="plotly_white",
             yaxis_title=metric_name.replace("_", " ").title(),
@@ -1840,7 +1862,7 @@ def do_relaxations():
                 ticktext=ticktext,
                 tickangle=-25,
             ),
-            showlegend=False,
+            showlegend=True,
             height=600,
             width=1000,
             # margin=dict(t=0, b=0, l=0, r=0),

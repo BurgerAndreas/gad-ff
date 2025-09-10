@@ -179,7 +179,12 @@ class CosineAnnealingLR(LRScheduler):
         super().__init__(optimizer, last_epoch)
 
     def get_lr(self):
-        """Retrieve the learning rate of each parameter group."""
+        """Retrieve the learning rate of each parameter group.
+        η(t) = η_min + (base_lr - η_min) · (1 + cos(π·t/T_max)) / 2
+        """
+        # Upstream PyTorch's get_lr has recursive cases to accommodate LR being modified elsewhere. 
+        # This uses the closed form from base_lrs for simplicity and determinism.
+        # This is correct as long as nothing else mutates the optimizer LR outside the scheduler. 
         _warn_get_lr_called_within_step(self)
 
         # Warmup phase (linear ramp from warmup_init_lr to base_lr)
@@ -198,7 +203,6 @@ class CosineAnnealingLR(LRScheduler):
             + (base_lr - self.eta_min) * (1 + math.cos(math.pi * t / self.T_max)) / 2
             for base_lr in self.base_lrs
         ]
-
         # before:
         # if self.last_epoch == 0:
         #     return [group["lr"] for group in self.optimizer.param_groups]
