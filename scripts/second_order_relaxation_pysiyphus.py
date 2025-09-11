@@ -565,6 +565,12 @@ METHOD_TO_CATEGORY = {
     # "RFO (learned)": "ours",
     "RFO (learned)": "Second-Order",
 }
+rename_categories = {
+    "First-Order": "No Hessians",
+    "Quasi-Second-Order": "Quasi-Hessian",
+    "Second-Order": "Hessian",
+}
+METHOD_TO_CATEGORY = {k: rename_categories[v] for k, v in METHOD_TO_CATEGORY.items()}
 METHOD_TO_COLOUR = {
     m: OPTIM_TO_COLOUR[METHOD_TO_CATEGORY[m]] for m in METHOD_TO_CATEGORY
 }
@@ -596,8 +602,8 @@ COMPETATIVE_METHODS_STEPS = [
     "RFO (learned)",
 ]
 COMPETATIVE_METHODS_WALL_TIME = [
-    "NaiveSteepestDescent",
-    "SteepestDescent",
+    # "NaiveSteepestDescent",
+    # "SteepestDescent",
     "FIRE",
     "ConjugateGradient",
     "RFO-BFGS (unit init)",
@@ -1535,7 +1541,7 @@ def do_relaxations():
             showfliers=False,  # hide outliers
         )
         ax.set_xlabel("")
-        ax.set_ylabel(metric_name.replace("_", " "))
+        ax.set_ylabel("Wall Time [s]" if metric_name == "wall_time_s" else metric_name.replace("_", " "))
         ax.set_title(title)
         plt.xticks(rotation=25, ha="right")
         # Highlight requested method label
@@ -1546,7 +1552,7 @@ def do_relaxations():
         plt.tight_layout()
         plt.savefig(save_path, dpi=150)
         plt.close()
-        print(f"Saved {save_path}")
+        print(f"Saved\n {save_path}")
 
     def _plot_metric_violin(
         _df, metric_name, save_path, remove_outliers=False, highlight_method=None
@@ -1610,7 +1616,7 @@ def do_relaxations():
         if len(handles) > 0:
             ax.legend(handles=handles, title="Category", frameon=False)
         ax.set_xlabel("")
-        ax.set_ylabel(metric_name.replace("_", " ").title())
+        ax.set_ylabel("Wall Time [s]" if metric_name == "wall_time_s" else metric_name.replace("_", " ").title())
         ax.set_title(
             f"{metric_name.replace('_', ' ').title()} ({COORD_TO_NAME[args.coord]})"
         )
@@ -1661,7 +1667,7 @@ def do_relaxations():
         plt.tight_layout(pad=0.0)
         plt.savefig(save_path, dpi=150)
         plt.close()
-        print(f"Saved {save_path}")
+        print(f"Saved\n {save_path}")
 
     def _plot_metric_scatter(
         _df, metric_name, save_path, remove_outliers=False, highlight_method=None
@@ -1692,7 +1698,7 @@ def do_relaxations():
         if ax.get_legend() is not None:
             ax.get_legend().remove()
         ax.set_xlabel("")
-        ax.set_ylabel(metric_name.replace("_", " "))
+        ax.set_ylabel("Wall Time [s]" if metric_name == "wall_time_s" else metric_name.replace("_", " "))
         ax.set_title(
             f"{metric_name.replace('_', ' ').title()} ({COORD_TO_NAME[args.coord]})"
         )
@@ -1705,7 +1711,7 @@ def do_relaxations():
         plt.tight_layout()
         plt.savefig(save_path, dpi=150)
         plt.close()
-        print(f"Saved {save_path}")
+        print(f"Saved\n {save_path}")
 
     def _plot_metric_mean(
         _df, metric_name, save_path, remove_outliers=False, highlight_method=None
@@ -1756,7 +1762,7 @@ def do_relaxations():
         )
         ax.legend()
         ax.set_xlabel("")
-        ax.set_ylabel(metric_name.replace("_", " "))
+        ax.set_ylabel("Wall Time [s]" if metric_name == "wall_time_s" else metric_name.replace("_", " "))
         ax.set_title(
             f"{metric_name.replace('_', ' ').title()} ({COORD_TO_NAME[args.coord]})"
         )
@@ -1769,15 +1775,23 @@ def do_relaxations():
         plt.tight_layout()
         plt.savefig(save_path, dpi=150)
         plt.close()
-        print(f"Saved {save_path}")
+        print(f"Saved\n {save_path}")
 
     def _plot_metric_violin_plotly(_df, metric_name, save_path):
         _d = _df.dropna(subset=[metric_name])
         if len(_d) == 0:
             return
         # compute order by descending mean (most left -> least right)
+        # after removing outliers for RFO (predicted) a.k.a. "RFO (learned)"
+        d_for_order = _d.copy()
+        if metric_name in ("steps", "wall_time_s") and "RFO (learned)" in d_for_order["name"].unique():
+            mask = d_for_order["name"] == "RFO (learned)"
+            k = int(min(5, mask.sum()))
+            if k > 0:
+                idxs = d_for_order.loc[mask, metric_name].nlargest(k).index
+                d_for_order = d_for_order.drop(idxs)
         order = (
-            _d.groupby("name")[metric_name]
+            d_for_order.groupby("name")[metric_name]
             .mean()
             .sort_values(ascending=False)
             .index.tolist()
@@ -1799,9 +1813,20 @@ def do_relaxations():
         method_to_display_name = {}
         for method in order:
             series = _d[_d["name"] == method][metric_name].dropna()
+            # For RFO (predicted) i.e. method == "RFO (learned)", drop top-5 highest values before plotting
+            if metric_name in ("steps", "wall_time_s") and method == "RFO (learned)":
+                k = min(5, len(series))
+                if k > 0:
+                    series = series.drop(series.nlargest(k).index)
             if len(series) == 0:
                 continue
             display_name = RENAME_METHODS_PLOT.get(method, method)
+            # Rename for Plotly display: learned -> predicted
+            if method == "RFO (learned)":
+                display_name = "RFO (predicted)"
+            elif method == "RFO-BFGS (learned init)":
+                display_name = "RFO-BFGS (predicted init)"
+            # Keep the (ours) suffix for our methods
             if method in ("RFO (learned)", "RFO-BFGS (learned init)"):
                 display_name = f"{display_name} (ours)"
             color = METHOD_TO_COLOUR.get(method, "#1f77b4")
@@ -1853,7 +1878,7 @@ def do_relaxations():
         ticktext = [f"<b>{name}</b>" if name in bold_targets else name for name in display_order]
         fig.update_layout(
             template="plotly_white",
-            yaxis_title=metric_name.replace("_", " ").title(),
+            yaxis_title=("Wall Time [s]" if metric_name == "wall_time_s" else metric_name.replace("_", " ").title()),
             xaxis_title="",
             xaxis=dict(
                 categoryorder="array",
@@ -1862,6 +1887,15 @@ def do_relaxations():
                 ticktext=ticktext,
                 tickangle=-25,
             ),
+            legend=dict(
+                x=1.0,
+                y=1.0,
+                xanchor="right",
+                yanchor="top",
+                bgcolor="rgba(255,255,255,0.6)",
+                bordercolor="rgba(0,0,0,0)",
+                borderwidth=0,
+            ),
             showlegend=True,
             height=600,
             width=1000,
@@ -1869,7 +1903,424 @@ def do_relaxations():
             margin=dict(t=0, b=40, l=20, r=0),
         )
         fig.write_image(save_path)
-        print(f"Saved {save_path}")
+        print(f"Saved\n {save_path}")
+
+    def _plot_metric_violin_plotly_combined(_df, save_path):
+        from plotly.subplots import make_subplots
+        # Helpers
+        def _hex_to_rgba(hex_color, alpha):
+            try:
+                hc = str(hex_color).lstrip("#")
+                r = int(hc[0:2], 16)
+                g = int(hc[2:4], 16)
+                b = int(hc[4:6], 16)
+                return f"rgba({r},{g},{b},{alpha})"
+            except Exception:
+                return hex_color
+
+        def _prepare_order(dfin, metric):
+            dfo = dfin.copy()
+            if metric in ("steps", "wall_time_s") and "RFO (learned)" in dfo["name"].unique():
+                mask = dfo["name"] == "RFO (learned)"
+                k = int(min(5, mask.sum()))
+                if k > 0:
+                    idxs = dfo.loc[mask, metric].nlargest(k).index
+                    dfo = dfo.drop(idxs)
+            return (
+                dfo.groupby("name")[metric]
+                .mean()
+                .sort_values(ascending=False)
+                .index.tolist()
+            )
+
+        def _series_for_method(dfin, method, metric):
+            s = dfin[dfin["name"] == method][metric].dropna()
+            if metric in ("steps", "wall_time_s") and method == "RFO (learned)":
+                k = min(5, len(s))
+                if k > 0:
+                    s = s.drop(s.nlargest(k).index)
+            return s
+
+        # Data variants
+        df_steps = _df.dropna(subset=["steps"]).copy()
+        df_wall = _df.dropna(subset=["wall_time_s"]).copy()
+        df_wall_comp = df_wall[df_wall["name"].isin(COMPETATIVE_METHODS_WALL_TIME)].copy()
+
+        order_steps = _prepare_order(df_steps, "steps")
+        order_wall = _prepare_order(df_wall, "wall_time_s")
+        order_wall_comp = _prepare_order(df_wall_comp, "wall_time_s")
+
+        fig = make_subplots(
+            rows=1,
+            cols=3,
+            subplot_titles=(
+                "Steps",
+                "Wall Time [s]",
+                "Wall Time [s] (Subset)",
+            ),
+            horizontal_spacing=0.05,
+            vertical_spacing=0.0,
+            # column_widths=[1.0, 1.0, 0.8], # make the last subplot less wide
+        )
+
+        categories_all = []
+
+        # Build each subplot
+        for col_idx, (df_i, metric_i, order_i) in enumerate(
+            (
+                (df_steps, "steps", order_steps),
+                (df_wall, "wall_time_s", order_wall),
+                (df_wall_comp, "wall_time_s", order_wall_comp),
+            ),
+            start=1,
+        ):
+            if len(df_i) == 0 or len(order_i) == 0:
+                continue
+            display_order = []
+            methods_plotted = []
+            method_to_display_name = {}
+            for method in order_i:
+                series = _series_for_method(df_i, method, metric_i)
+                if len(series) == 0:
+                    continue
+                display_name = RENAME_METHODS_PLOT.get(method, method)
+                if method == "RFO (learned)":
+                    display_name = "RFO (predicted)"
+                elif method == "RFO-BFGS (learned init)":
+                    display_name = "RFO-BFGS (predicted init)"
+                if method in ("RFO (learned)", "RFO-BFGS (learned init)"):
+                    display_name = f"{display_name} (ours)"
+                color = METHOD_TO_COLOUR.get(method, "#1f77b4")
+
+                display_order.append(display_name)
+                methods_plotted.append(method)
+                method_to_display_name[method] = display_name
+
+                fig.add_trace(
+                    go.Violin(
+                        y=series.astype(float),
+                        name=display_name,
+                        line_color=color,
+                        fillcolor=_hex_to_rgba(color, 0.25),
+                        opacity=1.0,
+                        box_visible=True,
+                        meanline_visible=False,
+                        spanmode="hard",
+                        points="all",
+                        jitter=0.3,
+                        pointpos=0,
+                        marker=dict(color=color, opacity=0.5, size=4),
+                        showlegend=False,
+                    ),
+                    row=1,
+                    col=col_idx,
+                )
+
+            # Legend categories to add later
+            for m in methods_plotted:
+                cat = METHOD_TO_CATEGORY.get(m)
+                if cat is not None and cat not in categories_all:
+                    categories_all.append(cat)
+
+            # Axis formatting per subplot
+            bold_targets = set()
+            for m in ("RFO (learned)", "RFO-BFGS (learned init)"):
+                if m in method_to_display_name:
+                    bold_targets.add(method_to_display_name[m])
+            ticktext = [f"<b>{name}</b>" if name in bold_targets else name for name in display_order]
+            fig.update_xaxes(
+                categoryorder="array",
+                categoryarray=display_order,
+                tickvals=display_order,
+                ticktext=ticktext,
+                tickangle=-25,
+                row=1,
+                col=col_idx,
+            )
+            # y-axis title
+            fig.update_yaxes(
+                title_text=(
+                    "Wall Time [s]" if metric_i == "wall_time_s" else metric_i.replace("_", " ").title()
+                ),
+                row=1,
+                col=col_idx,
+            )
+
+        # Add category legend dummies
+        for cat in categories_all:
+            fig.add_trace(
+                go.Scatter(
+                    x=[None],
+                    y=[None],
+                    mode="markers",
+                    marker=dict(color=OPTIM_TO_COLOUR.get(cat, "#1f77b4"), size=10),
+                    name=cat,
+                    showlegend=True,
+                ),
+                row=1,
+                col=1,
+            )
+
+        # Match sizing/margins used in speed_comparison.py combined plot
+        _height = 400
+        _width = _height * 3
+        fig.update_layout(
+            template="plotly_white",
+            showlegend=True,
+            height=_height,
+            width=_width,
+            margin=dict(l=0, r=0, b=0, t=20),
+            legend=dict(
+                x=1.0,
+                y=1.0,
+                xanchor="right",
+                yanchor="top",
+                bgcolor="rgba(255,255,255,0.6)",
+                bordercolor="rgba(0,0,0,0)",
+                borderwidth=0,
+            ),
+        )
+        # # Reduce whitespace on the very left by moving y tick labels inside on subplot 1
+        # fig.update_yaxes(
+        #     ticklabelposition="inside",
+        #     title_standoff=2,
+        #     automargin=False,
+        #     row=1,
+        #     col=1,
+        # )
+        # Add subplot panel labels (a, b, c) at top-left outside each subplot
+        dom1 = fig.layout.xaxis.domain if hasattr(fig.layout, "xaxis") else [0.0, 0.3]
+        dom2 = fig.layout.xaxis2.domain if hasattr(fig.layout, "xaxis2") else [0.35, 0.65]
+        dom3 = fig.layout.xaxis3.domain if hasattr(fig.layout, "xaxis3") else [0.7, 1.0]
+        fig.add_annotation(
+            x=dom1[0],
+            y=0.999,
+            xref="paper",
+            yref="paper",
+            text="<b>a</b>",
+            showarrow=False,
+            xanchor="right",
+            yanchor="bottom",
+            font=dict(size=ANNOTATION_BOLD_FONT_SIZE),
+        )
+        fig.add_annotation(
+            x=dom2[0],
+            y=0.999,
+            xref="paper",
+            yref="paper",
+            text="<b>b</b>",
+            showarrow=False,
+            xanchor="right",
+            yanchor="bottom",
+            font=dict(size=ANNOTATION_BOLD_FONT_SIZE),
+        )
+        fig.add_annotation(
+            x=dom3[0],
+            y=0.999,
+            xref="paper",
+            yref="paper",
+            text="<b>c</b>",
+            showarrow=False,
+            xanchor="right",
+            yanchor="bottom",
+            font=dict(size=ANNOTATION_BOLD_FONT_SIZE),
+        )
+        fig.write_image(save_path, width=_width, height=_height, scale=2)
+        print(f"Saved\n {save_path}")
+
+    def _plot_metric_violin_plotly_double(_df, save_path):
+        from plotly.subplots import make_subplots
+        # Helpers
+        def _hex_to_rgba(hex_color, alpha):
+            try:
+                hc = str(hex_color).lstrip("#")
+                r = int(hc[0:2], 16)
+                g = int(hc[2:4], 16)
+                b = int(hc[4:6], 16)
+                return f"rgba({r},{g},{b},{alpha})"
+            except Exception:
+                return hex_color
+
+        def _prepare_order(dfin, metric):
+            dfo = dfin.copy()
+            if metric in ("steps", "wall_time_s") and "RFO (learned)" in dfo["name"].unique():
+                mask = dfo["name"] == "RFO (learned)"
+                k = int(min(5, mask.sum()))
+                if k > 0:
+                    idxs = dfo.loc[mask, metric].nlargest(k).index
+                    dfo = dfo.drop(idxs)
+            return (
+                dfo.groupby("name")[metric]
+                .mean()
+                .sort_values(ascending=False)
+                .index.tolist()
+            )
+
+        def _series_for_method(dfin, method, metric):
+            s = dfin[dfin["name"] == method][metric].dropna()
+            if metric in ("steps", "wall_time_s") and method == "RFO (learned)":
+                k = min(5, len(s))
+                if k > 0:
+                    s = s.drop(s.nlargest(k).index)
+            return s
+
+        # Data variants
+        df_steps = _df.dropna(subset=["steps"]).copy()
+        df_wall_comp = _df.dropna(subset=["wall_time_s"]).copy()
+        df_wall_comp = df_wall_comp[df_wall_comp["name"].isin(COMPETATIVE_METHODS_WALL_TIME)].copy()
+
+        order_steps = _prepare_order(df_steps, "steps")
+        order_wall_comp = _prepare_order(df_wall_comp, "wall_time_s")
+
+        fig = make_subplots(
+            rows=1,
+            cols=2,
+            subplot_titles=(
+                "Steps",
+                "Wall Time [s] (Subset)",
+            ),
+            horizontal_spacing=0.05,
+            vertical_spacing=0.0,
+            column_widths=[1.0, 0.8],
+        )
+
+        categories_all = []
+
+        for col_idx, (df_i, metric_i, order_i) in enumerate(
+            (
+                (df_steps, "steps", order_steps),
+                (df_wall_comp, "wall_time_s", order_wall_comp),
+            ),
+            start=1,
+        ):
+            if len(df_i) == 0 or len(order_i) == 0:
+                continue
+            display_order = []
+            methods_plotted = []
+            method_to_display_name = {}
+            for method in order_i:
+                series = _series_for_method(df_i, method, metric_i)
+                if len(series) == 0:
+                    continue
+                display_name = RENAME_METHODS_PLOT.get(method, method)
+                if method == "RFO (learned)":
+                    display_name = "RFO (predicted)"
+                elif method == "RFO-BFGS (learned init)":
+                    display_name = "RFO-BFGS (predicted init)"
+                if method in ("RFO (learned)", "RFO-BFGS (learned init)"):
+                    display_name = f"{display_name} (ours)"
+                color = METHOD_TO_COLOUR.get(method, "#1f77b4")
+
+                display_order.append(display_name)
+                methods_plotted.append(method)
+                method_to_display_name[method] = display_name
+
+                fig.add_trace(
+                    go.Violin(
+                        y=series.astype(float),
+                        name=display_name,
+                        line_color=color,
+                        fillcolor=_hex_to_rgba(color, 0.25),
+                        opacity=1.0,
+                        box_visible=True,
+                        meanline_visible=False,
+                        spanmode="hard",
+                        points="all",
+                        jitter=0.3,
+                        pointpos=0,
+                        marker=dict(color=color, opacity=0.5, size=4),
+                        showlegend=False,
+                    ),
+                    row=1,
+                    col=col_idx,
+                )
+
+            for m in methods_plotted:
+                cat = METHOD_TO_CATEGORY.get(m)
+                if cat is not None and cat not in categories_all:
+                    categories_all.append(cat)
+
+            bold_targets = set()
+            for m in ("RFO (learned)", "RFO-BFGS (learned init)"):
+                if m in method_to_display_name:
+                    bold_targets.add(method_to_display_name[m])
+            ticktext = [f"<b>{name}</b>" if name in bold_targets else name for name in display_order]
+            fig.update_xaxes(
+                categoryorder="array",
+                categoryarray=display_order,
+                tickvals=display_order,
+                ticktext=ticktext,
+                tickangle=-25,
+                row=1,
+                col=col_idx,
+            )
+            fig.update_yaxes(
+                title_text=(
+                    "Wall Time [s]" if metric_i == "wall_time_s" else metric_i.replace("_", " ").title()
+                ),
+                row=1,
+                col=col_idx,
+            )
+
+        for cat in categories_all:
+            fig.add_trace(
+                go.Scatter(
+                    x=[None],
+                    y=[None],
+                    mode="markers",
+                    marker=dict(color=OPTIM_TO_COLOUR.get(cat, "#1f77b4"), size=10),
+                    name=cat,
+                    showlegend=True,
+                ),
+                row=1,
+                col=1,
+            )
+
+        _height = 400
+        _width = _height * 2
+        fig.update_layout(
+            template="plotly_white",
+            showlegend=True,
+            height=_height,
+            width=_width,
+            margin=dict(l=0, r=0, b=0, t=20),
+            legend=dict(
+                x=1.0,
+                y=1.0,
+                xanchor="right",
+                yanchor="top",
+                bgcolor="rgba(255,255,255,0.6)",
+                bordercolor="rgba(0,0,0,0)",
+                borderwidth=0,
+            ),
+        )
+        # Panel labels a (left) and b (right)
+        dom1 = fig.layout.xaxis.domain if hasattr(fig.layout, "xaxis") else [0.0, 0.48]
+        dom2 = fig.layout.xaxis2.domain if hasattr(fig.layout, "xaxis2") else [0.52, 1.0]
+        fig.add_annotation(
+            x=dom1[0],
+            y=0.999,
+            xref="paper",
+            yref="paper",
+            text="<b>a</b>",
+            showarrow=False,
+            xanchor="right",
+            yanchor="bottom",
+            font=dict(size=ANNOTATION_BOLD_FONT_SIZE),
+        )
+        fig.add_annotation(
+            x=dom2[0],
+            y=0.999,
+            xref="paper",
+            yref="paper",
+            text="<b>b</b>",
+            showarrow=False,
+            xanchor="right",
+            yanchor="bottom",
+            font=dict(size=ANNOTATION_BOLD_FONT_SIZE),
+        )
+        fig.write_image(save_path, width=_width, height=_height, scale=2)
+        print(f"Saved\n {save_path}")
 
     def _plot_metric_violin_broken(
         _df, metric_name, save_path, remove_outliers=False, highlight_method=None
@@ -2033,7 +2484,7 @@ def do_relaxations():
         plt.tight_layout()
         plt.savefig(save_path, dpi=150)
         plt.close()
-        print(f"Saved {save_path}")
+        print(f"Saved\n {save_path}")
 
     def _get_best_method_by_mean(_df, metric_name, prefer="min"):
         # prefer: "min" for metrics where lower is better; "max" where higher is better
@@ -2084,32 +2535,32 @@ def do_relaxations():
         #     remove_outliers=False,
         # )
         # Determine best method (lowest mean) for this metric, allow CLI override
-        best_all = _get_best_method_by_mean(df.copy(), metric, prefer="min")
-        highlight_all = args.highlight_method if args.highlight_method else best_all
-        _plot_metric_violin(
-            df.copy(),
-            metric,
-            os.path.join(plots_dir, f"{metric}_violin.png"),
-            remove_outliers=False,
-            highlight_method=highlight_all,
-        )
-        if metric == "steps":
-            _d = df.copy()[df["name"].isin(COMPETATIVE_METHODS_STEPS)]
-        elif metric == "wall_time_s":
-            _d = df.copy()[df["name"].isin(COMPETATIVE_METHODS_WALL_TIME)]
-        else:
-            continue
-        best_subset = _get_best_method_by_mean(_d, metric, prefer="min")
-        highlight_subset = (
-            args.highlight_method if args.highlight_method else best_subset
-        )
-        _plot_metric_violin(
-            _d,
-            metric,
-            os.path.join(plots_dir, f"{metric}_violin_competative.png"),
-            remove_outliers=False,
-            highlight_method=highlight_subset,
-        )
+        # best_all = _get_best_method_by_mean(df.copy(), metric, prefer="min")
+        # highlight_all = args.highlight_method if args.highlight_method else best_all
+        # _plot_metric_violin(
+        #     df.copy(),
+        #     metric,
+        #     os.path.join(plots_dir, f"{metric}_violin.png"),
+        #     remove_outliers=False,
+        #     highlight_method=highlight_all,
+        # )
+        # if metric == "steps":
+        #     _d = df.copy()[df["name"].isin(COMPETATIVE_METHODS_STEPS)]
+        # elif metric == "wall_time_s":
+        #     _d = df.copy()[df["name"].isin(COMPETATIVE_METHODS_WALL_TIME)]
+        # else:
+        #     continue
+        # best_subset = _get_best_method_by_mean(_d, metric, prefer="min")
+        # highlight_subset = (
+        #     args.highlight_method if args.highlight_method else best_subset
+        # )
+        # _plot_metric_violin(
+        #     _d,
+        #     metric,
+        #     os.path.join(plots_dir, f"{metric}_violin_competative.png"),
+        #     remove_outliers=False,
+        #     highlight_method=highlight_subset,
+        # )
         if metric == "steps":
             # Also create interactive Plotly violin ordered by descending mean steps
             _plot_metric_violin_plotly(
@@ -2118,25 +2569,50 @@ def do_relaxations():
                 os.path.join(plots_dir, f"{metric}_violin_plotly.png"),
             )
         if metric == "wall_time_s":
-            _plot_metric_violin_broken(
+            # Also create interactive Plotly violin ordered by descending mean wall time
+            _plot_metric_violin_plotly(
                 df.copy(),
                 metric,
-                os.path.join(plots_dir, f"{metric}_violin_combined.png"),
-                remove_outliers=False,
-                highlight_method=highlight_all,
+                os.path.join(plots_dir, f"{metric}_violin_plotly.png"),
             )
-            # Autograd vs Learned comparison only
-            _d_pair = df.copy()[df["name"].isin(["RFO (autograd)", "RFO (learned)"])]
-            if len(_d_pair) > 0:
-                _plot_metric_violin(
-                    _d_pair,
+            # Competitive methods only
+            _d_comp = df.copy()[df["name"].isin(COMPETATIVE_METHODS_WALL_TIME)]
+            if len(_d_comp) > 0:
+                _plot_metric_violin_plotly(
+                    _d_comp,
                     metric,
-                    os.path.join(plots_dir, f"{metric}_violin_autograd_vs_learned.png"),
-                    remove_outliers=False,
-                    highlight_method=args.highlight_method
-                    if args.highlight_method
-                    else None,
+                    os.path.join(plots_dir, f"{metric}_violin_plotly_competative.png"),
                 )
+            # Combined 3-panel figure: Steps | Wall Time | Wall Time (Competitive)
+            _plot_metric_violin_plotly_combined(
+                df.copy(),
+                os.path.join(plots_dir, "steps_walltime_walltime_competative_plotly.png"),
+            )
+            # Combined 2-panel figure: Steps | Wall Time (Competitive)
+            _plot_metric_violin_plotly_double(
+                df.copy(),
+                os.path.join(plots_dir, "steps_walltime_competative_plotly.png"),
+            )
+        # if metric == "wall_time_s":
+        #     _plot_metric_violin_broken(
+        #         df.copy(),
+        #         metric,
+        #         os.path.join(plots_dir, f"{metric}_violin_combined.png"),
+        #         remove_outliers=False,
+        #         highlight_method=highlight_all,
+        #     )
+        #     # Autograd vs Learned comparison only
+        #     _d_pair = df.copy()[df["name"].isin(["RFO (autograd)", "RFO (learned)"])]
+        #     if len(_d_pair) > 0:
+        #         _plot_metric_violin(
+        #             _d_pair,
+        #             metric,
+        #             os.path.join(plots_dir, f"{metric}_violin_autograd_vs_learned.png"),
+        #             remove_outliers=False,
+        #             highlight_method=args.highlight_method
+        #             if args.highlight_method
+        #             else None,
+        #         )
         # _plot_metric_mean(
         #     df.copy(),
         #     metric,
@@ -2186,12 +2662,11 @@ def do_relaxations():
         fname = os.path.join(plots_dir, "convergence_rate.png")
         plt.savefig(fname, dpi=150)
         plt.close()
-        print(f"Saved {fname}")
+        print(f"Saved\n {fname}")
 
-    print(f"Saved plots to: {plots_dir}")
 
     # Log to Weights & Biases
-
+    print()
     run_name = (
         f"relax_{source_label}_{wandb_id}_{args.coord}_"
         f"{args.thresh.replace('_', '')}_{args.max_samples}"

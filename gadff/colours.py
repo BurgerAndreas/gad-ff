@@ -91,6 +91,11 @@ OPTIM_TO_COLOUR = {
 OPTIM_TO_COLOUR["First-Order"] = OPTIM_TO_COLOUR["firstorder"]
 OPTIM_TO_COLOUR["Second-Order"] = OPTIM_TO_COLOUR["secondorder"]
 OPTIM_TO_COLOUR["Quasi-Second-Order"] = OPTIM_TO_COLOUR["bfgs"]
+OPTIM_TO_COLOUR["No Hessian"] = OPTIM_TO_COLOUR["firstorder"]
+OPTIM_TO_COLOUR["No Hessians"] = OPTIM_TO_COLOUR["firstorder"]
+OPTIM_TO_COLOUR["Hessian Free"] = OPTIM_TO_COLOUR["firstorder"]
+OPTIM_TO_COLOUR["Quasi-Hessian"] = OPTIM_TO_COLOUR["bfgs"]
+OPTIM_TO_COLOUR["Hessian"] = OPTIM_TO_COLOUR["secondorder"]
 
 
 ANNOTATION_FONT_SIZE = 16

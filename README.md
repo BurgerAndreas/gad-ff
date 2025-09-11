@@ -206,7 +206,7 @@ wget https://huggingface.co/yhong55/HORM/resolve/main/alpha.ckpt -O ckpt/alpha.c
 ```bash
 export REACTBENCHDIR=/ssd/Code/ReactBench
 export GADFFDIR=/ssd/Code/gad-ff
-export HPCKPT="${GADFFDIR}/ckpt/hesspred_v1_.ckpt"
+export HPCKPT="${GADFFDIR}/ckpt/hesspred_v1.ckpt"
 
 cd $GADFFDIR
 source .venv/bin/activate

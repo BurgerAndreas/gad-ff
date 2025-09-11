@@ -8,6 +8,7 @@ import os
 import time
 from pathlib import Path
 import wandb
+import numpy as np
 
 import torch
 from torch import nn
@@ -651,9 +652,9 @@ class PotentialModule(LightningModule):
         # norms: The dictionary of p-norms of each parameter's gradient and
         # a special entry for the total p-norm of the gradients viewed as a single vector
         norms = pl_grad_norm(module=self.potential, norm_type=2)
-        self.grad_norm_history.append(norms["grad_2.0_norm_total"])
+        self.grad_norm_history.append(norms["grad_2.0_norm_total"]) # float
         if (self.global_step % 100 == 0) and self.global_step > 10:
-            norms["grad_2_norm_std"] = torch.std(self.grad_norm_history)
+            norms["grad_2.0_norm_std"] = np.std(self.grad_norm_history)
         self.log_dict(norms)
         # super().on_before_optimizer_step(optimizer)
 
