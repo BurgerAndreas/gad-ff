@@ -208,6 +208,7 @@ class EquiformerV2_OC20(BaseModel):
         symmetric_messages=False,
         symmetric_edges=False,
         hessian_no_attn_weights=False, # messages without attention weights
+        attn_wo_sigmoid=False, # do not apply sigmoid to attention weights
         name=None, # not used
     ):
         super().__init__()
@@ -264,6 +265,7 @@ class EquiformerV2_OC20(BaseModel):
         self.symmetric_messages = symmetric_messages
         self.symmetric_edges = symmetric_edges
         self.hessian_no_attn_weights = hessian_no_attn_weights
+        self.attn_wo_sigmoid = attn_wo_sigmoid
 
         self.weight_init = weight_init
         assert self.weight_init in ["normal", "uniform"]
@@ -1078,6 +1080,7 @@ class EquiformerV2_OC20(BaseModel):
                 edge_index=edge_index_hessian,
                 return_raw_messages=self.hessian_no_attn_weights, # messages without attention weights
                 return_attn_messages=True,
+                attn_wo_sigmoid=self.attn_wo_sigmoid,
                 # deprecated
                 symmetric_messages=self.symmetric_messages,
                 symmetric_edges=self.symmetric_edges,
