@@ -318,6 +318,8 @@ def plot_speed_comparison(results_df, output_dir="./results_speed"):
         template=PLOTLY_TEMPLATE,
         margin=dict(l=40, r=40, b=40, t=40),
     )
+    # Increase line width slightly for readability
+    fig.update_traces(line=dict(width=3))
     # Add arrow from the largest autograd value to the largest prediction value
     if "autograd" in avg_times.columns and "prediction" in avg_times.columns:
         try:
@@ -347,10 +349,10 @@ def plot_speed_comparison(results_df, output_dir="./results_speed"):
             pass
     output_path = output_dir / "speed_comparison_plot.html"
     fig.write_html(output_path)
-    print(f"Plot saved to {output_path}")
+    print(f"Plot saved to \n{output_path}")
     output_path = output_dir / "speed_comparison_plot.png"
     fig.write_image(output_path)
-    print(f"Plot saved to {output_path}")
+    print(f"Plot saved to \n{output_path}")
 
     # Plot results for memory
     plot_memory_usage(results_df, output_dir)
@@ -379,6 +381,8 @@ def plot_memory_usage(results_df, output_dir="./results_speed"):
         template=PLOTLY_TEMPLATE,
         margin=dict(l=40, r=40, b=40, t=40),
     )
+    # Increase line width slightly for readability
+    fig.update_traces(line=dict(width=3))
     # Add arrow from the largest autograd value to the largest prediction value
     if "autograd" in avg_memory.columns and "prediction" in avg_memory.columns:
         try:
@@ -408,10 +412,10 @@ def plot_memory_usage(results_df, output_dir="./results_speed"):
             pass
     output_path = output_dir / "memory_usage_plot.html"
     fig.write_html(output_path)
-    print(f"Plot saved to {output_path}")
+    print(f"Plot saved to \n{output_path}")
     output_path = output_dir / "memory_usage_plot.png"
     fig.write_image(output_path)
-    print(f"Plot saved to {output_path}")
+    print(f"Plot saved to \n{output_path}")
 
 
 # ---------------------------------
@@ -583,12 +587,14 @@ def plot_prediction_batchsize(results_df, output_dir="./results_speed", logy=Fal
         template=PLOTLY_TEMPLATE,
         margin=dict(l=40, r=40, b=40, t=40),
     )
+    # Increase line width slightly for readability
+    fig.update_traces(line=dict(width=3))
     # output_path = output_dir / "prediction_batchsize_plot.html"
     # fig.write_html(output_path)
-    # print(f"Plot saved to {output_path}")
+    # print(f"Plot saved to \n{output_path}")
     output_path = output_dir / "prediction_batchsize_plot.png"
     fig.write_image(output_path, width=width, height=height, scale=2)
-    print(f"Plot saved to {output_path}")
+    print(f"Plot saved to \n{output_path}")
 
     #######################
     # plot time per sample
@@ -639,19 +645,21 @@ def plot_prediction_batchsize(results_df, output_dir="./results_speed", logy=Fal
         ),
         yaxis=dict(type="log") if logy else None,
     )
+    # Increase line width slightly for readability
+    fig.update_traces(line=dict(width=3))
     # output_path = output_dir / "prediction_batchsize_plot.html"
     # fig.write_html(output_path)
-    # print(f"Plot saved to {output_path}")
+    # print(f"Plot saved to \n{output_path}")
     output_path = (
         output_dir
         / f"prediction_batchsize_time_per_sample{'_logy' if logy else ''}.png"
     )
     fig.write_image(output_path)
-    print(f"Plot saved to {output_path}")
+    print(f"Plot saved to \n{output_path}")
 
 
 def plot_combined_speed_memory_batchsize(
-    results_df, bz_results_df, output_dir="./results_speed"
+    results_df, bz_results_df, output_dir="./results_speed", show_std=False
 ):
     from plotly.subplots import make_subplots
 
@@ -668,19 +676,27 @@ def plot_combined_speed_memory_batchsize(
 
     # Aggregations for speed and memory vs N
     avg_times = results_df.groupby(["n_atoms", "method"])["time"].mean().unstack()
+    std_times = results_df.groupby(["n_atoms", "method"])["time"].std().unstack()
     avg_memory = results_df.groupby(["n_atoms", "method"])["memory"].mean().unstack()
+    std_memory = results_df.groupby(["n_atoms", "method"])["memory"].std().unstack()
 
     # Aggregation for prediction vs batch size (per-sample)
-    autograd_results_df = bz_results_df[bz_results_df["method"] == "autograd"]
-    pred_results_df = bz_results_df[bz_results_df["method"] == "prediction"]
-    pred_avg_times = (
-        pred_results_df.groupby(["batch_size"])["time"].mean()
-        / pred_results_df.groupby(["batch_size"])["batch_size"].mean()
+    autograd_results_df = bz_results_df[bz_results_df["method"] == "autograd"].copy()
+    pred_results_df = bz_results_df[bz_results_df["method"] == "prediction"].copy()
+    # Compute per-sample time first, then aggregate mean/std
+    pred_results_df["time_per_sample"] = (
+        pred_results_df["time"] / pred_results_df["batch_size"].replace(0, pd.NA)
     )
-    autograd_avg_times = (
-        autograd_results_df.groupby(["batch_size"])["time"].mean()
-        / autograd_results_df.groupby(["batch_size"])["batch_size"].mean()
+    autograd_results_df["time_per_sample"] = (
+        autograd_results_df["time"]
+        / autograd_results_df["batch_size"].replace(0, pd.NA)
     )
+    pred_group = pred_results_df.groupby(["batch_size"])['time_per_sample']
+    auto_group = autograd_results_df.groupby(["batch_size"])['time_per_sample']
+    pred_avg_times = pred_group.mean()
+    pred_std_times = pred_group.std()
+    autograd_avg_times = auto_group.mean()
+    autograd_std_times = auto_group.std()
 
     fig = make_subplots(
         rows=1,
@@ -695,6 +711,11 @@ def plot_combined_speed_memory_batchsize(
     for method in avg_times.columns:
         color = _color_for_method(method)
         display_name = "Prediction (ours)" if str(method).lower() == "prediction" else str(method).capitalize()
+        _err_kwargs = {}
+        if show_std and (method in std_times.columns):
+            std_vals = std_times[method].reindex(avg_times.index)
+            if std_vals is not None:
+                _err_kwargs = {"error_y": dict(type="data", array=std_vals.values)}
         fig.add_trace(
             go.Scatter(
                 x=avg_times.index,
@@ -705,6 +726,7 @@ def plot_combined_speed_memory_batchsize(
                 showlegend=True,
                 line=dict(color=color) if color else None,
                 marker=dict(color=color) if color else None,
+                **_err_kwargs,
             ),
             row=1,
             col=1,
@@ -714,6 +736,11 @@ def plot_combined_speed_memory_batchsize(
     for method in avg_memory.columns:
         color = _color_for_method(method)
         display_name = "Prediction (ours)" if str(method).lower() == "prediction" else str(method).capitalize()
+        _err_kwargs = {}
+        if show_std and (method in std_memory.columns):
+            std_vals = std_memory[method].reindex(avg_memory.index)
+            if std_vals is not None:
+                _err_kwargs = {"error_y": dict(type="data", array=std_vals.values)}
         fig.add_trace(
             go.Scatter(
                 x=avg_memory.index,
@@ -724,6 +751,7 @@ def plot_combined_speed_memory_batchsize(
                 showlegend=False,
                 line=dict(color=color) if color else None,
                 marker=dict(color=color) if color else None,
+                **_err_kwargs,
             ),
             row=1,
             col=2,
@@ -761,6 +789,11 @@ def plot_combined_speed_memory_batchsize(
     autograd_avg_times_plot = autograd_avg_times.copy()
 
     color = _color_for_method("autograd")
+    _err_kwargs = {}
+    if show_std and len(autograd_avg_times_plot.index) > 0:
+        std_vals = autograd_std_times.reindex(autograd_avg_times_plot.index)
+        if std_vals is not None:
+            _err_kwargs = {"error_y": dict(type="data", array=std_vals.values)}
     fig.add_trace(
         go.Scatter(
             x=autograd_avg_times_plot.index,
@@ -771,11 +804,17 @@ def plot_combined_speed_memory_batchsize(
             showlegend=False,
             line=dict(color=color) if color else None,
             marker=dict(color=color) if color else None,
+            **_err_kwargs,
         ),
         row=1,
         col=3,
     )
     color = _color_for_method("prediction")
+    _err_kwargs = {}
+    if show_std and len(pred_avg_times_plot.index) > 0:
+        std_vals = pred_std_times.reindex(pred_avg_times_plot.index)
+        if std_vals is not None:
+            _err_kwargs = {"error_y": dict(type="data", array=std_vals.values)}
     fig.add_trace(
         go.Scatter(
             x=pred_avg_times_plot.index,
@@ -786,6 +825,7 @@ def plot_combined_speed_memory_batchsize(
             showlegend=False,
             line=dict(color=color) if color else None,
             marker=dict(color=color) if color else None,
+            **_err_kwargs,
         ),
         row=1,
         col=3,
@@ -851,6 +891,8 @@ def plot_combined_speed_memory_batchsize(
             # title_text="Hessian",
         ),
     )
+    # Increase line width slightly for readability across all subplots
+    fig.update_traces(line=dict(width=3))
 
     # Increase global font sizes for axes and annotations
     fig.update_xaxes(tickfont=dict(size=AXES_FONT_SIZE), title_font=dict(size=AXES_TITLE_FONT_SIZE))
@@ -1111,7 +1153,7 @@ def plot_combined_speed_memory_batchsize(
     # The height of the exported image in layout pixels. If the scale property is 1.0, this will also be the height of the exported image in physical pixels.
     # Scale > 1 increases the image resolution
     fig.write_image(output_path, width=width, height=height, scale=2)
-    print(f"Plot saved to {output_path}")
+    print(f"Plot saved to \n{output_path}")
 
 
 if __name__ == "__main__":
@@ -1160,6 +1202,12 @@ if __name__ == "__main__":
         type=bool,
         default=False,
         help="Redo the speed comparison. If false attempt to load existing results.",
+    )
+    parser.add_argument(
+        "--show_std",
+        type=bool,
+        default=False,
+        help="Show standard deviation as error bars in the combined plot.",
     )
 
     args = parser.parse_args()
@@ -1221,7 +1269,7 @@ if __name__ == "__main__":
 
     # Combined side-by-side plot
     plot_combined_speed_memory_batchsize(
-        results_df, bz_results_df, output_dir=output_dir
+        results_df, bz_results_df, output_dir=output_dir, show_std=args.show_std
     )
 
     print("\nDone!")

@@ -240,6 +240,7 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
         edge_index,
         # added for direct Hessian prediction
         return_attn_messages=False,
+        return_raw_messages=False, # no attention weights
         # message node_i->node_j = message node_j->node_i
         symmetric_messages=False,
         symmetric_edges=False,
@@ -364,6 +365,11 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
         else:
             # HV = num_heads * attn_value_channels
             x_message = self.so2_conv_2(x_message, x_edge)  # (E, L-6, HV)
+        
+        if return_raw_messages:
+            # Rotate back the irreps # (E, L-6, HV) -> [E, L, C]
+            x_message._rotate_inv(self.SO3_rotation, self.mappingReduced)
+            return x_message
 
         # Attention weights
         if self.use_s2_act_attn:  # False
@@ -375,7 +381,10 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
             alpha = torch.einsum(
                 "bik, ik -> bi", x_0_alpha, self.alpha_dot
             )  # (E, num_heads)
-        alpha = torch_geometric.utils.softmax(alpha, edge_index[1])
+        # softmax is computed per destination node over its incoming edges
+        # i.e. incoming message attn weights have to sum to 1 for each node
+        # not normalized over num_heads
+        alpha = torch_geometric.utils.softmax(src=alpha, index=edge_index[1])
         alpha = alpha.reshape(
             alpha.shape[0], 1, self.num_heads, 1
         )  # (E, 1, num_heads, 1)

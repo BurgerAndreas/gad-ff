@@ -22,7 +22,7 @@ model:
 
   symmetric_messages: False
   symmetric_edges: False
-
+  hessian_no_attn_weights: False # build Hessian off-diagonal elements from raw messages without attention weights
 
 training:
   follow_batch: ["diag_ij", "edge_index", "message_idx_ij"]
