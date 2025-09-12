@@ -3,7 +3,6 @@ import os
 import wandb
 
 import seaborn as sns
-import matplotlib.pyplot as plt
 
 from gadff.colours import COLOUR_LIST, METHOD_TO_COLOUR, HESSIAN_METHOD_TO_COLOUR, ANNOTATION_FONT_SIZE, AXES_FONT_SIZE, AXES_TITLE_FONT_SIZE, LEGEND_FONT_SIZE
 import plotly.graph_objects as go
@@ -185,9 +184,9 @@ sns.set_theme(style="whitegrid", palette="pastel")
 # data
 allowed_metrics = [
     "GSM Success",
+    "TS Success",
     "RFO Converged",
-    # "TS Success",
-    "RFO Converged and TS Success",
+    # "RFO Converged and TS Success",
     "IRC Verified",
     "DFT-Verified TS Success",
     "DFT-Verified Converged and TS Success",
@@ -210,32 +209,32 @@ for m in methods:
             ]
     palette[m] = colour
 
-order = allowed_metrics
-fig, ax = plt.subplots(figsize=(10, 6))
-sns.barplot(
-    data=df,
-    x="Metric",
-    y="Value",
-    hue="Method",
-    order=order,
-    palette=palette,
-    ax=ax,
-)
-ax.set_xlabel("")
-ax.set_ylabel("Count")
-plt.setp(ax.get_xticklabels(), rotation=-25, ha="right", fontsize=12)
-ax.legend(title="Method", bbox_to_anchor=(1.02, 1), loc="upper left")
-plt.tight_layout()
+# order = allowed_metrics
+# fig, ax = plt.subplots(figsize=(10, 6))
+# sns.barplot(
+#     data=df,
+#     x="Metric",
+#     y="Value",
+#     hue="Method",
+#     order=order,
+#     palette=palette,
+#     ax=ax,
+# )
+# ax.set_xlabel("")
+# ax.set_ylabel("Count")
+# plt.setp(ax.get_xticklabels(), rotation=-25, ha="right", fontsize=12)
+# ax.legend(title="Method", bbox_to_anchor=(1.02, 1), loc="upper left")
+# plt.tight_layout()
 
-outfile = os.path.join(PLOTS_DIR, "reactbench.png")
-plt.savefig(outfile, dpi=300)
-print(f"Saved plot to {outfile}")
+# outfile = os.path.join(PLOTS_DIR, "reactbench.png")
+# plt.savefig(outfile, dpi=300)
+# print(f"Saved plot to {outfile}")
 
 ###################################################################################
 # Build a Plotly lollipop plot for two specific methods
 desired_methods = ["predict-equiformer", "autograd-equiformer"]
 method_display_name = {
-    "predict-equiformer": "Learned Hessians (ours)",
+    "predict-equiformer": "Predicted Hessians (Ours)",
     "autograd-equiformer": "Autograd Hessians",
 }
 
@@ -283,12 +282,14 @@ else:
             xs.extend([r["Metric"], r["Metric"], None])
             ys.extend([0, r["Value"], None])
 
+        LINE_WIDTH = 16
+        MARKER_SIZE = 22
         fig.add_trace(
             go.Scatter(
                 x=xs,
                 y=ys,
                 mode="lines",
-                line=dict(color=colour, width=(12 if is_background else 8)),
+                line=dict(color=colour, width=(12 if is_background else LINE_WIDTH*0.5)),
                 showlegend=False,
                 hoverinfo="skip",
                 # opacity=(0.6 if is_background else 1.0),
@@ -304,16 +305,24 @@ else:
             else:
                 show_text.append(f"{r['Value']:.0f}")
 
+        # Shift TS Success labels vertically to reduce overlap between methods
+        text_positions = []
+        for _, r in sub.iterrows():
+            if r["Metric"] == "TS Success":
+                text_positions.append("middle right" if is_background else "bottom right")
+            else:
+                text_positions.append("middle right")
+
         fig.add_trace(
             go.Scatter(
                 x=sub["Metric"],
                 y=sub["Value"],
                 mode="markers+text",
                 name=display,
-                marker=dict(color=colour, size=(22 if is_background else 16)),
+                marker=dict(color=colour, size=(MARKER_SIZE if is_background else MARKER_SIZE*(2/3))),
                 text=show_text,
                 texttemplate="%{text}",
-                textposition="middle right",
+                textposition=text_positions,
                 textfont=dict(size=ANNOTATION_FONT_SIZE),
                 cliponaxis=False,
                 # opacity=(0.75 if is_background else 1.0),
@@ -330,10 +339,11 @@ else:
             tickfont=dict(size=AXES_FONT_SIZE),
         ),
         yaxis=dict(
-            title=dict(text="Count", font=dict(size=AXES_TITLE_FONT_SIZE)),
+            title=dict(text="Success Count", font=dict(size=AXES_TITLE_FONT_SIZE)),
+            range=[398.5, 920],
             tickfont=dict(size=AXES_FONT_SIZE),
         ),
-        margin=dict(l=40, r=20, t=0, b=20),
+        margin=dict(l=40, r=10, t=0, b=10),
         template="plotly_white",
         legend=dict(
             title=dict(text=""),
@@ -349,6 +359,9 @@ else:
     # outfile_html = os.path.join(PLOTS_DIR, "reactbench_lollipop.html")
     # fig.write_html(outfile_html, include_plotlyjs="cdn")
     # print(f"Saved Plotly lollipop to {outfile_html}")
-    outfile = os.path.join(PLOTS_DIR, "reactbench_lollipop.png")
-    fig.write_image(outfile, width=1000, height=600, scale=2)
+    outfile = os.path.join(PLOTS_DIR, "reactbench_lollipop_wide.png")
+    fig.write_image(outfile, width=1000, height=600, scale=3)
+    print(f"Saved Plotly lollipop to {outfile}")
+    outfile = os.path.join(PLOTS_DIR, "reactbench_lollipop_square.png")
+    fig.write_image(outfile, width=600, height=600, scale=3)
     print(f"Saved Plotly lollipop to {outfile}")

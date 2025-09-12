@@ -56,10 +56,10 @@ METHOD_TO_COLOUR = {
 #     "predict": "#1b85b8", 
 #     "autograd": "#db95a6",
 # }
-HESSIAN_METHOD_TO_COLOUR = {
-    "predict": "#295c7e", 
-    "autograd": "#ae5a41",
-}
+# HESSIAN_METHOD_TO_COLOUR = {
+#     "predict": "#295c7e", 
+#     "autograd": "#ae5a41",
+# }
 # brighter colours
 # HESSIAN_METHOD_TO_COLOUR = {
 #     "predict": "#68c4af", 
@@ -74,10 +74,10 @@ HESSIAN_METHOD_TO_COLOUR = {
 #     "predict": "#ae5a41", 
 #     "autograd": "#295c7e",
 # }
-# HESSIAN_METHOD_TO_COLOUR = {
-#     "predict": "#ffb482", 
-#     "autograd": "#295c7e",
-# }
+HESSIAN_METHOD_TO_COLOUR = {
+    "predict": "#ffb482", 
+    "autograd": "#295c7e",
+}
 
 HESSIAN_METHOD_TO_COLOUR["prediction"] = HESSIAN_METHOD_TO_COLOUR["predict"]
 HESSIAN_METHOD_TO_COLOUR["learned"] = HESSIAN_METHOD_TO_COLOUR["predict"]

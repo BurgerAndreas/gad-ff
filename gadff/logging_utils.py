@@ -46,6 +46,7 @@ REPLACE_HUMAN = {
     "lr_schedule_type": "lr",
     "lr_schedule_config.": "lr_",
     "luca8w10only": "luca8 + luca/10",
+    "luca8w10": "luca8 + luca/10 + m",
     "overfit100": "",
     "alldata": "",
     "preset=a": "wa bz=128",
@@ -53,6 +54,8 @@ REPLACE_HUMAN = {
     "preset=": "",
     "hesspred_": "",
     "num_layers_hessian": "l",
+    "symmetric": "sym",
+    "bz=128": "",
 }
 
 

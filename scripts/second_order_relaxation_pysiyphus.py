@@ -77,8 +77,12 @@ from gadff.t1x_dft_dataloader import Dataloader as T1xDFTDataloader
 #     )
 from gadff.colours import COLOUR_LIST, OPTIM_TO_COLOUR, ANNOTATION_FONT_SIZE, ANNOTATION_BOLD_FONT_SIZE, AXES_FONT_SIZE, AXES_TITLE_FONT_SIZE, LEGEND_FONT_SIZE, TITLE_FONT_SIZE
 import plotly.graph_objects as go
-from matplotlib.ticker import FixedLocator
-from matplotlib.patches import Patch
+from plotly.subplots import make_subplots
+
+METRIC_TO_LABEL = {
+    "steps": "Steps to Convergence",
+    "wall_time_s": "Wall Time [s]",
+}
 
 """
 run as:
@@ -736,7 +740,7 @@ def do_relaxations():
         args.max_samples = len_dataset
 
     # Determine source label for logging
-    source_label = dataset_path.split("/")[-1].split(".")[0]
+    source_label = os.path.splitext(dataset_path.split("/")[-1])[0]
     out_dir = os.path.join(
         ROOT_DIR,
         "runs_relaxation",
@@ -1512,270 +1516,38 @@ def do_relaxations():
         print(f"Removed {len_before - len_after} outliers for {metric_name}")
         return _d
 
-    def _plot_metric_box(
-        _df, metric_name, save_path, title, remove_outliers=False, highlight_method=None
-    ):
-        _d = _df.dropna(subset=[metric_name])
-        if len(_d) == 0:
-            return
-        if remove_outliers:
-            _d = _remove_outliers(_d, metric_name)
-            if len(_d) == 0:
-                return
-        plt.figure(figsize=(10, 6))
-        order = sorted(
-            _d["name"].unique(),
-            key=lambda s: {n: i for i, n in enumerate(DO_METHOD)}.get(s, 10**9),
-        )
-        palette = [METHOD_TO_COLOUR[n] for n in order]
-        ax = sns.boxplot(
-            data=_d,
-            x="name",
-            y=metric_name,
-            order=order,
-            palette=palette,
-            # palette="tab10",
-            # hue=
-            # width=0.5,
-            # whis=(0, 100) # show full range of data
-            showfliers=False,  # hide outliers
-        )
-        ax.set_xlabel("")
-        ax.set_ylabel("Wall Time [s]" if metric_name == "wall_time_s" else metric_name.replace("_", " "))
-        ax.set_title(title)
-        plt.xticks(rotation=25, ha="right")
-        # Highlight requested method label
-        if highlight_method is not None:
-            for lbl in ax.get_xticklabels():
-                if lbl.get_text() == highlight_method:
-                    lbl.set_fontweight("bold")
-        plt.tight_layout()
-        plt.savefig(save_path, dpi=150)
-        plt.close()
-        print(f"Saved\n {save_path}")
-
-    def _plot_metric_violin(
-        _df, metric_name, save_path, remove_outliers=False, highlight_method=None
-    ):
-        _d = _df.dropna(subset=[metric_name])
-        if len(_d) == 0:
-            return
-        if remove_outliers:
-            _d = _remove_outliers(_d, metric_name)
-            if len(_d) == 0:
-                return
-        plt.figure(figsize=(10, 6))
-        order = sorted(
-            _d["name"].unique(),
-            key=lambda s: {n: i for i, n in enumerate(DO_METHOD)}.get(s, 10**9),
-        )
-        palette = [METHOD_TO_COLOUR[n] for n in order]
-        ax = sns.violinplot(
-            data=_d,
-            x="name",
-            y=metric_name,
-            hue="name",
-            order=order,
-            hue_order=order,
-            palette=palette,
-            inner="quartile",
-            inner_kws={"linewidth": 2.0},
-            cut=0,
-            density_norm="width",
-            fill=False,  # only outline
-            linewidth=1.5,  # only outline
-        )
-        # Overlay scatter (jittered strip) with transparency
-        sns.stripplot(
-            data=_d,
-            x="name",
-            y=metric_name,
-            order=order,
-            hue="name",
-            palette=METHOD_TO_COLOUR,
-            alpha=0.25,
-            size=6,
-            jitter=0.25,
-            ax=ax,
-            dodge=False,
-        )
-        # remove legend added by hue
-        if ax.get_legend() is not None:
-            ax.get_legend().remove()
-        # add legend mapping colour -> category using METHOD_TO_CATEGORY/OPTIM_TO_COLOUR
-
-        categories_in_plot = []
-        for method in order:
-            category = METHOD_TO_CATEGORY.get(method)
-            if category is not None and category not in categories_in_plot:
-                categories_in_plot.append(category)
-        handles = [
-            Patch(facecolor=OPTIM_TO_COLOUR[c], edgecolor="black", label=c)
-            for c in categories_in_plot
-        ]
-        if len(handles) > 0:
-            ax.legend(handles=handles, title="Category", frameon=False)
-        ax.set_xlabel("")
-        ax.set_ylabel("Wall Time [s]" if metric_name == "wall_time_s" else metric_name.replace("_", " ").title())
-        ax.set_title(
-            f"{metric_name.replace('_', ' ').title()} ({COORD_TO_NAME[args.coord]})"
-        )
-        plt.xticks(rotation=25, ha="right")
-        # Highlight requested method label
-        if highlight_method is not None:
-            for lbl in ax.get_xticklabels():
-                if lbl.get_text() == highlight_method:
-                    lbl.set_fontweight("bold")
-        # Rename x tick labels according to RENAME_METHODS_PLOT for display
+    def _hex_to_rgba(hex_color, alpha):
         try:
-            new_labels = []
-            for lbl in ax.get_xticklabels():
-                original = lbl.get_text()
-                renamed = RENAME_METHODS_PLOT.get(original, original)
-                new_labels.append(renamed)
-            tick_positions = ax.get_xticks()
-            ax.xaxis.set_major_locator(FixedLocator(tick_positions))
-            ax.set_xticklabels(new_labels, rotation=25, ha="right")
+            hc = str(hex_color).lstrip("#")
+            r = int(hc[0:2], 16)
+            g = int(hc[2:4], 16)
+            b = int(hc[4:6], 16)
+            return f"rgba({r},{g},{b},{alpha})"
         except Exception:
-            pass
-        # Annotate "ours" over highest values of selected methods
-        try:
-            target_methods = [
-                "RFO-BFGS (learned init)",
-                "RFO (learned)",
-            ]
-            y_min, y_max = ax.get_ylim()
-            y_pad = 0.02 * (y_max - y_min)
-            for method in target_methods:
-                if method in order:
-                    series = _d[_d["name"] == method][metric_name].dropna()
-                    if len(series) == 0:
-                        continue
-                    y_top = float(series.max())
-                    x_idx = order.index(method)
-                    ax.text(
-                        x_idx,
-                        y_top + y_pad,
-                        "ours",
-                        ha="center",
-                        va="bottom",
-                        fontsize=10,
-                        fontweight="bold",
-                    )
-        except Exception:
-            pass
-        plt.tight_layout(pad=0.0)
-        plt.savefig(save_path, dpi=150)
-        plt.close()
-        print(f"Saved\n {save_path}")
+            return hex_color
 
-    def _plot_metric_scatter(
-        _df, metric_name, save_path, remove_outliers=False, highlight_method=None
-    ):
-        _d = _df.dropna(subset=[metric_name])
-        if len(_d) == 0:
-            return
-        if remove_outliers:
-            _d = _remove_outliers(_d, metric_name)
-            if len(_d) == 0:
-                return
-        plt.figure(figsize=(10, 6))
-        # enforce x order according to DO_METHOD
-        order = sorted(
-            _d["name"].unique(),
-            key=lambda s: {n: i for i, n in enumerate(DO_METHOD)}.get(s, 10**9),
-        )
-        _d = _d.assign(name=pd.Categorical(_d["name"], categories=order, ordered=True))
-        ax = sns.scatterplot(
-            data=_d,
-            x="name",
-            y=metric_name,
-            hue="name",
-            palette=METHOD_TO_COLOUR,
-            alpha=0.5,
-        )
-        # remove legend added by hue
-        if ax.get_legend() is not None:
-            ax.get_legend().remove()
-        ax.set_xlabel("")
-        ax.set_ylabel("Wall Time [s]" if metric_name == "wall_time_s" else metric_name.replace("_", " "))
-        ax.set_title(
-            f"{metric_name.replace('_', ' ').title()} ({COORD_TO_NAME[args.coord]})"
-        )
-        plt.xticks(rotation=25, ha="right")
-        # Highlight requested method label
-        if highlight_method is not None:
-            for lbl in ax.get_xticklabels():
-                if lbl.get_text() == highlight_method:
-                    lbl.set_fontweight("bold")
-        plt.tight_layout()
-        plt.savefig(save_path, dpi=150)
-        plt.close()
-        print(f"Saved\n {save_path}")
-
-    def _plot_metric_mean(
-        _df, metric_name, save_path, remove_outliers=False, highlight_method=None
-    ):
-        _d = _df.dropna(subset=[metric_name])
-        if len(_d) == 0:
-            return
-        if remove_outliers:
-            _d = _remove_outliers(_d, metric_name)
-            if len(_d) == 0:
-                return
-        # aggregate statistics per method
-        agg = (
-            _d.groupby("name")[metric_name]
-            .agg(mean="mean", std="std", median="median")
-            .reset_index()
-        )
-        # sort by predefined order if available
-        agg = agg.sort_values(
-            by="name",
-            key=lambda s: s.map({name: i for i, name in enumerate(DO_METHOD)}),
+    def _prepare_order(dfin, metric):
+        dfo = dfin.copy()
+        if metric in ("steps", "wall_time_s") and "RFO (learned)" in dfo["name"].unique():
+            mask = dfo["name"] == "RFO (learned)"
+            k = int(min(5, mask.sum()))
+            if k > 0:
+                idxs = dfo.loc[mask, metric].nlargest(k).index
+                dfo = dfo.drop(idxs)
+        return (
+            dfo.groupby("name")[metric]
+            .mean()
+            .sort_values(ascending=False)
+            .index.tolist()
         )
 
-        plt.figure(figsize=(10, 6))
-        order = agg["name"].tolist()
-        ax = sns.barplot(data=agg, x="name", y="mean", order=order)
-        # add std as error bars and median as overlay markers
-        x_positions = np.arange(len(agg))
-        yerr = agg["std"].fillna(0).to_numpy()
-        ax.errorbar(
-            x_positions,
-            agg["mean"].to_numpy(),
-            yerr=yerr,
-            fmt="none",
-            ecolor="black",
-            capsize=4,
-            elinewidth=1,
-            label="Std",
-        )
-        ax.scatter(
-            x_positions,
-            agg["median"].to_numpy(),
-            # color="red",
-            marker="D",
-            s=36,
-            label="Median",
-            zorder=3,
-        )
-        ax.legend()
-        ax.set_xlabel("")
-        ax.set_ylabel("Wall Time [s]" if metric_name == "wall_time_s" else metric_name.replace("_", " "))
-        ax.set_title(
-            f"{metric_name.replace('_', ' ').title()} ({COORD_TO_NAME[args.coord]})"
-        )
-        plt.xticks(rotation=25, ha="right")
-        # Highlight requested method label
-        if highlight_method is not None:
-            for lbl in ax.get_xticklabels():
-                if lbl.get_text() == highlight_method:
-                    lbl.set_fontweight("bold")
-        plt.tight_layout()
-        plt.savefig(save_path, dpi=150)
-        plt.close()
-        print(f"Saved\n {save_path}")
+    def _series_for_method(dfin, method, metric):
+        s = dfin[dfin["name"] == method][metric].dropna()
+        if metric in ("steps", "wall_time_s") and method == "RFO (learned)":
+            k = min(5, len(s))
+            if k > 0:
+                s = s.drop(s.nlargest(k).index)
+        return s
 
     def _plot_metric_violin_plotly(_df, metric_name, save_path):
         _d = _df.dropna(subset=[metric_name])
@@ -1798,16 +1570,6 @@ def do_relaxations():
         )
         fig = go.Figure()
 
-        def _hex_to_rgba(hex_color, alpha):
-            try:
-                hc = str(hex_color).lstrip("#")
-                r = int(hc[0:2], 16)
-                g = int(hc[2:4], 16)
-                b = int(hc[4:6], 16)
-                return f"rgba({r},{g},{b},{alpha})"
-            except Exception:
-                return hex_color
-
         display_order = []
         methods_plotted = []
         method_to_display_name = {}
@@ -1827,8 +1589,8 @@ def do_relaxations():
             elif method == "RFO-BFGS (learned init)":
                 display_name = "RFO-BFGS (predicted init)"
             # Keep the (ours) suffix for our methods
-            if method in ("RFO (learned)", "RFO-BFGS (learned init)"):
-                display_name = f"{display_name} (ours)"
+            # if method in ("RFO (learned)", "RFO-BFGS (learned init)"):
+            #     display_name = f"{display_name} (ours)"
             color = METHOD_TO_COLOUR.get(method, "#1f77b4")
             display_order.append(display_name)
             methods_plotted.append(method)
@@ -1870,6 +1632,37 @@ def do_relaxations():
                 )
             )
 
+        # Annotate "ours" over highest values of selected methods
+        target_methods = [
+            "RFO-BFGS (learned init)",
+            "RFO (learned)",
+        ]
+        if metric_name in _d.columns and len(_d[metric_name].dropna()) > 0:
+            y_min = float(_d[metric_name].min())
+            y_max = float(_d[metric_name].max())
+        else:
+            y_min = 0.0
+            y_max = 0.0
+        y_pad = 0.02 * (y_max - y_min) if y_max > y_min else 0.0
+        for method in target_methods:
+            if method in order:
+                series_ann = _d[_d["name"] == method][metric_name].dropna()
+                if len(series_ann) == 0:
+                    continue
+                y_top = float(series_ann.max())
+                display_name = method_to_display_name.get(method, method)
+                fig.add_annotation(
+                    x=display_name,
+                    y=y_top + y_pad,
+                    text="<b>ours</b>",
+                    showarrow=False,
+                    xref="x",
+                    yref="y",
+                    xanchor="center",
+                    yanchor="bottom",
+                    font=dict(size=10),
+                )
+
         # Bold our two methods in tick labels
         bold_targets = set()
         for m in ("RFO (learned)", "RFO-BFGS (learned init)"):
@@ -1878,7 +1671,9 @@ def do_relaxations():
         ticktext = [f"<b>{name}</b>" if name in bold_targets else name for name in display_order]
         fig.update_layout(
             template="plotly_white",
-            yaxis_title=("Wall Time [s]" if metric_name == "wall_time_s" else metric_name.replace("_", " ").title()),
+            yaxis_title=METRIC_TO_LABEL.lower().get(
+                metric_name, metric_name.replace("_", " ").title()
+            ),
             xaxis_title="",
             xaxis=dict(
                 categoryorder="array",
@@ -1902,44 +1697,13 @@ def do_relaxations():
             # margin=dict(t=0, b=0, l=0, r=0),
             margin=dict(t=0, b=40, l=20, r=0),
         )
-        fig.write_image(save_path)
+        fig.write_image(save_path, scale=2)
         print(f"Saved\n {save_path}")
 
-    def _plot_metric_violin_plotly_combined(_df, save_path):
-        from plotly.subplots import make_subplots
-        # Helpers
-        def _hex_to_rgba(hex_color, alpha):
-            try:
-                hc = str(hex_color).lstrip("#")
-                r = int(hc[0:2], 16)
-                g = int(hc[2:4], 16)
-                b = int(hc[4:6], 16)
-                return f"rgba({r},{g},{b},{alpha})"
-            except Exception:
-                return hex_color
-
-        def _prepare_order(dfin, metric):
-            dfo = dfin.copy()
-            if metric in ("steps", "wall_time_s") and "RFO (learned)" in dfo["name"].unique():
-                mask = dfo["name"] == "RFO (learned)"
-                k = int(min(5, mask.sum()))
-                if k > 0:
-                    idxs = dfo.loc[mask, metric].nlargest(k).index
-                    dfo = dfo.drop(idxs)
-            return (
-                dfo.groupby("name")[metric]
-                .mean()
-                .sort_values(ascending=False)
-                .index.tolist()
-            )
-
-        def _series_for_method(dfin, method, metric):
-            s = dfin[dfin["name"] == method][metric].dropna()
-            if metric in ("steps", "wall_time_s") and method == "RFO (learned)":
-                k = min(5, len(s))
-                if k > 0:
-                    s = s.drop(s.nlargest(k).index)
-            return s
+    def _plot_metric_violin_plotly_triple(_df, save_path):
+        """
+        Plotly violin plot with three subplots: steps to convergence, wall time, and wall time (subset)
+        """
 
         # Data variants
         df_steps = _df.dropna(subset=["steps"]).copy()
@@ -1954,7 +1718,7 @@ def do_relaxations():
             rows=1,
             cols=3,
             subplot_titles=(
-                "Steps",
+                "Steps to Convergence",
                 "Wall Time [s]",
                 "Wall Time [s] (Subset)",
             ),
@@ -2039,12 +1803,74 @@ def do_relaxations():
             )
             # y-axis title
             fig.update_yaxes(
-                title_text=(
-                    "Wall Time [s]" if metric_i == "wall_time_s" else metric_i.replace("_", " ").title()
+                title_text=METRIC_TO_LABEL.get(
+                    metric_i.lower(), metric_i.replace("_", " ").title()
                 ),
                 row=1,
                 col=col_idx,
             )
+
+            # Annotate "ours" over highest values of selected methods for this subplot
+            target_methods = [
+                "RFO-BFGS (learned init)",
+                "RFO (learned)",
+            ]
+            if metric_i in df_i.columns and len(df_i[metric_i].dropna()) > 0:
+                y_min_i = float(df_i[metric_i].min())
+                y_max_i = float(df_i[metric_i].max())
+            else:
+                y_min_i = 0.0
+                y_max_i = 0.0
+            y_pad_i = 0.02 * (y_max_i - y_min_i) if y_max_i > y_min_i else 0.0
+            for method in target_methods:
+                if method in order_i:
+                    series_ann_i = _series_for_method(df_i, method, metric_i)
+                    if len(series_ann_i) == 0:
+                        continue
+                    y_top_i = float(series_ann_i.max())
+                    display_name_i = method_to_display_name.get(method, method)
+                    fig.add_annotation(
+                        x=display_name_i,
+                        y=y_top_i + y_pad_i,
+                        text="<b>ours</b>",
+                        showarrow=False,
+                        xref=f"x{col_idx}",
+                        yref=f"y{col_idx}",
+                        xanchor="center",
+                        yanchor="bottom",
+                        font=dict(size=10),
+                    )
+
+            # Annotate "ours" over highest values of selected methods for this subplot
+            target_methods = [
+                "RFO-BFGS (learned init)",
+                "RFO (learned)",
+            ]
+            if metric_i in df_i.columns and len(df_i[metric_i].dropna()) > 0:
+                y_min_i = float(df_i[metric_i].min())
+                y_max_i = float(df_i[metric_i].max())
+            else:
+                y_min_i = 0.0
+                y_max_i = 0.0
+            y_pad_i = 0.02 * (y_max_i - y_min_i) if y_max_i > y_min_i else 0.0
+            for method in target_methods:
+                if method in order_i:
+                    series_ann_i = _series_for_method(df_i, method, metric_i)
+                    if len(series_ann_i) == 0:
+                        continue
+                    y_top_i = float(series_ann_i.max())
+                    display_name_i = method_to_display_name.get(method, method)
+                    fig.add_annotation(
+                        x=display_name_i,
+                        y=y_top_i + y_pad_i,
+                        text="<b>ours</b>",
+                        showarrow=False,
+                        xref=f"x{col_idx}",
+                        yref=f"y{col_idx}",
+                        xanchor="center",
+                        yanchor="bottom",
+                        font=dict(size=10),
+                    )
 
         # Add category legend dummies
         for cat in categories_all:
@@ -2071,7 +1897,7 @@ def do_relaxations():
             width=_width,
             margin=dict(l=0, r=0, b=0, t=20),
             legend=dict(
-                x=1.0,
+                x=0.5, # TODO legend
                 y=1.0,
                 xanchor="right",
                 yanchor="top",
@@ -2129,41 +1955,9 @@ def do_relaxations():
         print(f"Saved\n {save_path}")
 
     def _plot_metric_violin_plotly_double(_df, save_path):
-        from plotly.subplots import make_subplots
-        # Helpers
-        def _hex_to_rgba(hex_color, alpha):
-            try:
-                hc = str(hex_color).lstrip("#")
-                r = int(hc[0:2], 16)
-                g = int(hc[2:4], 16)
-                b = int(hc[4:6], 16)
-                return f"rgba({r},{g},{b},{alpha})"
-            except Exception:
-                return hex_color
-
-        def _prepare_order(dfin, metric):
-            dfo = dfin.copy()
-            if metric in ("steps", "wall_time_s") and "RFO (learned)" in dfo["name"].unique():
-                mask = dfo["name"] == "RFO (learned)"
-                k = int(min(5, mask.sum()))
-                if k > 0:
-                    idxs = dfo.loc[mask, metric].nlargest(k).index
-                    dfo = dfo.drop(idxs)
-            return (
-                dfo.groupby("name")[metric]
-                .mean()
-                .sort_values(ascending=False)
-                .index.tolist()
-            )
-
-        def _series_for_method(dfin, method, metric):
-            s = dfin[dfin["name"] == method][metric].dropna()
-            if metric in ("steps", "wall_time_s") and method == "RFO (learned)":
-                k = min(5, len(s))
-                if k > 0:
-                    s = s.drop(s.nlargest(k).index)
-            return s
-
+        """
+        Plotly violin plot with two subplots: steps to convergence and wall time
+        """
         # Data variants
         df_steps = _df.dropna(subset=["steps"]).copy()
         df_wall_comp = _df.dropna(subset=["wall_time_s"]).copy()
@@ -2176,11 +1970,12 @@ def do_relaxations():
             rows=1,
             cols=2,
             subplot_titles=(
-                "Steps",
+                "Steps to Convergence",
                 "Wall Time [s] (Subset)",
             ),
-            horizontal_spacing=0.05,
+            horizontal_spacing=0.07,
             vertical_spacing=0.0,
+            # 9 vs 6 methods plotted
             column_widths=[1.0, 0.8],
         )
 
@@ -2228,7 +2023,7 @@ def do_relaxations():
                         points="all",
                         jitter=0.3,
                         pointpos=0,
-                        marker=dict(color=color, opacity=0.5, size=4),
+                        marker=dict(color=color, opacity=0.3, size=4),
                         showlegend=False,
                     ),
                     row=1,
@@ -2255,8 +2050,8 @@ def do_relaxations():
                 col=col_idx,
             )
             fig.update_yaxes(
-                title_text=(
-                    "Wall Time [s]" if metric_i == "wall_time_s" else metric_i.replace("_", " ").title()
+                title_text=METRIC_TO_LABEL.get(
+                    metric_i.lower(), metric_i.replace("_", " ").title()
                 ),
                 row=1,
                 col=col_idx,
@@ -2284,8 +2079,11 @@ def do_relaxations():
             height=_height,
             width=_width,
             margin=dict(l=0, r=0, b=0, t=20),
+            # automargin=False, 
+            title_standoff=2, ticklabelposition="inside", # TODO: margins
+            # row=1, col=1,
             legend=dict(
-                x=1.0,
+                x=0.3, # TODO legend
                 y=1.0,
                 xanchor="right",
                 yanchor="top",
@@ -2319,172 +2117,9 @@ def do_relaxations():
             yanchor="bottom",
             font=dict(size=ANNOTATION_BOLD_FONT_SIZE),
         )
-        fig.write_image(save_path, width=_width, height=_height, scale=2)
+        fig.write_image(save_path, width=_width, height=_height, scale=3)
         print(f"Saved\n {save_path}")
 
-    def _plot_metric_violin_broken(
-        _df, metric_name, save_path, remove_outliers=False, highlight_method=None
-    ):
-        _d = _df.dropna(subset=[metric_name])
-        if len(_d) == 0:
-            return
-        if remove_outliers:
-            _d = _remove_outliers(_d, metric_name)
-            if len(_d) == 0:
-                return
-        # order and palette
-        order = sorted(
-            _d["name"].unique(),
-            key=lambda s: {n: i for i, n in enumerate(DO_METHOD)}.get(s, 10**9),
-        )
-        palette = [METHOD_TO_COLOUR[n] for n in order]
-
-        # competitive vs non-competitive split
-        comp_set = set(COMPETATIVE_METHODS_WALL_TIME)
-        d_comp = _d[_d["name"].isin(comp_set)]
-        d_other = _d[~_d["name"].isin(comp_set)]
-
-        # determine y limits for the two panels
-        y_min = float(_d[metric_name].min())
-        y_max = float(_d[metric_name].max())
-        low_max = (
-            float(d_comp[metric_name].quantile(0.99))
-            if len(d_comp)
-            else float(_d[metric_name].quantile(0.5))
-        )
-        high_min = (
-            float(d_other[metric_name].quantile(0.01))
-            if len(d_other)
-            else min(y_max, low_max * 1.05)
-        )
-        if high_min <= low_max:
-            high_min = low_max * 1.05
-
-        fig, (ax_top, ax_bottom) = plt.subplots(
-            2,
-            1,
-            sharex=True,
-            figsize=(10, 8),
-            gridspec_kw={"height_ratios": [2, 1]},
-        )
-
-        # draw both panels with same plotting logic
-        for ax in (ax_top, ax_bottom):
-            sns.violinplot(
-                data=_d,
-                x="name",
-                y=metric_name,
-                hue="name",
-                order=order,
-                hue_order=order,
-                palette=palette,
-                inner="quartile",
-                inner_kws={"linewidth": 2.0},
-                cut=0,
-                density_norm="width",
-                fill=False,
-                linewidth=1.5,
-                ax=ax,
-            )
-            sns.stripplot(
-                data=_d,
-                x="name",
-                y=metric_name,
-                order=order,
-                hue="name",
-                palette=METHOD_TO_COLOUR,
-                alpha=0.25,
-                size=6,
-                jitter=0.25,
-                ax=ax,
-                dodge=False,
-            )
-            if ax.get_legend() is not None:
-                ax.get_legend().remove()
-
-        # set y-lims to create the break
-        ax_top.set_ylim(y_min, low_max)
-        ax_bottom.set_ylim(high_min, y_max * 1.02)
-
-        # hide the spines between axes and add diagonal marks
-        ax_top.spines["bottom"].set_visible(False)
-        ax_bottom.spines["top"].set_visible(False)
-        ax_top.tick_params(labeltop=False)
-        ax_bottom.xaxis.tick_bottom()
-        d = 0.015
-        ax_top.plot(
-            [0, 1], [0, 0], transform=ax_top.transAxes
-        )  # ensure axes initialized
-        ax_bottom.plot([0, 1], [1, 1], transform=ax_bottom.transAxes)
-        ax_top.plot(
-            (-d, +d), (-d, +d), transform=ax_top.transAxes, color="k", clip_on=False
-        )
-        ax_top.plot(
-            (1 - d, 1 + d),
-            (-d, +d),
-            transform=ax_top.transAxes,
-            color="k",
-            clip_on=False,
-        )
-        ax_bottom.plot(
-            (-d, +d),
-            (1 - d, 1 + d),
-            transform=ax_bottom.transAxes,
-            color="k",
-            clip_on=False,
-        )
-        ax_bottom.plot(
-            (1 - d, 1 + d),
-            (1 - d, 1 + d),
-            transform=ax_bottom.transAxes,
-            color="k",
-            clip_on=False,
-        )
-
-        # common labels and title on the top axis
-        ax_top.set_xlabel("")
-        ax_top.set_ylabel(metric_name.replace("_", " ").title())
-        ax_top.set_title(
-            f"{metric_name.replace('_', ' ').title()} (Combined, {COORD_TO_NAME[args.coord]})"
-        )
-
-        # legend on top axis: category colours
-        categories_in_plot = []
-        for method in order:
-            category = METHOD_TO_CATEGORY.get(method)
-            if category is not None and category not in categories_in_plot:
-                categories_in_plot.append(category)
-        handles = [
-            Patch(facecolor=OPTIM_TO_COLOUR[c], edgecolor="black", label=c)
-            for c in categories_in_plot
-        ]
-        if len(handles) > 0:
-            ax_top.legend(handles=handles, title="Category", frameon=False)
-
-        # rotate and optionally bold a highlighted label on the bottom axis
-        plt.setp(ax_bottom.get_xticklabels(), rotation=25, ha="right")
-        if highlight_method is not None:
-            for lbl in ax_bottom.get_xticklabels():
-                if lbl.get_text() == highlight_method:
-                    lbl.set_fontweight("bold")
-        # rename x tick labels for display
-        try:
-            new_labels = []
-            for lbl in ax_bottom.get_xticklabels():
-                original = lbl.get_text()
-                renamed = RENAME_METHODS_PLOT.get(original, original)
-                new_labels.append(renamed)
-            tick_positions = ax_bottom.get_xticks()
-            ax_bottom.xaxis.set_major_locator(FixedLocator(tick_positions))
-            ax_bottom.set_xticklabels(new_labels, rotation=25, ha="right")
-        except Exception:
-            pass
-
-        plt.subplots_adjust(hspace=0.05)
-        plt.tight_layout()
-        plt.savefig(save_path, dpi=150)
-        plt.close()
-        print(f"Saved\n {save_path}")
 
     def _get_best_method_by_mean(_df, metric_name, prefer="min"):
         # prefer: "min" for metrics where lower is better; "max" where higher is better
@@ -2584,7 +2219,7 @@ def do_relaxations():
                     os.path.join(plots_dir, f"{metric}_violin_plotly_competative.png"),
                 )
             # Combined 3-panel figure: Steps | Wall Time | Wall Time (Competitive)
-            _plot_metric_violin_plotly_combined(
+            _plot_metric_violin_plotly_triple(
                 df.copy(),
                 os.path.join(plots_dir, "steps_walltime_walltime_competative_plotly.png"),
             )

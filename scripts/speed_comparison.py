@@ -351,7 +351,7 @@ def plot_speed_comparison(results_df, output_dir="./results_speed"):
     fig.write_html(output_path)
     print(f"Plot saved to \n{output_path}")
     output_path = output_dir / "speed_comparison_plot.png"
-    fig.write_image(output_path)
+    fig.write_image(output_path, scale=2)
     print(f"Plot saved to \n{output_path}")
 
     # Plot results for memory
@@ -414,7 +414,7 @@ def plot_memory_usage(results_df, output_dir="./results_speed"):
     fig.write_html(output_path)
     print(f"Plot saved to \n{output_path}")
     output_path = output_dir / "memory_usage_plot.png"
-    fig.write_image(output_path)
+    fig.write_image(output_path, scale=2)
     print(f"Plot saved to \n{output_path}")
 
 
@@ -654,7 +654,7 @@ def plot_prediction_batchsize(results_df, output_dir="./results_speed", logy=Fal
         output_dir
         / f"prediction_batchsize_time_per_sample{'_logy' if logy else ''}.png"
     )
-    fig.write_image(output_path)
+    fig.write_image(output_path, scale=2)
     print(f"Plot saved to \n{output_path}")
 
 
