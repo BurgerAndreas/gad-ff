@@ -84,18 +84,21 @@ class StepLR(LRScheduler):
 
         # Warmup phase (linear ramp from warmup_init_lr to base_lr)
         if self.warmup_epochs > 0 and self.last_epoch < self.warmup_epochs:
-            start_lr = 0.0 if self.warmup_init_lr is None else float(self.warmup_init_lr)
+            start_lr = (
+                0.0 if self.warmup_init_lr is None else float(self.warmup_init_lr)
+            )
             progress = float(self.last_epoch + 1) / float(self.warmup_epochs)
             lrs = [
-                start_lr + (base_lr - start_lr) * progress
-                for base_lr in self.base_lrs
+                start_lr + (base_lr - start_lr) * progress for base_lr in self.base_lrs
             ]
         else:
             # Standard step schedule
             if (self.last_epoch == 0) or (self.last_epoch % self.step_size != 0):
                 lrs = [group["lr"] for group in self.optimizer.param_groups]
             else:
-                lrs = [group["lr"] * self.gamma for group in self.optimizer.param_groups]
+                lrs = [
+                    group["lr"] * self.gamma for group in self.optimizer.param_groups
+                ]
         if self.min_lr is not None:
             lrs = [max(lr, self.min_lr) for lr in lrs]
         return lrs
@@ -106,8 +109,7 @@ class StepLR(LRScheduler):
             start_lr = self.warmup_init_lr
             progress = float(self.last_epoch + 1) / float(self.warmup_epochs)
             lrs = [
-                start_lr + (base_lr - start_lr) * progress
-                for base_lr in self.base_lrs
+                start_lr + (base_lr - start_lr) * progress for base_lr in self.base_lrs
             ]
         else:
             lrs = [
@@ -117,6 +119,7 @@ class StepLR(LRScheduler):
         if self.min_lr is not None:
             lrs = [max(lr, self.min_lr) for lr in lrs]
         return lrs
+
 
 class CosineAnnealingLR(LRScheduler):
     r"""Set the learning rate of each parameter group using a cosine annealing schedule.
@@ -162,7 +165,7 @@ class CosineAnnealingLR(LRScheduler):
         optimizer: Optimizer,
         T_max: int,
         eta_min: float = 0.0,
-        min_lr: Optional[float] = None, # alias for eta_min
+        min_lr: Optional[float] = None,  # alias for eta_min
         warmup_epochs: int = 0,
         warmup_init_lr: float = 0.0,
         last_epoch: int = -1,
@@ -182,9 +185,9 @@ class CosineAnnealingLR(LRScheduler):
         """Retrieve the learning rate of each parameter group.
         η(t) = η_min + (base_lr - η_min) · (1 + cos(π·t/T_max)) / 2
         """
-        # Upstream PyTorch's get_lr has recursive cases to accommodate LR being modified elsewhere. 
+        # Upstream PyTorch's get_lr has recursive cases to accommodate LR being modified elsewhere.
         # This uses the closed form from base_lrs for simplicity and determinism.
-        # This is correct as long as nothing else mutates the optimizer LR outside the scheduler. 
+        # This is correct as long as nothing else mutates the optimizer LR outside the scheduler.
         _warn_get_lr_called_within_step(self)
 
         # Warmup phase (linear ramp from warmup_init_lr to base_lr)
@@ -192,8 +195,7 @@ class CosineAnnealingLR(LRScheduler):
             start_lr = float(self.warmup_init_lr)
             progress = float(self.last_epoch + 1) / float(self.warmup_epochs)
             return [
-                start_lr + (base_lr - start_lr) * progress
-                for base_lr in self.base_lrs
+                start_lr + (base_lr - start_lr) * progress for base_lr in self.base_lrs
             ]
 
         # Cosine phase after warmup
@@ -233,17 +235,15 @@ class CosineAnnealingLR(LRScheduler):
             start_lr = float(self.warmup_init_lr)
             progress = float(self.last_epoch + 1) / float(self.warmup_epochs)
             return [
-                start_lr + (base_lr - start_lr) * progress
-                for base_lr in self.base_lrs
+                start_lr + (base_lr - start_lr) * progress for base_lr in self.base_lrs
             ]
         t = max(0, self.last_epoch - self.warmup_epochs)
         return [
             self.eta_min
-            + (base_lr - self.eta_min)
-            * (1 + math.cos(math.pi * t / self.T_max))
-            / 2
+            + (base_lr - self.eta_min) * (1 + math.cos(math.pi * t / self.T_max)) / 2
             for base_lr in self.base_lrs
         ]
+
 
 if __name__ == "__main__":
     # plot learning rate schedule
@@ -261,7 +261,14 @@ if __name__ == "__main__":
 
     scheduler1 = StepLR(optimizer1, step_size=2, gamma=0.9)
     scheduler2 = StepLR(optimizer2, step_size=2, gamma=0.9, last_epoch=10)
-    scheduler3 = StepLR(optimizer3, step_size=2, gamma=0.9, min_lr=0.02, warmup_epochs=5, warmup_init_lr=0.0)
+    scheduler3 = StepLR(
+        optimizer3,
+        step_size=2,
+        gamma=0.9,
+        min_lr=0.02,
+        warmup_epochs=5,
+        warmup_init_lr=0.0,
+    )
 
     num_epochs = 40
     lrs1 = []

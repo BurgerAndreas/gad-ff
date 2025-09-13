@@ -205,11 +205,11 @@ class EquiformerV2_OC20(BaseModel):
         reuse_source_target_embedding_hessian=True,
         reinit_edge_degree_embedding_hessian=False,
         cutoff_hessian=100.0,
-        symmetric_messages=False,
+        symmetric_messages=True,  # TODO: deprecated. only needed for legacy ckpt
         symmetric_edges=False,
-        hessian_no_attn_weights=False, # messages without attention weights
-        attn_wo_sigmoid=False, # do not apply sigmoid to attention weights
-        name=None, # not used
+        hessian_no_attn_weights=False,  # messages without attention weights
+        attn_wo_sigmoid=False,  # do not apply sigmoid to attention weights
+        name=None,  # not used
     ):
         super().__init__()
 
@@ -559,7 +559,9 @@ class EquiformerV2_OC20(BaseModel):
                 int(self.distance_expansion_hessian.num_output)
             ] + [self.edge_channels] * 2
 
-            self.reuse_source_target_embedding_hessian = reuse_source_target_embedding_hessian
+            self.reuse_source_target_embedding_hessian = (
+                reuse_source_target_embedding_hessian
+            )
             if reuse_source_target_embedding_hessian:
                 # if we are using the same embedding modules
                 # make sure we use the same embedding settings as the backbone
@@ -617,7 +619,12 @@ class EquiformerV2_OC20(BaseModel):
             )
             self.hessian_module_list.append("edge_degree_embedding_hessian")
 
-            self.hessian_module_list += ["hessian_layers", "hessian_head", "hessian_edge_message_proj", "hessian_node_proj"]
+            self.hessian_module_list += [
+                "hessian_layers",
+                "hessian_head",
+                "hessian_edge_message_proj",
+                "hessian_node_proj",
+            ]
             # Initialize the blocks for each layer of EquiformerV2
             self.hessian_layers = torch.nn.ModuleList()
             self.num_layers_hessian = num_layers_hessian
@@ -675,10 +682,10 @@ class EquiformerV2_OC20(BaseModel):
                 use_atom_edge_embedding=self.block_use_atom_edge_embedding_hessian,
                 use_m_share_rad=self.use_m_share_rad,
                 activation=self.attn_activation,
-                use_s2_act_attn=self.use_s2_act_attn, # ?
-                use_attn_renorm=self.use_attn_renorm, # True
-                use_gate_act=self.use_gate_act, # False -> use S2 activation
-                use_sep_s2_act=self.use_sep_s2_act, # True -> use Separable S2 activation
+                use_s2_act_attn=self.use_s2_act_attn,  # ?
+                use_attn_renorm=self.use_attn_renorm,  # True
+                use_gate_act=self.use_gate_act,  # False -> use S2 activation
+                use_sep_s2_act=self.use_sep_s2_act,  # True -> use Separable S2 activation
                 alpha_drop=self.hessian_alpha_drop,
             )
             self.hessian_edge_message_proj = SO3_LinearV2(
@@ -1078,7 +1085,7 @@ class EquiformerV2_OC20(BaseModel):
                 atomic_numbers=atomic_numbers,
                 edge_distance=edge_distance_hessian,
                 edge_index=edge_index_hessian,
-                return_raw_messages=self.hessian_no_attn_weights, # messages without attention weights
+                return_raw_messages=self.hessian_no_attn_weights,  # messages without attention weights
                 return_attn_messages=True,
                 attn_wo_sigmoid=self.attn_wo_sigmoid,
                 # deprecated

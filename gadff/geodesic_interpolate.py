@@ -21,6 +21,7 @@ from gadff.align_ordered_mols import find_rigid_alignment
 from geodesic_interpolate.geodesic import Geodesic
 from geodesic_interpolate.interpolation import redistribute
 
+
 def copy_atoms(atoms: Atoms) -> Atoms:
     """
     Simple function to copy an atoms object to prevent mutability.
@@ -30,11 +31,12 @@ def copy_atoms(atoms: Atoms) -> Atoms:
     atoms = atoms.copy()
     atoms.calc = calc
     return atoms
-    
+
+
 def geodesic_interpolate_wrapper(
     reactant: Atoms,
     product: Atoms,
-    n_images: int = 3, #10,
+    n_images: int = 3,  # 10,
     perform_sweep: bool | Literal["auto"] = "auto",
     redistribute_tol: float = 1e-2,
     smoother_tol: float = 2e-3,
@@ -123,9 +125,6 @@ def geodesic_interpolate_wrapper(
         for geom in geodesic_smoother.path
     ]
     if return_middle_image:
-        assert n_images % 2 == 1, (
-            "n_images must be odd for return_middle_image"
-        )
+        assert n_images % 2 == 1, "n_images must be odd for return_middle_image"
         return atoms_list[math.floor(n_images / 2)]
     return atoms_list
-

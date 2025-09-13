@@ -304,7 +304,9 @@ def plot_speed_comparison(results_df, output_dir="./results_speed"):
 
     fig = go.Figure()
     for method in avg_times.columns:
-        display_name = "Prediction (ours)" if str(method).lower() == "prediction" else str(method)
+        display_name = (
+            "Prediction (ours)" if str(method).lower() == "prediction" else str(method)
+        )
         fig.add_trace(
             go.Scatter(
                 x=avg_times.index,
@@ -340,7 +342,9 @@ def plot_memory_usage(results_df, output_dir="./results_speed"):
 
     fig = go.Figure()
     for method in avg_memory.columns:
-        display_name = "Prediction (ours)" if str(method).lower() == "prediction" else str(method)
+        display_name = (
+            "Prediction (ours)" if str(method).lower() == "prediction" else str(method)
+        )
         fig.add_trace(
             go.Scatter(
                 x=avg_memory.index,

@@ -240,8 +240,8 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
         edge_index,
         # added for direct Hessian prediction
         return_attn_messages=False,
-        return_raw_messages=False, # no attention weights
-        attn_wo_sigmoid=False, # do not apply sigmoid to attention weights
+        return_raw_messages=False,  # no attention weights
+        attn_wo_sigmoid=False,  # do not apply sigmoid to attention weights
         # message node_i->node_j = message node_j->node_i
         symmetric_messages=False,
         symmetric_edges=False,
@@ -267,9 +267,7 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
             # (E, num_edge_features + 2 * num_atom_embedding_features)
             if symmetric_edges:
                 avg_embedding = (source_embedding + target_embedding) / 2
-                x_edge = torch.cat(
-                    (edge_distance, avg_embedding, avg_embedding), dim=1
-                )
+                x_edge = torch.cat((edge_distance, avg_embedding, avg_embedding), dim=1)
             else:
                 x_edge = torch.cat(
                     (edge_distance, source_embedding, target_embedding), dim=1
@@ -366,7 +364,7 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
         else:
             # HV = num_heads * attn_value_channels
             x_message = self.so2_conv_2(x_message, x_edge)  # (E, L-6, HV)
-        
+
         if return_raw_messages:
             # Rotate back the irreps # (E, L-6, HV) -> [E, L, C]
             x_message._rotate_inv(self.SO3_rotation, self.mappingReduced)

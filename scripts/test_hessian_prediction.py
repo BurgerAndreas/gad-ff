@@ -46,6 +46,7 @@ from ocpmodels.ff_lmdb import LmdbDataset
 
 from gadff.inference_utils import get_model_from_checkpoint
 
+
 def save_rel_error(a, b):
     diff = a - b
     amasked = torch.where(a == 0, 1, a)
@@ -255,9 +256,11 @@ if __name__ == "__main__":
         for initialization in [True, False]:
             print()
             print("=" * 100)
-            print(f"Testing with initialization: {initialization}, hessian_build_method: {_hessian_build_method}")
+            print(
+                f"Testing with initialization: {initialization}, hessian_build_method: {_hessian_build_method}"
+            )
             print("=" * 100)
-            
+
             config_path = os.path.join(project_root, "configs/equiformer_v2.yaml")
             with open(config_path, "r") as file:
                 config = yaml.safe_load(file)
@@ -274,7 +277,7 @@ if __name__ == "__main__":
 
             model.train()
             model.to("cuda")
-            
+
             if not initialization:
                 # randomize weights of modules in hessian_module_list
                 for module_str in model.hessian_module_list:
@@ -323,7 +326,9 @@ if __name__ == "__main__":
                     pred_hessian = pred_hessian.reshape(N * 3, N * 3)
                     diff = pred_hessian - pred_hessian.T
                     print(f"Symmetry abs diff: {diff.abs().mean().item():.2e}")
-                    print(f"Symmetry rel diff: {save_rel_error(pred_hessian, diff):.2e}")
+                    print(
+                        f"Symmetry rel diff: {save_rel_error(pred_hessian, diff):.2e}"
+                    )
                     break
                 run_hessian_tests(
                     batch.edge_index,
@@ -342,7 +347,9 @@ if __name__ == "__main__":
                     pred_hessian = pred_hessian.reshape(N * 3, N * 3)
                     diff = pred_hessian - pred_hessian.T
                     print(f"Symmetry abs diff: {diff.abs().mean().item():.2e}")
-                    print(f"Symmetry rel diff: {save_rel_error(pred_hessian, diff):.2e}")
+                    print(
+                        f"Symmetry rel diff: {save_rel_error(pred_hessian, diff):.2e}"
+                    )
                     break
 
             if not (args.equ_only or args.sym_only):

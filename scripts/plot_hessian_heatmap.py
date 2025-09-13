@@ -18,6 +18,13 @@ from gadff.path_config import fix_dataset_path
 from nets.prediction_utils import compute_extra_props
 from ocpmodels.hessian_graph_transform import HessianGraphTransform
 
+from gadff.colours import (
+    ANNOTATION_BOLD_FONT_SIZE,
+    ANNOTATION_FONT_SIZE,
+    AXES_FONT_SIZE,
+    AXES_TITLE_FONT_SIZE,
+)
+
 
 def _get_derivatives(x, y, retain_graph=None, create_graph=False):
     grad = torch.autograd.grad(
@@ -201,9 +208,9 @@ def plot_heatmaps(h_pred, h_true, save_path=None, absolute=False, show_relative=
             clip_on=False,
         )
 
-    axes[0].set_title("(a) Predicted Hessian", pad=2)
-    axes[1].set_title("(b) Ground Truth DFT Hessian", pad=2)
-    axes[2].set_title("(c) Absolute Difference", pad=2)
+    axes[0].set_title("Predicted Hessian", pad=2)
+    axes[1].set_title("Ground Truth DFT Hessian", pad=2)
+    axes[2].set_title("Absolute Difference", pad=2)
     if show_relative:
         axes[3].set_title("(d) Relative Difference", pad=2)
     # ax.set_xlabel("")
@@ -213,16 +220,16 @@ def plot_heatmaps(h_pred, h_true, save_path=None, absolute=False, show_relative=
     for ax in axes:
         ax.set_xticks([])
         ax.set_yticks([])
-        ax.set_xlabel("DoF")
+        ax.set_xlabel("3N Degrees of Freedom")
         ax.set_ylabel("")
-    axes[0].set_ylabel("DoF")  # only leftmost axis
+    axes[0].set_ylabel("3N Degrees of Freedom")  # only leftmost axis
     ax.tick_params(axis="both", which="both", labelsize=6, length=2, pad=1)
 
     fig.tight_layout(pad=0.0, w_pad=0.0, h_pad=0.0)
     fig.subplots_adjust(left=0, right=1, top=1, bottom=0, wspace=0.02, hspace=0.0)
 
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.savefig(save_path, dpi=500, bbox_inches="tight")
     print(f"Saved heatmaps to {save_path}")
 
     plt.close(fig)
@@ -237,7 +244,9 @@ def main():
         "-c",
         type=str,
         # default="ckpt/eqv2.ckpt"
-        default="/ssd/Code/ReactBench/ckpt/hesspred/hesspredalldatanumlayershessian3presetluca8w10onlybz128-581483-20250826-074746.ckpt",
+        # default="/ssd/Code/ReactBench/ckpt/hesspred/hesspredalldatanumlayershessian3presetluca8w10onlybz128-581483-20250826-074746.ckpt",
+        # default="/ssd/Code/ReactBench/ckpt/hesspred/hesspredalldatanumlayershessian3presetmaebz128-676539-20250906-003158.ckpt",
+        default="/ssd/Code/gad-ff/ckpt/hesspred_v1.ckpt",
     )
     parser.add_argument(
         "--dataset",

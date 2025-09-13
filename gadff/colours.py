@@ -49,33 +49,33 @@ METHOD_TO_COLOUR = {
 }
 # autograd is red
 # HESSIAN_METHOD_TO_COLOUR = {
-#     "predict": "#295c7e", 
+#     "predict": "#295c7e",
 #     "autograd": "#db95a6",
 # }
 # HESSIAN_METHOD_TO_COLOUR = {
-#     "predict": "#1b85b8", 
+#     "predict": "#1b85b8",
 #     "autograd": "#db95a6",
 # }
 # HESSIAN_METHOD_TO_COLOUR = {
-#     "predict": "#295c7e", 
+#     "predict": "#295c7e",
 #     "autograd": "#ae5a41",
 # }
 # brighter colours
 # HESSIAN_METHOD_TO_COLOUR = {
-#     "predict": "#68c4af", 
+#     "predict": "#68c4af",
 #     "autograd": "#db95a6",
 # }
 # HESSIAN_METHOD_TO_COLOUR = {
-#     "predict": "#ffb482", 
+#     "predict": "#ffb482",
 #     "autograd": "#cfcfcf",
 # }
 # our method with signalling colours
 # HESSIAN_METHOD_TO_COLOUR = {
-#     "predict": "#ae5a41", 
+#     "predict": "#ae5a41",
 #     "autograd": "#295c7e",
 # }
 HESSIAN_METHOD_TO_COLOUR = {
-    "predict": "#ffb482", 
+    "predict": "#ffb482",
     "autograd": "#295c7e",
 }
 
@@ -86,7 +86,7 @@ HESSIAN_METHOD_TO_COLOUR["learned"] = HESSIAN_METHOD_TO_COLOUR["predict"]
 OPTIM_TO_COLOUR = {
     "firstorder": "#295c7e",
     "bfgs": "#636EFA",
-    "secondorder": "#db95a6",  
+    "secondorder": "#db95a6",
 }
 OPTIM_TO_COLOUR["First-Order"] = OPTIM_TO_COLOUR["firstorder"]
 OPTIM_TO_COLOUR["Second-Order"] = OPTIM_TO_COLOUR["secondorder"]

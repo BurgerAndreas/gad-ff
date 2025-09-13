@@ -127,12 +127,14 @@ log_dir = os.path.join(this_dir, "logs_hormtssearch")
 os.makedirs(plot_dir, exist_ok=True)
 os.makedirs(log_dir, exist_ok=True)
 
+
 def to_numpy(x):
     if x is None:
         return None
     if torch.is_tensor(x):
         return x.detach().cpu().numpy()
     return x
+
 
 def run_gsm_horm(
     atoms_reactant, atoms_product, calculator, idx=0, display_log_level=logging.WARNING
@@ -894,7 +896,7 @@ def run_horm_ts_search(
         save=True,
     )
 
-    # Create ASE Atoms object 
+    # Create ASE Atoms object
     reactant = Atoms(numbers=to_numpy(sample.z), positions=to_numpy(pos_reactant))
     reactant.calc = asecalc
     product = Atoms(numbers=to_numpy(sample.z), positions=to_numpy(pos_product))

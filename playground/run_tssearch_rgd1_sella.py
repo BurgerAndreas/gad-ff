@@ -1,11 +1,11 @@
 """
 Search for transition states (index-one saddle points) using Sella and predicted Hessians
 - test different starting points:
-	- starting from reactant
-	- starting from geodesic interpolation
+        - starting from reactant
+        - starting from geodesic interpolation
 - verify found transition state using:
-	- frequency analysis with mass weighting and Eckart projection
-	- RMSD of found to true TS is under some threshold
+        - frequency analysis with mass weighting and Eckart projection
+        - RMSD of found to true TS is under some threshold
 """
 
 import numpy as np
@@ -151,6 +151,7 @@ def clean_dict(data):
         # Discard other non-serializable types
         return None
 
+
 def get_hessian_function(hessian_method, asecalc):
     """Return a callable that Sella uses to fetch the Cartesian Hessian (N*3, N*3).
 
@@ -169,6 +170,7 @@ def get_hessian_function(hessian_method, asecalc):
         return results["hessian"]  # already shaped (N*3, N*3)
 
     return _hessian_function
+
 
 ###########################################################################
 # Sella-specific functions
@@ -217,7 +219,7 @@ def run_sella(
         steps=4000,
     )
     default_sella_kwargs = dict(
-        order=1, # 1 = first-order saddle point, 0 = minimum
+        order=1,  # 1 = first-order saddle point, 0 = minimum
         eta=5e-5,  # Smaller finite difference step for higher accuracy
         delta0=5e-3,  # Larger initial trust radius for TS search
         gamma=0.1,  # Much tighter convergence for iterative diagonalization
@@ -281,12 +283,13 @@ def run_sella(
         **sella_kwargs,
     )
 
-
-    summary.update({
-        "sella_kwargs": sella_kwargs,
-        "run_kwargs": run_kwargs,
-        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-    })
+    summary.update(
+        {
+            "sella_kwargs": sella_kwargs,
+            "run_kwargs": run_kwargs,
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
+    )
 
     # Run the optimization
     t1 = time.time()
@@ -346,7 +349,11 @@ def run_sella(
             cart_coords=coords_t,
             atomsymbols=[int(zi) for zi in to_numpy(z)],
         )
-        neg_num = int(freq["neg_num"]) if hasattr(freq["neg_num"], "item") else int(freq["neg_num"])
+        neg_num = (
+            int(freq["neg_num"])
+            if hasattr(freq["neg_num"], "item")
+            else int(freq["neg_num"])
+        )
         summary.update(
             {
                 "freq_neg_num": neg_num,
@@ -397,7 +404,9 @@ def run_sella(
 ###########################################################################
 
 
-def _build_ase_atoms(positions: np.ndarray | torch.Tensor, z: np.ndarray | torch.Tensor):
+def _build_ase_atoms(
+    positions: np.ndarray | torch.Tensor, z: np.ndarray | torch.Tensor
+):
     pos_np = to_numpy(positions)
     z_np = to_numpy(z)
     atoms = Atoms(numbers=z_np, positions=pos_np)
@@ -546,7 +555,9 @@ def run_tssearch_rgd1_sella(
                     internal=internal,
                 ),
             )
-            _update_stats("reactant_internal" if internal else "reactant_cart", summary_r)
+            _update_stats(
+                "reactant_internal" if internal else "reactant_cart", summary_r
+            )
 
             summary_geo = run_sella(
                 start_pos=x_geointer_rp,
@@ -564,7 +575,9 @@ def run_tssearch_rgd1_sella(
                     internal=internal,
                 ),
             )
-            _update_stats("geodesic_internal" if internal else "geodesic_cart", summary_geo)
+            _update_stats(
+                "geodesic_internal" if internal else "geodesic_cart", summary_geo
+            )
 
         out[ii] = {"reactant": summary_r, "geodesic": summary_geo}
 
@@ -577,8 +590,12 @@ if __name__ == "__main__":
     # --max-samples 10 --seed 0 --hessian-method predict
     uv run /ssd/Code/gad-ff/playground/run_tssearch_rgd1_sella.py 
     """
-    parser = argparse.ArgumentParser(description="Run Sella TS search with predicted Hessians.")
-    parser.add_argument("--idx", type=int, default=104_000, help="Sample index in RGD1 dataset")
+    parser = argparse.ArgumentParser(
+        description="Run Sella TS search with predicted Hessians."
+    )
+    parser.add_argument(
+        "--idx", type=int, default=104_000, help="Sample index in RGD1 dataset"
+    )
     parser.add_argument(
         "--hessian-method",
         type=str,
@@ -586,9 +603,16 @@ if __name__ == "__main__":
         choices=["predict", "autodiff"],
         help="How to obtain Hessians for Sella and verification",
     )
-    parser.add_argument("--rmsd-threshold", type=float, default=0.5, help="RMSD threshold for TS verification (Å)")
+    parser.add_argument(
+        "--rmsd-threshold",
+        type=float,
+        default=0.5,
+        help="RMSD threshold for TS verification (Å)",
+    )
     parser.add_argument("--steps", type=int, default=4000, help="Max Sella steps")
-    parser.add_argument("--max-samples", type=int, default=10, help="Randomly sample this many indices")
+    parser.add_argument(
+        "--max-samples", type=int, default=10, help="Randomly sample this many indices"
+    )
     parser.add_argument("--seed", type=int, default=0, help="Random seed for sampling")
     args = parser.parse_args()
 
@@ -610,7 +634,9 @@ if __name__ == "__main__":
             neg = v.get("freq_neg_num", None)
             ok = v.get("is_index_one_saddle", None)
             rmsdok = v.get("rmsd_within_threshold", None)
-            print(f"  {start}: rmsd={rmsd}, neg_modes={neg}, is_ts={ok}, rmsd_ok={rmsdok}")
+            print(
+                f"  {start}: rmsd={rmsd}, neg_modes={neg}, is_ts={ok}, rmsd_ok={rmsdok}"
+            )
 
     # Summary statistics
     stats = results.get("__stats__", {})
@@ -618,7 +644,15 @@ if __name__ == "__main__":
         print("\nSummary (avg nsteps, freq success rate, rmsd success rate):")
         for key in sorted(stats.keys()):
             s = stats[key]
-            avg_nsteps = (s["sum_nsteps"] / s["count_nsteps"]) if s["count_nsteps"] > 0 else None
-            freq_rate = (s["freq_success"] / s["freq_attempts"]) if s["freq_attempts"] > 0 else None
+            avg_nsteps = (
+                (s["sum_nsteps"] / s["count_nsteps"]) if s["count_nsteps"] > 0 else None
+            )
+            freq_rate = (
+                (s["freq_success"] / s["freq_attempts"])
+                if s["freq_attempts"] > 0
+                else None
+            )
             rmsd_rate = (s["rmsd_success"] / s["count"]) if s["count"] > 0 else None
-            print(f"  {key}: avg_nsteps={avg_nsteps}, freq_ok={freq_rate}, rmsd_ok={rmsd_rate}")
+            print(
+                f"  {key}: avg_nsteps={avg_nsteps}, freq_ok={freq_rate}, rmsd_ok={rmsd_rate}"
+            )

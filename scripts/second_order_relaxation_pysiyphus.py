@@ -75,7 +75,16 @@ from gadff.t1x_dft_dataloader import Dataloader as T1xDFTDataloader
 #         "uv run Transition1x/download_t1x.py Transition1x/data" + "\n"
 #         "uv pip install -e Transition1x" + "\n"
 #     )
-from gadff.colours import COLOUR_LIST, OPTIM_TO_COLOUR, ANNOTATION_FONT_SIZE, ANNOTATION_BOLD_FONT_SIZE, AXES_FONT_SIZE, AXES_TITLE_FONT_SIZE, LEGEND_FONT_SIZE, TITLE_FONT_SIZE
+from gadff.colours import (
+    COLOUR_LIST,
+    OPTIM_TO_COLOUR,
+    ANNOTATION_FONT_SIZE,
+    ANNOTATION_BOLD_FONT_SIZE,
+    AXES_FONT_SIZE,
+    AXES_TITLE_FONT_SIZE,
+    LEGEND_FONT_SIZE,
+    TITLE_FONT_SIZE,
+)
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
@@ -580,9 +589,9 @@ METHOD_TO_COLOUR = {
 }
 DO_METHOD = [
     "NaiveSteepestDescent",
-    "RFO (autograd)",
     # "SteepestDescent",
     "FIRE",
+    "RFO (autograd)",
     "RFO (NumHess)",
     # "ConjugateGradient",
     "RFO-BFGS (unit init)",
@@ -626,72 +635,14 @@ RENAME_METHODS_PLOT = {
 }
 
 
-def do_relaxations():
-    ap = argparse.ArgumentParser()
-    ap.add_argument(
-        "--xyz",
-        default="ts1x-val.lmdb",
-        help="input geometry in form of .xyz or folder of .xyz files or lmdb path",
-        type=str,
-        required=False,
-    )
-    ap.add_argument(
-        "--coord",
-        default="redund",
-        choices=["cart", "redund", "dlc", "tric"],
-        help="coordinate system",
-        type=str,
-        required=False,
-    )
-    ap.add_argument("--max_samples", type=int, default=15)
-    ap.add_argument("--max_cycles", type=int, default=150)
-    ap.add_argument("--debug", type=bool, default=False)
-    ap.add_argument("--redo", type=bool, default=False)
-    ap.add_argument("--verbose", type=bool, default=False)
-    ap.add_argument("--thresh", type=str, default="gau")
-    ap.add_argument(
-        "--pddftonly",
-        type=bool,
-        default=False,
-        help="only run optimizers when dft hessian is positive definite",
-    )
-    ap.add_argument(
-        "--pdpredonly",
-        type=bool,
-        default=False,
-        help="Stop optimization early when learned Hessian is not positive definite",
-    )
-    ap.add_argument(
-        "--pdthresh",
-        type=float,
-        default=0,
-        help="Threshold for positive definiteness of DFT Hessian",
-    )
-    ap.add_argument(
-        "--noiserms",
-        type=float,
-        default=0.0,
-        help="Per-atom RMS displacement (Å) added to geometry before Hessian; 0 disables noise",
-    )
-    ap.add_argument(
-        "--highlight_method",
-        type=str,
-        default=None,
-        help="If set, bold this method's x-label in plots",
-    )
-    args = ap.parse_args()
-
-    # ckpt_path = "/ssd/Code/ReactBench/ckpt/hesspred/alldatagputwoalphadrop0droppathrate0projdrop0-394770-20250806-133956.ckpt"
-    ckpt_path = "/ssd/Code/ReactBench/ckpt/hesspred/hesspredalldatanumlayershessian3presetluca8w10onlybz128-581483-20250826-074746.ckpt"
-    wandb_id = ckpt_path.split("/")[-1].split(".")[0].split("-")[1]
-
+def do_relaxations(out_dir, source_label, args):
     print("Loading dataset...")
     print(f"Dataset: {args.xyz}. is file: {os.path.isfile(args.xyz)}")
     data_is_xyz = False
     data_is_t1x = False
     data_is_lmdb = False
     if "t1x" in args.xyz and os.path.isfile(args.xyz):
-        # /ssd/Code/gad-ff/data/t1x_val_reactant_hessian_100_tight2_noiserms0.03.h5
+        # /ssd/Code/gad-ff/data/t1x_val_reactant_hessian_100_noiserms0.03.h5
         dataset_path = args.xyz
         print(f"Loading T1x dataset from {dataset_path}")
         dataset = T1xDFTDataloader(dataset_path, datasplit="val", only_final=True)
@@ -710,12 +661,12 @@ def do_relaxations():
         dataset_path = (
             f"data/t1x_val_reactant_hessian_100_noiserms{noise_str.replace('.', '')}.h5"
         )
-    # is xyz file
     elif os.path.isfile(args.xyz):
+        # is xyz file
         dataset = [args.xyz]
         dataset_path = args.xyz
         data_is_xyz = True
-    # folder of xyz files
+        # folder of xyz files
     elif os.path.isdir(args.xyz):
         dataset = [
             os.path.join(args.xyz, f)
@@ -730,6 +681,8 @@ def do_relaxations():
         dataset = LmdbDataset(dataset_path)
         data_is_lmdb = True
         # dataloader = TGDataLoader(dataset, batch_size=1, shuffle=False)
+    else:
+        raise ValueError(f"Invalid dataset path: {args.xyz}")
 
     try:
         len_dataset = len(dataset)
@@ -739,91 +692,70 @@ def do_relaxations():
     if args.max_samples > len_dataset:
         args.max_samples = len_dataset
 
-    # Determine source label for logging
-    source_label = os.path.splitext(dataset_path.split("/")[-1])[0]
-    out_dir = os.path.join(
-        ROOT_DIR,
-        "runs_relaxation",
-        source_label
-        + "_"
-        + wandb_id
-        + "_"
-        + args.coord
-        + "_"
-        + args.thresh.replace("_", "")
-        + "_"
-        + str(args.max_samples)
-        + "_pddft"
-        + str(args.pddftonly)
-        + "_pdpred"
-        + str(args.pdpredonly)
-        + "_pdthresh"
-        + str(args.pdthresh),
-    )
     if args.redo:
         shutil.rmtree(out_dir, ignore_errors=True)
     os.makedirs(out_dir, exist_ok=True)
     print(f"Out directory: {out_dir}")
 
-    print("\nInitializing model...")
-    # base_calc = MLFF(
-    base_calc = PysisEquiformer(
-        charge=0,
-        ckpt_path=ckpt_path,
-        config_path="auto",
-        device="cuda",
-        hessianmethod_name="predict",
-        hessian_method="predict",  # "autograd", "predict"
-        mem=4000,
-        method="equiformer",
-        mult=1,
-        pal=1,
-        # out_dir=yaml_dir / OUT_DIR_DEFAULT,
-        # 'out_dir': PosixPath('/ssd/Code/ReactBench/runs/equiformer_alldatagputwoalphadrop0droppathrate0projdrop0-394770-20250806-133956_data_predict/rxn9/TSOPT/qm_calcs
-    )
-    # print(f"Initialized calc MLFF.: {base_calc.__class__.__name__}")
-    # print(f"Initialized calc MLFF.model: {base_calc.model.__class__.__name__}")
-    # print(
-    #     f"Initialized calc MLFF.model.model: {base_calc.model.model.__class__.__name__}"
-    # )
-    # print(
-    #     f"Initialized calc MLFF.model.model.potential: {base_calc.model.model.potential.__class__.__name__}"
-    # )
-
-    print("\nTesting model with pysisyphus...")
-    counting_calc = CountingCalc(base_calc)
-    if data_is_xyz:
-        atoms, coords = load_xyz(dataset[0])
-    elif data_is_t1x:
-        molecule = next(iter(dataset))
-        if "positions_noised" in molecule["reactant"]:
-            coords = molecule["reactant"]["positions_noised"]
-        else:
-            coords = molecule["reactant"]["positions"]
-        # ts = molecule["transition_state"]["positions"]
-        # product = molecule["product"]["positions"]
-        atoms = np.array(molecule["reactant"]["atomic_numbers"])
-        atomssymbols = [Z_TO_SYMBOL[a] for a in atoms]
-        coords = coords / BOHR2ANG  # same as *ANG2BOHR
-        t1xdataloader = iter(dataset)
-    else:
-        data = dataset[0]
-        atomssymbols = GLOBAL_ATOM_SYMBOLS[
-            data.one_hot.long().argmax(dim=1).cpu().numpy()
-        ]
-        coords = data.pos.numpy() / BOHR2ANG
-    geom = Geometry(atomssymbols, coords, coord_type=args.coord)
-    geom.set_calculator(counting_calc)
-    energy = geom.energy
-    forces = geom.forces
-    hessian = geom.hessian
-
     rng = np.random.default_rng(seed=42)
 
     print("\nRunning relaxations...")
     csv_path = os.path.join(out_dir, f"relaxation_results.csv")
-    did_compute_results = False
     if not os.path.exists(csv_path) or args.redo:
+        print("\nInitializing model...")
+        # base_calc = MLFF(
+        base_calc = PysisEquiformer(
+            charge=0,
+            ckpt_path=args.ckpt_path,
+            config_path="auto",
+            device="cuda",
+            hessianmethod_name="predict",
+            hessian_method="predict",  # "autograd", "predict"
+            mem=4000,
+            method="equiformer",
+            mult=1,
+            pal=1,
+            # out_dir=yaml_dir / OUT_DIR_DEFAULT,
+            # 'out_dir': PosixPath('/ssd/Code/ReactBench/runs/equiformer_alldatagputwoalphadrop0droppathrate0projdrop0-394770-20250806-133956_data_predict/rxn9/TSOPT/qm_calcs
+        )
+        # print(f"Initialized calc MLFF.: {base_calc.__class__.__name__}")
+        # print(f"Initialized calc MLFF.model: {base_calc.model.__class__.__name__}")
+        # print(
+        #     f"Initialized calc MLFF.model.model: {base_calc.model.model.__class__.__name__}"
+        # )
+        # print(
+        #     f"Initialized calc MLFF.model.model.potential: {base_calc.model.model.potential.__class__.__name__}"
+        # )
+
+        print("\nTesting model with pysisyphus...")
+        counting_calc = CountingCalc(base_calc)
+        if data_is_xyz:
+            atoms, coords = load_xyz(dataset[0])
+        elif data_is_t1x:
+            molecule = next(iter(dataset))
+            if "positions_noised" in molecule["reactant"]:
+                coords = molecule["reactant"]["positions_noised"]
+            else:
+                coords = molecule["reactant"]["positions"]
+            # ts = molecule["transition_state"]["positions"]
+            # product = molecule["product"]["positions"]
+            atoms = np.array(molecule["reactant"]["atomic_numbers"])
+            atomssymbols = [Z_TO_SYMBOL[a] for a in atoms]
+            coords = coords / BOHR2ANG  # same as *ANG2BOHR
+            t1xdataloader = iter(dataset)
+        else:
+            data = dataset[0]
+            atomssymbols = GLOBAL_ATOM_SYMBOLS[
+                data.one_hot.long().argmax(dim=1).cpu().numpy()
+            ]
+            coords = data.pos.numpy() / BOHR2ANG
+        geom = Geometry(atomssymbols, coords, coord_type=args.coord)
+        geom.set_calculator(counting_calc)
+        energy = geom.energy
+        forces = geom.forces
+        hessian = geom.hessian
+        # Test finished
+
         ts = time.strftime("%Y%m%d-%H%M%S")
         # Accumulate results across all samples
         all_results = []
@@ -1454,13 +1386,16 @@ def do_relaxations():
             df = pd.DataFrame(all_results)
             df.to_csv(csv_path, index=False)
             print(f"\nSaved relaxation results to: {csv_path}")
-            did_compute_results = True
         else:
             print(f"\nNo results to save to {csv_path}")
     else:
         df = pd.read_csv(csv_path)
         print(f"\nLoaded relaxation results from: {csv_path}")
 
+    return df
+
+
+def plot_results(df, out_dir, args):
     # remove all rows where the method is not in DO_METHOD
     df = df[df["name"].isin(DO_METHOD)]
 
@@ -1528,7 +1463,10 @@ def do_relaxations():
 
     def _prepare_order(dfin, metric):
         dfo = dfin.copy()
-        if metric in ("steps", "wall_time_s") and "RFO (learned)" in dfo["name"].unique():
+        if (
+            metric in ("steps", "wall_time_s")
+            and "RFO (learned)" in dfo["name"].unique()
+        ):
             mask = dfo["name"] == "RFO (learned)"
             k = int(min(5, mask.sum()))
             if k > 0:
@@ -1536,7 +1474,8 @@ def do_relaxations():
                 dfo = dfo.drop(idxs)
         return (
             dfo.groupby("name")[metric]
-            .mean()
+            # .mean()
+            .median()
             .sort_values(ascending=False)
             .index.tolist()
         )
@@ -1556,7 +1495,10 @@ def do_relaxations():
         # compute order by descending mean (most left -> least right)
         # after removing outliers for RFO (predicted) a.k.a. "RFO (learned)"
         d_for_order = _d.copy()
-        if metric_name in ("steps", "wall_time_s") and "RFO (learned)" in d_for_order["name"].unique():
+        if (
+            metric_name in ("steps", "wall_time_s")
+            and "RFO (learned)" in d_for_order["name"].unique()
+        ):
             mask = d_for_order["name"] == "RFO (learned)"
             k = int(min(5, mask.sum()))
             if k > 0:
@@ -1668,11 +1610,13 @@ def do_relaxations():
         for m in ("RFO (learned)", "RFO-BFGS (learned init)"):
             if m in method_to_display_name:
                 bold_targets.add(method_to_display_name[m])
-        ticktext = [f"<b>{name}</b>" if name in bold_targets else name for name in display_order]
+        ticktext = [
+            f"<b>{name}</b>" if name in bold_targets else name for name in display_order
+        ]
         fig.update_layout(
             template="plotly_white",
-            yaxis_title=METRIC_TO_LABEL.lower().get(
-                metric_name, metric_name.replace("_", " ").title()
+            yaxis_title=METRIC_TO_LABEL.get(
+                metric_name.lower(), metric_name.replace("_", " ").title()
             ),
             xaxis_title="",
             xaxis=dict(
@@ -1708,7 +1652,9 @@ def do_relaxations():
         # Data variants
         df_steps = _df.dropna(subset=["steps"]).copy()
         df_wall = _df.dropna(subset=["wall_time_s"]).copy()
-        df_wall_comp = df_wall[df_wall["name"].isin(COMPETATIVE_METHODS_WALL_TIME)].copy()
+        df_wall_comp = df_wall[
+            df_wall["name"].isin(COMPETATIVE_METHODS_WALL_TIME)
+        ].copy()
 
         order_steps = _prepare_order(df_steps, "steps")
         order_wall = _prepare_order(df_wall, "wall_time_s")
@@ -1791,7 +1737,10 @@ def do_relaxations():
             for m in ("RFO (learned)", "RFO-BFGS (learned init)"):
                 if m in method_to_display_name:
                     bold_targets.add(method_to_display_name[m])
-            ticktext = [f"<b>{name}</b>" if name in bold_targets else name for name in display_order]
+            ticktext = [
+                f"<b>{name}</b>" if name in bold_targets else name
+                for name in display_order
+            ]
             fig.update_xaxes(
                 categoryorder="array",
                 categoryarray=display_order,
@@ -1809,37 +1758,6 @@ def do_relaxations():
                 row=1,
                 col=col_idx,
             )
-
-            # Annotate "ours" over highest values of selected methods for this subplot
-            target_methods = [
-                "RFO-BFGS (learned init)",
-                "RFO (learned)",
-            ]
-            if metric_i in df_i.columns and len(df_i[metric_i].dropna()) > 0:
-                y_min_i = float(df_i[metric_i].min())
-                y_max_i = float(df_i[metric_i].max())
-            else:
-                y_min_i = 0.0
-                y_max_i = 0.0
-            y_pad_i = 0.02 * (y_max_i - y_min_i) if y_max_i > y_min_i else 0.0
-            for method in target_methods:
-                if method in order_i:
-                    series_ann_i = _series_for_method(df_i, method, metric_i)
-                    if len(series_ann_i) == 0:
-                        continue
-                    y_top_i = float(series_ann_i.max())
-                    display_name_i = method_to_display_name.get(method, method)
-                    fig.add_annotation(
-                        x=display_name_i,
-                        y=y_top_i + y_pad_i,
-                        text="<b>ours</b>",
-                        showarrow=False,
-                        xref=f"x{col_idx}",
-                        yref=f"y{col_idx}",
-                        xanchor="center",
-                        yanchor="bottom",
-                        font=dict(size=10),
-                    )
 
             # Annotate "ours" over highest values of selected methods for this subplot
             target_methods = [
@@ -1897,8 +1815,8 @@ def do_relaxations():
             width=_width,
             margin=dict(l=0, r=0, b=0, t=20),
             legend=dict(
-                x=0.5, # TODO legend
-                y=1.0,
+                x=0.45,
+                y=0.9,
                 xanchor="right",
                 yanchor="top",
                 bgcolor="rgba(255,255,255,0.6)",
@@ -1916,7 +1834,9 @@ def do_relaxations():
         # )
         # Add subplot panel labels (a, b, c) at top-left outside each subplot
         dom1 = fig.layout.xaxis.domain if hasattr(fig.layout, "xaxis") else [0.0, 0.3]
-        dom2 = fig.layout.xaxis2.domain if hasattr(fig.layout, "xaxis2") else [0.35, 0.65]
+        dom2 = (
+            fig.layout.xaxis2.domain if hasattr(fig.layout, "xaxis2") else [0.35, 0.65]
+        )
         dom3 = fig.layout.xaxis3.domain if hasattr(fig.layout, "xaxis3") else [0.7, 1.0]
         fig.add_annotation(
             x=dom1[0],
@@ -1961,7 +1881,9 @@ def do_relaxations():
         # Data variants
         df_steps = _df.dropna(subset=["steps"]).copy()
         df_wall_comp = _df.dropna(subset=["wall_time_s"]).copy()
-        df_wall_comp = df_wall_comp[df_wall_comp["name"].isin(COMPETATIVE_METHODS_WALL_TIME)].copy()
+        df_wall_comp = df_wall_comp[
+            df_wall_comp["name"].isin(COMPETATIVE_METHODS_WALL_TIME)
+        ].copy()
 
         order_steps = _prepare_order(df_steps, "steps")
         order_wall_comp = _prepare_order(df_wall_comp, "wall_time_s")
@@ -2002,28 +1924,51 @@ def do_relaxations():
                     display_name = "RFO (predicted)"
                 elif method == "RFO-BFGS (learned init)":
                     display_name = "RFO-BFGS (predicted init)"
-                if method in ("RFO (learned)", "RFO-BFGS (learned init)"):
-                    display_name = f"{display_name} (ours)"
+                # if method in ("RFO (learned)", "RFO-BFGS (learned init)"):
+                #     display_name = f"{display_name} (ours)"
                 color = METHOD_TO_COLOUR.get(method, "#1f77b4")
 
                 display_order.append(display_name)
                 methods_plotted.append(method)
                 method_to_display_name[method] = display_name
 
+                # Violin plot
                 fig.add_trace(
                     go.Violin(
                         y=series.astype(float),
                         name=display_name,
                         line_color=color,
-                        fillcolor=_hex_to_rgba(color, 0.25),
+                        fillcolor=_hex_to_rgba(color, 0.1),
                         opacity=1.0,
-                        box_visible=True,
+                        width=0.9,  # fixed width
+                        box_visible=False,  # show the boxplot
                         meanline_visible=False,
                         spanmode="hard",
                         points="all",
                         jitter=0.3,
                         pointpos=0,
                         marker=dict(color=color, opacity=0.3, size=4),
+                        showlegend=False,
+                    ),
+                    row=1,
+                    col=col_idx,
+                )
+
+                # Overlay median as a horizontal tick marker (no box)
+                median_value = float(np.median(series.astype(float)))
+                fig.add_trace(
+                    go.Scatter(
+                        x=[display_name],
+                        y=[median_value],
+                        mode="markers",
+                        marker=dict(
+                            symbol="line-ew",  # horizontal line marker
+                            size=18,
+                            color=color,
+                            line=dict(color=color, width=2),
+                            opacity=1.0,
+                        ),
+                        hovertemplate="median: %{y:.3g}<extra></extra>",
                         showlegend=False,
                     ),
                     row=1,
@@ -2039,7 +1984,10 @@ def do_relaxations():
             for m in ("RFO (learned)", "RFO-BFGS (learned init)"):
                 if m in method_to_display_name:
                     bold_targets.add(method_to_display_name[m])
-            ticktext = [f"<b>{name}</b>" if name in bold_targets else name for name in display_order]
+            ticktext = [
+                f"<b>{name}</b>" if name in bold_targets else name
+                for name in display_order
+            ]
             fig.update_xaxes(
                 categoryorder="array",
                 categoryarray=display_order,
@@ -2056,6 +2004,38 @@ def do_relaxations():
                 row=1,
                 col=col_idx,
             )
+
+            # Annotate "ours" over highest values of selected methods for this subplot
+            target_methods = [
+                "RFO-BFGS (learned init)",
+                "RFO (learned)",
+            ]
+            if metric_i in df_i.columns and len(df_i[metric_i].dropna()) > 0:
+                y_min_i = float(df_i[metric_i].min())
+                y_max_i = float(df_i[metric_i].max())
+            else:
+                y_min_i = 0.0
+                y_max_i = 0.0
+            y_pad_i = 0.01 * (y_max_i - y_min_i) if y_max_i > y_min_i else 0.0
+            for method in target_methods:
+                if method in order_i:
+                    series_ann_i = _series_for_method(df_i, method, metric_i)
+                    if len(series_ann_i) == 0:
+                        continue
+                    y_top_i = float(series_ann_i.max())
+                    display_name_i = method_to_display_name.get(method, method)
+                    fig.add_annotation(
+                        x=display_name_i,
+                        y=y_top_i + y_pad_i,
+                        text="<b>ours</b>",
+                        showarrow=False,
+                        xref=f"x{col_idx}",
+                        yref=f"y{col_idx}",
+                        xanchor="center",
+                        yanchor="bottom",
+                        font=dict(size=10),
+                    )
+        # metrics plotted
 
         for cat in categories_all:
             fig.add_trace(
@@ -2079,12 +2059,12 @@ def do_relaxations():
             height=_height,
             width=_width,
             margin=dict(l=0, r=0, b=0, t=20),
-            # automargin=False, 
-            title_standoff=2, ticklabelposition="inside", # TODO: margins
-            # row=1, col=1,
+            # automargin=False,
+            # title_standoff=1,
+            # ticklabelposition="inside",
             legend=dict(
-                x=0.3, # TODO legend
-                y=1.0,
+                x=0.48,
+                y=0.95,
                 xanchor="right",
                 yanchor="top",
                 bgcolor="rgba(255,255,255,0.6)",
@@ -2092,9 +2072,14 @@ def do_relaxations():
                 borderwidth=0,
             ),
         )
+        fig.update_yaxes(title_standoff=1, row=1, col=1)
+        fig.update_yaxes(title_standoff=1, row=1, col=2)
+
         # Panel labels a (left) and b (right)
         dom1 = fig.layout.xaxis.domain if hasattr(fig.layout, "xaxis") else [0.0, 0.48]
-        dom2 = fig.layout.xaxis2.domain if hasattr(fig.layout, "xaxis2") else [0.52, 1.0]
+        dom2 = (
+            fig.layout.xaxis2.domain if hasattr(fig.layout, "xaxis2") else [0.52, 1.0]
+        )
         fig.add_annotation(
             x=dom1[0],
             y=0.999,
@@ -2119,7 +2104,6 @@ def do_relaxations():
         )
         fig.write_image(save_path, width=_width, height=_height, scale=3)
         print(f"Saved\n {save_path}")
-
 
     def _get_best_method_by_mean(_df, metric_name, prefer="min"):
         # prefer: "min" for metrics where lower is better; "max" where higher is better
@@ -2148,112 +2132,31 @@ def do_relaxations():
 
     # for metric in ["steps", "grad_calls", "hessian_calls", "wall_time_s"]:
     for metric in ["steps", "wall_time_s"]:
-        # _d = df.copy()
-        # _plot_metric_box(
-        #     _d[(_d["converged"] == True)],
-        #     metric,
-        #     os.path.join(plots_dir, f"{metric}_box_converged.png"),
-        #     title=f"{metric.replace('_', ' ').title()} (converged) ({COORD_TO_NAME[args.coord]})",
-        #     remove_outliers=False,
-        # )
-        # _plot_metric_box(
-        #     df.copy(),
-        #     metric,
-        #     os.path.join(plots_dir, f"{metric}_box.png"),
-        #     title=f"{metric.replace('_', ' ').title()} (incl. not converged) ({COORD_TO_NAME[args.coord]})",
-        #     remove_outliers=False,
-        # )
-        # _plot_metric_scatter(
-        #     df.copy(),
-        #     metric,
-        #     os.path.join(plots_dir, f"{metric}_scatter.png"),
-        #     remove_outliers=False,
-        # )
-        # Determine best method (lowest mean) for this metric, allow CLI override
-        # best_all = _get_best_method_by_mean(df.copy(), metric, prefer="min")
-        # highlight_all = args.highlight_method if args.highlight_method else best_all
-        # _plot_metric_violin(
-        #     df.copy(),
-        #     metric,
-        #     os.path.join(plots_dir, f"{metric}_violin.png"),
-        #     remove_outliers=False,
-        #     highlight_method=highlight_all,
-        # )
-        # if metric == "steps":
-        #     _d = df.copy()[df["name"].isin(COMPETATIVE_METHODS_STEPS)]
-        # elif metric == "wall_time_s":
-        #     _d = df.copy()[df["name"].isin(COMPETATIVE_METHODS_WALL_TIME)]
-        # else:
-        #     continue
-        # best_subset = _get_best_method_by_mean(_d, metric, prefer="min")
-        # highlight_subset = (
-        #     args.highlight_method if args.highlight_method else best_subset
-        # )
-        # _plot_metric_violin(
-        #     _d,
-        #     metric,
-        #     os.path.join(plots_dir, f"{metric}_violin_competative.png"),
-        #     remove_outliers=False,
-        #     highlight_method=highlight_subset,
-        # )
-        if metric == "steps":
-            # Also create interactive Plotly violin ordered by descending mean steps
-            _plot_metric_violin_plotly(
-                df.copy(),
-                metric,
-                os.path.join(plots_dir, f"{metric}_violin_plotly.png"),
-            )
+        # Also create interactive Plotly violin ordered by descending mean steps
+        _plot_metric_violin_plotly(
+            df.copy(),
+            metric,
+            os.path.join(plots_dir, f"{metric}_violin_plotly.png"),
+        )
         if metric == "wall_time_s":
-            # Also create interactive Plotly violin ordered by descending mean wall time
-            _plot_metric_violin_plotly(
-                df.copy(),
-                metric,
-                os.path.join(plots_dir, f"{metric}_violin_plotly.png"),
-            )
-            # Competitive methods only
-            _d_comp = df.copy()[df["name"].isin(COMPETATIVE_METHODS_WALL_TIME)]
-            if len(_d_comp) > 0:
-                _plot_metric_violin_plotly(
-                    _d_comp,
-                    metric,
-                    os.path.join(plots_dir, f"{metric}_violin_plotly_competative.png"),
-                )
-            # Combined 3-panel figure: Steps | Wall Time | Wall Time (Competitive)
-            _plot_metric_violin_plotly_triple(
-                df.copy(),
-                os.path.join(plots_dir, "steps_walltime_walltime_competative_plotly.png"),
-            )
+            # # Competitive methods only
+            # _d_comp = df.copy()[df["name"].isin(COMPETATIVE_METHODS_WALL_TIME)]
+            # if len(_d_comp) > 0:
+            #     _plot_metric_violin_plotly(
+            #         _d_comp,
+            #         metric,
+            #         os.path.join(plots_dir, f"{metric}_violin_plotly_competative.png"),
+            #     )
+            # # Combined 3-panel figure: Steps | Wall Time | Wall Time (Competitive)
+            # _plot_metric_violin_plotly_triple(
+            #     df.copy(),
+            #     os.path.join(plots_dir, "steps_walltime_walltime_competative_plotly.png"),
+            # )
             # Combined 2-panel figure: Steps | Wall Time (Competitive)
             _plot_metric_violin_plotly_double(
                 df.copy(),
                 os.path.join(plots_dir, "steps_walltime_competative_plotly.png"),
             )
-        # if metric == "wall_time_s":
-        #     _plot_metric_violin_broken(
-        #         df.copy(),
-        #         metric,
-        #         os.path.join(plots_dir, f"{metric}_violin_combined.png"),
-        #         remove_outliers=False,
-        #         highlight_method=highlight_all,
-        #     )
-        #     # Autograd vs Learned comparison only
-        #     _d_pair = df.copy()[df["name"].isin(["RFO (autograd)", "RFO (learned)"])]
-        #     if len(_d_pair) > 0:
-        #         _plot_metric_violin(
-        #             _d_pair,
-        #             metric,
-        #             os.path.join(plots_dir, f"{metric}_violin_autograd_vs_learned.png"),
-        #             remove_outliers=False,
-        #             highlight_method=args.highlight_method
-        #             if args.highlight_method
-        #             else None,
-        #         )
-        # _plot_metric_mean(
-        #     df.copy(),
-        #     metric,
-        #     os.path.join(plots_dir, f"{metric}_mean.png"),
-        #     remove_outliers=False,
-        # )
 
     # Convergence rate per method
     if "converged" in df.columns:
@@ -2299,41 +2202,105 @@ def do_relaxations():
         plt.close()
         print(f"Saved\n {fname}")
 
-
-    # Log to Weights & Biases
-    print()
-    run_name = (
-        f"relax_{source_label}_{wandb_id}_{args.coord}_"
-        f"{args.thresh.replace('_', '')}_{args.max_samples}"
-    )
-    wandb.init(
-        project="2nd-order-relax",
-        name=run_name,
-        reinit=True,
-        config={
-            "xyz": args.xyz,
-            "coord": args.coord,
-            "thresh": args.thresh,
-            "max_samples": args.max_samples,
-            "redo": args.redo,
-            "pddftonly": args.pddftonly,
-            "pdpredonly": args.pdpredonly,
-            "pdthresh": args.pdthresh,
-        },
-    )
-    # Log results table
-    wandb.log({"results_table": wandb.Table(dataframe=df)})
-    # Log plots if available
-    plot_paths = sorted(glob.glob(os.path.join(plots_dir, "*.png")))
-    if plot_paths:
-        images_log = {
-            os.path.splitext(os.path.basename(p))[0]: wandb.Image(p) for p in plot_paths
-        }
-        wandb.log(images_log)
-    wandb.finish()
-
     return df
 
 
+def compute_zero_point_energy(df, out_dir, source_label, args):
+    pass
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument(
+        "--xyz",
+        default="ts1x-val.lmdb",
+        help="input geometry in form of .xyz or folder of .xyz files or lmdb path",
+        type=str,
+        required=False,
+    )
+    ap.add_argument(
+        "--coord",
+        default="redund",
+        choices=["cart", "redund", "dlc", "tric"],
+        help="coordinate system",
+        type=str,
+        required=False,
+    )
+    ap.add_argument("--max_samples", type=int, default=15)
+    ap.add_argument("--max_cycles", type=int, default=150)
+    ap.add_argument("--debug", type=bool, default=False)
+    ap.add_argument("--redo", type=bool, default=False)
+    ap.add_argument("--verbose", type=bool, default=False)
+    ap.add_argument("--thresh", type=str, default="gau")
+    ap.add_argument(
+        "--pddftonly",
+        type=bool,
+        default=False,
+        help="only run optimizers when dft hessian is positive definite",
+    )
+    ap.add_argument(
+        "--pdpredonly",
+        type=bool,
+        default=False,
+        help="Stop optimization early when learned Hessian is not positive definite",
+    )
+    ap.add_argument(
+        "--pdthresh",
+        type=float,
+        default=0,
+        help="Threshold for positive definiteness of DFT Hessian",
+    )
+    ap.add_argument(
+        "--noiserms",
+        type=float,
+        default=0.0,
+        help="Per-atom RMS displacement (Å) added to geometry before Hessian; 0 disables noise",
+    )
+    ap.add_argument(
+        "--highlight_method",
+        type=str,
+        default=None,
+        help="If set, bold this method's x-label in plots",
+    )
+    ap.add_argument(
+        "--ckpt_path",
+        type=str,
+        default=None,
+        help="Path to ckpt file",
+    )
+    args = ap.parse_args()
+
+    if args.ckpt_path is None:
+        # ckpt_path = "/ssd/Code/ReactBench/ckpt/hesspred/alldatagputwoalphadrop0droppathrate0projdrop0-394770-20250806-133956.ckpt"
+        args.ckpt_path = "/ssd/Code/ReactBench/ckpt/hesspred/hesspredalldatanumlayershessian3presetluca8w10onlybz128-581483-20250826-074746.ckpt"
+        wandb_id = args.ckpt_path.split("/")[-1].split(".")[0].split("-")[1]
+
+    # Determine source label for logging
+    source_label = os.path.splitext(args.xyz.split("/")[-1])[0]
+    out_dir = os.path.join(
+        ROOT_DIR,
+        "runs_relaxation",
+        source_label
+        + "_"
+        + wandb_id
+        + "_"
+        + args.coord
+        + "_"
+        + args.thresh.replace("_", "")
+        + "_"
+        + str(args.max_samples)
+        + "_pddft"
+        + str(args.pddftonly)
+        + "_pdpred"
+        + str(args.pdpredonly)
+        + "_pdthresh"
+        + str(args.pdthresh),
+    )
+
+    df = do_relaxations(out_dir, source_label, args)
+    plot_results(df, out_dir, args)
+    compute_zero_point_energy(df, out_dir, source_label, args)
+
+
 if __name__ == "__main__":
-    df = do_relaxations()
+    main()

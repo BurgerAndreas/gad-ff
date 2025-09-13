@@ -122,7 +122,6 @@ class HessianPotentialModule(PotentialModule):
         self.MSE = torch.nn.MSELoss()
         self.MAE = torch.nn.L1Loss()
 
-
         self.loss_fn_eigen = get_hessian_loss_fn(**training_config["eigen_loss"])
 
         _alpha = self.training_config["eigen_loss"]["alpha"]
@@ -207,7 +206,9 @@ class HessianPotentialModule(PotentialModule):
         print("Configuring optimizer")
         # Only optimize parameters that require gradients (unfrozen heads)
         if self.training_config["train_heads_only"]:
-            print(f"Updating heads_to_train from \n {self.heads_to_train} to \n {self.potential.hessian_module_list}")
+            print(
+                f"Updating heads_to_train from \n {self.heads_to_train} to \n {self.potential.hessian_module_list}"
+            )
             self.heads_to_train = self.potential.hessian_module_list
             self._freeze_except_heads(self.heads_to_train)
         trainable_params = [p for p in self.potential.parameters() if p.requires_grad]
@@ -409,7 +410,7 @@ class HessianPotentialModule(PotentialModule):
             )
             loss += eigen_loss
             info["Loss Eigen"] = eigen_loss.detach().item()
-        
+
         if not self.training_config["train_heads_only"]:
             # energy
             hat_ae = hat_ae.squeeze().to(self.device)

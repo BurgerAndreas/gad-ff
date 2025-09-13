@@ -156,6 +156,7 @@ def clean_dict(data):
         # Discard other non-serializable types
         return None
 
+
 def get_hessian_function(hessian_method, asecalc):
     """Function that returns a (N*3, N*3) hessian matrix"""
     if hessian_method == "autodiff":
@@ -177,6 +178,7 @@ def get_hessian_function(hessian_method, asecalc):
     else:
         raise ValueError(f"Invalid method: {hessian_method}")
     return _hessian_function
+
 
 ###########################################################################
 # Sella-specific functions
@@ -211,7 +213,7 @@ def run_sella(
     natoms,
     true_pos,
     title,
-    order, # 1 = first-order saddle point, 0 = minimum
+    order,  # 1 = first-order saddle point, 0 = minimum
     calc=None,
     hessian_function=None,
     hessian_method=None,
@@ -269,7 +271,7 @@ def run_sella(
         # constraints=cons,
         # trajectory=os.path.join(logfolder, "cu_sella_ts.traj"),
         trajectory=MyTrajectory(atoms=mol_ase),
-        order=order,  
+        order=order,
         # eta=5e-5,  # Smaller finite difference step for higher accuracy
         # delta0=5e-3,  # Larger initial trust radius for TS search
         # gamma=0.1,  # Much tighter convergence for iterative diagonalization
@@ -294,11 +296,13 @@ def run_sella(
     )
     _run_kwargs.update(run_kwargs)
 
-    summary.update({
-        "sella_kwargs": _sella_kwargs,
-        "run_kwargs": _run_kwargs,
-        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-    })
+    summary.update(
+        {
+            "sella_kwargs": _sella_kwargs,
+            "run_kwargs": _run_kwargs,
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
+    )
 
     # Run the optimization
     t1 = time.time()

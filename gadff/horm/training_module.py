@@ -643,7 +643,9 @@ class PotentialModule(LightningModule):
     def on_train_start(self):
         """Log the starting epoch to Weights & Biases."""
         # Route through Lightning logger so it reaches WandB and respects rank_zero_only
-        self.log("start_epoch", int(self.current_epoch), rank_zero_only=True, prog_bar=False)
+        self.log(
+            "start_epoch", int(self.current_epoch), rank_zero_only=True, prog_bar=False
+        )
         super().on_train_start()
 
     def on_before_optimizer_step(self, optimizer):
@@ -652,7 +654,7 @@ class PotentialModule(LightningModule):
         # norms: The dictionary of p-norms of each parameter's gradient and
         # a special entry for the total p-norm of the gradients viewed as a single vector
         norms = pl_grad_norm(module=self.potential, norm_type=2)
-        self.grad_norm_history.append(norms["grad_2.0_norm_total"]) # float
+        self.grad_norm_history.append(norms["grad_2.0_norm_total"])  # float
         if (self.global_step % 100 == 0) and self.global_step > 10:
             norms["grad_2.0_norm_std"] = np.std(self.grad_norm_history)
         self.log_dict(norms)

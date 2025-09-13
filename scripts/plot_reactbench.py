@@ -4,7 +4,15 @@ import wandb
 
 import seaborn as sns
 
-from gadff.colours import COLOUR_LIST, METHOD_TO_COLOUR, HESSIAN_METHOD_TO_COLOUR, ANNOTATION_FONT_SIZE, AXES_FONT_SIZE, AXES_TITLE_FONT_SIZE, LEGEND_FONT_SIZE
+from gadff.colours import (
+    COLOUR_LIST,
+    METHOD_TO_COLOUR,
+    HESSIAN_METHOD_TO_COLOUR,
+    ANNOTATION_FONT_SIZE,
+    AXES_FONT_SIZE,
+    AXES_TITLE_FONT_SIZE,
+    LEGEND_FONT_SIZE,
+)
 import plotly.graph_objects as go
 import plotly.express as px
 
@@ -271,7 +279,9 @@ else:
         colour = (
             METHOD_TO_COLOUR.get(method_key)
             or HESSIAN_METHOD_TO_COLOUR.get(base_key)
-            or default_colorway[desired_methods.index(method_key) % len(default_colorway)]
+            or default_colorway[
+                desired_methods.index(method_key) % len(default_colorway)
+            ]
         )
         display = method_display_name.get(method_key, method_key)
         is_background = method_key == render_order[0]
@@ -289,7 +299,9 @@ else:
                 x=xs,
                 y=ys,
                 mode="lines",
-                line=dict(color=colour, width=(12 if is_background else LINE_WIDTH*0.5)),
+                line=dict(
+                    color=colour, width=(12 if is_background else LINE_WIDTH * 0.5)
+                ),
                 showlegend=False,
                 hoverinfo="skip",
                 # opacity=(0.6 if is_background else 1.0),
@@ -309,7 +321,9 @@ else:
         text_positions = []
         for _, r in sub.iterrows():
             if r["Metric"] == "TS Success":
-                text_positions.append("middle right" if is_background else "bottom right")
+                text_positions.append(
+                    "middle right" if is_background else "bottom right"
+                )
             else:
                 text_positions.append("middle right")
 
@@ -319,7 +333,10 @@ else:
                 y=sub["Value"],
                 mode="markers+text",
                 name=display,
-                marker=dict(color=colour, size=(MARKER_SIZE if is_background else MARKER_SIZE*(2/3))),
+                marker=dict(
+                    color=colour,
+                    size=(MARKER_SIZE if is_background else MARKER_SIZE * (2 / 3)),
+                ),
                 text=show_text,
                 texttemplate="%{text}",
                 textposition=text_positions,

@@ -17,7 +17,15 @@ from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.path_config import fix_dataset_path
 from ocpmodels.hessian_graph_transform import HessianGraphTransform, FOLLOW_BATCH
 from gadff.horm.training_module import SchemaUniformDataset
-from gadff.colours import HESSIAN_METHOD_TO_COLOUR, ANNOTATION_FONT_SIZE, ANNOTATION_BOLD_FONT_SIZE, AXES_FONT_SIZE, AXES_TITLE_FONT_SIZE, LEGEND_FONT_SIZE, TITLE_FONT_SIZE
+from gadff.colours import (
+    HESSIAN_METHOD_TO_COLOUR,
+    ANNOTATION_FONT_SIZE,
+    ANNOTATION_BOLD_FONT_SIZE,
+    AXES_FONT_SIZE,
+    AXES_TITLE_FONT_SIZE,
+    LEGEND_FONT_SIZE,
+    TITLE_FONT_SIZE,
+)
 
 
 # https://plotly.com/python/templates/
@@ -684,15 +692,14 @@ def plot_combined_speed_memory_batchsize(
     autograd_results_df = bz_results_df[bz_results_df["method"] == "autograd"].copy()
     pred_results_df = bz_results_df[bz_results_df["method"] == "prediction"].copy()
     # Compute per-sample time first, then aggregate mean/std
-    pred_results_df["time_per_sample"] = (
-        pred_results_df["time"] / pred_results_df["batch_size"].replace(0, pd.NA)
-    )
-    autograd_results_df["time_per_sample"] = (
-        autograd_results_df["time"]
-        / autograd_results_df["batch_size"].replace(0, pd.NA)
-    )
-    pred_group = pred_results_df.groupby(["batch_size"])['time_per_sample']
-    auto_group = autograd_results_df.groupby(["batch_size"])['time_per_sample']
+    pred_results_df["time_per_sample"] = pred_results_df["time"] / pred_results_df[
+        "batch_size"
+    ].replace(0, pd.NA)
+    autograd_results_df["time_per_sample"] = autograd_results_df[
+        "time"
+    ] / autograd_results_df["batch_size"].replace(0, pd.NA)
+    pred_group = pred_results_df.groupby(["batch_size"])["time_per_sample"]
+    auto_group = autograd_results_df.groupby(["batch_size"])["time_per_sample"]
     pred_avg_times = pred_group.mean()
     pred_std_times = pred_group.std()
     autograd_avg_times = auto_group.mean()
@@ -710,7 +717,11 @@ def plot_combined_speed_memory_batchsize(
     # Col 1: Speed vs N
     for method in avg_times.columns:
         color = _color_for_method(method)
-        display_name = "Prediction (ours)" if str(method).lower() == "prediction" else str(method).capitalize()
+        display_name = (
+            "Prediction (ours)"
+            if str(method).lower() == "prediction"
+            else str(method).capitalize()
+        )
         _err_kwargs = {}
         if show_std and (method in std_times.columns):
             std_vals = std_times[method].reindex(avg_times.index)
@@ -735,7 +746,11 @@ def plot_combined_speed_memory_batchsize(
     # Col 2: Memory vs N
     for method in avg_memory.columns:
         color = _color_for_method(method)
-        display_name = "Prediction (ours)" if str(method).lower() == "prediction" else str(method).capitalize()
+        display_name = (
+            "Prediction (ours)"
+            if str(method).lower() == "prediction"
+            else str(method).capitalize()
+        )
         _err_kwargs = {}
         if show_std and (method in std_memory.columns):
             std_vals = std_memory[method].reindex(avg_memory.index)
@@ -858,13 +873,13 @@ def plot_combined_speed_memory_batchsize(
         height=height,
         yaxis=dict(
             type="log",
-            dtick=1, # ticks are set every 10^(n"dtick)
-            exponentformat="power", # "none" | "e" | "E" | "power" | "SI" | "B"
+            dtick=1,  # ticks are set every 10^(n"dtick)
+            exponentformat="power",  # "none" | "e" | "E" | "power" | "SI" | "B"
             showexponent="all",
             showgrid=True,
             minor=dict(
                 showgrid=True,
-                gridcolor="#eee", # "rgba(50,50,50,0.1)",
+                gridcolor="#eee",  # "rgba(50,50,50,0.1)",
                 # gridwidth=1,
             ),
         ),
@@ -876,7 +891,7 @@ def plot_combined_speed_memory_batchsize(
             showgrid=True,
             minor=dict(
                 showgrid=True,
-                gridcolor="#eee", # "rgba(50,50,50,0.1)",
+                gridcolor="#eee",  # "rgba(50,50,50,0.1)",
                 # gridwidth=1,
             ),
         ),
@@ -895,8 +910,12 @@ def plot_combined_speed_memory_batchsize(
     fig.update_traces(line=dict(width=3))
 
     # Increase global font sizes for axes and annotations
-    fig.update_xaxes(tickfont=dict(size=AXES_FONT_SIZE), title_font=dict(size=AXES_TITLE_FONT_SIZE))
-    fig.update_yaxes(tickfont=dict(size=AXES_FONT_SIZE), title_font=dict(size=AXES_TITLE_FONT_SIZE))
+    fig.update_xaxes(
+        tickfont=dict(size=AXES_FONT_SIZE), title_font=dict(size=AXES_TITLE_FONT_SIZE)
+    )
+    fig.update_yaxes(
+        tickfont=dict(size=AXES_FONT_SIZE), title_font=dict(size=AXES_TITLE_FONT_SIZE)
+    )
     fig.update_annotations(font=dict(size=ANNOTATION_FONT_SIZE))
 
     # Set subplot title fonts specifically to TITLE_FONT_SIZE
