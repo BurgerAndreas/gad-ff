@@ -4,7 +4,7 @@
 training:
   lr_schedule_type: "cosine"
   lr_schedule_config:
-    T_max: 1e6 # Maximum number of iterations.
+    T_max: 150 # Maximum number of iterations.
     eta_min: 1e-6 # Minimum learning rate. Default: 0.
-    warmup_epochs: 0          # number of epochs to warm up (0 disables)
+    warmup_epochs: 10          # number of epochs to warm up (0 disables)
     warmup_init_lr: 0.0      # start LR for warmup

@@ -22,7 +22,7 @@ model:
 
   symmetric_messages: False
   symmetric_edges: False
-  hessian_no_attn_weights: False # build Hessian off-diagonal elements from raw messages without attention weights
+  hessian_no_attn_weights: True # build Hessian off-diagonal elements from raw messages without attention weights
   attn_wo_sigmoid: False # do not apply sigmoid to attention weights
 
 training:

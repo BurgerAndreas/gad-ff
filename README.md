@@ -255,6 +255,9 @@ cd $GADFFDIR
 # uv run scripts/second_order_relaxation_pysiyphus.py --max_samples 80 --thresh gau --max_cycles 150 --xyz $GADFFDIR/data/t1x_val_reactant_hessian_100_noiserms0.03.h5
 uv run scripts/second_order_relaxation_pysiyphus.py --max_samples 80 --thresh gau --max_cycles 150 --xyz $GADFFDIR/data/t1x_val_reactant_hessian_100_noiserms0.05.h5
 
+# Zero-point energy
+uv run scripts/compute_zero_point_energy.py --thresh gau_tight --dft True --max_samples 80
+
 # Optional: equivariance test
 # uv run scripts/test_hessian_prediction.py
 ```

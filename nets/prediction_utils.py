@@ -12,6 +12,20 @@ Z_TO_ATOM_SYMBOL = {
 }
 
 
+def onehot_convert(atomic_numbers, device):
+    """
+    Convert a list of atomic numbers into an one-hot matrix
+    """
+    encoder = {
+        1: [1, 0, 0, 0, 0],
+        6: [0, 1, 0, 0, 0],
+        7: [0, 0, 1, 0, 0],
+        8: [0, 0, 0, 1, 0],
+    }
+    onehot = [encoder[i] for i in atomic_numbers]
+    return torch.tensor(onehot, dtype=torch.int64, device=device)
+
+
 def remove_mean_batch(x, indices):
     mean = scatter_mean(x, indices, dim=0)
     x = x - mean[indices]
@@ -31,13 +45,14 @@ def compute_extra_props(batch, pos_require_grad=True):
         batch.z = GLOBAL_ATOM_NUMBERS.to(device)[indices.to(device)]
     elif hasattr(batch, "z"):
         batch.z = batch.z.to(device)
+        batch.one_hot = onehot_convert(batch.z.tolist(), device)
     else:
         raise ValueError("batch has no one_hot or z attribute")
     batch.pos = remove_mean_batch(batch.pos, batch.batch)
-    # atomization energy. shape used by equiformerv2
-    if not hasattr(batch, "ae"):
-        if hasattr(batch, "energy"):
-            batch.ae = batch.energy.clone()
+    # # atomization energy. shape used by equiformerv2
+    # if not hasattr(batch, "ae"):
+    #     if hasattr(batch, "energy"):
+    #         batch.ae = batch.energy.clone()
     if pos_require_grad:
         batch.pos.requires_grad_(True)
     return batch

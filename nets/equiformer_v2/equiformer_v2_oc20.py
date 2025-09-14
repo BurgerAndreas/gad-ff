@@ -209,7 +209,32 @@ class EquiformerV2_OC20(BaseModel):
         symmetric_edges=False,
         hessian_no_attn_weights=False,  # messages without attention weights
         attn_wo_sigmoid=False,  # do not apply sigmoid to attention weights
-        name=None,  # not used
+        # not used, for compatibilit with old  with legacy ckpt
+        name=None,
+        num_targets=None,
+        output_dim=None,
+        readout=None,
+        direct_forces=None,
+        eps=None,
+        hidden_channels=None,
+        cutoff=None,
+        pos_require_grad=None,
+        num_radial=None,
+        use_sigmoid=None,
+        head=None,
+        a=None,
+        b=None,
+        main_chi1=None,
+        mp_chi1=None,
+        chi2=None,
+        hidden_channels_chi=None,
+        has_dropout_flag=None,
+        has_norm_before_flag=None,
+        has_norm_after_flag=None,
+        reduce_mode=None,
+        compute_forces=None,
+        compute_stress=None,
+        device=None,
     ):
         super().__init__()
 
@@ -219,6 +244,10 @@ class EquiformerV2_OC20(BaseModel):
         self.max_neighbors = max_neighbors
         self.max_radius = max_radius
         self.cutoff = max_radius
+        if cutoff is not None:
+            print(
+                f"{self.__class__.__name__}: got cutoff {cutoff} and radius {max_radius}"
+            )
         self.max_num_elements = max_num_elements
 
         self.num_layers = num_layers
