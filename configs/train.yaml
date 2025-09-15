@@ -4,7 +4,7 @@ defaults:
   - _self_
   - lr: step10
   - trgt: hessian
-  - preset: blank
+  - preset: luca8mae
   - experiment: hesspred_alldata
   - gpu: single
 
@@ -29,13 +29,6 @@ training:
   use_clip_gradnorm_queue: true
   gradient_clip_val: 0.1
   gradient_clip_algorithm: "norm"
-  # EMA configuration using PyTorch's AveragedModel
-  ema:
-    enabled: false
-    decay: 0.999               # EMA decay factor (higher = slower EMA updates)
-    validate_with_ema: true    # Use EMA weights during validation
-    save_ema_state: true       # Save EMA state in checkpoints
-    use_buffers: true          # Apply EMA to model buffers (BatchNorm stats, etc.)
 
   # horm used: loss = floss * 100 + eloss * 4 + hessian_loss * 4
   hessian_loss_weight: 1.0

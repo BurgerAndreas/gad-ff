@@ -22,7 +22,7 @@ from ocpmodels.preprocessing import AtomsToGraphs
 from ase.calculators.calculator import Calculator
 from ase import Atoms
 
-from gadff.horm.training_module import PotentialModule, compute_extra_props
+from gadff.training_module import PotentialModule, compute_extra_props
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.path_config import fix_dataset_path
 from ocpmodels.hessian_graph_transform import HessianGraphTransform, FOLLOW_BATCH
@@ -84,7 +84,6 @@ def get_model_and_dataloader_for_hessian_prediction(
     with open(config_path, "r") as file:
         config = yaml.safe_load(file)
     model_config = config["model"]
-    model_config["do_hessian"] = True
     model_config["otf_graph"] = False
     model = EquiformerV2_OC20(**model_config)
     # Checkpoint

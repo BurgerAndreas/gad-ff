@@ -12,7 +12,7 @@ from pathlib import Path
 import os
 from collections import defaultdict
 
-from gadff.horm.training_module import PotentialModule, compute_extra_props
+from gadff.training_module import PotentialModule, compute_extra_props
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.path_config import fix_dataset_path
 from ocpmodels.hessian_graph_transform import HessianGraphTransform, FOLLOW_BATCH

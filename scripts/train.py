@@ -22,6 +22,7 @@ try:
         LearningRateMonitor,
     )
     from pytorch_lightning.loggers import WandbLogger
+    import pytorch_lightning as pl
 except ImportError:
     from lightning.callbacks import (
         TQDMProgressBar,
@@ -30,12 +31,11 @@ except ImportError:
         LearningRateMonitor,
     )
     from lightning.loggers import WandbLogger
-
-from gadff.training_module_eigen import EigenPotentialModule, MyPLTrainer
-from gadff.training_module_hessian import HessianPotentialModule
+    import pytorch_lightning as pl
+    
+from gadff.training_module import PotentialModule
 from gadff.path_config import CHECKPOINT_PATH_EQUIFORMER_HORM
 from gadff.logging_utils import name_from_config, find_latest_checkpoint
-from gadff.ema_callback import EMACallback
 
 
 def setup_training(cfg: DictConfig):
@@ -162,19 +162,6 @@ def setup_training(cfg: DictConfig):
         )
         callbacks.append(checkpoint_callback)
 
-    # Add EMA callback if enabled
-    if cfg.training.ema.get("enabled", False):
-        ema_callback = EMACallback(
-            decay=cfg.training.ema.get("decay", 0.999),
-            validate_with_ema=cfg.training.ema.get("validate_with_ema", True),
-            save_ema_state=cfg.training.ema.get("save_ema_state", True),
-            use_buffers=cfg.training.ema.get("use_buffers", True),
-        )
-        callbacks.append(ema_callback)
-        print(
-            f"Added EMA callback with decay={ema_callback.decay}, use_buffers={ema_callback.use_buffers}"
-        )
-
     wandb_kwargs = {}
     if not cfg.use_wandb:
         wandb_kwargs["mode"] = "disabled"
@@ -218,8 +205,7 @@ def setup_training(cfg: DictConfig):
     )
 
     print("Initializing trainer")
-    # trainer = pl.Trainer(
-    trainer = MyPLTrainer(
+    trainer = pl.Trainer(
         devices=cfg.pltrainer.devices,
         num_nodes=cfg.pltrainer.num_nodes,
         accelerator=cfg.pltrainer.accelerator,

@@ -242,9 +242,6 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
         return_attn_messages=False,
         return_raw_messages=False,  # no attention weights
         attn_wo_sigmoid=False,  # do not apply sigmoid to attention weights
-        # message node_i->node_j = message node_j->node_i
-        symmetric_messages=False,
-        symmetric_edges=False,
     ):
         """
         x: SO3_Embedding (N, L, C)
@@ -265,13 +262,9 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
             source_embedding = self.source_embedding(source_element)
             target_embedding = self.target_embedding(target_element)
             # (E, num_edge_features + 2 * num_atom_embedding_features)
-            if symmetric_edges:
-                avg_embedding = (source_embedding + target_embedding) / 2
-                x_edge = torch.cat((edge_distance, avg_embedding, avg_embedding), dim=1)
-            else:
-                x_edge = torch.cat(
-                    (edge_distance, source_embedding, target_embedding), dim=1
-                )
+            x_edge = torch.cat(
+                (edge_distance, source_embedding, target_embedding), dim=1
+            )
         else:
             # Do not use atomic embedding for edge scalar features
             # just use relative distance
@@ -284,20 +277,9 @@ class SO2EquivariantGraphAttention(torch.nn.Module):
         x_target._expand_edge(edge_index[1, :])
 
         # Message data is the embeddings of the nodes connected by the edge
-        if symmetric_messages:
-            avg_embedding = (x_source.embedding + x_target.embedding) / 2
-            x_message_data = torch.cat(
-                (avg_embedding, avg_embedding), dim=2
-            )  # (E, L, 2*C)
-            # # symmetric aggregation
-            # x_message_data = torch.cat([
-            #     x_source.embedding + x_target.embedding,  # symmetric sum
-            #     x_source.embedding * x_target.embedding,  # symmetric product
-            # ], dim=2)
-        else:
-            x_message_data = torch.cat(
-                (x_source.embedding, x_target.embedding), dim=2
-            )  # (E, L, 2*C)
+        x_message_data = torch.cat(
+            (x_source.embedding, x_target.embedding), dim=2
+        )  # (E, L, 2*C)
         x_message = SO3_Embedding(
             0,
             x_target.lmax_list.copy(),

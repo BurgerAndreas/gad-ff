@@ -347,7 +347,7 @@ def test_hessian_utils():
     import time
     from torch_geometric.loader import DataLoader as TGDataLoader
     from gadff.path_config import find_project_root
-    from gadff.horm.training_module import PotentialModule, compute_extra_props
+    from gadff.training_module import PotentialModule, compute_extra_props
     from gadff.horm.ff_lmdb import LmdbDataset
 
     batch_size = 2

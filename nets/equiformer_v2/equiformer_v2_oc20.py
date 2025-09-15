@@ -41,7 +41,7 @@ from .so3 import (
     SO3_LinearV2,
 )
 from .module_list import ModuleListInfo
-from .so2_ops import SO2_Convolution
+# from .so2_ops import SO2_Convolution
 from .radial_function import RadialFunction
 from .layer_norm import (
     EquivariantLayerNormArray,
@@ -59,7 +59,6 @@ from .input_block import EdgeDegreeEmbedding
 from .hessian_pred_utils import (
     add_extra_props_for_hessian,
     predict_hessian_1d_fast,
-    predict_hessian_blockdiagonal_robust,
 )
 
 # Statistics of IS2RE 100K
@@ -187,16 +186,9 @@ class EquiformerV2_OC20(BaseModel):
         drop_path_rate=0.05,
         proj_drop=0.0,
         weight_init="normal",
-        # added for eigenvalue/eigenvector prediction
-        do_eigvec_1=False,
-        do_eigvec_2=False,
-        do_eigval_1=False,
-        do_eigval_2=False,
         # added for hessian prediction
-        do_hessian=False,
         hessian_alpha_drop=0.0,
         num_layers_hessian=0,
-        hessian_build_method="1d",  # blockdiagonal, 1d
         num_gaussians_distance_hessian=600,
         share_atom_edge_embedding_hessian=False,
         # if to also use atom type embedding or just relative distances for edge features
@@ -205,36 +197,9 @@ class EquiformerV2_OC20(BaseModel):
         reuse_source_target_embedding_hessian=True,
         reinit_edge_degree_embedding_hessian=False,
         cutoff_hessian=100.0,
-        symmetric_messages=True,  # TODO: deprecated. only needed for legacy ckpt
         symmetric_edges=False,
         hessian_no_attn_weights=False,  # messages without attention weights
         attn_wo_sigmoid=False,  # do not apply sigmoid to attention weights
-        # not used, for compatibilit with old  with legacy ckpt
-        name=None,
-        num_targets=None,
-        output_dim=None,
-        readout=None,
-        direct_forces=None,
-        eps=None,
-        hidden_channels=None,
-        cutoff=None,
-        pos_require_grad=None,
-        num_radial=None,
-        use_sigmoid=None,
-        head=None,
-        a=None,
-        b=None,
-        main_chi1=None,
-        mp_chi1=None,
-        chi2=None,
-        hidden_channels_chi=None,
-        has_dropout_flag=None,
-        has_norm_before_flag=None,
-        has_norm_after_flag=None,
-        reduce_mode=None,
-        compute_forces=None,
-        compute_stress=None,
-        device=None,
     ):
         super().__init__()
 
@@ -244,10 +209,6 @@ class EquiformerV2_OC20(BaseModel):
         self.max_neighbors = max_neighbors
         self.max_radius = max_radius
         self.cutoff = max_radius
-        if cutoff is not None:
-            print(
-                f"{self.__class__.__name__}: got cutoff {cutoff} and radius {max_radius}"
-            )
         self.max_num_elements = max_num_elements
 
         self.num_layers = num_layers
@@ -291,8 +252,6 @@ class EquiformerV2_OC20(BaseModel):
         self.drop_path_rate = drop_path_rate
         self.proj_drop = proj_drop
         self.hessian_alpha_drop = hessian_alpha_drop
-        self.symmetric_messages = symmetric_messages
-        self.symmetric_edges = symmetric_edges
         self.hessian_no_attn_weights = hessian_no_attn_weights
         self.attn_wo_sigmoid = attn_wo_sigmoid
 
@@ -454,290 +413,181 @@ class EquiformerV2_OC20(BaseModel):
                 alpha_drop=0.0,
             )
 
-        ################################################################
-        # Add extra heads for eigenvalue/eigenvector prediction
-        ################################################################
-        # Eigenvectors are vectors (degree 1) like forces
-        # we will just use the same architecture as the force head
-        if do_eigvec_1:
-            print(f"{self.__class__.__name__}: Adding eigvec_1_head")
-            self.eigvec_1_head = SO2EquivariantGraphAttention(
-                self.sphere_channels,
-                self.attn_hidden_channels,
-                self.num_heads,
-                self.attn_alpha_channels,
-                self.attn_value_channels,
-                1,
-                self.lmax_list,
-                self.mmax_list,
-                self.SO3_rotation,
-                self.mappingReduced,
-                self.SO3_grid,
-                self.max_num_elements,
-                self.edge_channels_list,
-                self.block_use_atom_edge_embedding,
-                self.use_m_share_rad,
-                self.attn_activation,
-                self.use_s2_act_attn,
-                self.use_attn_renorm,
-                self.use_gate_act,
-                self.use_sep_s2_act,
-                alpha_drop=0.0,
-            )
-        else:
-            self.eigvec_1_head = None
-        if do_eigvec_2:
-            print(f"{self.__class__.__name__}: Adding eigvec_2_head")
-            self.eigvec_2_head = SO2EquivariantGraphAttention(
-                self.sphere_channels,
-                self.attn_hidden_channels,
-                self.num_heads,
-                self.attn_alpha_channels,
-                self.attn_value_channels,
-                1,
-                self.lmax_list,
-                self.mmax_list,
-                self.SO3_rotation,
-                self.mappingReduced,
-                self.SO3_grid,
-                self.max_num_elements,
-                self.edge_channels_list,
-                self.block_use_atom_edge_embedding,
-                self.use_m_share_rad,
-                self.attn_activation,
-                self.use_s2_act_attn,
-                self.use_attn_renorm,
-                self.use_gate_act,
-                self.use_sep_s2_act,
-                alpha_drop=0.0,
-            )
-        else:
-            self.eigvec_2_head = None
-
-        # eigenvalues are scalars (degree 0) like energy
-        # we will just use the same architecture as the energy head
-        if do_eigval_1:
-            print(f"{self.__class__.__name__}: Adding eigval_1_head")
-            self.eigval_1_head = FeedForwardNetwork(
-                self.sphere_channels,
-                self.ffn_hidden_channels,
-                1,
-                self.lmax_list,
-                self.mmax_list,
-                self.SO3_grid,
-                self.ffn_activation,
-                self.use_gate_act,
-                self.use_grid_mlp,
-                self.use_sep_s2_act,
-            )
-        else:
-            self.eigval_1_head = None
-        if do_eigval_2:
-            print(f"{self.__class__.__name__}: Adding eigval_2_head")
-            self.eigval_2_head = FeedForwardNetwork(
-                self.sphere_channels,
-                self.ffn_hidden_channels,
-                1,
-                self.lmax_list,
-                self.mmax_list,
-                self.SO3_grid,
-                self.ffn_activation,
-                self.use_gate_act,
-                self.use_grid_mlp,
-                self.use_sep_s2_act,
-            )
-        else:
-            self.eigval_2_head = None
-
-        self.do_hessian = do_hessian
+        ###########################################
+        # Hessian prediction
+        ###########################################
         self.cutoff_hessian = cutoff_hessian
         self.hessian_module_list = []
-        if do_hessian:
-            # if to also use atom type embedding or just relative distances for edge features
-            # in edge_distance
-            self.use_atom_edge_embedding_hessian = use_atom_edge_embedding_hessian
-            # if False, every transformer block has their own atom type embedding (default True)
-            self.share_atom_edge_embedding_hessian = share_atom_edge_embedding_hessian
-            if self.share_atom_edge_embedding_hessian:
-                assert self.use_atom_edge_embedding_hessian
-                self.block_use_atom_edge_embedding_hessian = False
+        # if to also use atom type embedding or just relative distances for edge features
+        # in edge_distance
+        self.use_atom_edge_embedding_hessian = use_atom_edge_embedding_hessian
+        # if False, every transformer block has their own atom type embedding (default True)
+        self.share_atom_edge_embedding_hessian = share_atom_edge_embedding_hessian
+        if self.share_atom_edge_embedding_hessian:
+            assert self.use_atom_edge_embedding_hessian
+            self.block_use_atom_edge_embedding_hessian = False
+        else:
+            # True in HORM
+            # every transformer block will create their own atom number embedding
+            self.block_use_atom_edge_embedding_hessian = (
+                self.use_atom_edge_embedding_hessian
+            )
+
+        # Initialize the module that compute WignerD matrices and other values for spherical harmonic calculations
+        self.SO3_rotation_hessian = torch.nn.ModuleList()
+        for i in range(self.num_resolutions):
+            self.SO3_rotation_hessian.append(SO3_Rotation(self.lmax_list[i]))
+        # self.hessian_module_list.append("SO3_rotation_hessian") # no trainable parameters
+
+        self.num_gaussians_distance_hessian = num_gaussians_distance_hessian
+        self.distance_expansion_hessian = GaussianSmearing(
+            start=0.0,
+            stop=self.cutoff_hessian,
+            num_gaussians=self.num_gaussians_distance_hessian,  # 600,
+            basis_width_scalar=2.0,
+        )
+        # self.hessian_module_list.append("distance_expansion_hessian") # no trainable parameters
+
+        # Initialize the sizes of radial functions (input channels and 2 hidden channels)
+        self.edge_channels_list_hessian = [
+            int(self.distance_expansion_hessian.num_output)
+        ] + [self.edge_channels] * 2
+
+        self.reuse_source_target_embedding_hessian = (
+            reuse_source_target_embedding_hessian
+        )
+        if reuse_source_target_embedding_hessian:
+            # if we are using the same embedding modules
+            # make sure we use the same embedding settings as the backbone
+            assert (
+                self.share_atom_edge_embedding_hessian == self.share_atom_edge_embedding
+            )
+            assert self.use_atom_edge_embedding_hessian == self.use_atom_edge_embedding
+            self.source_embedding_hessian = self.source_embedding
+            self.target_embedding_hessian = self.target_embedding
+        else:
+            # Initialize atom edge embedding
+            if (
+                self.share_atom_edge_embedding_hessian
+                and self.use_atom_edge_embedding_hessian
+            ):
+                self.source_embedding_hessian = torch.nn.Embedding(
+                    self.max_num_elements, self.edge_channels_list[-1]
+                )
+                self.target_embedding_hessian = torch.nn.Embedding(
+                    self.max_num_elements, self.edge_channels_list[-1]
+                )
+                self.edge_channels_list_hessian[0] = (
+                    self.edge_channels_list_hessian[0]
+                    + 2 * self.edge_channels_list_hessian[-1]
+                )
+                self.hessian_module_list.append("source_embedding_hessian")
+                self.hessian_module_list.append("target_embedding_hessian")
             else:
-                # True in HORM
-                # every transformer block will create their own atom number embedding
-                self.block_use_atom_edge_embedding_hessian = (
-                    self.use_atom_edge_embedding_hessian
+                self.source_embedding_hessian, self.target_embedding_hessian = (
+                    None,
+                    None,
                 )
 
-            # Initialize the module that compute WignerD matrices and other values for spherical harmonic calculations
-            self.SO3_rotation_hessian = torch.nn.ModuleList()
-            for i in range(self.num_resolutions):
-                self.SO3_rotation_hessian.append(SO3_Rotation(self.lmax_list[i]))
-            # self.hessian_module_list.append("SO3_rotation_hessian") # no trainable parameters
+        # TODO: rescale_factor=_AVG_DEGREE
+        # changed because we changed cutoff
 
-            self.num_gaussians_distance_hessian = num_gaussians_distance_hessian
-            self.distance_expansion_hessian = GaussianSmearing(
-                start=0.0,
-                stop=self.cutoff_hessian,
-                num_gaussians=self.num_gaussians_distance_hessian,  # 600,
-                basis_width_scalar=2.0,
-            )
-            # self.hessian_module_list.append("distance_expansion_hessian") # no trainable parameters
+        self.reinit_edge_degree_embedding_hessian = reinit_edge_degree_embedding_hessian
+        # only used if reinit_edge_degree_embedding_hessian is True
+        # Edge-degree embedding for initializing node features
+        self.edge_degree_embedding_hessian = EdgeDegreeEmbedding(
+            self.sphere_channels,
+            self.lmax_list,
+            self.mmax_list,
+            self.SO3_rotation_hessian,
+            self.mappingReduced,
+            self.max_num_elements,
+            self.edge_channels_list_hessian,
+            self.block_use_atom_edge_embedding_hessian,
+            rescale_factor=_AVG_DEGREE,
+        )
+        self.hessian_module_list.append("edge_degree_embedding_hessian")
 
-            # Initialize the sizes of radial functions (input channels and 2 hidden channels)
-            self.edge_channels_list_hessian = [
-                int(self.distance_expansion_hessian.num_output)
-            ] + [self.edge_channels] * 2
-
-            self.reuse_source_target_embedding_hessian = (
-                reuse_source_target_embedding_hessian
-            )
-            if reuse_source_target_embedding_hessian:
-                # if we are using the same embedding modules
-                # make sure we use the same embedding settings as the backbone
-                assert (
-                    self.share_atom_edge_embedding_hessian
-                    == self.share_atom_edge_embedding
-                )
-                assert (
-                    self.use_atom_edge_embedding_hessian == self.use_atom_edge_embedding
-                )
-                self.source_embedding_hessian = self.source_embedding
-                self.target_embedding_hessian = self.target_embedding
-            else:
-                # Initialize atom edge embedding
-                if (
-                    self.share_atom_edge_embedding_hessian
-                    and self.use_atom_edge_embedding_hessian
-                ):
-                    self.source_embedding_hessian = torch.nn.Embedding(
-                        self.max_num_elements, self.edge_channels_list[-1]
-                    )
-                    self.target_embedding_hessian = torch.nn.Embedding(
-                        self.max_num_elements, self.edge_channels_list[-1]
-                    )
-                    self.edge_channels_list_hessian[0] = (
-                        self.edge_channels_list_hessian[0]
-                        + 2 * self.edge_channels_list_hessian[-1]
-                    )
-                    self.hessian_module_list.append("source_embedding_hessian")
-                    self.hessian_module_list.append("target_embedding_hessian")
-                else:
-                    self.source_embedding_hessian, self.target_embedding_hessian = (
-                        None,
-                        None,
-                    )
-
-            # TODO: rescale_factor=_AVG_DEGREE
-            # changed because we changed cutoff
-
-            self.reinit_edge_degree_embedding_hessian = (
-                reinit_edge_degree_embedding_hessian
-            )
-            # only used if reinit_edge_degree_embedding_hessian is True
-            # Edge-degree embedding for initializing node features
-            self.edge_degree_embedding_hessian = EdgeDegreeEmbedding(
+        self.hessian_module_list += [
+            "hessian_layers",
+            "hessian_head",
+            "hessian_edge_message_proj",
+            "hessian_node_proj",
+        ]
+        # Initialize the blocks for each layer of EquiformerV2
+        self.hessian_layers = torch.nn.ModuleList()
+        self.num_layers_hessian = num_layers_hessian
+        for i in range(self.num_layers_hessian):
+            hessian_block = TransBlockV2(
+                self.sphere_channels,
+                self.attn_hidden_channels,
+                self.num_heads,
+                self.attn_alpha_channels,
+                self.attn_value_channels,
+                self.ffn_hidden_channels,
                 self.sphere_channels,
                 self.lmax_list,
                 self.mmax_list,
                 self.SO3_rotation_hessian,
                 self.mappingReduced,
+                self.SO3_grid,
                 self.max_num_elements,
                 self.edge_channels_list_hessian,
                 self.block_use_atom_edge_embedding_hessian,
-                rescale_factor=_AVG_DEGREE,
+                self.use_m_share_rad,
+                self.attn_activation,
+                self.use_s2_act_attn,
+                self.use_attn_renorm,
+                self.ffn_activation,
+                self.use_gate_act,
+                self.use_grid_mlp,
+                self.use_sep_s2_act,
+                self.norm_type,
+                self.hessian_alpha_drop,
+                self.drop_path_rate,
+                self.proj_drop,
             )
-            self.hessian_module_list.append("edge_degree_embedding_hessian")
-
-            self.hessian_module_list += [
-                "hessian_layers",
-                "hessian_head",
-                "hessian_edge_message_proj",
-                "hessian_node_proj",
-            ]
-            # Initialize the blocks for each layer of EquiformerV2
-            self.hessian_layers = torch.nn.ModuleList()
-            self.num_layers_hessian = num_layers_hessian
-            for i in range(self.num_layers_hessian):
-                hessian_block = TransBlockV2(
-                    self.sphere_channels,
-                    self.attn_hidden_channels,
-                    self.num_heads,
-                    self.attn_alpha_channels,
-                    self.attn_value_channels,
-                    self.ffn_hidden_channels,
-                    self.sphere_channels,
-                    self.lmax_list,
-                    self.mmax_list,
-                    self.SO3_rotation_hessian,
-                    self.mappingReduced,
-                    self.SO3_grid,
-                    self.max_num_elements,
-                    self.edge_channels_list_hessian,
-                    self.block_use_atom_edge_embedding_hessian,
-                    self.use_m_share_rad,
-                    self.attn_activation,
-                    self.use_s2_act_attn,
-                    self.use_attn_renorm,
-                    self.ffn_activation,
-                    self.use_gate_act,
-                    self.use_grid_mlp,
-                    self.use_sep_s2_act,
-                    self.norm_type,
-                    self.hessian_alpha_drop,
-                    self.drop_path_rate,
-                    self.proj_drop,
-                )
-                self.hessian_layers.append(hessian_block)
-            # copied from force prediction head
-            self.hessian_head = SO2EquivariantGraphAttention(
-                sphere_channels=self.sphere_channels,
-                hidden_channels=self.attn_hidden_channels,
-                num_heads=self.num_heads,
-                attn_alpha_channels=self.attn_alpha_channels,
-                attn_value_channels=self.attn_value_channels,
-                # different output_channels affects the linear projection after aggregating the messages
-                # not relevant for us
-                output_channels=1,  # self.sphere_channels
-                lmax_list=self.lmax_list,
-                mmax_list=self.mmax_list,
-                SO3_rotation=self.SO3_rotation_hessian,
-                mappingReduced=self.mappingReduced,
-                SO3_grid=self.SO3_grid,
-                max_num_elements=self.max_num_elements,
-                edge_channels_list=self.edge_channels_list_hessian,
-                # Whether to use atomic embedding for edge scalar features
-                # or just relative distance
-                # different: use_atom_edge_embedding vs block_use_atom_edge_embedding
-                use_atom_edge_embedding=self.block_use_atom_edge_embedding_hessian,
-                use_m_share_rad=self.use_m_share_rad,
-                activation=self.attn_activation,
-                use_s2_act_attn=self.use_s2_act_attn,  # ?
-                use_attn_renorm=self.use_attn_renorm,  # True
-                use_gate_act=self.use_gate_act,  # False -> use S2 activation
-                use_sep_s2_act=self.use_sep_s2_act,  # True -> use Separable S2 activation
-                alpha_drop=self.hessian_alpha_drop,
-            )
-            self.hessian_edge_message_proj = SO3_LinearV2(
-                in_features=self.num_heads * self.attn_value_channels,
-                out_features=1,
-                lmax=2,
-            )
-            self.hessian_node_proj = SO3_LinearV2(
-                in_features=self.sphere_channels,
-                out_features=1,
-                lmax=2,
-            )
-        else:
-            self.hessian_head = None
-        self.hessian_build_method = hessian_build_method
-        if self.hessian_build_method == "1d":
-            self._get_hessian_from_features = predict_hessian_1d_fast
-        elif self.hessian_build_method == "blockdiagonal":
-            self._get_hessian_from_features = predict_hessian_blockdiagonal_robust
-        else:
-            raise ValueError(
-                f"Invalid hessian build method: {self.hessian_build_method}"
-            )
+            self.hessian_layers.append(hessian_block)
+        # copied from force prediction head
+        self.hessian_head = SO2EquivariantGraphAttention(
+            sphere_channels=self.sphere_channels,
+            hidden_channels=self.attn_hidden_channels,
+            num_heads=self.num_heads,
+            attn_alpha_channels=self.attn_alpha_channels,
+            attn_value_channels=self.attn_value_channels,
+            # different output_channels affects the linear projection after aggregating the messages
+            # not relevant for us
+            output_channels=1,  # self.sphere_channels
+            lmax_list=self.lmax_list,
+            mmax_list=self.mmax_list,
+            SO3_rotation=self.SO3_rotation_hessian,
+            mappingReduced=self.mappingReduced,
+            SO3_grid=self.SO3_grid,
+            max_num_elements=self.max_num_elements,
+            edge_channels_list=self.edge_channels_list_hessian,
+            # Whether to use atomic embedding for edge scalar features
+            # or just relative distance
+            # different: use_atom_edge_embedding vs block_use_atom_edge_embedding
+            use_atom_edge_embedding=self.block_use_atom_edge_embedding_hessian,
+            use_m_share_rad=self.use_m_share_rad,
+            activation=self.attn_activation,
+            use_s2_act_attn=self.use_s2_act_attn,  # ?
+            use_attn_renorm=self.use_attn_renorm,  # True
+            use_gate_act=self.use_gate_act,  # False -> use S2 activation
+            use_sep_s2_act=self.use_sep_s2_act,  # True -> use Separable S2 activation
+            alpha_drop=self.hessian_alpha_drop,
+        )
+        self.hessian_edge_message_proj = SO3_LinearV2(
+            in_features=self.num_heads * self.attn_value_channels,
+            out_features=1,
+            lmax=2,
+        )
+        self.hessian_node_proj = SO3_LinearV2(
+            in_features=self.sphere_channels,
+            out_features=1,
+            lmax=2,
+        )
+        self._get_hessian_from_features = predict_hessian_1d_fast
 
         self.apply(self._init_weights)
         self.apply(self._uniform_init_rad_func_linear_weights)
@@ -910,7 +760,7 @@ class EquiformerV2_OC20(BaseModel):
         if hasattr(data, "edge_index") and (data.edge_index is not None):
             # it only matters if we are doing hessian prediction
             # if we pass otf_graph=True we want to do autograd (no hessian prediction)
-            if self.do_hessian and (otf_graph is None):
+            if (otf_graph is None):
                 assert torch.allclose(edge_index, data.edge_index), (
                     "To fix this: model.otf_graph=False"
                 )
@@ -1015,41 +865,12 @@ class EquiformerV2_OC20(BaseModel):
         forces = forces.embedding.narrow(1, 1, 3)
         forces = forces.view(-1, 3)
 
-        ###############################################################
-        # Eigenvalue/eigenvector estimation
-        ###############################################################
         outputs = {}
-        if eigen:
-            if self.eigval_1_head is not None:
-                node_eigval_1 = self.eigval_1_head(x)
-                eigval_1 = get_scalar_from_embedding(node_eigval_1, data)
-                outputs["eigval_1"] = eigval_1
-            if self.eigval_2_head is not None:
-                node_eigval_2 = self.eigval_2_head(x)
-                eigval_2 = get_scalar_from_embedding(node_eigval_2, data)
-                outputs["eigval_2"] = eigval_2
-            if self.eigvec_1_head is not None:
-                eigvec_1 = self.eigvec_1_head(
-                    x, atomic_numbers, edge_distance, edge_index
-                )
-                eigvec_1 = eigvec_1.embedding.narrow(1, 1, 3)
-                eigvec_1 = eigvec_1.view(-1, 3)
-                outputs["eigvec_1"] = eigvec_1
-            if self.eigvec_2_head is not None:
-                eigvec_2 = self.eigvec_2_head(
-                    x, atomic_numbers, edge_distance, edge_index
-                )
-                eigvec_2 = eigvec_2.embedding.narrow(1, 1, 3)
-                eigvec_2 = eigvec_2.view(-1, 3)
-                outputs["eigvec_2"] = eigvec_2
 
         ###############################################################
         # Hessian estimation
         ###############################################################
         if hessian:
-            assert self.do_hessian, (
-                f"do_hessian is {self.do_hessian} but hessian is {hessian}. Are you sure you loaded the right config?"
-            )
             # we are going to use a different graph here
             # with a bigger cutoff radius
             # graph = edge_distance, edge_index
@@ -1117,9 +938,6 @@ class EquiformerV2_OC20(BaseModel):
                 return_raw_messages=self.hessian_no_attn_weights,  # messages without attention weights
                 return_attn_messages=True,
                 attn_wo_sigmoid=self.attn_wo_sigmoid,
-                # deprecated
-                symmetric_messages=self.symmetric_messages,
-                symmetric_edges=self.symmetric_edges,
             )
             # select l0, l1, l2 features
             l012_message_emb = x_message.embedding.narrow(

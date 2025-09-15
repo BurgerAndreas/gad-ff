@@ -1,6 +1,5 @@
 import torch
 import torch.nn.functional as F
-from functools import partial
 from collections.abc import Iterable
 
 
@@ -8,6 +7,15 @@ def tensor_info(t):
     if not isinstance(t, torch.Tensor):
         return f"{type(t)}"
     return f"{list(t.shape)} {int(t.numel())} {t.dtype}"
+
+
+def get_hessian_loss_fn(loss_name: str, **kwargs):
+    if loss_name == "eigenspectrum":
+        return BatchHessianLoss(eigenspectrum_loss, **kwargs)
+    elif loss_name.lower() in ["mse", "l2"]:
+        return torch.nn.MSELoss()  # F.mse_loss
+    else:
+        raise ValueError(f"Invalid loss name: {loss_name}")
 
 
 ##############################################################################
@@ -53,58 +61,6 @@ def compute_loss_blockdiagonal_hessian(pred_hessian, true_hessian, loss_fn, data
     # all other (non-visited) entries should be zero
     assert torch.allclose(pred_hessian * test_mask, torch.zeros_like(pred_hessian))
     return loss
-
-
-##############################################################################
-# predicting eigenvalues and eigenvectors
-
-
-def get_vector_loss_fn(loss_name: str):
-    if loss_name == "cosine_squared":
-        return BatchVectorLoss(cosine_squared_loss)
-    elif loss_name == "angle":
-        return BatchVectorLoss(L_ang_loss)
-    elif loss_name == "cosine":
-        return BatchVectorLoss(cosine_loss)
-    elif loss_name == "min_l2":
-        return BatchVectorLoss(min_l2_loss)
-    elif loss_name == "min_l1":
-        return BatchVectorLoss(min_l1_loss)
-    else:
-        raise ValueError(f"Invalid loss name: {loss_name}")
-
-
-def get_vector_similarity_fn(loss_name: str):
-    if loss_name == "cosine":
-        return BatchVectorLoss(cosine_similarity)
-    elif loss_name == "abs_cosine":
-        return BatchVectorLoss(abs_cosine_similarity)
-    elif loss_name == "dot":
-        return BatchVectorLoss(dot_similarity)
-    else:
-        raise ValueError(f"Invalid loss name: {loss_name}")
-
-
-def get_hessian_loss_fn(loss_name: str, **kwargs):
-    if loss_name == "eigenspectrum":
-        return BatchHessianLoss(eigenspectrum_loss, **kwargs)
-    elif loss_name.lower() in ["mse", "l2"]:
-        return torch.nn.MSELoss()  # F.mse_loss
-    else:
-        raise ValueError(f"Invalid loss name: {loss_name}")
-
-
-def get_scalar_loss_fn(loss_name: str, **kwargs):
-    if loss_name == "log_mse":
-        return log_mse_loss
-    elif loss_name == "huber":
-        return HuberLoss(**kwargs)
-    elif loss_name.lower() in ["mae", "l1"]:
-        return F.l1_loss
-    elif loss_name.lower() in ["mse", "l2"]:
-        return F.mse_loss
-    else:
-        raise ValueError(f"Invalid loss name: {loss_name}")
 
 
 ##############################################################################
@@ -184,136 +140,6 @@ def cosine_squared_loss(
     return 1.0 - (abs_cosine_similarity(v_pred, v_true) ** 2)
 
 
-def min_l2_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-    """Minimum L2 (MSE) loss between pred vs target and pred vs -target"""
-    pred = pred.reshape(-1)
-    target = target.reshape(-1)
-    # normalize to unit vectors
-    pred = pred / torch.norm(pred)
-    target = target / torch.norm(target)
-    loss_pos = torch.mean((pred - target) ** 2)
-    loss_neg = torch.mean((pred + target) ** 2)
-    return torch.min(loss_pos, loss_neg)
-
-
-def min_l1_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-    """Minimum L1 (MAE) loss between pred vs target and pred vs -target"""
-    # eigenvectors are in N*3 space
-    pred = pred.reshape(-1)
-    target = target.reshape(-1)
-    # normalize to unit vectors
-    pred = pred / torch.norm(pred)
-    target = target / torch.norm(target)
-    loss_pos = torch.mean(torch.abs(pred - target))
-    loss_neg = torch.mean(torch.abs(pred + target))
-    return torch.min(loss_pos, loss_neg)
-
-
-def L_ang_loss(
-    pred: torch.Tensor,
-    target: torch.Tensor,
-    eps: float = 1e-8,
-) -> torch.Tensor:
-    """
-    Squared angle loss, sign-invariant:
-    L = arccos(|pred/|pred| · target/|target||)^2
-    """
-    # eigenvectors are in N*3 space
-    pred = pred.reshape(-1)
-    target = target.reshape(-1)
-    # normalize to unit vectors
-    pred = pred / torch.norm(pred)
-    target = target / torch.norm(target)
-    # dot product
-    dots = torch.sum(pred * target).abs()
-    # clamp for numeric stability
-    dots = dots.clamp(-1.0 + eps, 1.0 - eps)
-    # squared arccosine
-    ang = torch.acos(dots)
-    return ang.pow(2)
-
-
-##############################################################################
-# scalar losses
-def log_mse_loss(
-    pred: torch.Tensor,
-    target: torch.Tensor,
-    epsilon: float = 1e-6,
-) -> torch.Tensor:
-    """
-    Compute the log-mean-squared-error:
-        mean( (log(|pred| + ε) - log(|target| + ε))^2 )
-
-    Supports pred/target of shape (B,), (B,1) or scalar ().
-    """
-    # squeeze any singleton trailing dimension
-    if pred.dim() > 1 and pred.size(-1) == 1:
-        pred = pred.squeeze(-1)
-    if target.dim() > 1 and target.size(-1) == 1:
-        target = target.squeeze(-1)
-
-    # now pred and target should be same shape: either (B,) or ()
-    if pred.shape != target.shape:
-        raise ValueError(f"shape mismatch: pred {pred.shape}, target {target.shape}")
-
-    lp = torch.log(torch.abs(pred) + epsilon)
-    lt = torch.log(torch.abs(target) + epsilon)
-    return torch.mean((lp - lt) ** 2)
-
-
-class HuberLoss(torch.nn.Module):
-    """
-    Huber Loss implementation for PyTorch.
-
-    Combines MSE for small errors and MAE for large errors.
-    Loss = 0.5 * (y_true - y_pred)^2                     if |y_true - y_pred| <= delta
-    Loss = delta * |y_true - y_pred| - 0.5 * delta^2    if |y_true - y_pred| > delta
-
-    Args:
-        delta (float): Threshold where loss transitions from quadratic to linear
-        reduction (str): 'mean', 'sum', or 'none'
-    """
-
-    def __init__(self, delta=1.0, reduction="mean"):
-        super(HuberLoss, self).__init__()
-        self.delta = delta
-        self.reduction = reduction
-
-    def forward(self, y_pred, y_true):
-        """
-        Args:
-            y_pred: Predictions of shape (B,) or (B, 1)
-            y_true: Ground truth of shape (B,) or (B, 1)
-
-        Returns:
-            loss: Scalar loss value (if reduction != 'none')
-        """
-        # Ensure both tensors have same shape
-        if y_pred.dim() != y_true.dim():
-            if y_pred.dim() == 2 and y_pred.size(1) == 1:
-                y_pred = y_pred.squeeze(1)
-            if y_true.dim() == 2 and y_true.size(1) == 1:
-                y_true = y_true.squeeze(1)
-
-        # Calculate absolute error
-        abs_error = torch.abs(y_true - y_pred)
-
-        # Huber loss calculation
-        quadratic = torch.min(
-            abs_error, torch.tensor(self.delta, device=abs_error.device)
-        )
-        linear = abs_error - quadratic
-
-        loss = 0.5 * quadratic.pow(2) + self.delta * linear
-
-        if self.reduction == "mean":
-            return loss.mean()
-        elif self.reduction == "sum":
-            return loss.sum()
-        else:
-            return loss
-
-
 ##############################################################################
 # Eigenspectrum losses that don't require to backprop through .eigh
 
@@ -340,16 +166,6 @@ def batch_hessian_loss(
     numels = data.natoms.pow(2).mul(9)
     ptr_hessian = torch.cat([torch.tensor([0], device=numels.device), numels], dim=0)
     ptr_hessian = torch.cumsum(ptr_hessian, dim=0)
-    total_numel = sum(numels)
-    # if hessian_pred.numel() != total_numel:
-    #     print(
-    #         f"{debugstr}\n hessian_pred numel {hessian_pred.numel()} != total_numel {total_numel}"
-    #     )
-    #     print(" numels:", numels)
-    #     print(" natoms:", natoms)
-    #     print(" hessian_pred:", tensor_info(hessian_pred))
-    #     print(" hessian_true:", tensor_info(hessian_true))
-    #     # return torch.tensor(0.0)
     hessian_pred = hessian_pred.view(-1)
     hessian_true = hessian_true.view(-1)
     losses = []
@@ -360,28 +176,6 @@ def batch_hessian_loss(
         _end = _numel + _start
         hessian_pred_b = hessian_pred[_start:_end]
         hessian_true_b = hessian_true[_start:_end]
-        # if hessian_pred_b.numel() != _numel:
-        #     print(f"Skipping!! {debugstr}")
-        #     print(" hessian_pred:", tensor_info(hessian_pred))
-        #     print(" hessian_true:", tensor_info(hessian_true))
-        #     print(" start, end", _start.item(), _end.item())
-        #     print(" numel", _numel)
-        #     print(" N", natoms[_b].item())
-        #     print(" B", B.item(), set(data.batch.tolist()))
-        #     continue
-        if mask_hessian:
-            # only regress the upper triangular part of the Hessian, including the diagonal
-            mask = (
-                torch.ones(
-                    (ND, ND),
-                    device=hessian_pred_b.device,
-                    dtype=torch.long,
-                )
-                .triu(diagonal=0)
-                .reshape_as(hessian_pred_b)
-            )
-            hessian_pred_b = hessian_pred_b[mask]
-            hessian_true_b = hessian_true_b[mask]
         loss_b = lossfn(
             hessian_pred=hessian_pred_b,
             hessian_true=hessian_true_b,
@@ -389,13 +183,6 @@ def batch_hessian_loss(
             **lossfn_kwargs,
         )
         losses.append(loss_b)
-    # if _end != hessian_pred.numel():
-    #     print(f"Missed or overshot entries: {debugstr}")
-    #     print(" hessian_pred:", tensor_info(hessian_pred))
-    #     print(" hessian_true:", tensor_info(hessian_true))
-    #     print(" start, end", _start.item(), _end.item())
-    #     print(" numel", _numel)
-    #     print(" N", natoms[_b].item())
     return torch.stack(losses).mean()
 
 
@@ -631,39 +418,12 @@ if __name__ == "__main__":
     )
 
     print(f"\nShould be the same:")
-    loss2 = L_ang_loss(v_pred, v_true)
-    print(f"L_ang_loss:                {loss2}")
-    loss2_flipped = L_ang_loss(v_pred, -v_true)
-    print(f"L_ang_loss (sign flipped): {loss2_flipped}")
-    print(
-        f"L_ang_loss (shape B, N*3): {L_ang_loss(v_pred.reshape(B, N * 3), v_true.reshape(B, N * 3))}"
-    )
-
-    print(f"\nShould be the same:")
     loss3 = cosine_loss(v_pred, v_true)
     print(f"_cosine_loss:                {loss3}")
     loss3_flipped = cosine_loss(v_pred, -v_true)
     print(f"_cosine_loss (sign flipped): {loss3_flipped}")
     print(
         f"_cosine_loss (shape B, N*3): {cosine_loss(v_pred.reshape(B, N * 3), v_true.reshape(B, N * 3))}"
-    )
-
-    print(f"\nShould be the same:")
-    loss4 = min_l2_loss(v_pred, v_true)
-    print(f"_min_l2_loss:                {loss4}")
-    loss4_flipped = min_l2_loss(v_pred, -v_true)
-    print(f"_min_l2_loss (sign flipped): {loss4_flipped}")
-    print(
-        f"_min_l2_loss (shape B, N*3): {min_l2_loss(v_pred.reshape(B, N * 3), v_true.reshape(B, N * 3))}"
-    )
-
-    print(f"\nShould be the same:")
-    loss5 = min_l1_loss(v_pred, v_true)
-    print(f"_min_l1_loss:                {loss5}")
-    loss5_flipped = min_l1_loss(v_pred, -v_true)
-    print(f"_min_l1_loss (sign flipped): {loss5_flipped}")
-    print(
-        f"_min_l1_loss (shape B, N*3): {min_l1_loss(v_pred.reshape(B, N * 3), v_true.reshape(B, N * 3))}"
     )
 
     ######################################################################
@@ -679,9 +439,6 @@ if __name__ == "__main__":
     y_true_2d = y_true_1d.unsqueeze(1)  # Shape: (B, 1)
     y_pred_2d = y_pred_1d.unsqueeze(1)  # Shape: (B, 1)
 
-    # Initialize Huber loss
-    huber_loss_fn = HuberLoss(delta=1.0, reduction="mean")
-
     print(f"\nComparison of scalar losses:")
     mse_loss_1d = F.mse_loss(y_pred_1d, y_true_1d)
     mse_loss_2d = F.mse_loss(y_pred_2d, y_true_2d)
@@ -691,12 +448,3 @@ if __name__ == "__main__":
     mae_loss_2d = F.l1_loss(y_pred_2d, y_true_2d)
     print(f"MAE Loss (1D): {mae_loss_1d.item():.4f}")
     print(f"MAE Loss (2D): {mae_loss_2d.item():.4f}")
-    loss_1d = huber_loss_fn(y_pred_1d, y_true_1d)
-    loss_2d = huber_loss_fn(y_pred_2d, y_true_2d)
-    print(f"Huber Loss (δ=1.0) (1D): {loss_1d.item():.4f}")
-    print(f"Huber Loss (δ=1.0) (2D): {loss_2d.item():.4f}")
-
-    loss6 = log_mse_loss(y_pred_1d, y_true_1d)
-    print(f"log_mse_loss (1D): {loss6.item():.4f}")
-    loss6_flipped = log_mse_loss(y_pred_2d, y_true_2d)
-    print(f"log_mse_loss (2D): {loss6_flipped.item():.4f}")

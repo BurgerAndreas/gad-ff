@@ -12,7 +12,7 @@ from torch_geometric.loader import DataLoader as TGDataLoader
 from alphanet.models.alphanet import AlphaNet
 from leftnet.model.leftnet import LEFTNet
 
-from gadff.horm.training_module import PotentialModule
+from gadff.training_module import PotentialModule
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.path_config import fix_dataset_path
 from nets.prediction_utils import compute_extra_props, Z_TO_ATOM_SYMBOL
@@ -120,7 +120,6 @@ def evaluate(
         torch.manual_seed(42)
         np.random.seed(42)
 
-        # if hessian_method == "predict" or model.do_hessian or model.otf_graph == False:
         if hessian_method == "predict":
             transform = HessianGraphTransform(
                 cutoff=model.cutoff,

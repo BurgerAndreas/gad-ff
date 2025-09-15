@@ -30,7 +30,8 @@ import torch
 
 # pysisyphus + Equiformer
 from pysisyphus.Geometry import Geometry
-from pysisyphus.optimizers.BFGS import BFGS
+
+# from pysisyphus.optimizers.BFGS import BFGS
 from pysisyphus.optimizers.RFOptimizer import RFOptimizer
 from pysisyphus.constants import BOHR2ANG, AU2EV
 from ReactBench.Calculators.equiformer import PysisEquiformer
@@ -40,18 +41,18 @@ from pysisyphus.calculators.PySCF import PySCF as PysisPySCF
 from gadff.t1x_dft_dataloader import Dataloader as T1xDFTDataloader
 from gadff.path_config import ROOT_DIR
 
-from gadff.frequency_analysis import analyze_frequencies, eckart_projection_notmw  # noqa: F401
+from gadff.frequency_analysis import eckart_projection_notmw
 from gadff.frequency_analysis import eigval_to_wavenumber
 
-from alphanet.models.alphanet import AlphaNet
-from leftnet.model.leftnet import LEFTNet
+from alphanet.models.alphanet import AlphaNet  # noqa: F401
+from leftnet.model.leftnet import LEFTNet  # noqa: F401
 
 # DFT (PySCF)
 from pyscf import dft, gto
 import scipy.constants as spc
 import pandas as pd
 
-from gadff.horm.training_module import PotentialModule
+from gadff.training_module import PotentialModule
 from ocpmodels.common.relaxation.ase_utils import (
     coord_atoms_to_torch_geometric_hessian,
 )
@@ -577,7 +578,9 @@ def print_zpe_latex_table(csv_path, ref_method="DFT", decimals=3):
 
     rows = []
     for hess_kind, model_name, method_value in row_specs:
-        sub = merged[(merged["method"] == method_value) & (merged["model"] == model_name)]
+        sub = merged[
+            (merged["method"] == method_value) & (merged["model"] == model_name)
+        ]
         if len(sub) == 0:
             zpe_err_str = "-"
         else:

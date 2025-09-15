@@ -1,9 +1,8 @@
 # @package _global_
 
-potential_module_class: "HessianPotentialModule"
+potential_module_class: "PotentialModule"
 
 model:
-  do_hessian: true
   # expressivity
   hessian_alpha_drop: 0.0
   num_layers_hessian: 1
@@ -18,7 +17,6 @@ model:
   cutoff_hessian: 100.0
   # graph
   otf_graph: false
-  hessian_build_method: "1d"
 
   symmetric_messages: False
   symmetric_edges: False

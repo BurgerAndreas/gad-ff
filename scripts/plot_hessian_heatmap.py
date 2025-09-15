@@ -12,7 +12,7 @@ from torch.utils.data import Subset
 from torch_geometric.loader import DataLoader as TGDataLoader
 import seaborn as sns
 
-from gadff.horm.training_module import PotentialModule, SchemaUniformDataset
+from gadff.training_module import PotentialModule, SchemaUniformDataset
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.path_config import fix_dataset_path
 from nets.prediction_utils import compute_extra_props
