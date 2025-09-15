@@ -6,7 +6,7 @@ model:
   proj_drop:                0.0
 
 training:
-  # train_heads_only: true
+  # only_train_hessian_head: true
   hessian_loss_type: "mae"
   eigen_loss:
     loss_name: "eigenspectrum"

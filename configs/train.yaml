@@ -38,7 +38,7 @@ training:
   hessian_loss_type: "mse"
   mask_hessian: false
 
-  train_heads_only: true
+  only_train_hessian_head: true
 
   # Checkpoint loading options
   load_weights_only: false  # If true, only load model weights, ignore training state (epoch, optimizer, etc.)

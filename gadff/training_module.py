@@ -222,12 +222,12 @@ class PotentialModule(LightningModule):
                 f"Invalid Hessian loss type: {self.model_config['hessian_loss_type']}"
             )
 
-        # Validation metrics
-        self.MSE = torch.nn.MSELoss()
-        self.MAE = torch.nn.L1Loss()
+        # # Validation metrics
+        # self.MSE = torch.nn.MSELoss()
+        # self.MAE = torch.nn.L1Loss()
 
+        # Eigenspectrum loss
         self.loss_fn_eigen = get_hessian_loss_fn(**training_config["eigen_loss"])
-
         _alpha = self.training_config["eigen_loss"]["alpha"]
         if isinstance(_alpha, Iterable) or (isinstance(_alpha, float) and _alpha > 0.0):
             self.do_eigen_loss = True
@@ -237,29 +237,6 @@ class PotentialModule(LightningModule):
             print("! Training without eigenvalue loss")
         self.log("train-do_eigen_loss", self.do_eigen_loss, rank_zero_only=True)
 
-        # loss from Hamiltonian prediction paper
-        self.test_loss_fn_wa2 = get_hessian_loss_fn(
-            loss_name="eigenspectrum",
-            k=2,
-            alpha=1.0,
-            loss_type="wa",
-        )
-        self.test_loss_fn_wa8 = get_hessian_loss_fn(
-            loss_name="eigenspectrum",
-            k=8,
-            alpha=1.0,
-            loss_type="wa",
-        )
-        # Luca's loss
-        self.test_loss_fn_eigen = get_hessian_loss_fn(
-            loss_name="eigenspectrum", k=None, alpha=1.0, loss_type="eigen"
-        )
-        self.test_loss_fn_eigen_k2 = get_hessian_loss_fn(
-            loss_name="eigenspectrum", k=2, alpha=1.0, loss_type="eigen"
-        )
-        self.test_loss_fn_eigen_k8 = get_hessian_loss_fn(
-            loss_name="eigenspectrum", k=8, alpha=1.0, loss_type="eigen"
-        )
 
     def set_wandb_run_id(self, run_id: str) -> None:
         """Set the WandB run ID for checkpoint continuation."""
@@ -318,7 +295,7 @@ class PotentialModule(LightningModule):
     def configure_optimizers(self):
         print("Configuring optimizer")
         # Only optimize parameters that require gradients (unfrozen heads)
-        if self.training_config["train_heads_only"]:
+        if self.training_config["only_train_hessian_head"]:
             self.heads_to_train = self.potential.hessian_module_list
             self._freeze_except_heads(self.heads_to_train)
         trainable_params = [p for p in self.potential.parameters() if p.requires_grad]
@@ -552,7 +529,7 @@ class PotentialModule(LightningModule):
             loss += eigen_loss
             info["Loss Eigen"] = eigen_loss.detach().item()
 
-        if not self.training_config["train_heads_only"]:
+        if not self.training_config["only_train_hessian_head"]:
             # energy
             hat_ae = hat_ae.squeeze().to(self.device)
             ae = batch.ae.to(self.device)
@@ -591,12 +568,13 @@ class PotentialModule(LightningModule):
             )
         eval_metrics = {}
 
-        hessian_true = batch.hessian
-        hessian_pred = outputs["hessian"].detach()
+        hessian_true = batch.hessian.squeeze()
+        hessian_pred = outputs["hessian"].detach().squeeze()
 
-        # MSE Hessian
-        eval_metrics["MSE Hessian"] = self.MSE(hessian_pred, hessian_true).item()
-        eval_metrics["MAE Hessian"] = self.MAE(hessian_pred, hessian_true).item()
+        # average over batches
+        B = batch.batch.max().item() + 1
+        eval_metrics["MSE Hessian"] = (hessian_pred - hessian_true).pow(2).sum().item() / B
+        eval_metrics["MAE Hessian"] = (hessian_pred - hessian_true).abs().sum().item() / B
 
         # Eigenvalue, Eigenvector metrics
         eig_metrics = get_eigval_eigvec_metrics(
@@ -607,7 +585,6 @@ class PotentialModule(LightningModule):
         )
         eval_metrics.update(eig_metrics)
 
-        B = batch.batch.max().item() + 1
         if hasattr(batch, "edge_index_hessian"):
             eval_metrics["Num Edges Hessian"] = batch.edge_index_hessian.shape[1] / B
         if hasattr(batch, "edge_index"):
