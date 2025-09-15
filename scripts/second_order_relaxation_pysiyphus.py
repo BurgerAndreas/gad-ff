@@ -533,6 +533,7 @@ def get_rfo_optimizer(
         out_dir=out_dir,
         max_cycles=max_cycles,
         # # TS opt in ReactBench uses
+        # # pysisyphus.tsoptimizers.RSPRFOptimizer
         # type: rsprfo
         # do_hess: True
         # thresh: gau

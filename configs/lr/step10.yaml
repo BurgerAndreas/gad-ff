@@ -1,6 +1,6 @@
 # @package _global_
 
-# Step decay learning rate schedule
+
 training:
   lr_schedule_type: "step"
   lr_schedule_config:

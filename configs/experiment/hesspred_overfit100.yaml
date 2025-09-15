@@ -14,7 +14,7 @@ training:
   # already preprocessed dataset, don't need to do hessian graph transform
   do_hessiangraphtransform: false
 
-  # Step decay learning rate schedule
+  
   lr_schedule_type: "step"
   lr_schedule_config:
     gamma: 0.85

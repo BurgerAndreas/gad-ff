@@ -1,5 +1,5 @@
 # @package _global_
 
-# Step decay learning rate schedule
+
 training:
   lr_schedule_type: null
