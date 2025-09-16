@@ -257,6 +257,7 @@ uv run scripts/second_order_relaxation_pysiyphus.py --max_samples 80 --thresh ga
 
 # Zero-point energy
 uv run scripts/compute_zero_point_energy.py --thresh gau_tight --dft True --max_samples 80
+uv run scripts/zero_point_energy_at_dft_reactant_product.py --thresh gau_tight --max_samples 80
 
 # Optional: equivariance test
 # uv run scripts/test_hessian_prediction.py

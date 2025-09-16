@@ -129,7 +129,7 @@ The cartesian Hessian is then transformed into internals by pysisyphus under the
 """
 Optimizer args that apply to all optimizers:
 # Convergence threshold.
-thresh: Thresh = "gau_loose",
+thresh: Thresh = "gau_loose", https://psicode.org/psi4manual/master/optking.html#table-optkingconv
 # Maximum absolute component of the allowed step vector. Utilized in
 # optimizers that don't support a trust region or line search.
 max_step: float = 0.04,
