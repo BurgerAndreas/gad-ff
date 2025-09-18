@@ -207,6 +207,7 @@ class EquiformerV2_OC20(BaseModel):
         cutoff_hessian=100.0,
         symmetric_messages=True,  # TODO: deprecated. only needed for legacy ckpt
         symmetric_edges=False,
+        # TODO: deprecated. only needed for legacy ckpt
         hessian_no_attn_weights=False,  # messages without attention weights
         attn_wo_sigmoid=False,  # do not apply sigmoid to attention weights
         # not used, for compatibilit with old  with legacy ckpt
@@ -1233,3 +1234,29 @@ class EquiformerV2_OC20(BaseModel):
                     assert global_parameter_name in named_parameters_list
                     no_wd_list.append(global_parameter_name)
         return set(no_wd_list)
+
+    def get_muon_param_groups(
+        self,
+        **kwargs,
+    ):
+        """
+        Build parameter groups for MuonWithAuxAdam with a strict scope:
+
+        - Muon group (use_muon=True): ONLY parameters with ndim >= 2 inside
+          `hessian_layers`.
+        - Aux Adam group (use_muon=False): every other parameter in the model
+          (embeddings, heads, biases/gains, blocks, etc.).
+
+        Returns two param-group dicts.
+        """
+
+        muon_params = []
+        adam_params = []
+
+        for name, param in self.named_parameters():
+            if name.startswith("hessian_layers.") and param.ndim >= 2:
+                muon_params.append(param)
+            else:
+                adam_params.append(param)
+
+        return muon_params, adam_params

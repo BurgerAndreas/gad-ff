@@ -243,11 +243,11 @@ uv run verify_ts_with_dft.py $REACTBENCHDIR/runs/equiformer_ts1x_autograd --hess
 # plot
 uv run verify_ts_with_dft.py plot
 
-# lollipop plots for TS workflow
+# Lollipop plots for TS workflow
 cd $GADFFDIR
 uv run scripts/plot_reactbench.py
 
-# relaxations (2nd order geometry optimization)
+# Relaxations (2nd order geometry optimization)
 cd $GADFFDIR
 # uv run scripts/compute_dft_hessian_t1x.py --noiserms 0.03
 # uv run scripts/compute_dft_hessian_t1x.py --noiserms 0.05
@@ -285,6 +285,7 @@ url={https://openreview.net/forum?id=CNLC4ZkLmW}
 ```
 
 The training code and the dataset are based on the HORM [paper](https://arxiv.org/abs/2505.12447), [dataset](https://www.kaggle.com/datasets/yunhonghan/hessian-dataset-for-optimizing-reactive-mliphorm/data), and [code](https://github.com/deepprinciple/HORM)
+We thank the authors of from DeepPrinciple for making their code and data openly available. 
 ```bibtex
 @misc{cui2025hormlargescalemolecular,
       title={HORM: A Large Scale Molecular Hessian Database for Optimizing Reactive Machine Learning Interatomic Potentials}, 
@@ -296,5 +297,3 @@ The training code and the dataset are based on the HORM [paper](https://arxiv.or
       url={https://arxiv.org/abs/2505.12447}, 
 }
 ```
-We thank the authors of from DeepPrinciple for making their code and data openly available. 
-

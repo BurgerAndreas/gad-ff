@@ -8,6 +8,38 @@ from torch import Tensor
 from nets.scatter_utils import scatter, segment_coo, segment_csr
 
 
+def cross_legacy(a: Tensor, b: Tensor, dim: int | None = None) -> Tensor:
+    """Cross product with legacy dim inference and callsite logging.
+
+    If dim is None, infer the legacy default used by torch.cross:
+    pick the first dimension whose size is 3. Then call torch.cross
+    with that dim and print the chosen dim and callsite for auditing.
+    """
+    import inspect
+
+    if dim is None:
+        inferred_dim = None
+        for axis, size in enumerate(a.shape):
+            if size == 3:
+                inferred_dim = axis
+                break
+        if inferred_dim is None:
+            raise ValueError(
+                "cross_legacy: unable to infer dim; no axis of size 3 found in input"
+            )
+        dim = inferred_dim
+
+    frame = inspect.currentframe()
+    caller = frame.f_back if frame is not None else None
+    if caller is not None:
+        info = inspect.getframeinfo(caller)
+        print(f"torch.cross -> dim={dim} at {info.filename}:{info.lineno}")
+    else:
+        print(f"torch.cross -> dim={dim} at <unknown>")
+
+    return torch.cross(a, b, dim=dim)
+
+
 def move_by_com(pos):
     return pos - torch.mean(pos, dim=0)
 

@@ -207,7 +207,8 @@ def compute_dft_hessian_at_geometry(atomic_numbers, geom_coords_bohr):
     mf.grids.prune = None
     mf.kernel()
     if not mf.converged:
-        raise RuntimeError("PySCF SCF did not converge")
+        print("PySCF SCF did not converge")
+        return None
 
     hobj = mf.Hessian()
     setattr(hobj, "conv_tol", 1e-10)
@@ -294,7 +295,7 @@ def main():
         args.out_dir = os.path.join(
             ROOT_DIR,
             "runs_zpe_rp",
-            f"{source_label}_dftrelax_{args.thresh.replace('_', '')}_{args.max_samples}",
+            f"{source_label}_dftrelax_{args.thresh.replace('_', '')}",
         )
 
     os.makedirs(args.out_dir, exist_ok=True)
@@ -305,9 +306,14 @@ def main():
     dft_hess_dir = os.path.join(dft_dir, "hessians")
     os.makedirs(dft_grad_dir, exist_ok=True)
     os.makedirs(dft_hess_dir, exist_ok=True)
+    
+    # Save outputs
+    zpe_dir = os.path.join(args.out_dir, "zpe")
+    os.makedirs(zpe_dir, exist_ok=True)
+    zpe_csv = os.path.join(zpe_dir, "zpe_reactant_product_{args.max_samples}.csv")
+    delta_csv = os.path.join(zpe_dir, "delta_zpe_{args.max_samples}.csv")
 
     # Early exit if delta CSV exists and not redoing
-    delta_csv = os.path.join(args.out_dir, "zpe", "delta_zpe.csv")
     if os.path.isfile(delta_csv) and (not args.redo_relax) and (not args.redo_dft):
         print(f"Found existing ΔZPE CSV: {delta_csv}. Loading instead of recomputing.")
         print_deltadelta_latex(delta_csv)
@@ -341,6 +347,10 @@ def main():
         reactant = entry["reactant"]
         product = entry["product"]
         rxn = entry.get("rxn", idx)
+        
+        print("=" * 80)
+        print(f"Sample {idx}: rxn={rxn}")
+        print("=" * 80)
 
         def _prep(mol):
             coords_ang = np.asarray(mol["positions"], dtype=float)
@@ -361,11 +371,13 @@ def main():
         # Relax with DFT (reactant)
         r_xyz = os.path.join(xyz_dir, f"reactant_{idx:05d}.xyz")
         if (not os.path.isfile(r_xyz)) or args.redo_relax:
+            print(f"# Did not find {r_xyz}, relaxing with DFT")
             r_geom, r_final_ang = relax_with_dft(
                 r_syms, r_coords_ang, thresh=args.thresh, max_cycles=args.max_cycles, out_dir=os.path.join(out_dir_rxn, "reactant")
             )
             _write_xyz(r_xyz, r_syms, r_final_ang)
         else:
+            print(f"# Found {r_xyz}, skipping relaxation")
             atoms_xyz, coords_xyz = _read_xyz(r_xyz)
             if any(a != b for a, b in zip(atoms_xyz, r_syms)):
                 raise ValueError(f"Atom symbols mismatch in {r_xyz}")
@@ -375,11 +387,13 @@ def main():
         # Relax with DFT (product)
         p_xyz = os.path.join(xyz_dir, f"product_{idx:05d}.xyz")
         if (not os.path.isfile(p_xyz)) or args.redo_relax:
+            print(f"# Did not find {p_xyz}, relaxing with DFT")
             p_geom, p_final_ang = relax_with_dft(
                 p_syms, p_coords_ang, thresh=args.thresh, max_cycles=args.max_cycles, out_dir=os.path.join(out_dir_rxn, "product")
             )
             _write_xyz(p_xyz, p_syms, p_final_ang)
         else:
+            print(f"# Found {p_xyz}, skipping relaxation")
             atoms_xyz, coords_xyz = _read_xyz(p_xyz)
             if any(a != b for a, b in zip(atoms_xyz, p_syms)):
                 raise ValueError(f"Atom symbols mismatch in {p_xyz}")
@@ -391,16 +405,31 @@ def main():
         p_hess_path = os.path.join(dft_hess_dir, f"product_{idx:05d}.hessian_au.npy")
 
         if (not os.path.isfile(r_hess_path)) or args.redo_dft:
+            print(f"# Did not find {r_hess_path}, computing with DFT")
             r_hess_au = compute_dft_hessian_at_geometry(r_Z, r_geom._coords)
-            np.save(r_hess_path, r_hess_au)
+            if r_hess_au is None:
+                np.save(r_hess_path, np.array([], dtype=np.float64))
+                continue
         else:
+            print(f"# Found {r_hess_path}, skipping DFT Hessian computation")
             r_hess_au = np.load(r_hess_path)
+            if r_hess_au.shape[0] == 0:
+                print(f"# {r_hess_path} is empty, skipping")
+                continue
 
         if (not os.path.isfile(p_hess_path)) or args.redo_dft:
+            print(f"# Did not find {p_hess_path}, computing with DFT")
             p_hess_au = compute_dft_hessian_at_geometry(p_Z, p_geom._coords)
+            if p_hess_au is None:
+                np.save(p_hess_path, np.array([], dtype=np.float64))
+                continue
             np.save(p_hess_path, p_hess_au)
         else:
+            print(f"# Found {p_hess_path}, skipping DFT Hessian computation")
             p_hess_au = np.load(p_hess_path)
+            if p_hess_au.shape[0] == 0:
+                print(f"# {p_hess_path} is empty, skipping")
+                continue
 
         # ZPE for DFT
         r_zpe_dft = _zpe_from_hessian_au(r_hess_au, r_geom._coords, r_syms)
@@ -468,11 +497,6 @@ def main():
         cnt_done += 1
 
     # Save outputs
-    zpe_dir = os.path.join(args.out_dir, "zpe")
-    os.makedirs(zpe_dir, exist_ok=True)
-    zpe_csv = os.path.join(zpe_dir, "zpe_reactant_product.csv")
-    delta_csv = os.path.join(zpe_dir, "delta_zpe.csv")
-
     df_zpe = pd.DataFrame(rows)
     df_zpe.to_csv(zpe_csv, index=False)
     print(f"Saved per-geometry ZPEs to {zpe_csv}")

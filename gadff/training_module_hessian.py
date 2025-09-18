@@ -317,6 +317,7 @@ class HessianPotentialModule(PotentialModule):
                     "num_val_samples": len(self.val_dataset),
                     "num_train_batches": num_train_batches,
                     "num_val_batches": num_val_batches,
+                    "num_muon_params": self.num_muon_params,
                 }
             )
         except Exception as e:

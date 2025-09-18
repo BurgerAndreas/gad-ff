@@ -11,7 +11,7 @@ from torch_geometric.nn.conv import MessagePassing
 # from torch_scatter import scatter, scatter_mean
 from nets.scatter_utils import scatter, scatter_mean
 
-from leftnet.model.util_funcs import unsorted_segment_sum
+from leftnet.model.util_funcs import unsorted_segment_sum, cross_legacy
 from leftnet.model.core import MLP
 
 EPS = 1e-6
@@ -775,11 +775,11 @@ class LEFTNet(torch.nn.Module):
             coord_diff = distance_vectors
             dist = distance_vectors.norm(dim=-1)
             coord_diff = coord_diff / (dist.unsqueeze(1) + EPS)
-            coord_cross = torch.cross(pos[i], pos[j])
+            coord_cross = cross_legacy(pos[i], pos[j])
             coord_cross = coord_cross / (
                 (torch.sqrt(torch.sum((coord_cross) ** 2, 1).unsqueeze(1))) + EPS
             )
-            coord_vertical = torch.cross(coord_diff, coord_cross)
+            coord_vertical = cross_legacy(coord_diff, coord_cross)
 
         dist = dist * all_edge_masks.squeeze(-1)
         coord_diff = coord_diff * all_edge_masks
@@ -837,12 +837,12 @@ class LEFTNet(torch.nn.Module):
         # assert_rot_equiv(nn_vector, dist_pad, edge_index, pos)  # for debugging
 
         x1 = (a - b) / ((torch.sqrt(torch.sum((a - b) ** 2, 1).unsqueeze(1))) + EPS)
-        y1 = torch.cross(a, b)
+        y1 = torch.cross(x1, y1, dim=1)
         normy = (torch.sqrt(torch.sum(y1**2, 1).unsqueeze(1))) + EPS
         y1 = y1 / normy
         # assert torch.trace(torch.matmul(x1, torch.transpose(y1, 0, 1))) < EPS  # for debugging
 
-        z1 = torch.cross(x1, y1)
+        z1 = torch.cross(x1, y1, dim=1)
         nodeframe = torch.cat(
             (x1.unsqueeze(-1), y1.unsqueeze(-1), z1.unsqueeze(-1)), dim=-1
         )
