@@ -213,13 +213,13 @@ source .venv/bin/activate
 
 # Table 1: MAE, cosine similarity, ...
 # other HORM autograd models
-uv run scripts/eval_horm.py --max_samples=1000 --ckpt_path=ckpt/alpha.ckpt --redo=True; 
-uv run scripts/eval_horm.py --max_samples=1000 --ckpt_path=ckpt/left.ckpt --redo=True; 
-uv run scripts/eval_horm.py --max_samples=1000 --ckpt_path=ckpt/left-df.ckpt --redo=True; 
+uv run scripts/eval_horm.py --max_samples=1000 --ckpt_path=ckpt/alpha.ckpt 
+uv run scripts/eval_horm.py --max_samples=1000 --ckpt_path=ckpt/left.ckpt  
+uv run scripts/eval_horm.py --max_samples=1000 --ckpt_path=ckpt/left-df.ckpt 
 # autograd EquiformerV2
-uv run scripts/eval_horm.py --max_samples=1000 --ckpt_path=ckpt/eqv2.ckpt --redo=True; 
+uv run scripts/eval_horm.py --max_samples=1000 --ckpt_path=ckpt/eqv2.ckpt 
 # Learned EquiformerV2
-uv run scripts/eval_horm.py --ckpt_path=$HPCKPT --hessian_method=predict  --max_samples=1000;
+uv run scripts/eval_horm.py --max_samples=1000 --ckpt_path=$HPCKPT --hessian_method=predict 
 
 # Plot results in ../gad-ff/results/eqv2_ts1x-val_autograd_metrics.csv / wandb export
 uv run scripts/plot_frequency_analysis.py
@@ -256,7 +256,6 @@ cd $GADFFDIR
 uv run scripts/second_order_relaxation_pysiyphus.py --max_samples 80 --thresh gau --max_cycles 150 --xyz $GADFFDIR/data/t1x_val_reactant_hessian_100_noiserms0.05.h5
 
 # Zero-point energy
-uv run scripts/compute_zero_point_energy.py --thresh gau_tight --dft True --max_samples 80
 uv run scripts/zero_point_energy_at_dft_reactant_product.py --thresh gau_tight --max_samples 80
 
 # Optional: equivariance test
@@ -275,7 +274,14 @@ uv pip install git+https://github.com/virtualzx-nad/geodesic-interpolate.git
 
 If you found this code useful, please consider citing:
 ```bibtex
-TODO
+@inproceedings{
+burger2025hessians,
+title={Molecular Hessians Without Derivatives},
+author={Andreas Burger and Luca Thiede and  Nikolaj Rønne and Nandita Vijaykumar and Tejs Vegge and Arghya Bhowmik and Alan Aspuru-Guzik},
+booktitle={The Fourteenth International Conference on Learning Representations},
+year={2026},
+url={https://openreview.net/forum?id=CNLC4ZkLmW}
+}
 ```
 
 The training code and the dataset are based on the HORM [paper](https://arxiv.org/abs/2505.12447), [dataset](https://www.kaggle.com/datasets/yunhonghan/hessian-dataset-for-optimizing-reactive-mliphorm/data), and [code](https://github.com/deepprinciple/HORM)
@@ -290,17 +296,5 @@ The training code and the dataset are based on the HORM [paper](https://arxiv.or
       url={https://arxiv.org/abs/2505.12447}, 
 }
 ```
+We thank the authors of from DeepPrinciple for making their code and data openly available. 
 
-The evaluation is based on the ReactBench [paper](https://chemrxiv.org/engage/chemrxiv/article-details/68270569927d1c2e66165ad8), and [code](https://github.com/deepprinciple/ReactBench)
-```bibtex
-@article{https://doi.org/10.1002/advs.202506240,
-    author = {Zhao, Qiyuan and Han, Yunhong and Zhang, Duo and Wang, Jiaxu and Zhong, Peichen and Cui, Taoyong and Yin, Bangchen and Cao, Yirui and Jia, Haojun and Duan, Chenru},
-    title = {Harnessing Machine Learning to Enhance Transition State Search with Interatomic Potentials and Generative Models},
-    journal = {Advanced Science},
-    pages = {e06240},
-    doi = {https://doi.org/10.1002/advs.202506240}
-}
-```
-
-We thank the authors of HORM and ReactBench from DeepPrinciple for making their code and data openly available. 
-Please consider citing their work if you use this code or data.
