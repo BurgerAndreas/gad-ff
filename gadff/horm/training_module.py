@@ -258,13 +258,15 @@ class PotentialModule(LightningModule):
             # "params", "lr", "betas", "eps", "weight_decay", "use_muon"
             param_groups = [
                 dict(
-                    params=muon_params, use_muon=True,
+                    params=muon_params, 
+                    use_muon=True,
                     lr=self.optimizer_config.get("lr_muon", 0.02), 
                     weight_decay=self.optimizer_config.get("weight_decay", 0.01)
                 ),
                 # Adam
                 dict(
-                    params=adam_params, use_muon=False,
+                    params=adam_params, 
+                    use_muon=False,
                     lr = self.optimizer_config.get("lr", 0.0005),
                     betas = self.optimizer_config.get("betas", (0.9, 0.999)),
                     eps = self.optimizer_config.get("eps", 1e-12),
