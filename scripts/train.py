@@ -217,6 +217,10 @@ def setup_training(cfg: DictConfig):
         **wandb_kwargs,
     )
 
+    # muon requires ddp to be initialized
+    if cfg.optimizer.optimizer.lower() == "muon":
+        cfg.pltrainer.strategy = "ddp_find_unused_parameters_true"
+
     print("Initializing trainer")
     # trainer = pl.Trainer(
     trainer = MyPLTrainer(
