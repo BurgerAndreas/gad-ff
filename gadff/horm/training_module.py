@@ -267,9 +267,9 @@ class PotentialModule(LightningModule):
                     params=adam_params, use_muon=False,
                     lr = self.optimizer_config.get("lr", 0.0005),
                     betas = self.optimizer_config.get("betas", (0.9, 0.999)),
-                    eps = self.optimizer_config.get("eps", 1e-8),
+                    eps = self.optimizer_config.get("eps", 1e-12),
                     weight_decay = self.optimizer_config.get("weight_decay", 0.01),
-                    **self.optimizer_config
+                    # **self.optimizer_config
                 ),
             ]
             self.num_muon_params = len(muon_params)
