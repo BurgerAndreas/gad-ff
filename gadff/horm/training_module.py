@@ -255,6 +255,7 @@ class PotentialModule(LightningModule):
             # muon_params = hidden_weights
             # adam_params = hidden_gains_biases + nonhidden_params
             muon_params, adam_params = self.potential.get_muon_param_groups(**self.optimizer_config)
+            # "params", "lr", "betas", "eps", "weight_decay", "use_muon"
             param_groups = [
                 dict(
                     params=muon_params, use_muon=True,
@@ -264,7 +265,10 @@ class PotentialModule(LightningModule):
                 # Adam
                 dict(
                     params=adam_params, use_muon=False,
-                    # lr=3e-4, betas=(0.9, 0.95), weight_decay=0.01
+                    lr = self.optimizer_config.get("lr", 0.0005),
+                    betas = self.optimizer_config.get("betas", (0.9, 0.999)),
+                    eps = self.optimizer_config.get("eps", 1e-8),
+                    weight_decay = self.optimizer_config.get("weight_decay", 0.01),
                     **self.optimizer_config
                 ),
             ]
