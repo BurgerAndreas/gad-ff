@@ -441,61 +441,9 @@ class HessianPotentialModule(PotentialModule):
         hessian_true = batch.hessian
         hessian_pred = outputs["hessian"].detach()
 
-        # eval_metrics["Loss Eigen"] = (
-        #     self.test_loss_fn_eigen(
-        #         pred=hessian_pred,
-        #         target=hessian_true,
-        #         data=batch,
-        #         debugstr=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}-Loss Eigen",
-        #     )
-        #     .detach()
-        #     .item()
-        # )
-        # eval_metrics["Loss Eigen k2"] = (
-        #     self.test_loss_fn_eigen_k2(
-        #         pred=hessian_pred,
-        #         target=hessian_true,
-        #         data=batch,
-        #         debugstr=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}-Loss Eigen k2",
-        #     )
-        #     .detach()
-        #     .item()
-        # )
-        # eval_metrics["Loss Eigen k8"] = (
-        #     self.test_loss_fn_eigen_k8(
-        #         pred=hessian_pred,
-        #         target=hessian_true,
-        #         data=batch,
-        #         debugstr=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}-Loss Eigen k8",
-        #     )
-        #     .detach()
-        #     .item()
-        # )
-        # # loss from Hamiltonian prediction paper
-        # eval_metrics["Loss WA k2"] = (
-        #     self.test_loss_fn_wa2(
-        #         pred=hessian_pred,
-        #         target=hessian_true,
-        #         data=batch,
-        #         debugstr=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}-Loss WA k2",
-        #     )
-        #     .detach()
-        #     .item()
-        # )
-        # eval_metrics["Loss WA k8"] = (
-        #     self.test_loss_fn_wa8(
-        #         pred=hessian_pred,
-        #         target=hessian_true,
-        #         data=batch,
-        #         debugstr=f"{prefix}-step{self.global_step}-epoch{self.current_epoch}-Loss WA k8",
-        #     )
-        #     .detach()
-        #     .item()
-        # )
-
         # MSE Hessian
-        eval_metrics["MSE Hessian"] = self.MSE(hessian_pred, hessian_true).item()
-        eval_metrics["MAE Hessian"] = self.MAE(hessian_pred, hessian_true).item()
+        eval_metrics["MSE Hessian"] = (hessian_pred.squeeze() - hessian_true.squeeze()).pow(2).mean().item()
+        eval_metrics["MAE Hessian"] = (hessian_pred.squeeze() - hessian_true.squeeze()).abs().mean().item()
 
         # Eigenvalue, Eigenvector metrics
         eig_metrics = get_eigval_eigvec_metrics(

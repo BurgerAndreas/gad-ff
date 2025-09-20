@@ -34,7 +34,7 @@ training:
     k: null
     alpha: null
     dof_filter_fn: null
-    dist: "frosq"
+    dist: "frosq" # frosq or mae recommended
 
   drop_last: true # otherwise we run into shape issues
 

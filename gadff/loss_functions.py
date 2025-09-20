@@ -559,9 +559,7 @@ def get_eigval_eigvec_metrics(hessian_true, hessian_pred, data, prefix=""):
         "MAE Vec2": [],
         "MAE Val1": [],
         "MAE Val2": [],
-        "MAE Eigvals HORM": [],
-        "Correct sign e1": [],
-        "Correct sign e2": [],
+        "MAE Eigvals": [],
     }
     for _b in range(B):
         _start = ptr_hessian[_b].item()
@@ -581,21 +579,13 @@ def get_eigval_eigvec_metrics(hessian_true, hessian_pred, data, prefix=""):
         e1_pred = eigvals_pred_b[0]
         e2_true = eigvals_true_b[1]
         e2_pred = eigvals_pred_b[1]
-        metrics["MSE Val1"].append(F.mse_loss(e1_true, e1_pred))
-        metrics["MSE Val2"].append(F.mse_loss(e2_true, e2_pred))
-        metrics["MAE Val1"].append(F.l1_loss(e1_true, e1_pred))
-        metrics["MAE Val2"].append(F.l1_loss(e2_true, e2_pred))
-        metrics["Correct sign e1"].append(
-            (torch.sign(e1_true) == torch.sign(e1_pred)).float()
-        )
-        metrics["Correct sign e2"].append(
-            (torch.sign(e2_true) == torch.sign(e2_pred)).float()
-        )
-        # Hartree / Bohr^2 over all eigenvalues
-        eigvals_true_horm = hess2eigenvalues(hessian_true_b)
-        eigvals_pred_horm = hess2eigenvalues(hessian_pred_b)
-        metrics["MAE Eigvals HORM"].append(
-            torch.mean(torch.abs(eigvals_true_horm - eigvals_pred_horm))
+        metrics["MSE Val1"].append((e1_true - e1_pred).pow(2).mean())
+        metrics["MSE Val2"].append((e2_true - e2_pred).pow(2).mean())
+        metrics["MAE Val1"].append((e1_true - e1_pred).abs().mean())
+        metrics["MAE Val2"].append((e2_true - e2_pred).abs().mean())
+        # over all eigenvalues
+        metrics["MAE Eigvals"].append(
+            torch.mean(torch.abs(eigvals_true_b - eigvals_pred_b))
         )
         # eigenvectors
         v1_true = eigvecs_true_b[:, 0].reshape(-1)
