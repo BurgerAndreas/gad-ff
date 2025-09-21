@@ -236,7 +236,11 @@ def relax_t1x_with_mlff(
             force_path = os.path.join(
                 dft_grad_dir, f"reactant_{idx:05d}.forces_eV_A.npy"
             )
-            if (not os.path.isfile(hessian_path)) or (not os.path.isfile(force_path)) or redo:
+            if (
+                (not os.path.isfile(hessian_path))
+                or (not os.path.isfile(force_path))
+                or redo
+            ):
                 atoms_bohr = [
                     (int(Z), (float(x), float(y), float(z)))
                     for Z, (x, y, z) in zip(atomic_numbers, geom._coords.reshape(-1, 3))
@@ -286,7 +290,11 @@ def relax_t1x_with_mlff(
                 model_left, final_coords_ang.copy(), atomic_numbers.copy(), device, True
             )
             h_leftdf_ev = _hessian_with_model(
-                model_left_df, final_coords_ang.copy(), atomic_numbers.copy(), device, True
+                model_left_df,
+                final_coords_ang.copy(),
+                atomic_numbers.copy(),
+                device,
+                True,
             )
             h_eqv2_auto_ev = _hessian_with_model(
                 model_eqv2_autograd,
@@ -316,35 +324,45 @@ def relax_t1x_with_mlff(
                         "relax": model_name,
                         "model": "DFT",
                         "method": "DFT",
-                        "zpe_eV": _zpe_from_hessian_au(h_dft_au, geom._coords, atomssymbols),
+                        "zpe_eV": _zpe_from_hessian_au(
+                            h_dft_au, geom._coords, atomssymbols
+                        ),
                     },
                     {
                         "idx": int(idx),
                         "relax": model_name,
                         "model": "LeftNet",
                         "method": "autograd",
-                        "zpe_eV": _zpe_from_hessian_au(h_left_au, geom._coords, atomssymbols),
+                        "zpe_eV": _zpe_from_hessian_au(
+                            h_left_au, geom._coords, atomssymbols
+                        ),
                     },
                     {
                         "idx": int(idx),
                         "relax": model_name,
                         "model": "LeftNet-DF",
                         "method": "autograd",
-                        "zpe_eV": _zpe_from_hessian_au(h_leftdf_au, geom._coords, atomssymbols),
+                        "zpe_eV": _zpe_from_hessian_au(
+                            h_leftdf_au, geom._coords, atomssymbols
+                        ),
                     },
                     {
                         "idx": int(idx),
                         "relax": model_name,
                         "model": "EquiformerV2",
                         "method": "autograd",
-                        "zpe_eV": _zpe_from_hessian_au(h_eqv2_auto_au, geom._coords, atomssymbols),
+                        "zpe_eV": _zpe_from_hessian_au(
+                            h_eqv2_auto_au, geom._coords, atomssymbols
+                        ),
                     },
                     {
                         "idx": int(idx),
                         "relax": model_name,
                         "model": "EquiformerV2",
                         "method": "predict",
-                        "zpe_eV": _zpe_from_hessian_au(h_eqv2_pred_au, geom._coords, atomssymbols),
+                        "zpe_eV": _zpe_from_hessian_au(
+                            h_eqv2_pred_au, geom._coords, atomssymbols
+                        ),
                     },
                 ]
             )
@@ -366,7 +384,9 @@ def relax_t1x_with_mlff(
         # Print simple LaTeX tables of errors vs DFT per relax method
         for relax_name in sorted(df["relax"].unique()):
             sub = df[df["relax"] == relax_name].copy()
-            ref = sub[sub["method"] == "DFT"][["idx", "zpe_eV"]].rename(columns={"zpe_eV": "zpe_ref"})
+            ref = sub[sub["method"] == "DFT"][["idx", "zpe_eV"]].rename(
+                columns={"zpe_eV": "zpe_ref"}
+            )
             if len(ref) == 0:
                 continue
             merged = sub.merge(ref, on="idx", how="inner")
@@ -382,7 +402,9 @@ def relax_t1x_with_mlff(
             ]
             rows = []
             for hess_kind, model_name, method_value in row_specs:
-                subm = merged[(merged["method"] == method_value) & (merged["model"] == model_name)]
+                subm = merged[
+                    (merged["method"] == method_value) & (merged["model"] == model_name)
+                ]
                 if len(subm) == 0:
                     zpe_err_str = "-"
                 else:
@@ -390,13 +412,21 @@ def relax_t1x_with_mlff(
                     ae = np.abs(err)
                     mae = float(ae.mean()) if len(ae) > 0 else np.nan
                     std = float(err.std(ddof=0)) if len(err) > 0 else np.nan
-                    zpe_err_str = "-" if (np.isnan(mae) or np.isnan(std)) else f"{mae:.3f} ({std:.3f})"
-                rows.append({
-                    "Hessian (autograd/predict)": hess_kind,
-                    "Model": model_name,
-                    "ZPE error": zpe_err_str,
-                })
-            table = pd.DataFrame(rows, columns=["Hessian (autograd/predict)", "Model", "ZPE error"])
+                    zpe_err_str = (
+                        "-"
+                        if (np.isnan(mae) or np.isnan(std))
+                        else f"{mae:.3f} ({std:.3f})"
+                    )
+                rows.append(
+                    {
+                        "Hessian (autograd/predict)": hess_kind,
+                        "Model": model_name,
+                        "ZPE error": zpe_err_str,
+                    }
+                )
+            table = pd.DataFrame(
+                rows, columns=["Hessian (autograd/predict)", "Model", "ZPE error"]
+            )
             latex = table.to_latex(index=False, escape=True)
             print(f"\nRelax={relax_name} ZPE error vs DFT (LaTeX):\n{latex}")
 
@@ -447,5 +477,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-

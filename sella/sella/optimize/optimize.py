@@ -59,6 +59,7 @@ class Sella(Optimizer):
     optional Hessian (re)diagonalization, trust-radius adaptation, and
     logging. Supports both Cartesian and internal coordinates.
     """
+
     @_timed_method
     def __init__(
         self,
@@ -388,7 +389,9 @@ class Sella(Optimizer):
         """Print cumulative time spent in each Sella method for this instance."""
         print("Sella timings:")
         if hasattr(self, "_time_stats") and self._time_stats:
-            for name, total in list(sorted(self._time_stats.items(), key=lambda kv: kv[1], reverse=True))[:top]:
+            for name, total in list(
+                sorted(self._time_stats.items(), key=lambda kv: kv[1], reverse=True)
+            )[:top]:
                 print(f"{name}: {total:.6f}s")
         else:
             print("No timing data recorded.")

@@ -97,7 +97,9 @@ def _load_model(ckpt, device):
     return m.to(device).eval()
 
 
-def _hessian_autograd_with_model(model, _coords_ang, _atomic_numbers, device, do_autograd=True):
+def _hessian_autograd_with_model(
+    model, _coords_ang, _atomic_numbers, device, do_autograd=True
+):
     use_pbc = getattr(model, "use_pbc", False)
     batch = coord_atoms_to_torch_geometric_hessian(
         coords=_coords_ang,
@@ -155,7 +157,9 @@ def _zpe_from_hessian_au(h_au, coords_bohr, atomsymbols):
     return zpe_J / spc.e
 
 
-def relax_with_dft(atomssymbols, coords_ang, *, thresh="gau", max_cycles=200, out_dir="."):
+def relax_with_dft(
+    atomssymbols, coords_ang, *, thresh="gau", max_cycles=200, out_dir="."
+):
     coords_bohr = coords_ang / BOHR2ANG
     geom = Geometry(atomssymbols, coords_bohr, coord_type="redund")
     base_calc = PysisPySCF(
@@ -253,7 +257,13 @@ def print_deltadelta_latex(delta_csv_path, decimals=4):
                 zpe_err_str = "-"
             else:
                 zpe_err_str = f"{mae:.{int(decimals)}f} ({std:.{int(decimals)}f})"
-        rows.append({"Hessian": method_value, "Model": model_name, "ΔΔZPE MAE (Std) [eV]": zpe_err_str})
+        rows.append(
+            {
+                "Hessian": method_value,
+                "Model": model_name,
+                "ΔΔZPE MAE (Std) [eV]": zpe_err_str,
+            }
+        )
 
     table = pd.DataFrame(rows, columns=["Hessian", "Model", "ΔΔZPE MAE (Std) [eV]"])
     latex = table.to_latex(index=False, escape=True)
@@ -306,7 +316,7 @@ def main():
     dft_hess_dir = os.path.join(dft_dir, "hessians")
     os.makedirs(dft_grad_dir, exist_ok=True)
     os.makedirs(dft_hess_dir, exist_ok=True)
-    
+
     # Save outputs
     zpe_dir = os.path.join(args.out_dir, "zpe")
     os.makedirs(zpe_dir, exist_ok=True)
@@ -347,7 +357,7 @@ def main():
         reactant = entry["reactant"]
         product = entry["product"]
         rxn = entry.get("rxn", idx)
-        
+
         print("=" * 80)
         print(f"Sample {idx}: rxn={rxn}")
         print("=" * 80)
@@ -373,7 +383,11 @@ def main():
         if (not os.path.isfile(r_xyz)) or args.redo_relax:
             print(f"# Did not find {r_xyz}, relaxing with DFT")
             r_geom, r_final_ang = relax_with_dft(
-                r_syms, r_coords_ang, thresh=args.thresh, max_cycles=args.max_cycles, out_dir=os.path.join(out_dir_rxn, "reactant")
+                r_syms,
+                r_coords_ang,
+                thresh=args.thresh,
+                max_cycles=args.max_cycles,
+                out_dir=os.path.join(out_dir_rxn, "reactant"),
             )
             _write_xyz(r_xyz, r_syms, r_final_ang)
         else:
@@ -382,14 +396,20 @@ def main():
             if any(a != b for a, b in zip(atoms_xyz, r_syms)):
                 raise ValueError(f"Atom symbols mismatch in {r_xyz}")
             r_final_ang = coords_xyz
-            r_geom = Geometry(r_syms, (r_final_ang / BOHR2ANG).reshape(-1), coord_type="redund")
+            r_geom = Geometry(
+                r_syms, (r_final_ang / BOHR2ANG).reshape(-1), coord_type="redund"
+            )
 
         # Relax with DFT (product)
         p_xyz = os.path.join(xyz_dir, f"product_{idx:05d}.xyz")
         if (not os.path.isfile(p_xyz)) or args.redo_relax:
             print(f"# Did not find {p_xyz}, relaxing with DFT")
             p_geom, p_final_ang = relax_with_dft(
-                p_syms, p_coords_ang, thresh=args.thresh, max_cycles=args.max_cycles, out_dir=os.path.join(out_dir_rxn, "product")
+                p_syms,
+                p_coords_ang,
+                thresh=args.thresh,
+                max_cycles=args.max_cycles,
+                out_dir=os.path.join(out_dir_rxn, "product"),
             )
             _write_xyz(p_xyz, p_syms, p_final_ang)
         else:
@@ -398,7 +418,9 @@ def main():
             if any(a != b for a, b in zip(atoms_xyz, p_syms)):
                 raise ValueError(f"Atom symbols mismatch in {p_xyz}")
             p_final_ang = coords_xyz
-            p_geom = Geometry(p_syms, (p_final_ang / BOHR2ANG).reshape(-1), coord_type="redund")
+            p_geom = Geometry(
+                p_syms, (p_final_ang / BOHR2ANG).reshape(-1), coord_type="redund"
+            )
 
         # DFT Hessians
         r_hess_path = os.path.join(dft_hess_dir, f"reactant_{idx:05d}.hessian_au.npy")
@@ -435,19 +457,45 @@ def main():
         r_zpe_dft = _zpe_from_hessian_au(r_hess_au, r_geom._coords, r_syms)
         p_zpe_dft = _zpe_from_hessian_au(p_hess_au, p_geom._coords, p_syms)
 
-        rows.extend([
-            {"idx": int(idx), "rxn": rxn, "geometry": "reactant", "model": "DFT", "method": "DFT", "zpe_eV": r_zpe_dft},
-            {"idx": int(idx), "rxn": rxn, "geometry": "product",  "model": "DFT", "method": "DFT", "zpe_eV": p_zpe_dft},
-        ])
+        rows.extend(
+            [
+                {
+                    "idx": int(idx),
+                    "rxn": rxn,
+                    "geometry": "reactant",
+                    "model": "DFT",
+                    "method": "DFT",
+                    "zpe_eV": r_zpe_dft,
+                },
+                {
+                    "idx": int(idx),
+                    "rxn": rxn,
+                    "geometry": "product",
+                    "model": "DFT",
+                    "method": "DFT",
+                    "zpe_eV": p_zpe_dft,
+                },
+            ]
+        )
 
         # Model Hessians at DFT-relaxed geometries (Angstrom input)
         def _model_hess_all(coords_ang, Z):
             return {
-                ("AlphaNet", "autograd"): _hessian_autograd_with_model(model_alpha, coords_ang.copy(), Z.copy(), device, True),
-                ("LeftNet", "autograd"): _hessian_autograd_with_model(model_left, coords_ang.copy(), Z.copy(), device, True),
-                ("LeftNet-DF", "autograd"): _hessian_autograd_with_model(model_left_df, coords_ang.copy(), Z.copy(), device, True),
-                ("EquiformerV2", "autograd"): _hessian_autograd_with_model(model_eqv2_autograd, coords_ang.copy(), Z.copy(), device, True),
-                ("EquiformerV2", "predict"): _hessian_autograd_with_model(model_eqv2_predict, coords_ang.copy(), Z.copy(), device, False),
+                ("AlphaNet", "autograd"): _hessian_autograd_with_model(
+                    model_alpha, coords_ang.copy(), Z.copy(), device, True
+                ),
+                ("LeftNet", "autograd"): _hessian_autograd_with_model(
+                    model_left, coords_ang.copy(), Z.copy(), device, True
+                ),
+                ("LeftNet-DF", "autograd"): _hessian_autograd_with_model(
+                    model_left_df, coords_ang.copy(), Z.copy(), device, True
+                ),
+                ("EquiformerV2", "autograd"): _hessian_autograd_with_model(
+                    model_eqv2_autograd, coords_ang.copy(), Z.copy(), device, True
+                ),
+                ("EquiformerV2", "predict"): _hessian_autograd_with_model(
+                    model_eqv2_predict, coords_ang.copy(), Z.copy(), device, False
+                ),
             }
 
         r_hess_ev_all = _model_hess_all(r_final_ang, r_Z)
@@ -461,38 +509,74 @@ def main():
             r_zpe_m = _zpe_from_hessian_au(r_hess_au_m, r_geom._coords, r_syms)
             p_zpe_m = _zpe_from_hessian_au(p_hess_au_m, p_geom._coords, p_syms)
 
-            rows.extend([
-                {"idx": int(idx), "rxn": rxn, "geometry": "reactant", "model": model_name, "method": method_kind, "zpe_eV": r_zpe_m},
-                {"idx": int(idx), "rxn": rxn, "geometry": "product",  "model": model_name, "method": method_kind, "zpe_eV": p_zpe_m},
-            ])
+            rows.extend(
+                [
+                    {
+                        "idx": int(idx),
+                        "rxn": rxn,
+                        "geometry": "reactant",
+                        "model": model_name,
+                        "method": method_kind,
+                        "zpe_eV": r_zpe_m,
+                    },
+                    {
+                        "idx": int(idx),
+                        "rxn": rxn,
+                        "geometry": "product",
+                        "model": model_name,
+                        "method": method_kind,
+                        "zpe_eV": p_zpe_m,
+                    },
+                ]
+            )
 
         # Per-reaction deltas
         delta_dft = p_zpe_dft - r_zpe_dft
         # Add DFT row for completeness
-        delta_rows.append({
-            "idx": int(idx),
-            "rxn": rxn,
-            "model": "DFT",
-            "method": "DFT",
-            "delta_zpe_eV": float(delta_dft),
-            "delta_zpe_dft_eV": float(delta_dft),
-            "delta_delta_zpe_eV": 0.0,
-        })
+        delta_rows.append(
+            {
+                "idx": int(idx),
+                "rxn": rxn,
+                "model": "DFT",
+                "method": "DFT",
+                "delta_zpe_eV": float(delta_dft),
+                "delta_zpe_dft_eV": float(delta_dft),
+                "delta_delta_zpe_eV": 0.0,
+            }
+        )
 
         for (model_name, method_kind), r_hess_ev in r_hess_ev_all.items():
             # Retrieve ZPEs already computed above (could recompute or capture from loop)
-            r_zpe_m = next(x["zpe_eV"] for x in rows if x["idx"] == idx and x["rxn"] == rxn and x["geometry"] == "reactant" and x["model"] == model_name and x["method"] == method_kind)
-            p_zpe_m = next(x["zpe_eV"] for x in rows if x["idx"] == idx and x["rxn"] == rxn and x["geometry"] == "product" and x["model"] == model_name and x["method"] == method_kind)
+            r_zpe_m = next(
+                x["zpe_eV"]
+                for x in rows
+                if x["idx"] == idx
+                and x["rxn"] == rxn
+                and x["geometry"] == "reactant"
+                and x["model"] == model_name
+                and x["method"] == method_kind
+            )
+            p_zpe_m = next(
+                x["zpe_eV"]
+                for x in rows
+                if x["idx"] == idx
+                and x["rxn"] == rxn
+                and x["geometry"] == "product"
+                and x["model"] == model_name
+                and x["method"] == method_kind
+            )
             delta_m = p_zpe_m - r_zpe_m
-            delta_rows.append({
-                "idx": int(idx),
-                "rxn": rxn,
-                "model": model_name,
-                "method": method_kind,
-                "delta_zpe_eV": float(delta_m),
-                "delta_zpe_dft_eV": float(delta_dft),
-                "delta_delta_zpe_eV": float(abs(delta_m - delta_dft)),
-            })
+            delta_rows.append(
+                {
+                    "idx": int(idx),
+                    "rxn": rxn,
+                    "model": model_name,
+                    "method": method_kind,
+                    "delta_zpe_eV": float(delta_m),
+                    "delta_zpe_dft_eV": float(delta_dft),
+                    "delta_delta_zpe_eV": float(abs(delta_m - delta_dft)),
+                }
+            )
 
         cnt_done += 1
 
@@ -514,5 +598,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-

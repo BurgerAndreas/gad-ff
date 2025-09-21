@@ -218,7 +218,7 @@ def run_sella_on_sample(
     plot_final_mol=False,
 ):
     default_run_kwargs = dict(
-        fmax=1e-2, # 0.05
+        fmax=1e-2,  # 0.05
         steps=1000,
     )
     if hessian_method is not None:
@@ -235,7 +235,7 @@ def run_sella_on_sample(
         log_every_n=100,
         diag_every_n=diag_every_n,  # brute force. paper set this to 1. try 0
         # nsteps_per_diag=3,  # adaptive
-        # internal=True,  
+        # internal=True,
     )
     default_sella_kwargs.update(sella_kwargs)
     sella_kwargs = default_sella_kwargs
@@ -517,8 +517,8 @@ def launch_sella_tssearch_on_rgd1(
             break
         if max_samples > 1 and sample.natoms > 10:
             continue
-        
-        print("", "="*80, f"Loading sample {ii}", "="*80, sep="\n")
+
+        print("", "=" * 80, f"Loading sample {ii}", "=" * 80, sep="\n")
         print(f"Number of atoms: {sample.natoms}")
         print(f"Elements (z): {sample.z}")
         print(f"Reactant SMILES: {sample.smiles_reactant}")
@@ -568,7 +568,7 @@ def launch_sella_tssearch_on_rgd1(
         # for hessian_method in [None, "predict"]:
         for hessian_method in ["predict"]:
             for internal in [False, True]:
-            # for internal in [True]:
+                # for internal in [True]:
                 group = "internal" if internal else "cart"
                 group += hessian_method
                 summary_r = run_sella_on_sample(
@@ -587,10 +587,7 @@ def launch_sella_tssearch_on_rgd1(
                         internal=internal,
                     ),
                 )
-                _update_stats(
-                    group_key=f"reactant" + group, 
-                    summary=summary_r
-                )
+                _update_stats(group_key=f"reactant" + group, summary=summary_r)
 
                 summary_geo = run_sella_on_sample(
                     start_pos=x_geointer_rp,
@@ -608,10 +605,7 @@ def launch_sella_tssearch_on_rgd1(
                         internal=internal,
                     ),
                 )
-                _update_stats(
-                    group_key=f"geodesic" + group, 
-                    summary=summary_geo
-                )
+                _update_stats(group_key=f"geodesic" + group, summary=summary_geo)
 
         out[ii] = {"reactant": summary_r, "geodesic": summary_geo}
         samples_done += 1
@@ -639,7 +633,7 @@ if __name__ == "__main__":
         "--dataset",
         type=str,
         help="Path to the LMDB dataset file.",
-        default="rgd1", # "ts1x-val.lmdb",
+        default="rgd1",  # "ts1x-val.lmdb",
     )
     args = parser.parse_args()
 
@@ -665,10 +659,11 @@ if __name__ == "__main__":
         seed=args.seed,
     )
 
-
     # save as df
     df = pd.DataFrame(results)
-    df.to_csv(os.path.join(outdir, f"results_sella_{args.max_samples}.csv"), index=False)
+    df.to_csv(
+        os.path.join(outdir, f"results_sella_{args.max_samples}.csv"), index=False
+    )
 
     print("\nResults:")
     for ii, res in results.items():
@@ -679,14 +674,14 @@ if __name__ == "__main__":
             rmsd = v.get("rmsd_final", None)
             neg = v.get("freq_neg_num", None)
             ok = v.get("is_index_one_saddle", None)
-            print(
-                f"  {start}: rmsd={rmsd}, neg_modes={neg}, is_ts={ok}"
-            )
+            print(f"  {start}: rmsd={rmsd}, neg_modes={neg}, is_ts={ok}")
 
     # Summary statistics
     stats = results.get("__stats__", {})
     if stats:
-        print("\nSummary (avg nsteps, avg time [s], freq success rate, rmsd success rate):")
+        print(
+            "\nSummary (avg nsteps, avg time [s], freq success rate, rmsd success rate):"
+        )
         for key in sorted(stats.keys()):
             s = stats[key]
             avg_nsteps = (

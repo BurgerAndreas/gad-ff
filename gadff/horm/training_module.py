@@ -50,22 +50,29 @@ LR_SCHEDULER = {
 }
 GLOBAL_ATOM_NUMBERS = torch.tensor([1, 6, 7, 8])
 
+
 def add_weight_decay(model, weight_decay=1e-5, skip_list=()):
     decay = []
     no_decay = []
     for name, param in model.named_parameters():
         if not param.requires_grad:
             continue  # frozen weights
-        if (name.endswith(".bias") or name.endswith(".affine_weight")  
-            or name.endswith(".affine_bias") or name.endswith('.mean_shift')
-            or 'bias.' in name 
-            or name in skip_list):
+        if (
+            name.endswith(".bias")
+            or name.endswith(".affine_weight")
+            or name.endswith(".affine_bias")
+            or name.endswith(".mean_shift")
+            or "bias." in name
+            or name in skip_list
+        ):
             no_decay.append(param)
         else:
             decay.append(param)
     return [
-        {'params': no_decay, 'weight_decay': 0.},
-        {'params': decay, 'weight_decay': weight_decay}]
+        {"params": no_decay, "weight_decay": 0.0},
+        {"params": decay, "weight_decay": weight_decay},
+    ]
+
 
 class SchemaUniformDataset:
     """Wrapper that ensures all datasets have the same attributes.
@@ -245,32 +252,35 @@ class PotentialModule(LightningModule):
             optimizer = torch.optim.AdamW(trainable_params, **self.optimizer_config)
         elif optim_type.lower() == "muon":
             assert not self.training_config.get("train_heads_only", False)
-            # Muon is an optimizer for the hidden weights of a neural network. 
-            # Other parameters, such as embeddings, classifier heads, and hidden gains/biases 
+            # Muon is an optimizer for the hidden weights of a neural network.
+            # Other parameters, such as embeddings, classifier heads, and hidden gains/biases
             # should be optimized using standard AdamW.
             from muon import MuonWithAuxAdam
+
             # hidden_weights = [p for p in self.potential.body.parameters() if p.ndim >= 2]
             # hidden_gains_biases = [p for p in self.potential.body.parameters() if p.ndim < 2]
             # nonhidden_params = [*self.potential.head.parameters(), *self.potential.embed.parameters()]
             # muon_params = hidden_weights
             # adam_params = hidden_gains_biases + nonhidden_params
-            muon_params, adam_params = self.potential.get_muon_param_groups(**self.optimizer_config)
+            muon_params, adam_params = self.potential.get_muon_param_groups(
+                **self.optimizer_config
+            )
             # "params", "lr", "betas", "eps", "weight_decay", "use_muon"
             param_groups = [
                 dict(
-                    params=muon_params, 
+                    params=muon_params,
                     use_muon=True,
-                    lr=self.optimizer_config.get("lr_muon", 0.02), 
-                    weight_decay=self.optimizer_config.get("weight_decay", 0.01)
+                    lr=self.optimizer_config.get("lr_muon", 0.02),
+                    weight_decay=self.optimizer_config.get("weight_decay", 0.01),
                 ),
                 # Adam
                 dict(
-                    params=adam_params, 
+                    params=adam_params,
                     use_muon=False,
-                    lr = self.optimizer_config.get("lr", 0.0005),
-                    betas = self.optimizer_config.get("betas", (0.9, 0.999)),
-                    eps = self.optimizer_config.get("eps", 1e-12),
-                    weight_decay = self.optimizer_config.get("weight_decay", 0.01),
+                    lr=self.optimizer_config.get("lr", 0.0005),
+                    betas=self.optimizer_config.get("betas", (0.9, 0.999)),
+                    eps=self.optimizer_config.get("eps", 1e-12),
+                    weight_decay=self.optimizer_config.get("weight_decay", 0.01),
                     # **self.optimizer_config
                 ),
             ]

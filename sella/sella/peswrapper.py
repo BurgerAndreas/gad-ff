@@ -55,6 +55,7 @@ class PES:
     - manage constraint bases and projections
     - provide trust-region step evaluation via `kick`
     """
+
     def __init__(
         self,
         atoms: Atoms,
@@ -446,7 +447,9 @@ class PES:
         if not hasattr(self, "_time_stats") or not self._time_stats:
             print("No timing data recorded.")
             return
-        for name, total in list(sorted(self._time_stats.items(), key=lambda kv: kv[1], reverse=True))[:top]:
+        for name, total in list(
+            sorted(self._time_stats.items(), key=lambda kv: kv[1], reverse=True)
+        )[:top]:
             print(f"{name}: {total:.6f}s")
 
 
