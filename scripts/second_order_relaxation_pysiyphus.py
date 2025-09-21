@@ -540,6 +540,7 @@ def get_rfo_optimizer(
         # max_cycles: 50
         # trust_radius: 0.2 # here we use 0.3
         # hessian_recalc: 1
+        allow_write=False,
     )
     return opt
 
@@ -932,6 +933,7 @@ def do_relaxations(out_dir, source_label, args):
                     # String poiting to a directory where optimization progress is
                     # dumped.
                     out_dir=out_dir_method,
+                    allow_write=False,
                 )
                 results.append(
                     _run_opt_safely(
@@ -957,6 +959,7 @@ def do_relaxations(out_dir, source_label, args):
                     thresh=args.thresh,
                     # line_search=True,
                     out_dir=out_dir_method,
+                    allow_write=False,
                 )
                 results.append(
                     _run_opt_safely(
@@ -989,6 +992,7 @@ def do_relaxations(out_dir, source_label, args):
                     out_dir=out_dir_method,
                     thresh=args.thresh,
                     max_cycles=args.max_cycles,
+                    allow_write=False,
                 )
                 results.append(
                     _run_opt_safely(

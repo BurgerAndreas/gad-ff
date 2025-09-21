@@ -32,7 +32,14 @@ DATASET_FILES_HORM = [
 DATA_PATH_HORM_SAMPLE = os.path.join(ROOT_DIR, "data/sample_100.lmdb")
 
 # RGD1 dataset
-DATASET_DIR_RGD1 = os.path.join(ROOT_DIR, "data/rgd1")
+DATASET_DIR_RGD1 = os.path.join(ROOT_DIR, "../Datastore/rgd1")
+
+# Transition1x dataset
+DATASET_DIR_T1X = os.path.join(ROOT_DIR, "../Datastore/Transition1x/data")
+
+# Noised T1x dataset
+DATASET_DIR_T1X_NOISED = os.path.join(ROOT_DIR, "../Datastore/t1x/")
+
 
 # Checkpoint directory
 CHECKPOINT_DIR = os.path.join(ROOT_DIR, "ckpt")
