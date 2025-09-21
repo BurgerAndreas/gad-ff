@@ -275,6 +275,7 @@ class PotentialModule(LightningModule):
                 ),
             ]
             self.num_muon_params = len(muon_params)
+            print(f"Number of muon parameters: {self.num_muon_params}")
             optimizer = MuonWithAuxAdam(param_groups)
         else:
             raise ValueError(f"Unknown optimizer: {optim_type}")

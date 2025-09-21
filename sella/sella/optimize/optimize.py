@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import warnings
-from time import localtime, strftime
+from time import localtime, strftime, perf_counter
 from typing import Union, Callable, Optional
 
 import numpy as np
@@ -36,7 +36,30 @@ _default_kwargs = dict(
 )
 
 
+def _timed_method(method):
+    name = method.__qualname__
+
+    def wrapper(self, *args, **kwargs):
+        if not hasattr(self, "_time_stats"):
+            self._time_stats = {}
+        start = perf_counter()
+        try:
+            return method(self, *args, **kwargs)
+        finally:
+            elapsed = perf_counter() - start
+            self._time_stats[name] = self._time_stats.get(name, 0.0) + elapsed
+
+    return wrapper
+
+
 class Sella(Optimizer):
+    """Second-order optimizer with constrained trust-region steps.
+
+    Wraps a `PES`/`InternalPES` object and coordinates step prediction,
+    optional Hessian (re)diagonalization, trust-radius adaptation, and
+    logging. Supports both Cartesian and internal coordinates.
+    """
+    @_timed_method
     def __init__(
         self,
         atoms: Atoms,
@@ -167,6 +190,7 @@ class Sella(Optimizer):
         self.nsteps_since_diag = 0
         self.diag_every_n = np.inf if diag_every_n is None else diag_every_n
 
+    @_timed_method
     def initialize_pes(
         self,
         atoms: Atoms,
@@ -179,6 +203,12 @@ class Sella(Optimizer):
         hessian_function: Optional[Callable[[Atoms], np.ndarray]] = None,
         **kwargs,
     ):
+        """Create and configure a `PES` or `InternalPES` based on settings.
+
+        If `internal` is True, build an `InternalPES` using either a provided
+        `Internals` object or auto-detected internals; otherwise build a
+        Cartesian `PES`. Also wires the trajectory and optional Hessian hook.
+        """
         if internal:
             if isinstance(internal, Internals):
                 auto_find_internals = False
@@ -226,7 +256,14 @@ class Sella(Optimizer):
         self.trajectory = self.pes.traj
         return
 
+    @_timed_method
     def _predict_step(self):
+        """Construct a restricted trust-region step in the free subspace.
+
+        Ensures the PES is initialized (and optionally diagonalized) on the
+        first call. Then uses the configured restricted-step method to produce
+        a step `s` and its norm `smag` that respect inequality constraints.
+        """
         if not self.initialized:
             self.pes.get_g()
             if self.eig:
@@ -253,10 +290,19 @@ class Sella(Optimizer):
         self.pes._update_basis()
         return s, smag
 
+    @_timed_method
     def step(self):
+        """Perform one optimization iteration.
+
+        - Predict a step and decide whether to re-diagonalize the Hessian.
+        - Apply the step via `pes.kick`, obtaining the trust ratio.
+        - Handle bad internal coordinates (if any) by reinitializing the PES.
+        - Update the trust radius based on the ratio.
+        """
+        # Predict a constrained trust-region step and its magnitude
         s, smag = self._predict_step()
 
-        # Determine if we need to call the eigensolver, then step
+        # Decide whether to re-diagonalize based on cadence and curvature
         if self.nsteps_since_diag >= self.diag_every_n:
             ev = True
         elif self.eig and self.nsteps_since_diag >= self.nsteps_per_diag:
@@ -268,12 +314,14 @@ class Sella(Optimizer):
         else:
             ev = False
 
+        # Update diagonalization cadence counter
         if ev:
             self.nsteps_since_diag = 0
         else:
             self.nsteps_since_diag += 1
 
-        rho = self.pes.kick(s, ev, **self.diagkwargs)
+        # Take the step and get the trust ratio from PES
+        rho = self.pes.kick(s, diag=ev, **self.diagkwargs)
 
         # Check for bad internals, and if found, reset PES object.
         # This skips the trust radius update.
@@ -292,7 +340,8 @@ class Sella(Optimizer):
             self.rho = 1
             return
 
-        # Update trust radius
+        # Update trust radius based on ratio; shrink on poor agreement,
+        # grow if the model agrees within bounds
         if rho is None:
             pass
         elif rho < 1.0 / self.rho_dec or rho > self.rho_dec:
@@ -303,10 +352,14 @@ class Sella(Optimizer):
         if self.rho is None:
             self.rho = 1.0
 
+    @_timed_method
     def converged(self, forces=None):
+        """Return True if both force and constraint tolerances are met."""
         return self.pes.converged(self.fmax)[0]
 
+    @_timed_method
     def log(self, forces=None):
+        """Write a periodic log line with energy, force, constraint and TR info."""
         if self.logfile is None:
             return
         _, fmax, cmax = self.pes.converged(self.fmax)
@@ -330,3 +383,17 @@ class Sella(Optimizer):
                 )
             )
         self.logfile.flush()
+
+    def print_total_time_per_function(self, top=5):
+        """Print cumulative time spent in each Sella method for this instance."""
+        print("Sella timings:")
+        if hasattr(self, "_time_stats") and self._time_stats:
+            for name, total in list(sorted(self._time_stats.items(), key=lambda kv: kv[1], reverse=True))[:top]:
+                print(f"{name}: {total:.6f}s")
+        else:
+            print("No timing data recorded.")
+
+        # Also print timings from the associated PES object if available
+        if hasattr(self, "pes") and hasattr(self.pes, "print_total_time_per_function"):
+            print("PES timings:")
+            self.pes.print_total_time_per_function(top=top)

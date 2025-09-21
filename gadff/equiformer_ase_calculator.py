@@ -108,8 +108,8 @@ class EquiformerASECalculator(ASECalculator):
         self,
         atoms=None,
         properties=None,
-        hessian_method=None,
         system_changes=all_changes,
+        hessian_method=None,
     ):
         """
         Calculate properties for the given atoms.
@@ -121,8 +121,8 @@ class EquiformerASECalculator(ASECalculator):
             properties: List of properties to compute (used by ASE internally)
             system_changes: System changes since last calculation (used by ASE internally)
         """
-        # Call base class to set atoms attribute
-        ASECalculator.calculate(self, atoms)
+        # Call base class to set atoms attribute and manage caching
+        ASECalculator.calculate(self, atoms, properties, system_changes)
 
         if hessian_method is None:
             hessian_method = self.hessian_method
@@ -204,33 +204,22 @@ class EquiformerASECalculator(ASECalculator):
         # Forces shape: [n_atoms, 3]
         self.results["forces"] = forces.detach().cpu().numpy()
 
-    def get_energy(self, atoms):
-        """
-        Get the energy for the given atoms.
-        """
-        self.calculate(atoms, properties=["energy"])
-        return self.results
+    def get_energy(self, atoms) -> float:
+        """Return energy using ASE's property caching."""
+        return self.get_property("energy", atoms)
 
-    def get_potential_energy(self, atoms):
-        return self.get_energy(atoms)
+    def get_potential_energy(self, atoms) -> float:
+        return self.get_property("energy", atoms)
 
-    def get_forces(self, atoms):
-        """
-        Get the forces for the given atoms.
-        """
-        self.calculate(atoms, properties=["forces"])
-        return self.results
+    def get_forces(self, atoms) -> np.ndarray:
+        """Return forces using ASE's property caching."""
+        return self.get_property("forces", atoms)
 
-    def get_hessian(self, atoms, hessian_method=None):
-        """
-        Get the Hessian matrix.
-        """
-        self.calculate(
-            atoms,
-            properties=["energy", "forces", "hessian"],
-            hessian_method=hessian_method,
-        )
-        return self.results
+    def get_hessian(self, atoms, hessian_method=None) -> np.ndarray:
+        """Return Hessian; optionally set method before retrieving."""
+        if hessian_method is not None:
+            self.hessian_method = hessian_method
+        return self.get_property("hessian", atoms)
 
 
 ##############################################################################################################

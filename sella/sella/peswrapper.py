@@ -10,12 +10,29 @@ from ase.utils import basestring
 from ase.visualize import view
 from ase.calculators.singlepoint import SinglePointCalculator
 from ase.io.trajectory import Trajectory
+from time import perf_counter
 
 from sella.utilities.math import modified_gram_schmidt
 from sella.hessian_update import symmetrize_Y
 from sella.linalg import NumericalHessian, ApproximateHessian
 from sella.eigensolvers import rayleigh_ritz
 from sella.internal import Internals, Constraints, DuplicateInternalError
+
+
+def _timed_method(method):
+    name = method.__qualname__
+
+    def wrapper(self, *args, **kwargs):
+        if not hasattr(self, "_time_stats"):
+            self._time_stats = {}
+        start = perf_counter()
+        try:
+            return method(self, *args, **kwargs)
+        finally:
+            elapsed = perf_counter() - start
+            self._time_stats[name] = self._time_stats.get(name, 0.0) + elapsed
+
+    return wrapper
 
 
 def copy_atoms(atoms: Atoms) -> Atoms:
@@ -29,6 +46,15 @@ def copy_atoms(atoms: Atoms) -> Atoms:
 
 
 class PES:
+    """Wrapper around an ASE `Atoms` object that exposes a Potential
+    Energy Surface (PES) API.
+
+    Responsibilities:
+    - evaluate energy and gradient with constraints
+    - maintain and update an approximate Hessian
+    - manage constraint bases and projections
+    - provide trust-region step evaluation via `kick`
+    """
     def __init__(
         self,
         atoms: Atoms,
@@ -119,18 +145,22 @@ class PES:
             self.dummies.positions = dpos
 
     # Position getter/setter
+    @_timed_method
     def set_x(self, target):
         diff = target - self.get_x()
         self.atoms.positions = target.reshape((-1, 3))
         return diff, diff, self.curr.get("g", np.zeros_like(diff))
 
+    @_timed_method
     def get_x(self):
         return self.apos.ravel().copy()
 
     # Hessian getter/setter
+    @_timed_method
     def get_H(self):
         return self.H
 
+    @_timed_method
     def set_H(self, target, *args, **kwargs):
         self.H = ApproximateHessian(self.dim, self.ncart, target, *args, **kwargs)
 
@@ -146,9 +176,11 @@ class PES:
     def get_res(self):
         return self.cons.residual()
 
+    @_timed_method
     def get_drdx(self):
         return self.cons.jacobian()
 
+    @_timed_method
     def _calc_basis(self):
         drdx = self.get_drdx()
         U, S, VT = np.linalg.svd(drdx)
@@ -158,10 +190,12 @@ class PES:
         Unred = np.eye(self.dim)
         return drdx, Ucons, Unred, Ufree
 
+    @_timed_method
     def write_traj(self):
         if self.traj is not None:
             self.traj.write()
 
+    @_timed_method
     def eval(self):
         self.neval += 1
         f = self.atoms.get_potential_energy()
@@ -169,6 +203,7 @@ class PES:
         self.write_traj()
         return f, g
 
+    @_timed_method
     def _calc_eg(self, x):
         self.save()
         self.set_x(x)
@@ -178,6 +213,7 @@ class PES:
         self.restore()
         return f, g
 
+    @_timed_method
     def get_scons(self):
         """Returns displacement vector for linear constraint correction."""
         Ucons = self.get_Ucons()
@@ -192,6 +228,7 @@ class PES:
         )
         return scons
 
+    @_timed_method
     def _update(self, feval=True):
         x = self.get_x()
         new_point = True
@@ -217,6 +254,7 @@ class PES:
         self._update_basis()
         return True
 
+    @_timed_method
     def _update_basis(self):
         drdx, Ucons, Unred, Ufree = self._calc_basis()
         self.curr["drdx"] = drdx
@@ -230,23 +268,28 @@ class PES:
             L = np.linalg.lstsq(drdx.T, self.curr["g"], rcond=None)[0]
         self.curr["L"] = L
 
+    @_timed_method
     def _update_H(self, dx, dg):
         if self.last["x"] is None or self.last["g"] is None:
             return
         self.H.update(dx, dg)
 
+    @_timed_method
     def get_f(self):
         self._update()
         return self.curr["f"]
 
+    @_timed_method
     def get_g(self):
         self._update()
         return self.curr["g"].copy()
 
+    @_timed_method
     def get_Unred(self):
         self._update(False)
         return self.curr["Unred"]
 
+    @_timed_method
     def get_Ufree(self):
         self._update(False)
         return self.curr["Ufree"]
@@ -255,15 +298,26 @@ class PES:
         self._update(False)
         return self.curr["Ucons"]
 
+    @_timed_method
     def diag(self, gamma=0.1, threepoint=False, maxiter=None):
+        """Diagonalize/update the approximate Hessian in the free subspace.
+
+        Optionally uses a three-point finite-difference numerical Hessian
+        in the subspace and refines the internal low-rank representation
+        via Rayleigh–Ritz, then rotates and updates `self.H`.
+        """
+        # Ensure energy/gradient and basis information are current
         if self.curr["f"] is None:
             self._update(feval=True)
 
+        # Compute basis of free coordinates (orthogonal to constraints)
         Ufree = self.get_Ufree()
         nfree = Ufree.shape[1]
 
+        # Project Lagrangian Hessian onto free subspace
         P = self.get_HL().project(Ufree)
 
+        # Select initial subspace vector, preferably gradient in free space
         if P.B is None or self.first_diag:
             v0 = self.v0
             if v0 is None:
@@ -271,15 +325,19 @@ class PES:
         else:
             v0 = None
 
+        # Extract overlap matrix; default to identity if none available
         if P.B is None:
             P = np.eye(nfree)
         else:
             P = P.asarray()
 
+        # Build numerical Hessian operator restricted to free subspace
         Hproj = NumericalHessian(
             self._calc_eg, self.get_x(), self.get_g(), self.eta, threepoint, Ufree
         )
+        # Constraint Hessian contribution
         Hc = self.get_Hc()
+        # Compute Ritz pairs in subspace
         rayleigh_ritz(
             Hproj - Ufree.T @ Hc @ Ufree,
             gamma,
@@ -289,21 +347,23 @@ class PES:
             maxiter=maxiter,
         )
 
-        # Extract eigensolver iterates
+        # Extract eigensolver iterates (subspace basis and its image)
         Vs = Hproj.Vs
         AVs = Hproj.AVs
 
-        # Re-calculate Ritz vectors
+        # Form symmetric projected operator (with constraint correction)
         Atilde = Vs.T @ symmetrize_Y(Vs, AVs, symm=2) - Vs.T @ Hc @ Vs
+        # Diagonalize in the subspace to obtain Ritz vectors
         _, X = eigh(Atilde)
 
-        # Rotate Vs and AVs into X
+        # Rotate subspace and images to align with Ritz eigenvectors
         Vs = Vs @ X
         AVs = AVs @ X
 
-        # Update the approximate Hessian
+        # Update low-rank Hessian approximation with (Vs, AVs)
         self.H.update(Vs, AVs)
 
+        # Mark that initial diagonalization is done
         self.first_diag = False
 
     # FIXME: temporary functions for backwards compatibility
@@ -322,29 +382,51 @@ class PES:
     def wrap_dx(self, dx):
         return dx
 
+    @_timed_method
     def get_df_pred(self, dx, g, H):
         if H is None:
             return None
         return g.T @ dx + (dx.T @ H @ dx) / 2.0
 
+    @_timed_method
     def kick(self, dx, diag=False, **diag_kwargs):
+        """Apply a trial displacement and update the model.
+
+        - Moves the system by `dx` (respecting coordinate representation).
+        - Compares predicted vs actual energy change to form a trust ratio.
+        - Updates the quasi-Newton Hessian with the realized secant pair.
+        - Optionally re-diagonalizes or computes an exact Hessian if
+          `diag=True`.
+
+        Returns
+        -------
+        ratio : float | None
+            Actual/predicted energy change; used by the trust-radius logic.
+        """
+        # Snapshot current position, energy, gradient, and Hessian model
         x0 = self.get_x()
         f0 = self.get_f()
         g0 = self.get_g()
         B0 = self.H.asarray()
 
+        # Apply step; get intended and realized displacements, and parallel part of gradient
         dx_initial, dx_final, g_par = self.set_x(x0 + dx)
 
+        # Predicted energy change from quadratic model
         df_pred = self.get_df_pred(dx_initial, g0, B0)
+        # Actual changes from evaluations at the new point
         dg_actual = self.get_g() - g_par
         df_actual = self.get_f() - f0
+        # Trust ratio: actual over predicted decrease (may be None if no model)
         if df_pred is None:
             ratio = None
         else:
             ratio = df_actual / df_pred
 
+        # Update quasi-Newton Hessian with realized secant pair
         self._update_H(dx_final, dg_actual)
 
+        # Optionally (re)diagonalize or compute exact Hessian
         if diag:
             if self.hessian_function is not None:
                 self.calculate_hessian()
@@ -353,9 +435,19 @@ class PES:
 
         return ratio
 
+    @_timed_method
     def calculate_hessian(self):
+        """Set `self.H` from a user-provided exact Hessian function."""
         assert self.hessian_function is not None
         self.H.set_B(self.hessian_function(self.atoms))
+
+    def print_total_time_per_function(self, top=5):
+        """Print cumulative time spent in each PES method for this instance."""
+        if not hasattr(self, "_time_stats") or not self._time_stats:
+            print("No timing data recorded.")
+            return
+        for name, total in list(sorted(self._time_stats.items(), key=lambda kv: kv[1], reverse=True))[:top]:
+            print(f"{name}: {total:.6f}s")
 
 
 class InternalPES(PES):
@@ -414,6 +506,7 @@ class InternalPES(PES):
 
     dpos = property(lambda self: self.dummies.positions.copy())
 
+    @_timed_method
     def _set_x_iterative(self, target):
         pos0 = self.atoms.positions.copy()
         dpos0 = self.dummies.positions.copy()
@@ -464,6 +557,7 @@ class InternalPES(PES):
         )
 
     # Position getter/setter
+    @_timed_method
     def set_x(self, target, return_y=False, force_not_iterative=False):
         """
         target: np.ndarray[self.dim,]:
@@ -532,11 +626,13 @@ class InternalPES(PES):
         dx_initial = t0 * dx
         return dx_initial, dx_final, g_final
 
+    @_timed_method
     def get_x(self):
         """Get the internal coordinate vector."""
         return self.int.calc()
 
     # Hessian of the constraints
+    @_timed_method
     def get_Hc(self):
         D_cons = self.cons.hessian().ldot(self.curr["L"])
         B_int = self.int.jacobian()
@@ -547,10 +643,12 @@ class InternalPES(PES):
         Hc = Binv_int.T @ (D_cons - D_int) @ Binv_int
         return Hc
 
+    @_timed_method
     def get_drdx(self):
         # dr/dq = dr/dx dx/dq
         return PES.get_drdx(self) @ np.linalg.pinv(self.int.jacobian())
 
+    @_timed_method
     def _calc_basis(self, internal=None, cons=None):
         if internal is None:
             internal = self.int
@@ -570,11 +668,13 @@ class InternalPES(PES):
         Ufree = Unred @ VTc[ncons:].T
         return drdx, Ucons, Unred, Ufree
 
+    @_timed_method
     def eval(self):
         f, g_cart = PES.eval(self)
         Binv = np.linalg.pinv(self.int.jacobian())
         return f, g_cart @ Binv[: len(g_cart)]
 
+    @_timed_method
     def update_internals(self, dx):
         self._update(True)
 
@@ -638,6 +738,7 @@ class InternalPES(PES):
             Binv=Binv,
         )
 
+    @_timed_method
     def get_df_pred(self, dx, g, H):
         if H is None:
             return None
@@ -679,6 +780,7 @@ class InternalPES(PES):
 
         return dydt.ravel()
 
+    @_timed_method
     def kick(self, dx, diag=False, **diag_kwargs):
         ratio = PES.kick(self, dx, diag=diag, **diag_kwargs)
 
@@ -689,6 +791,7 @@ class InternalPES(PES):
 
         return ratio
 
+    @_timed_method
     def write_traj(self):
         if self.traj is not None:
             # Andreas start
@@ -714,6 +817,7 @@ class InternalPES(PES):
             self.traj.write(atoms_tmp)
         return
 
+    @_timed_method
     def _update(self, feval=True):
         if not PES._update(self, feval=feval):
             return
@@ -723,6 +827,7 @@ class InternalPES(PES):
         self.curr.update(B=B, Binv=Binv)
         return True
 
+    @_timed_method
     def _convert_cartesian_hessian_to_internal(
         self,
         Hcart: np.ndarray,
@@ -753,6 +858,7 @@ class InternalPES(PES):
         # finish reconstructing redundant internal Hessian
         return Unred @ Hnred @ Unred.T + lnred_mean * Ured @ Ured.T
 
+    @_timed_method
     def _convert_internal_hessian_to_cartesian(
         self,
         Hint: np.ndarray,
@@ -760,6 +866,7 @@ class InternalPES(PES):
         B = self.int.jacobian()
         return B.T @ Hint @ B + self.int.hessian().ldot(self.get_g())
 
+    @_timed_method
     def calculate_hessian(self):
         assert self.hessian_function is not None
         self.H.set_B(

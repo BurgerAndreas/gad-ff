@@ -17,7 +17,7 @@ import sys
 import time
 from datetime import datetime
 import traceback
-
+import pandas as pd
 import torch
 # from torch_geometric.data import Batch
 # from torch_geometric.data import Data as TGData
@@ -29,6 +29,7 @@ import torch
 # from rdkit.Chem.rdMolAlign import GetBestRMS
 
 from gadff.horm.ff_lmdb import LmdbDataset
+from gadff.path_config import fix_dataset_path
 
 # from gadff.align_unordered_mols import rmsd
 from gadff.align_ordered_mols import align_ordered_and_get_rmsd
@@ -41,7 +42,7 @@ from gadff.plot_molecules import (
 from gadff.trajectorysaver import MyTrajectory
 from gadff.equiformer_torch_calculator import EquiformerTorchCalculator
 from gadff.equiformer_ase_calculator import EquiformerASECalculator
-from gadff.frequency_analysis import analyze_frequencies_torch
+from gadff.frequency_analysis import analyze_frequencies
 from gadff.geodesic_interpolate import geodesic_interpolate_wrapper
 
 from ase import Atoms
@@ -165,9 +166,11 @@ def get_hessian_function(hessian_method, asecalc):
 
     def _hessian_function(atoms):
         # Map naming mismatch between callers and ASE wrapper
-        hm = "autograd" if hessian_method == "autodiff" else "predict"
-        results = asecalc.get_hessian(atoms, hessian_method=hm)
-        return results["hessian"]  # already shaped (N*3, N*3)
+        hm = "autograd" if (hessian_method == "autodiff") else "predict"
+        hessian = asecalc.get_hessian(atoms, hessian_method=hm)
+        if isinstance(hessian, dict):
+            hessian = hessian["hessian"]
+        return hessian  # already shaped (N*3, N*3)
 
     return _hessian_function
 
@@ -199,7 +202,7 @@ sella_default_kwargs = dict(
 )
 
 
-def run_sella(
+def run_sella_on_sample(
     start_pos,
     z,
     natoms,
@@ -207,7 +210,7 @@ def run_sella(
     title,
     sella_kwargs={},
     run_kwargs={},
-    calc=None,
+    asecalc=None,
     hessian_method=None,
     rmsd_threshold: float = 0.5,
     plot_dir=None,
@@ -215,22 +218,24 @@ def run_sella(
     plot_final_mol=False,
 ):
     default_run_kwargs = dict(
-        fmax=1e-3,
-        steps=4000,
+        fmax=1e-2, # 0.05
+        steps=1000,
     )
+    if hessian_method is not None:
+        diag_every_n = 1
     default_sella_kwargs = dict(
         order=1,  # 1 = first-order saddle point, 0 = minimum
-        eta=5e-5,  # Smaller finite difference step for higher accuracy
-        delta0=5e-3,  # Larger initial trust radius for TS search
-        gamma=0.1,  # Much tighter convergence for iterative diagonalization
-        rho_inc=1.05,  # More conservative trust radius adjustment
-        rho_dec=3.0,  # Allow larger trust radius changes
-        sigma_inc=1.3,  # Larger trust radius increases
-        sigma_dec=0.5,  # More aggressive trust radius decreases
+        # eta=5e-5,  # Smaller finite difference step for higher accuracy
+        # delta0=5e-3,  # Larger initial trust radius for TS search
+        # gamma=0.1,  # Much tighter convergence for iterative diagonalization
+        # rho_inc=1.05,  # More conservative trust radius adjustment
+        # rho_dec=3.0,  # Allow larger trust radius changes
+        # sigma_inc=1.3,  # Larger trust radius increases
+        # sigma_dec=0.5,  # More aggressive trust radius decreases
         log_every_n=100,
-        diag_every_n=None,  # brute force. paper set this to 1. try 0
-        nsteps_per_diag=3,  # adaptive
-        internal=False,  # paper set this to True
+        diag_every_n=diag_every_n,  # brute force. paper set this to 1. try 0
+        # nsteps_per_diag=3,  # adaptive
+        # internal=True,  
     )
     default_sella_kwargs.update(sella_kwargs)
     sella_kwargs = default_sella_kwargs
@@ -246,7 +251,7 @@ def run_sella(
         title += f" | diag_every_n={sella_kwargs['diag_every_n']}"
     # if nsteps_per_diag != 3:
     #     title += f" | nsteps_per_diag={nsteps_per_diag}"
-    print("\nRunning Sella TS search:", title)
+    print("\nRunning Sella TS search:\n", title)
 
     if plot_dir is None:
         # Auto-detect plot directory based on main script
@@ -259,11 +264,14 @@ def run_sella(
     start_pos = to_numpy(start_pos)
     atomic_numbers_np = to_numpy(z)
     mol_ase = Atoms(numbers=atomic_numbers_np, positions=start_pos)
-    mol_ase.calc = calc
-    calcname = calc.__class__.__name__
+    mol_ase.calc = asecalc
+    calcname = asecalc.__class__.__name__
 
     summary = {
         "calcname": calcname,
+        "natoms": natoms,
+        "hessian_method": hessian_method,
+        "internal": sella_kwargs.get("internal", False),
     }
 
     # Measure RMSD between start_pos and true_pos
@@ -279,7 +287,7 @@ def run_sella(
         # constraints=cons,
         # trajectory=os.path.join(logfolder, "cu_sella_ts.traj"),
         trajectory=MyTrajectory(atoms=mol_ase),
-        hessian_function=get_hessian_function(hessian_method, calc),
+        hessian_function=get_hessian_function(hessian_method, asecalc),
         **sella_kwargs,
     )
 
@@ -307,6 +315,10 @@ def run_sella(
         return summary
     t2 = time.time()
     print(f"Time taken: {t2 - t1:.2f} seconds")
+    dyn.print_total_time_per_function()
+    # write timing to summary dict
+    summary["time_stats"] = dyn._time_stats
+    summary["time_stats_pes"] = dyn.pes._time_stats
     print("Sella optimization completed!")
 
     # Get the final structure, convert to np, compute RMSD to true transition state
@@ -335,34 +347,33 @@ def run_sella(
         summary["rmsd_final"] = rmsd_final
         summary["rmsd_improvement"] = rmsd_initial - rmsd_final
 
-        # Frequency analysis at final geometry using predicted/autodiff Hessian
-        final_atoms = Atoms(numbers=to_numpy(z), positions=to_numpy(pred_pos))
-        final_atoms.calc = calc
-        # Get Hessian from calculator for verification
-        hm = "autograd" if hessian_method == "autodiff" else hessian_method
-        hess_np = calc.get_hessian(final_atoms, hessian_method=hm)["hessian"]
-        # Analyze with Eckart projection and mass weighting (torch routine)
-        hess_t = torch.as_tensor(hess_np, dtype=torch.float64)
-        coords_t = torch.as_tensor(final_atoms.get_positions(), dtype=torch.float64)
-        freq = analyze_frequencies_torch(
-            hessian=hess_t,
-            cart_coords=coords_t,
-            atomsymbols=[int(zi) for zi in to_numpy(z)],
-        )
-        neg_num = (
-            int(freq["neg_num"])
-            if hasattr(freq["neg_num"], "item")
-            else int(freq["neg_num"])
-        )
-        summary.update(
-            {
-                "freq_neg_num": neg_num,
-                "is_index_one_saddle": (neg_num == 1),
-                "rmsd_within_threshold": bool(rmsd_final <= rmsd_threshold),
-                "rmsd_threshold": rmsd_threshold,
-            }
-        )
-        print(f"Frequency analysis: neg modes = {neg_num}")
+    # Frequency analysis at final geometry using predicted/autodiff Hessian
+    final_atoms = Atoms(numbers=to_numpy(z), positions=to_numpy(pred_pos))
+    final_atoms.calc = asecalc
+    # Get Hessian from calculator for verification
+    hm = hessian_method if hessian_method == "autograd" else "predict"
+    hess_np = asecalc.get_hessian(final_atoms, hessian_method=hm)
+    # Analyze with Eckart projection and mass weighting (torch routine)
+    freq = analyze_frequencies(
+        hessian=hess_np,
+        cart_coords=final_atoms.get_positions(),
+        atomsymbols=final_atoms.get_chemical_symbols(),
+        # atomsymbols=[int(zi) for zi in to_numpy(z)],
+    )
+    neg_num = (
+        int(freq["neg_num"])
+        if hasattr(freq["neg_num"], "item")
+        else int(freq["neg_num"])
+    )
+    summary.update(
+        {
+            "freq_neg_num": neg_num,
+            "is_index_one_saddle": (neg_num == 1),
+            "rmsd_within_threshold": bool(rmsd_final <= rmsd_threshold),
+            "rmsd_threshold": rmsd_threshold,
+        }
+    )
+    print(f"Frequency analysis: neg modes = {neg_num}")
 
     _this_plot_dir = os.path.join(plot_dir, clean_filename(title, None, None))
     os.makedirs(_this_plot_dir, exist_ok=True)
@@ -414,7 +425,8 @@ def _build_ase_atoms(
 
 
 def _init_calculators(device: torch.device):
-    torchcalc = EquiformerTorchCalculator(device=device)
+    ckpt = "ckpt/hesspred_v1.ckpt"
+    torchcalc = EquiformerTorchCalculator(device=device, checkpoint_path=ckpt)
     model = getattr(torchcalc, "model", None)
     if model is None:
         model = getattr(torchcalc, "potential", None)
@@ -422,11 +434,12 @@ def _init_calculators(device: torch.device):
     return torchcalc, asecalc
 
 
-def run_tssearch_rgd1_sella(
+def launch_sella_tssearch_on_rgd1(
+    dataset,
     idx: int = 104_000,
     hessian_method: str = "predict",
     rmsd_threshold: float = 0.5,
-    steps: int = 4000,
+    steps: int = 1000,
     plot_traj: bool = True,
     plot_final_mol: bool = False,
     max_samples: int = 10,
@@ -439,8 +452,6 @@ def run_tssearch_rgd1_sella(
     random.seed(seed)
     torch.manual_seed(seed)
 
-    print("Loading RGD1 dataset")
-    dataset = LmdbDataset("data/rgd1/rgd1_minimal_train.lmdb")
     print(f"Dataset size: {len(dataset)}")
 
     # Calculators
@@ -448,13 +459,13 @@ def run_tssearch_rgd1_sella(
     torchcalc, asecalc = _init_calculators(device)
 
     # Determine indices to run
+    max_samples = min(max_samples, len(dataset))
     if max_samples is None or max_samples <= 1:
         indices = [idx]
     else:
         n = len(dataset)
-        k = min(max_samples, n)
-        indices = random.sample(range(n), k)
-    print(f"Selected indices: {indices}")
+        indices = random.sample(range(n), n)
+    # print(f"Selected indices: {indices}")
 
     # Plot base dir
     this_dir = os.path.dirname(os.path.abspath(__file__))
@@ -462,7 +473,7 @@ def run_tssearch_rgd1_sella(
     os.makedirs(plot_dir, exist_ok=True)
 
     # Common kwargs
-    run_kwargs = {"fmax": 1e-3, "steps": steps}
+    run_kwargs = {"fmax": 1e-2, "steps": steps}
 
     out = {}
     # Aggregators per (start_point, coordinate_system)
@@ -475,6 +486,8 @@ def run_tssearch_rgd1_sella(
                 "count": 0,
                 "sum_nsteps": 0,
                 "count_nsteps": 0,
+                "sum_time": 0.0,
+                "count_time": 0,
                 "freq_success": 0,  # neg modes == 1
                 "freq_attempts": 0,
                 "rmsd_success": 0,  # rmsd <= threshold
@@ -485,6 +498,10 @@ def run_tssearch_rgd1_sella(
         if isinstance(nsteps, int):
             s["sum_nsteps"] += nsteps
             s["count_nsteps"] += 1
+        time_taken = summary.get("time_taken", None)
+        if isinstance(time_taken, (int, float)):
+            s["sum_time"] += float(time_taken)
+            s["count_time"] += 1
         if "freq_neg_num" in summary:
             s["freq_attempts"] += 1
             if summary.get("freq_neg_num", None) == 1:
@@ -492,32 +509,42 @@ def run_tssearch_rgd1_sella(
         if summary.get("rmsd_within_threshold", False):
             s["rmsd_success"] += 1
 
+    samples_done = 0
     for ii in indices:
-        print(f"\nLoading sample {ii}")
         sample = dataset[ii]
 
-        # Plot structures
-        plot_molecule_mpl(
-            sample.pos_reactant,
-            atomic_numbers=sample.z,
-            title=f"Reactant idx{ii}",
-            plot_dir=plot_dir,
-            save=True,
-        )
-        plot_molecule_mpl(
-            sample.pos_transition,
-            atomic_numbers=sample.z,
-            title=f"Transition state idx{ii}",
-            plot_dir=plot_dir,
-            save=True,
-        )
-        plot_molecule_mpl(
-            sample.pos_product,
-            atomic_numbers=sample.z,
-            title=f"Product idx{ii}",
-            plot_dir=plot_dir,
-            save=True,
-        )
+        if samples_done >= max_samples:
+            break
+        if max_samples > 1 and sample.natoms > 10:
+            continue
+        
+        print("", "="*80, f"Loading sample {ii}", "="*80, sep="\n")
+        print(f"Number of atoms: {sample.natoms}")
+        print(f"Elements (z): {sample.z}")
+        print(f"Reactant SMILES: {sample.smiles_reactant}")
+
+        # # Plot structures
+        # plot_molecule_mpl(
+        #     sample.pos_reactant,
+        #     atomic_numbers=sample.z,
+        #     title=f"Reactant idx{ii}",
+        #     plot_dir=plot_dir,
+        #     save=True,
+        # )
+        # plot_molecule_mpl(
+        #     sample.pos_transition,
+        #     atomic_numbers=sample.z,
+        #     title=f"Transition state idx{ii}",
+        #     plot_dir=plot_dir,
+        #     save=True,
+        # )
+        # plot_molecule_mpl(
+        #     sample.pos_product,
+        #     atomic_numbers=sample.z,
+        #     title=f"Product idx{ii}",
+        #     plot_dir=plot_dir,
+        #     save=True,
+        # )
 
         # Geodesic interpolation midpoint
         reactant_atoms = _build_ase_atoms(sample.pos_reactant, sample.z)
@@ -529,57 +556,65 @@ def run_tssearch_rgd1_sella(
             return_middle_image=True,
         )
         x_geointer_rp = x_geointer_atoms.get_positions()
-        plot_molecule_mpl(
-            x_geointer_rp,
-            atomic_numbers=sample.z,
-            title=f"R-P geodesic interpolation idx{ii}",
-            plot_dir=plot_dir,
-            save=True,
-        )
+        # plot_molecule_mpl(
+        #     x_geointer_rp,
+        #     atomic_numbers=sample.z,
+        #     title=f"R-P geodesic interpolation idx{ii}",
+        #     plot_dir=plot_dir,
+        #     save=True,
+        # )
 
         # Run Sella from two starts
-        for internal in [False, True]:
-            summary_r = run_sella(
-                start_pos=sample.pos_reactant,
-                z=sample.z,
-                natoms=sample.natoms,
-                true_pos=sample.pos_transition,
-                title=f"Sella TS from R idx{ii}",
-                calc=asecalc,
-                hessian_method=hessian_method,
-                rmsd_threshold=rmsd_threshold,
-                run_kwargs=run_kwargs,
-                plot_traj=plot_traj,
-                plot_final_mol=plot_final_mol,
-                sella_kwargs=dict(
-                    internal=internal,
-                ),
-            )
-            _update_stats(
-                "reactant_internal" if internal else "reactant_cart", summary_r
-            )
+        # for hessian_method in [None, "predict"]:
+        for hessian_method in ["predict"]:
+            for internal in [False, True]:
+            # for internal in [True]:
+                group = "internal" if internal else "cart"
+                group += hessian_method
+                summary_r = run_sella_on_sample(
+                    start_pos=sample.pos_reactant,
+                    z=sample.z,
+                    natoms=sample.natoms,
+                    true_pos=sample.pos_transition,
+                    title=f"Sella TS from R idx{ii}",
+                    asecalc=asecalc,
+                    hessian_method=hessian_method,
+                    rmsd_threshold=rmsd_threshold,
+                    run_kwargs=run_kwargs,
+                    plot_traj=plot_traj,
+                    plot_final_mol=plot_final_mol,
+                    sella_kwargs=dict(
+                        internal=internal,
+                    ),
+                )
+                _update_stats(
+                    group_key=f"reactant" + group, 
+                    summary=summary_r
+                )
 
-            summary_geo = run_sella(
-                start_pos=x_geointer_rp,
-                z=sample.z,
-                natoms=sample.natoms,
-                true_pos=sample.pos_transition,
-                title=f"Sella TS from geodesic R-P idx{ii}",
-                calc=asecalc,
-                hessian_method=hessian_method,
-                rmsd_threshold=rmsd_threshold,
-                run_kwargs=run_kwargs,
-                plot_traj=plot_traj,
-                plot_final_mol=plot_final_mol,
-                sella_kwargs=dict(
-                    internal=internal,
-                ),
-            )
-            _update_stats(
-                "geodesic_internal" if internal else "geodesic_cart", summary_geo
-            )
+                summary_geo = run_sella_on_sample(
+                    start_pos=x_geointer_rp,
+                    z=sample.z,
+                    natoms=sample.natoms,
+                    true_pos=sample.pos_transition,
+                    title=f"Sella TS from geodesic R-P idx{ii}",
+                    asecalc=asecalc,
+                    hessian_method=hessian_method,
+                    rmsd_threshold=rmsd_threshold,
+                    run_kwargs=run_kwargs,
+                    plot_traj=plot_traj,
+                    plot_final_mol=plot_final_mol,
+                    sella_kwargs=dict(
+                        internal=internal,
+                    ),
+                )
+                _update_stats(
+                    group_key=f"geodesic" + group, 
+                    summary=summary_geo
+                )
 
         out[ii] = {"reactant": summary_r, "geodesic": summary_geo}
+        samples_done += 1
 
     out["__stats__"] = stats
     return out
@@ -587,7 +622,7 @@ def run_tssearch_rgd1_sella(
 
 if __name__ == "__main__":
     """
-    # --max-samples 10 --seed 0 --hessian-method predict
+    # --max_samples 10 --seed 0 --hessian-method predict
     uv run /ssd/Code/gad-ff/playground/run_tssearch_rgd1_sella.py 
     """
     parser = argparse.ArgumentParser(
@@ -597,33 +632,44 @@ if __name__ == "__main__":
         "--idx", type=int, default=104_000, help="Sample index in RGD1 dataset"
     )
     parser.add_argument(
-        "--hessian-method",
-        type=str,
-        default="predict",
-        choices=["predict", "autodiff"],
-        help="How to obtain Hessians for Sella and verification",
-    )
-    parser.add_argument(
-        "--rmsd-threshold",
-        type=float,
-        default=0.5,
-        help="RMSD threshold for TS verification (Å)",
-    )
-    parser.add_argument("--steps", type=int, default=4000, help="Max Sella steps")
-    parser.add_argument(
-        "--max-samples", type=int, default=10, help="Randomly sample this many indices"
+        "--max_samples", type=int, default=10, help="Randomly sample this many indices"
     )
     parser.add_argument("--seed", type=int, default=0, help="Random seed for sampling")
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        help="Path to the LMDB dataset file.",
+        default="rgd1", # "ts1x-val.lmdb",
+    )
     args = parser.parse_args()
 
-    results = run_tssearch_rgd1_sella(
+    if args.dataset == "rgd1":
+        print("Loading RGD1 dataset")
+        dataset = LmdbDataset("data/rgd1/rgd1_minimal_train.lmdb")
+        outdir = "results_sella/rgd1"
+    else:
+        # transform = HessianGraphTransform(
+        #     cutoff=model.cutoff,
+        #     cutoff_hessian=model.cutoff_hessian,
+        #     max_neighbors=model.max_neighbors,
+        #     use_pbc=model.use_pbc,
+        # )
+        outdir = f"results_sella/" + args.dataset.split("/")[-1].split(".")[0]
+        dataset = LmdbDataset(fix_dataset_path(args.dataset), transform=None)
+    os.makedirs(outdir, exist_ok=True)
+
+    results = launch_sella_tssearch_on_rgd1(
+        dataset=dataset,
         idx=args.idx,
-        hessian_method=args.hessian_method,
-        rmsd_threshold=args.rmsd_threshold,
-        steps=args.steps,
         max_samples=args.max_samples,
         seed=args.seed,
     )
+
+
+    # save as df
+    df = pd.DataFrame(results)
+    df.to_csv(os.path.join(outdir, f"results_sella_{args.max_samples}.csv"), index=False)
+
     print("\nResults:")
     for ii, res in results.items():
         if ii == "__stats__":
@@ -633,19 +679,21 @@ if __name__ == "__main__":
             rmsd = v.get("rmsd_final", None)
             neg = v.get("freq_neg_num", None)
             ok = v.get("is_index_one_saddle", None)
-            rmsdok = v.get("rmsd_within_threshold", None)
             print(
-                f"  {start}: rmsd={rmsd}, neg_modes={neg}, is_ts={ok}, rmsd_ok={rmsdok}"
+                f"  {start}: rmsd={rmsd}, neg_modes={neg}, is_ts={ok}"
             )
 
     # Summary statistics
     stats = results.get("__stats__", {})
     if stats:
-        print("\nSummary (avg nsteps, freq success rate, rmsd success rate):")
+        print("\nSummary (avg nsteps, avg time [s], freq success rate, rmsd success rate):")
         for key in sorted(stats.keys()):
             s = stats[key]
             avg_nsteps = (
                 (s["sum_nsteps"] / s["count_nsteps"]) if s["count_nsteps"] > 0 else None
+            )
+            avg_time = (
+                (s["sum_time"] / s["count_time"]) if s["count_time"] > 0 else None
             )
             freq_rate = (
                 (s["freq_success"] / s["freq_attempts"])
@@ -654,5 +702,5 @@ if __name__ == "__main__":
             )
             rmsd_rate = (s["rmsd_success"] / s["count"]) if s["count"] > 0 else None
             print(
-                f"  {key}: avg_nsteps={avg_nsteps}, freq_ok={freq_rate}, rmsd_ok={rmsd_rate}"
+                f"  {key}: avg_nsteps={avg_nsteps}, avg_time={avg_time}, freq_ok={freq_rate}, rmsd_ok={rmsd_rate}"
             )

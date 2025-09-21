@@ -239,6 +239,7 @@ def run_sella(
         title += f" | diag_every_n={diag_every_n}"
     # if nsteps_per_diag != 3:
     #     title += f" | nsteps_per_diag={nsteps_per_diag}"
+    
     print("\nRunning Sella TS search:", title)
     if plot_dir is None:
         # Auto-detect plot directory based on main script
