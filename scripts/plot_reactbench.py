@@ -1,6 +1,7 @@
 import pandas as pd
 import os
 import wandb
+import json
 
 import seaborn as sns
 
@@ -103,61 +104,64 @@ rename_metrics = {
 }
 
 # Try to use the eval export if present; otherwise derive from runs_df
-try:
-    df = pd.read_csv(OUTFILE, quotechar='"')
-    df["Metric"] = df["Metric"].map(rename_metrics)
-    print(f"Loaded eval csv from {OUTFILE}")
-except Exception:
-    # Project is specified by <entity/project-name>
-    runs = api.runs("andreas-burger/reactbench")
+# # Project is specified by <entity/project-name>
+# runs = api.runs("andreas-burger/reactbench")
 
-    summary_list, config_list, name_list = [], [], []
-    for run in runs:
-        if "final" not in run.tags:
+# summary_list, config_list, name_list = [], [], []
+# for run in runs:
+#     if "final" not in run.tags:
+#         continue
+#     # .summary contains the output keys/values for metrics like accuracy.
+#     #  We call ._json_dict to omit large files
+#     summary_list.append(run.summary._json_dict)
+
+#     # .config contains the hyperparameters.
+#     #  We remove special values that start with _.
+#     config_list.append(
+#         {k: v for k, v in run.config.items() if not k.startswith("_")}
+#     )
+
+#     # .name is the human-readable name of the run.
+#     name_list.append(run.name)
+
+# runs_df = pd.DataFrame(
+#     {"summary": summary_list, "config": config_list, "name": name_list}
+# )
+
+# runs_df.to_csv(OUTFILE)
+# print(f"Saved csv to {OUTFILE}")
+
+
+runs_df = pd.read_csv(OUTFILE, quotechar='"')
+print(f"Loaded eval csv from {OUTFILE}")
+
+records = []
+for _, row in runs_df.iterrows():
+    cfg = row.get("config", {}) or {}
+    if isinstance(cfg, str):
+        cfg = eval(cfg)
+    summ = row.get("summary", {}) or {}
+    if isinstance(summ, str):
+        summ = eval(summ)
+    base_method = str(cfg.get("hessian_method", "unknown"))
+    calc = cfg.get("calc")
+    calc_str = None if calc is None else str(calc)
+    if calc_str and calc_str.lower() not in ["none", "nan", "na", ""]:
+        method_label = f"{base_method}-{calc_str}"
+    else:
+        method_label = base_method
+    for metric_key, metric_label in rename_metrics.items():
+        value = summ.get(metric_key)
+        if value is None:
             continue
-        # .summary contains the output keys/values for metrics like accuracy.
-        #  We call ._json_dict to omit large files
-        summary_list.append(run.summary._json_dict)
-
-        # .config contains the hyperparameters.
-        #  We remove special values that start with _.
-        config_list.append(
-            {k: v for k, v in run.config.items() if not k.startswith("_")}
+        records.append(
+            {
+                "Metric": metric_label,
+                "Value": value,
+                "Method": method_label,
+            }
         )
-
-        # .name is the human-readable name of the run.
-        name_list.append(run.name)
-
-    runs_df = pd.DataFrame(
-        {"summary": summary_list, "config": config_list, "name": name_list}
-    )
-
-    runs_df.to_csv(OUTFILE)
-    print(f"Saved csv to {OUTFILE}")
-
-    records = []
-    for _, row in runs_df.iterrows():
-        cfg = row.get("config", {}) or {}
-        summ = row.get("summary", {}) or {}
-        base_method = str(cfg.get("hessian_method", "unknown"))
-        calc = cfg.get("calc")
-        calc_str = None if calc is None else str(calc)
-        if calc_str and calc_str.lower() not in ["none", "nan", "na", ""]:
-            method_label = f"{base_method}-{calc_str}"
-        else:
-            method_label = base_method
-        for metric_key, metric_label in rename_metrics.items():
-            value = summ.get(metric_key)
-            if value is None:
-                continue
-            records.append(
-                {
-                    "Metric": metric_label,
-                    "Value": value,
-                    "Method": method_label,
-                }
-            )
-    df = pd.DataFrame.from_records(records)
+df = pd.DataFrame.from_records(records)
 
 # Append DFT-verified metrics (correct_proposed_estimated) for predict/autograd
 method_key_map = {"predict": "predict-equiformer", "autograd": "autograd-equiformer"}

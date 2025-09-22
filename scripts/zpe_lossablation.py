@@ -171,6 +171,7 @@ def relax_with_dft(
         mem=4000,
         pal=1,
         verbose=0,
+        allow_write=False,
     )
     geom.set_calculator(base_calc)
     opt = RFOptimizer(
@@ -183,6 +184,7 @@ def relax_with_dft(
         line_search=True,
         out_dir=out_dir,
         max_cycles=max_cycles,
+        allow_write=False,
     )
     opt.run()
     final_coords_ang = (geom._coords).reshape(-1, 3) * BOHR2ANG
@@ -250,9 +252,8 @@ def print_deltadelta_latex(delta_csv_path, zpe_csv_path, decimals=4):
         .to_dict()
     )
 
-    # Reactant ZPE MAE/STD (model reactant ZPE vs DFT reactant ZPE)
+    # Reactant ZPE MAE (model ZPE at reactant vs DFT ZPE at reactant)
     mae_reactant_map = {}
-    std_reactant_map = {}
     if os.path.isfile(zpe_csv_path):
         df_zpe = pd.read_csv(zpe_csv_path)
         required_zpe = {"idx", "geometry", "model", "method", "zpe_eV"}
@@ -281,14 +282,16 @@ def print_deltadelta_latex(delta_csv_path, zpe_csv_path, decimals=4):
                 .apply(lambda s: float(np.std(s, ddof=0)) if len(s) > 0 else np.nan)
                 .to_dict()
             )
+        else:
+            std_reactant_map = {}
+    else:
+        std_reactant_map = {}
 
     # One row per method/model (excluding DFT itself)
     models = [
-        ("AlphaNet", "autograd"),
-        ("LeftNet", "autograd"),
-        ("LeftNet-DF", "autograd"),
-        ("EquiformerV2", "autograd"),
-        ("EquiformerV2", "predict"),
+        ("EquiformerV2", "MSE"),
+        ("EquiformerV2", "MAE"),
+        ("EquiformerV2", "MAE+Sub"),
     ]
 
     rows = []
@@ -325,6 +328,7 @@ def print_deltadelta_latex(delta_csv_path, zpe_csv_path, decimals=4):
             "ΔZPE MAE (Std) [eV]",
         ],
     )
+    # Print DataFrame view in console as requested
     print()
     print(table)
     latex = table.to_latex(index=False, escape=True)
@@ -338,7 +342,7 @@ def main():
     ap.add_argument(
         "--dataset",
         type=str,
-        default="data/t1x_val_reactant_hessian_100.h5",
+        default="../Datastore/t1x/t1x_val_reactant_hessian_100.h5",
         help="Path to T1x HDF5 file",
     )
     ap.add_argument("--max_samples", type=int, default=10)
@@ -349,15 +353,7 @@ def main():
     ap.add_argument("--redo_relax", type=bool, default=False)
     ap.add_argument("--redo_dft", type=bool, default=False)
     ap.add_argument("--verbose", type=bool, default=False)
-    ap.add_argument("--ckpt_alpha", type=str, default="ckpt/alpha.ckpt")
-    ap.add_argument("--ckpt_left", type=str, default="ckpt/left.ckpt")
-    ap.add_argument("--ckpt_left_df", type=str, default="ckpt/left-df.ckpt")
-    ap.add_argument("--ckpt_eqv2_autograd", type=str, default="ckpt/eqv2.ckpt")
-    ap.add_argument(
-        "--ckpt_eqv2_predict",
-        type=str,
-        default="/ssd/Code/ReactBench/ckpt/hesspred/hesspredalldatanumlayershessian3presetluca8w10onlybz128-581483-20250826-074746.ckpt",
-    )
+
     args = ap.parse_args()
 
     # Resolve output directory
@@ -366,7 +362,7 @@ def main():
         args.out_dir = os.path.join(
             ROOT_DIR,
             "runs_zpe_rp",
-            f"{source_label}_dftrelax_{args.thresh.replace('_', '')}",
+            f"{source_label}_dftrelax_{args.thresh.replace('_', '')}_lossablation",
         )
 
     os.makedirs(args.out_dir, exist_ok=True)
@@ -381,8 +377,8 @@ def main():
     # Save outputs
     zpe_dir = os.path.join(args.out_dir, "zpe")
     os.makedirs(zpe_dir, exist_ok=True)
-    zpe_csv = os.path.join(zpe_dir, "zpe_reactant_product_{args.max_samples}.csv")
-    delta_csv = os.path.join(zpe_dir, "delta_zpe_{args.max_samples}.csv")
+    zpe_csv = os.path.join(zpe_dir, f"zpe_reactant_product_{args.max_samples}.csv")
+    delta_csv = os.path.join(zpe_dir, f"delta_zpe_{args.max_samples}.csv")
 
     # Early exit if delta CSV exists and not redoing
     if os.path.isfile(delta_csv) and (not args.redo_relax) and (not args.redo_dft):
@@ -392,11 +388,9 @@ def main():
 
     # Load models
     device = args.device
-    model_alpha = _load_model(args.ckpt_alpha, device)
-    model_left = _load_model(args.ckpt_left, device)
-    model_left_df = _load_model(args.ckpt_left_df, device)
-    model_eqv2_predict = _load_model(args.ckpt_eqv2_predict, device)
-    model_eqv2_autograd = _load_model(args.ckpt_eqv2_autograd, device)
+    model_eqv2_mse = _load_model("ckpt/eq_l1_mse.ckpt", device)
+    model_eqv2_mae = _load_model("ckpt/eq_l1_mae.ckpt", device)
+    model_eqv2_maesub = _load_model("ckpt/eq_l1_luca8mae.ckpt", device)
 
     dataset = T1xDFTDataloader(args.dataset, datasplit="val", only_final=True)
 
@@ -542,20 +536,14 @@ def main():
         # Model Hessians at DFT-relaxed geometries (Angstrom input)
         def _model_hess_all(coords_ang, Z):
             return {
-                ("AlphaNet", "autograd"): _hessian_autograd_with_model(
-                    model_alpha, coords_ang.copy(), Z.copy(), device, True
+                ("EquiformerV2", "MSE"): _hessian_autograd_with_model(
+                    model_eqv2_mse, coords_ang.copy(), Z.copy(), device, False
                 ),
-                ("LeftNet", "autograd"): _hessian_autograd_with_model(
-                    model_left, coords_ang.copy(), Z.copy(), device, True
+                ("EquiformerV2", "MAE"): _hessian_autograd_with_model(
+                    model_eqv2_mae, coords_ang.copy(), Z.copy(), device, False
                 ),
-                ("LeftNet-DF", "autograd"): _hessian_autograd_with_model(
-                    model_left_df, coords_ang.copy(), Z.copy(), device, True
-                ),
-                ("EquiformerV2", "autograd"): _hessian_autograd_with_model(
-                    model_eqv2_autograd, coords_ang.copy(), Z.copy(), device, True
-                ),
-                ("EquiformerV2", "predict"): _hessian_autograd_with_model(
-                    model_eqv2_predict, coords_ang.copy(), Z.copy(), device, False
+                ("EquiformerV2", "MAE+Sub"): _hessian_autograd_with_model(
+                    model_eqv2_maesub, coords_ang.copy(), Z.copy(), device, False
                 ),
             }
 
