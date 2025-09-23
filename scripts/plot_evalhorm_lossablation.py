@@ -57,6 +57,10 @@ def pick_metrics(r):
         "eigvals": _to_float(r.get("eigval_mae", "nan")),
         "cos1": _to_float(r.get("eigvec1_cos", "nan")),
         "lambda1": _to_float(r.get("eigval1_mae", "nan")),
+        "lambda2": _to_float(r.get("eigval2_mae", "nan")),
+        "lambda1_eckart": _to_float(r.get("eigval1_mae_eckart", "nan")),
+        "lambda2_eckart": _to_float(r.get("eigval2_mae_eckart", "nan")),
+        "cos1_eckart": _to_float(r.get("eigvec1_cos_eckart", "nan")),
         "time_ms": _to_float(r.get("time", "nan")),
     }
 
@@ -95,16 +99,20 @@ def main() -> None:
     eig_best = _best_index([m["eigvals"] for m in metrics_list], maximize=False)
     cos_best = _best_index([m["cos1"] for m in metrics_list], maximize=True)
     lam_best = _best_index([m["lambda1"] for m in metrics_list], maximize=False)
+    lam2_best = _best_index([m["lambda2"] for m in metrics_list], maximize=False)
+    lam1e_best = _best_index([m["lambda1_eckart"] for m in metrics_list], maximize=False)
+    lam2e_best = _best_index([m["lambda2_eckart"] for m in metrics_list], maximize=False)
+    cose_best = _best_index([m["cos1_eckart"] for m in metrics_list], maximize=True)
     t_best = _best_index([m["time_ms"] for m in metrics_list], maximize=False)
 
     # Begin LaTeX table
     lines = []
-    lines.append("\\begin{tabular}{llccccc}")
+    lines.append("\\begin{tabular}{lcccccccc}")
     lines.append("\\hline")
+    #  & \\multirow{2}{*}{Model}
     lines.append(
-        "\\multirow{2}{*}{Loss} & \\multirow{2}{*}{Model} & Hessian $\\downarrow$  & Eigenvalues $\\downarrow$ & CosSim $\\evec_1$ $\\uparrow$ & $\\eval_1$ $\\downarrow$ & Time $\\downarrow$ \\\\"
-    )
-    lines.append(" & & eV/\\AA$^2$ & eV/\\AA$^2$ & unitless & eV/\\AA$^2$ & ms \\")
+        "\\multirow{2}{*}{Loss}  & Hessian $\\downarrow$  & Eigenvalues $\\downarrow$ & CosSim $\\evec_1$ $\\uparrow$ & $\\eval_1$ $\\downarrow$ & $\\eval_2$ $\\downarrow$ & $\\eval_1^{Eckart}$ $\\downarrow$ & $\\eval_2^{Eckart}$ $\\downarrow$ & CosSim (Eckart) $\\evec_1$ $\\uparrow$ \\\\")
+    lines.append(" & eV/\\AA$^2$ & eV/\\AA$^2$ & unitless & eV/\\AA$^2$ & eV/\\AA$^2$ & eV/\\AA$^2$ & eV/\\AA$^2$ & unitless \\\\")
     lines.append("\\hline")
 
     # Prediction rows (EquiformerV2 variants)
@@ -113,12 +121,15 @@ def main() -> None:
         e_str = _bold(_fmt(m["eigvals"]), (eig_best is not None and idx == eig_best))
         c_str = _bold(_fmt(m["cos1"]), (cos_best is not None and idx == cos_best))
         l_str = _bold(_fmt(m["lambda1"]), (lam_best is not None and idx == lam_best))
+        l2_str = _bold(_fmt(m["lambda2"]), (lam2_best is not None and idx == lam2_best))
+        l1e_str = _bold(_fmt(m["lambda1_eckart"]), (lam1e_best is not None and idx == lam1e_best))
+        l2e_str = _bold(_fmt(m["lambda2_eckart"]), (lam2e_best is not None and idx == lam2e_best))
+        ce_str = _bold(_fmt(m["cos1_eckart"]), (cose_best is not None and idx == cose_best))
         t_str = _bold(_fmt_time_ms(m["time_ms"]), (t_best is not None and idx == t_best))
+        # & {m['model']}
         lines.append(
-            f"{m['name']} & {m['model']} & {h_str} & {e_str} & {c_str} & {l_str} & {t_str} \\\\"
-        )
-
-    lines.append("")
+            f"{m['name']}  & {h_str} & {e_str} & {c_str} & {l_str} & {l2_str} & {l1e_str} & {l2e_str} & {ce_str} \\\\")
+    lines.append("\\hline")
     lines.append("\\end{tabular}")
 
     print("\n".join(lines))
