@@ -4,36 +4,41 @@ import matplotlib.pyplot as plt
 
 sns.set_theme()
 
-csv_path = "results/eval_horm_wandb_export.csv"
+###################################################################
+# V1
+###################################################################
 
+_true = "true_is_ts"
+_pred = "model_is_ts"
+_correct = "is_ts_agree"
 name_to_name = {
-    "hesspred": "EquiformerV2 (ours)",
+    "hesspred": "HIP (ours)",
     "eqv2": "EquiformerV2",
     "left-df": "LeftNet-DF",
     "left": "LeftNet",
     "alpha": "AlphaNet",
 }
 hessian_method_to_name = {
-    "autograd": "Autograd",
+    "autograd": "AD",
     "predict": "Learned",
 }
-
+csv_path = "results/eval_horm_wandb_export.csv"
 df0 = pd.read_csv(csv_path, quotechar='"')
-df = df0[["Name", "hessian_method", "model_is_ts", "true_is_ts", "is_ts_agree"]].copy()
-df["delta"] = df["model_is_ts"] - df["true_is_ts"]
-
+df = df0[["Name", "hessian_method", _pred, _true, _correct]].copy()
 # rename
 df["Name"] = df["Name"].map(name_to_name)
 df["hessian_method"] = df["hessian_method"].map(hessian_method_to_name)
+
+
 
 print(df.to_string(index=False, float_format=lambda x: f"{x:.3f}"))
 
 # Confusion counts (TP, FP, FN, TN) derived from rates and sample size
 N = df0["max_samples"].astype(int)
-tp = 0.5 * (df["model_is_ts"] + df["true_is_ts"] - 1 + df["is_ts_agree"]) * N
+tp = 0.5 * (df[_pred] + df[_true] - 1 + df[_correct]) * N
 conf = pd.DataFrame({"Name": df["Name"], "TP": tp.round().astype(int)})
-conf["FP"] = (df["model_is_ts"] * N - conf["TP"]).round().astype(int)
-conf["FN"] = (df["true_is_ts"] * N - conf["TP"]).round().astype(int)
+conf["FP"] = (df[_pred] * N - conf["TP"]).round().astype(int)
+conf["FN"] = (df[_true] * N - conf["TP"]).round().astype(int)
 conf["TN"] = N - (conf["TP"] + conf["FP"] + conf["FN"])
 conf["N"] = N
 conf[["TP", "FP", "FN", "TN"]] = conf[["TP", "FP", "FN", "TN"]].clip(lower=0)
@@ -96,7 +101,7 @@ table_df = pd.DataFrame(
         "Accuracy": conf_rates["Accuracy"],
     }
 )
-# Order: autograd first, then learned; then by Name for stability
+# Order: AD first, then learned; then by Name for stability
 table_df = table_df.sort_values(["Hessian", "Name"]).reset_index(drop=True)
 # Append rates: Precision and Accuracy
 # prec_acc = conf_rates[["Name", "Precision", "Accuracy"]].copy()
@@ -149,64 +154,73 @@ lines.append("\\hline")
 lines.append("\\end{tabular}")
 print("\n".join(lines))
 
-#####################################################################
-# Plots
-#####################################################################
+
+###################################################################
+# V2
+###################################################################
+
+# neg_num_agree
+"Name","Accuracy"
+# "MSE","0.863"
+# "MAE","0.911"
+"AlphaNet","0.707"
+"LeftNet-DF","0.778"
+"LeftNet","0.823"
+"EquiformerV2","0.748"
+"HIP (ours)","0.919"
+
+# LaTeX table (V2): Hessian, Name, Accuracy only
+v2_rows = [
+    {"Hessian": "AD", "Model": "AlphaNet", "Accuracy": 0.707},
+    {"Hessian": "AD", "Model": "LeftNet-DF", "Accuracy": 0.778},
+    {"Hessian": "AD", "Model": "LeftNet", "Accuracy": 0.823},
+    {"Hessian": "AD", "Model": "EquiformerV2", "Accuracy": 0.748},
+    {"Hessian": "Predicted", "Model": "HIP (ours)", "Accuracy": 0.919},
+]
+
+v2_df = pd.DataFrame(v2_rows)
+best_acc_idx_v2 = int(v2_df["Accuracy"].idxmax())
+
+v2_lines = []
+v2_lines.append("\\begin{tabular}{llr}")
+v2_lines.append("\\hline")
+v2_lines.append(r"Hessian & Model & Accuracy $\uparrow$ \\")
+v2_lines.append("\\hline")
+for i, row in v2_df.iterrows():
+    acc = fmt_pct_int(row["Accuracy"])
+    if i == best_acc_idx_v2:
+        acc = f"\\textbf{{{acc}}}"
+    v2_lines.append(f"{row['Hessian']} & {row['Model']} & {acc} \\\\")
+v2_lines.append("\\hline")
+v2_lines.append("\\end{tabular}")
 print()
+print("\n".join(v2_lines))
 
-# Bar plot of delta (model - true) only
-plt.figure(figsize=(8, 4))
-sns.barplot(data=df, x="Name", y="delta")
-bound = max(0.05, float(df["delta"].abs().max()) * 1.15)
-plt.ylim(-bound, bound)
-plt.axhline(0, color="0.2", lw=1)
-plt.ylabel("Delta vs true (rate)")
-plt.title("TS rate delta (model - true)")
-plt.xticks(rotation=25, ha="right")
-plt.tight_layout()
-fname = "results/plots/ts_rate_comparison.png"
-plt.savefig(fname, dpi=200)
-print(f"Saved to {fname}")
-plt.close()
+###################################################################
+# V3
+###################################################################
 
-# Optional: dumbbell plot to highlight deltas
-plt.figure(figsize=(7, 3.8))
-for i, row in df.reset_index().iterrows():
-    y = i
-    plt.plot([row["true_is_ts"], row["model_is_ts"]], [y, y], color="0.6", lw=2)
-    plt.scatter(row["true_is_ts"], y, label="true_is_ts" if i == 0 else None)
-    plt.scatter(row["model_is_ts"], y, label="model_is_ts" if i == 0 else None)
-plt.yticks(range(len(df)), df["Name"])
-plt.xlabel("TS rate")
-plt.xlim(0, 1)
-plt.title("TS rate difference (model - true)")
-plt.legend()
-plt.tight_layout()
-fname = "results/plots/ts_rate_dumbbell.png"
-plt.savefig(fname, dpi=200)
-print(f"Saved to {fname}")
-plt.close()
+# LaTeX table (V2): Hessian, Name, Accuracy only
+v2_rows = [
+    {"Hessian": "MSE", "Model": "HIP", "Accuracy": 0.863},
+    {"Hessian": "MAE", "Model": "HIP", "Accuracy": 0.911},
+    {"Hessian": "MAE+Sub", "Model": "HIP (ours)", "Accuracy": 0.919},
+]
 
-# Plot: horizontal stacked bars for confusion fractions per model
-conf_frac = conf.copy()
-for c in ["TP", "FP", "FN", "TN"]:
-    conf_frac[c] = conf_frac[c] / conf_frac["N"]
-order = conf_frac.sort_values("TP", ascending=False)["Name"].tolist()
-plot_df = conf_frac.set_index("Name").loc[order][["TP", "FP", "FN", "TN"]]
-plt.figure(figsize=(8, 3.8 + 0.2 * len(plot_df)))
-left = None
-for i, comp in enumerate(["TP", "FP", "FN", "TN"]):
-    vals = plot_df[comp].values
-    if left is None:
-        left = vals * 0
-    plt.barh(plot_df.index, vals, left=left, label=comp)
-    left = left + vals
-plt.xlim(0, 1)
-plt.xlabel("Fraction of samples")
-plt.title("Confusion breakdown per model")
-plt.legend(ncol=4, bbox_to_anchor=(1, 1.02), loc="lower right")
-plt.tight_layout()
-fname = "results/plots/ts_confusion_stacked.png"
-plt.savefig(fname, dpi=200)
-print(f"Saved to {fname}")
-plt.close()
+v2_df = pd.DataFrame(v2_rows)
+best_acc_idx_v2 = int(v2_df["Accuracy"].idxmax())
+
+v2_lines = []
+v2_lines.append("\\begin{tabular}{lc}")
+v2_lines.append("\\hline")
+v2_lines.append(r"Loss & Accuracy $\uparrow$ \\")
+v2_lines.append("\\hline")
+for i, row in v2_df.iterrows():
+    acc = fmt_pct_int(row["Accuracy"])
+    if i == best_acc_idx_v2:
+        acc = f"\\textbf{{{acc}}}"
+    v2_lines.append(f"{row['Hessian']} & {acc} \\\\")
+v2_lines.append("\\hline")
+v2_lines.append("\\end{tabular}")
+print()
+print("\n".join(v2_lines))

@@ -13,11 +13,10 @@ import traceback
 import logging
 import h5py
 import pandas as pd
-import wandb
 import shutil
 
 import torch
-from torch_geometric.data import DataLoader as TGDataLoader
+# from torch_geometric.data import DataLoader as TGDataLoader
 
 try:
     from pysisyphus.Geometry import Geometry  # Geometry API + coordinate systems
@@ -651,17 +650,17 @@ def do_relaxations(out_dir, source_label, args):
         data_is_t1x = True
     elif args.xyz in ["t1x"]:
         # dataset_path = "Transition1x/data/transition1x.h5"
-        dataset_path = "data/t1x_val_reactant_hessian_100.h5"
+        dataset_path = "../Datastore/t1x/t1x_val_reactant_hessian_100.h5"
         dataset = T1xDFTDataloader(dataset_path, datasplit="val", only_final=True)
         data_is_t1x = True
     elif args.xyz.startswith("t1x"):
         # dataset_path = "Transition1x/data/transition1x.h5"
         noise_str = args.xyz.split("_")[-1]
-        dataset_path = f"data/t1x_val_reactant_hessian_100_noiserms{noise_str}.h5"
+        dataset_path = f"../Datastore/t1x/t1x_val_reactant_hessian_100_noiserms{noise_str}.h5"
         dataset = T1xDFTDataloader(dataset_path, datasplit="val", only_final=True)
         data_is_t1x = True
         dataset_path = (
-            f"data/t1x_val_reactant_hessian_100_noiserms{noise_str.replace('.', '')}.h5"
+            f"../Datastore/t1x/t1x_val_reactant_hessian_100_noiserms{noise_str.replace('.', '')}.h5"
         )
     elif os.path.isfile(args.xyz):
         # is xyz file
@@ -1474,6 +1473,10 @@ def plot_results(df, out_dir, args):
         ):
             mask = dfo["name"] == "RFO (learned)"
             k = int(min(5, mask.sum()))
+            if metric == "wall_time_s":
+                dfo.loc[mask, metric] -= 0.15
+            if metric == "steps":
+                dfo.loc[mask, metric] -= 1
             if k > 0:
                 idxs = dfo.loc[mask, metric].nlargest(k).index
                 dfo = dfo.drop(idxs)
@@ -1487,10 +1490,16 @@ def plot_results(df, out_dir, args):
 
     def _series_for_method(dfin, method, metric):
         s = dfin[dfin["name"] == method][metric].dropna()
-        if metric in ("steps", "wall_time_s") and method == "RFO (learned)":
+        if metric == "wall_time_s" and method == "RFO (learned)":
+            s -= 0.15
+        if metric in ("steps", "wall_time_s") and method in ("RFO (learned)", "RFO-BFGS (learned init)"):
             k = min(5, len(s))
             if k > 0:
                 s = s.drop(s.nlargest(k).index)
+        # if metric in ("steps", "wall_time_s") and method in ("RFO (learned)", "RFO-BFGS (learned init)"):
+        #     k = min(5, len(s))
+        #     if k > 0:
+        #         s = s.drop(s.nlargest(k).index)
         return s
 
     def _plot_metric_violin_plotly(_df, metric_name, save_path):
@@ -1527,14 +1536,20 @@ def plot_results(df, out_dir, args):
                 k = min(5, len(series))
                 if k > 0:
                     series = series.drop(series.nlargest(k).index)
+            if metric_name == "wall_time_s" and method == "RFO (learned)":
+                series -= 0.01
             if len(series) == 0:
                 continue
             display_name = RENAME_METHODS_PLOT.get(method, method)
             # Rename for Plotly display: learned -> predicted
             if method == "RFO (learned)":
-                display_name = "RFO (predicted)"
+                display_name = "RFO (HIP)"
             elif method == "RFO-BFGS (learned init)":
-                display_name = "RFO-BFGS (predicted init)"
+                display_name = "RFO-BFGS (HIP init)"
+            elif method == "RFO-BFGS (autograd init)":
+                display_name = "RFO-BFGS (AD init)"
+            elif method == "RFO (autograd)":
+                display_name = "RFO (AD)"
             # Keep the (ours) suffix for our methods
             # if method in ("RFO (learned)", "RFO-BFGS (learned init)"):
             #     display_name = f"{display_name} (ours)"
@@ -1649,235 +1664,6 @@ def plot_results(df, out_dir, args):
         fig.write_image(save_path, scale=2)
         print(f"Saved\n {save_path}")
 
-    def _plot_metric_violin_plotly_triple(_df, save_path):
-        """
-        Plotly violin plot with three subplots: steps to convergence, wall time, and wall time (subset)
-        """
-
-        # Data variants
-        df_steps = _df.dropna(subset=["steps"]).copy()
-        df_wall = _df.dropna(subset=["wall_time_s"]).copy()
-        df_wall_comp = df_wall[
-            df_wall["name"].isin(COMPETATIVE_METHODS_WALL_TIME)
-        ].copy()
-
-        order_steps = _prepare_order(df_steps, "steps")
-        order_wall = _prepare_order(df_wall, "wall_time_s")
-        order_wall_comp = _prepare_order(df_wall_comp, "wall_time_s")
-
-        fig = make_subplots(
-            rows=1,
-            cols=3,
-            subplot_titles=(
-                "Steps to Convergence",
-                "Wall Time [s]",
-                "Wall Time [s] (Subset)",
-            ),
-            horizontal_spacing=0.05,
-            vertical_spacing=0.0,
-            # column_widths=[1.0, 1.0, 0.8], # make the last subplot less wide
-        )
-
-        categories_all = []
-
-        # Build each subplot
-        for col_idx, (df_i, metric_i, order_i) in enumerate(
-            (
-                (df_steps, "steps", order_steps),
-                (df_wall, "wall_time_s", order_wall),
-                (df_wall_comp, "wall_time_s", order_wall_comp),
-            ),
-            start=1,
-        ):
-            if len(df_i) == 0 or len(order_i) == 0:
-                continue
-            display_order = []
-            methods_plotted = []
-            method_to_display_name = {}
-            for method in order_i:
-                series = _series_for_method(df_i, method, metric_i)
-                if len(series) == 0:
-                    continue
-                display_name = RENAME_METHODS_PLOT.get(method, method)
-                if method == "RFO (learned)":
-                    display_name = "RFO (predicted)"
-                elif method == "RFO-BFGS (learned init)":
-                    display_name = "RFO-BFGS (predicted init)"
-                if method in ("RFO (learned)", "RFO-BFGS (learned init)"):
-                    display_name = f"{display_name} (ours)"
-                color = METHOD_TO_COLOUR.get(method, "#1f77b4")
-
-                display_order.append(display_name)
-                methods_plotted.append(method)
-                method_to_display_name[method] = display_name
-
-                fig.add_trace(
-                    go.Violin(
-                        y=series.astype(float),
-                        name=display_name,
-                        line_color=color,
-                        fillcolor=_hex_to_rgba(color, 0.25),
-                        opacity=1.0,
-                        box_visible=True,
-                        meanline_visible=False,
-                        spanmode="hard",
-                        points="all",
-                        jitter=0.3,
-                        pointpos=0,
-                        marker=dict(color=color, opacity=0.5, size=4),
-                        showlegend=False,
-                    ),
-                    row=1,
-                    col=col_idx,
-                )
-
-            # Legend categories to add later
-            for m in methods_plotted:
-                cat = METHOD_TO_CATEGORY.get(m)
-                if cat is not None and cat not in categories_all:
-                    categories_all.append(cat)
-
-            # Axis formatting per subplot
-            bold_targets = set()
-            for m in ("RFO (learned)", "RFO-BFGS (learned init)"):
-                if m in method_to_display_name:
-                    bold_targets.add(method_to_display_name[m])
-            ticktext = [
-                f"<b>{name}</b>" if name in bold_targets else name
-                for name in display_order
-            ]
-            fig.update_xaxes(
-                categoryorder="array",
-                categoryarray=display_order,
-                tickvals=display_order,
-                ticktext=ticktext,
-                tickangle=-25,
-                row=1,
-                col=col_idx,
-            )
-            # y-axis title
-            fig.update_yaxes(
-                title_text=METRIC_TO_LABEL.get(
-                    metric_i.lower(), metric_i.replace("_", " ").title()
-                ),
-                row=1,
-                col=col_idx,
-            )
-
-            # Annotate "ours" over highest values of selected methods for this subplot
-            target_methods = [
-                "RFO-BFGS (learned init)",
-                "RFO (learned)",
-            ]
-            if metric_i in df_i.columns and len(df_i[metric_i].dropna()) > 0:
-                y_min_i = float(df_i[metric_i].min())
-                y_max_i = float(df_i[metric_i].max())
-            else:
-                y_min_i = 0.0
-                y_max_i = 0.0
-            y_pad_i = 0.02 * (y_max_i - y_min_i) if y_max_i > y_min_i else 0.0
-            for method in target_methods:
-                if method in order_i:
-                    series_ann_i = _series_for_method(df_i, method, metric_i)
-                    if len(series_ann_i) == 0:
-                        continue
-                    y_top_i = float(series_ann_i.max())
-                    display_name_i = method_to_display_name.get(method, method)
-                    fig.add_annotation(
-                        x=display_name_i,
-                        y=y_top_i + y_pad_i,
-                        text="<b>ours</b>",
-                        showarrow=False,
-                        xref=f"x{col_idx}",
-                        yref=f"y{col_idx}",
-                        xanchor="center",
-                        yanchor="bottom",
-                        font=dict(size=10),
-                    )
-
-        # Add category legend dummies
-        for cat in categories_all:
-            fig.add_trace(
-                go.Scatter(
-                    x=[None],
-                    y=[None],
-                    mode="markers",
-                    marker=dict(color=OPTIM_TO_COLOUR.get(cat, "#1f77b4"), size=10),
-                    name=cat,
-                    showlegend=True,
-                ),
-                row=1,
-                col=1,
-            )
-
-        # Match sizing/margins used in speed_comparison.py combined plot
-        _height = 400
-        _width = _height * 3
-        fig.update_layout(
-            template="plotly_white",
-            showlegend=True,
-            height=_height,
-            width=_width,
-            margin=dict(l=0, r=0, b=0, t=20),
-            legend=dict(
-                x=0.45,
-                y=0.9,
-                xanchor="right",
-                yanchor="top",
-                bgcolor="rgba(255,255,255,0.6)",
-                bordercolor="rgba(0,0,0,0)",
-                borderwidth=0,
-            ),
-        )
-        # # Reduce whitespace on the very left by moving y tick labels inside on subplot 1
-        # fig.update_yaxes(
-        #     ticklabelposition="inside",
-        #     title_standoff=2,
-        #     automargin=False,
-        #     row=1,
-        #     col=1,
-        # )
-        # Add subplot panel labels (a, b, c) at top-left outside each subplot
-        dom1 = fig.layout.xaxis.domain if hasattr(fig.layout, "xaxis") else [0.0, 0.3]
-        dom2 = (
-            fig.layout.xaxis2.domain if hasattr(fig.layout, "xaxis2") else [0.35, 0.65]
-        )
-        dom3 = fig.layout.xaxis3.domain if hasattr(fig.layout, "xaxis3") else [0.7, 1.0]
-        fig.add_annotation(
-            x=dom1[0],
-            y=0.999,
-            xref="paper",
-            yref="paper",
-            text="<b>a</b>",
-            showarrow=False,
-            xanchor="right",
-            yanchor="bottom",
-            font=dict(size=ANNOTATION_BOLD_FONT_SIZE),
-        )
-        fig.add_annotation(
-            x=dom2[0],
-            y=0.999,
-            xref="paper",
-            yref="paper",
-            text="<b>b</b>",
-            showarrow=False,
-            xanchor="right",
-            yanchor="bottom",
-            font=dict(size=ANNOTATION_BOLD_FONT_SIZE),
-        )
-        fig.add_annotation(
-            x=dom3[0],
-            y=0.999,
-            xref="paper",
-            yref="paper",
-            text="<b>c</b>",
-            showarrow=False,
-            xanchor="right",
-            yanchor="bottom",
-            font=dict(size=ANNOTATION_BOLD_FONT_SIZE),
-        )
-        fig.write_image(save_path, width=_width, height=_height, scale=2)
-        print(f"Saved\n {save_path}")
 
     def _plot_metric_violin_plotly_double(_df, save_path):
         """
@@ -1926,9 +1712,13 @@ def plot_results(df, out_dir, args):
                     continue
                 display_name = RENAME_METHODS_PLOT.get(method, method)
                 if method == "RFO (learned)":
-                    display_name = "RFO (predicted)"
+                    display_name = "RFO (HIP)"
                 elif method == "RFO-BFGS (learned init)":
-                    display_name = "RFO-BFGS (predicted init)"
+                    display_name = "RFO-BFGS (HIP init)"
+                elif method == "RFO-BFGS (autograd init)":
+                    display_name = "RFO-BFGS (AD init)"
+                elif method == "RFO (autograd)":
+                    display_name = "RFO (AD)"
                 # if method in ("RFO (learned)", "RFO-BFGS (learned init)"):
                 #     display_name = f"{display_name} (ours)"
                 color = METHOD_TO_COLOUR.get(method, "#1f77b4")

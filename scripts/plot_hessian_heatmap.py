@@ -208,8 +208,8 @@ def plot_heatmaps(h_pred, h_true, save_path=None, absolute=False, show_relative=
             clip_on=False,
         )
 
-    axes[0].set_title("Predicted Hessian", pad=2)
-    axes[1].set_title("Ground Truth DFT Hessian", pad=2)
+    axes[0].set_title("HIP-Predicted Hessian", pad=2)
+    axes[1].set_title("Ground-Truth DFT Hessian", pad=2)
     axes[2].set_title("Absolute Difference", pad=2)
     if show_relative:
         axes[3].set_title("(d) Relative Difference", pad=2)
@@ -217,12 +217,14 @@ def plot_heatmaps(h_pred, h_true, save_path=None, absolute=False, show_relative=
     # ax.set_ylabel("")
     # for spine in ax.spines.values():
     #     spine.set_visible(False)
+    axis_label = "3N Degrees of Freedom"
+    axis_label = "3N"
     for ax in axes:
         ax.set_xticks([])
         ax.set_yticks([])
-        ax.set_xlabel("3N Degrees of Freedom")
+        ax.set_xlabel(axis_label)
         ax.set_ylabel("")
-    axes[0].set_ylabel("3N Degrees of Freedom")  # only leftmost axis
+    axes[0].set_ylabel(axis_label)  # only leftmost axis
     ax.tick_params(axis="both", which="both", labelsize=6, length=2, pad=1)
 
     fig.tight_layout(pad=0.0, w_pad=0.0, h_pad=0.0)

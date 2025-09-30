@@ -246,8 +246,8 @@ for m in methods:
 # Build a Plotly lollipop plot for two specific methods
 desired_methods = ["predict-equiformer", "autograd-equiformer"]
 method_display_name = {
-    "predict-equiformer": "Predicted Hessians (Ours)",
-    "autograd-equiformer": "Autograd Hessians",
+    "predict-equiformer": "HIP Hessians (Ours)",
+    "autograd-equiformer": "AD Hessians",
 }
 
 df_plot = df[df["Method"].isin(desired_methods)].copy()

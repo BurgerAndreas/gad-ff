@@ -717,11 +717,13 @@ def plot_combined_speed_memory_batchsize(
     # Col 1: Speed vs N
     for method in avg_times.columns:
         color = _color_for_method(method)
-        display_name = (
-            "Prediction (ours)"
-            if str(method).lower() == "prediction"
-            else str(method).capitalize()
-        )
+        if str(method).lower() == "prediction":
+            display_name = "HIP Hessians (ours)"
+        elif str(method).lower() == "autograd":
+            display_name = "AD Hessians"
+        else: 
+            display_name = str(method).capitalize()
+
         _err_kwargs = {}
         if show_std and (method in std_times.columns):
             std_vals = std_times[method].reindex(avg_times.index)
@@ -896,7 +898,8 @@ def plot_combined_speed_memory_batchsize(
             ),
         ),
         legend=dict(
-            x=x2 - 0.07,
+            # x=x2 - 0.07,
+            x=x2 - 0.05,
             y=0.91,
             xanchor="center",
             yanchor="top",
