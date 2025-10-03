@@ -232,9 +232,7 @@ def print_deltadelta_latex(delta_csv_path, zpe_csv_path, decimals=4):
     required_delta = {"model", "method", "delta_zpe_eV", "delta_zpe_dft_eV"}
     missing_delta = required_delta - set(df_delta.columns)
     if len(missing_delta) > 0:
-        raise ValueError(
-            f"CSV is missing required columns: {sorted(missing_delta)}"
-        )
+        raise ValueError(f"CSV is missing required columns: {sorted(missing_delta)}")
 
     # Use signed difference for STD, absolute for MAE (ΔZPE vs DFT)
     df_delta["error"] = df_delta["delta_zpe_eV"] - df_delta["delta_zpe_dft_eV"]
@@ -265,12 +263,10 @@ def print_deltadelta_latex(delta_csv_path, zpe_csv_path, decimals=4):
             df_r_dft = df_r[df_r["model"] == "DFT"][["idx", "zpe_eV"]].rename(
                 columns={"zpe_eV": "zpe_dft_eV"}
             )
-            df_r_models = (
-                df_r[df_r["model"] != "DFT"].merge(df_r_dft, on="idx", how="inner")
+            df_r_models = df_r[df_r["model"] != "DFT"].merge(
+                df_r_dft, on="idx", how="inner"
             )
-            df_r_models["error_r"] = (
-                df_r_models["zpe_eV"] - df_r_models["zpe_dft_eV"]
-            )
+            df_r_models["error_r"] = df_r_models["zpe_eV"] - df_r_models["zpe_dft_eV"]
             grp_r = df_r_models.groupby(["model", "method"])  # type: ignore[arg-type]
             mae_reactant_map = (
                 grp_r["error_r"]

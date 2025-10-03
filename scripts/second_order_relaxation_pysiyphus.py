@@ -656,12 +656,12 @@ def do_relaxations(out_dir, source_label, args):
     elif args.xyz.startswith("t1x"):
         # dataset_path = "Transition1x/data/transition1x.h5"
         noise_str = args.xyz.split("_")[-1]
-        dataset_path = f"../Datastore/t1x/t1x_val_reactant_hessian_100_noiserms{noise_str}.h5"
+        dataset_path = (
+            f"../Datastore/t1x/t1x_val_reactant_hessian_100_noiserms{noise_str}.h5"
+        )
         dataset = T1xDFTDataloader(dataset_path, datasplit="val", only_final=True)
         data_is_t1x = True
-        dataset_path = (
-            f"../Datastore/t1x/t1x_val_reactant_hessian_100_noiserms{noise_str.replace('.', '')}.h5"
-        )
+        dataset_path = f"../Datastore/t1x/t1x_val_reactant_hessian_100_noiserms{noise_str.replace('.', '')}.h5"
     elif os.path.isfile(args.xyz):
         # is xyz file
         dataset = [args.xyz]
@@ -1492,7 +1492,10 @@ def plot_results(df, out_dir, args):
         s = dfin[dfin["name"] == method][metric].dropna()
         if metric == "wall_time_s" and method == "RFO (learned)":
             s -= 0.15
-        if metric in ("steps", "wall_time_s") and method in ("RFO (learned)", "RFO-BFGS (learned init)"):
+        if metric in ("steps", "wall_time_s") and method in (
+            "RFO (learned)",
+            "RFO-BFGS (learned init)",
+        ):
             k = min(5, len(s))
             if k > 0:
                 s = s.drop(s.nlargest(k).index)
@@ -1663,7 +1666,6 @@ def plot_results(df, out_dir, args):
         )
         fig.write_image(save_path, scale=2)
         print(f"Saved\n {save_path}")
-
 
     def _plot_metric_violin_plotly_double(_df, save_path):
         """

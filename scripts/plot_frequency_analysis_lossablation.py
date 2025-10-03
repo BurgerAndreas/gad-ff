@@ -32,12 +32,16 @@ def _loss_label(name: str) -> str:
         return "MAE"
     return str(name)
 
+
 # Load
 df0 = pd.read_csv(csv_path, quotechar='"')
 
 # Filter to EquiformerV2 prediction runs only
 if "model_name" in df0.columns:
-    df0 = df0[(df0["hessian_method"].str.lower() == "predict") & (df0["model_name"] == "EquiformerV2")].copy()
+    df0 = df0[
+        (df0["hessian_method"].str.lower() == "predict")
+        & (df0["model_name"] == "EquiformerV2")
+    ].copy()
 else:
     df0 = df0[df0["hessian_method"].str.lower() == "predict"].copy()
 
@@ -92,11 +96,13 @@ conf_rates["Accuracy"] = (conf_rates["TP"] + conf_rates["TN"]) / conf_rates[
 def fmt_pct(x: float) -> str:
     return f"{round(x * 100)}%"
 
+
 print()
 print("Confusion rates (per model):")
 print(
-    conf_rates[["Name", "TPR", "FPR", "TNR", "FNR", "Precision", "NPV", "Accuracy"]]
-    .to_string(
+    conf_rates[
+        ["Name", "TPR", "FPR", "TNR", "FNR", "Precision", "NPV", "Accuracy"]
+    ].to_string(
         index=False,
         formatters={
             k: fmt_pct
@@ -107,6 +113,7 @@ print(
 
 # LaTeX table for confusion rates (EquiformerV2 predict only)
 print()
+
 
 def fmt_pct_int(x: float) -> str:
     return f"{round(x * 100)}\\%"
@@ -124,7 +131,9 @@ table_df = pd.DataFrame(
     }
 )
 # Enforce order for LaTeX table
-table_df["Name"] = pd.Categorical(table_df["Name"], categories=_desired_order, ordered=True)
+table_df["Name"] = pd.Categorical(
+    table_df["Name"], categories=_desired_order, ordered=True
+)
 table_df = table_df.sort_values(["Name"]).reset_index(drop=True)
 
 best_tp_idx = int(table_df["TPR"].idxmax())
@@ -160,9 +169,7 @@ for i, row in table_df.iterrows():
         prec = f"\\textbf{{{prec}}}"
     if i == best_acc_idx:
         acc = f"\\textbf{{{acc}}}"
-    lines.append(
-        f"{row['Name']}  & {tp} & {fp}  & {fn}  & {tn} & {prec} & {acc} \\\\"
-    )
+    lines.append(f"{row['Name']}  & {tp} & {fp}  & {fn}  & {tn} & {prec} & {acc} \\\\")
 lines.append("\\hline")
 lines.append("\\end{tabular}")
 print("\n".join(lines))
@@ -210,7 +217,9 @@ conf_frac = conf.copy()
 for c in ["TP", "FP", "FN", "TN"]:
     conf_frac[c] = conf_frac[c] / conf_frac["N"]
 # Enforce desired order
-order = [n for n in _desired_order if n in conf_frac["Name"].astype(str).unique().tolist()]
+order = [
+    n for n in _desired_order if n in conf_frac["Name"].astype(str).unique().tolist()
+]
 plot_df = conf_frac.set_index("Name").loc[order][["TP", "FP", "FN", "TN"]]
 plt.figure(figsize=(8, 3.8 + 0.2 * len(plot_df)))
 left = None

@@ -16,6 +16,9 @@ seaborn
 kaleido
 nglview
 py3Dmol==2.5.0
+selenium 
+pillow
+pymol-open-source
 # Development and formatting
 ruff
 pydantic==2.11.4

@@ -721,7 +721,7 @@ def plot_combined_speed_memory_batchsize(
             display_name = "HIP Hessians (ours)"
         elif str(method).lower() == "autograd":
             display_name = "AD Hessians"
-        else: 
+        else:
             display_name = str(method).capitalize()
 
         _err_kwargs = {}

@@ -30,7 +30,6 @@ df["Name"] = df["Name"].map(name_to_name)
 df["hessian_method"] = df["hessian_method"].map(hessian_method_to_name)
 
 
-
 print(df.to_string(index=False, float_format=lambda x: f"{x:.3f}"))
 
 # Confusion counts (TP, FP, FN, TN) derived from rates and sample size
@@ -160,14 +159,14 @@ print("\n".join(lines))
 ###################################################################
 
 # neg_num_agree
-"Name","Accuracy"
+"Name", "Accuracy"
 # "MSE","0.863"
 # "MAE","0.911"
-"AlphaNet","0.707"
-"LeftNet-DF","0.778"
-"LeftNet","0.823"
-"EquiformerV2","0.748"
-"HIP (ours)","0.919"
+"AlphaNet", "0.707"
+"LeftNet-DF", "0.778"
+"LeftNet", "0.823"
+"EquiformerV2", "0.748"
+"HIP (ours)", "0.919"
 
 # LaTeX table (V2): Hessian, Name, Accuracy only
 v2_rows = [

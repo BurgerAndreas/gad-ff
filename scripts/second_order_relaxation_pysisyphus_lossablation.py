@@ -20,10 +20,12 @@ import torch
 
 try:
     from pysisyphus.Geometry import Geometry  # Geometry API + coordinate systems
+
     # from pysisyphus.calculators.MLFF import MLFF
     from pysisyphus.calculators.Calculator import (
         Calculator,
     )  # base class to wrap/override
+
     # from pysisyphus.optimizers.FIRE import FIRE  # first-order baseline
     # from pysisyphus.optimizers.BFGS import BFGS
     # from pysisyphus.optimizers.SteepestDescent import SteepestDescent
@@ -152,6 +154,7 @@ def regularize_minimum_hessian(H, eps=1e-6):
 # --------------------------
 #  Calculator wrappers
 # --------------------------
+
 
 class CountingCalc(Calculator):
     """
@@ -486,10 +489,12 @@ RENAME_METHODS_PLOT = {
 def do_relaxations(out_dir, source_label, args):
     print("Loading dataset...")
     print(f"Dataset: {args.xyz}. is file: {os.path.isfile(args.xyz)}")
-    
+
     # dataset_path = "Transition1x/data/transition1x.h5"
     noise_str = "0.05"
-    dataset_path = f"../Datastore/t1x/t1x_val_reactant_hessian_100_noiserms{noise_str}.h5"
+    dataset_path = (
+        f"../Datastore/t1x/t1x_val_reactant_hessian_100_noiserms{noise_str}.h5"
+    )
     dataset = T1xDFTDataloader(dataset_path, datasplit="val", only_final=True)
     dataset_path = (
         f"data/t1x_val_reactant_hessian_100_noiserms{noise_str.replace('.', '')}.h5"
@@ -700,7 +705,6 @@ def do_relaxations(out_dir, source_label, args):
                         verbose=False,
                     )
                 )
-
 
             ###########################
             # Pretty print
@@ -985,7 +989,6 @@ def plot_results(df, out_dir, args):
         )
         fig.write_image(save_path, scale=2)
         print(f"Saved\n {save_path}")
-
 
     def _plot_metric_violin_plotly_double(_df, save_path):
         """
@@ -1318,7 +1321,6 @@ def plot_results(df, out_dir, args):
     return df
 
 
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument(
@@ -1355,7 +1357,7 @@ def main():
         + "_"
         + args.thresh.replace("_", "")
         + "_"
-        + str(args.max_samples)
+        + str(args.max_samples),
     )
 
     df = do_relaxations(out_dir, source_label, args)
