@@ -105,7 +105,7 @@ pymol.finish_launching(["pymol", "-c"])
 import py3Dmol
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-from PIL import Image
+from PIL import Image, ImageSequence
 import base64
 import io
 
@@ -168,17 +168,17 @@ def save_and_animate_traj(
     trajectory, atoms, out_dir_method, idx, hessians=None, key="forces"
 ):
     traj_path = os.path.join(out_dir_method, f"traj_{idx}.xyz")
-    save_trajectory_xyz(trajectory, atoms, traj_path)
+    save_trajectory_xyz(trajectory, atoms, traj_path, key=key)
     frames = [entry for entry in trajectory if entry["call"] == key]
     # if len(energy_frames) > 148:
     #     print(f"Skipping animation, too many frames ({len(energy_frames)})")
     #     return
-    # if len(frames) < 20:
-    #     print(f"Skipping animation, too few frames ({len(frames)})")
-    #     # Delete .h5 files
-    #     for h5_file in glob.glob(os.path.join(out_dir_method, "*.h5")):
-    #         os.remove(h5_file)
-    #     return
+    if len(frames) < 5:
+        print(f"Skipping animation, too few frames ({len(frames)})")
+        # Delete .h5 files
+        for h5_file in glob.glob(os.path.join(out_dir_method, "*.h5")):
+            os.remove(h5_file)
+        return
     # # ase
     # gif_path = os.path.join(out_dir_method, f"traj_mpl_{idx}.gif")
     # animate_xyz_trajectory_ase(traj_path, gif_path)
@@ -192,6 +192,11 @@ def save_and_animate_traj(
     if hessians is not None:
         hessian_gif_path = os.path.join(out_dir_method, f"hessian_anim_{idx}.gif")
         animate_hessian_trajectory(hessians, hessian_gif_path)
+        # Combine side-by-side if frame counts match
+        combined_gif_path = os.path.join(
+            out_dir_method, f"combined_pymol_hessian_{idx}.gif"
+        )
+        combine_gifs_side_by_side(gif_path, hessian_gif_path, combined_gif_path)
     # Delete .h5 files
     for h5_file in glob.glob(os.path.join(out_dir_method, "*.h5")):
         os.remove(h5_file)
@@ -204,13 +209,13 @@ def save_trajectory_xyz(trajectory, atoms, filename, key="forces"):
         trajectory: list of dicts with 'call', 'coords', etc.
         atoms: list of element symbols
         filename: output XYZ path
+        key: type of call to filter for (default 'forces')
     """
     energy_frames = [entry for entry in trajectory if entry["call"] == key]
     if len(energy_frames) == 0:
-        print(f"No energy frames found in trajectory")
+        print(f"No '{key}' frames found in trajectory")
         return
 
-    print(f"Saving trajectory to")
     n_atoms = len(atoms)
     with open(filename, "w") as f:
         for i, frame in enumerate(energy_frames):
@@ -228,7 +233,7 @@ def save_trajectory_xyz(trajectory, atoms, filename, key="forces"):
             for atom, xyz in zip(atoms, coords_3d):
                 f.write(f"{atom:2s} {xyz[0]:15.8f} {xyz[1]:15.8f} {xyz[2]:15.8f}\n")
 
-    print(f"Saved trajectory to\n {filename}")
+    print(f"Saved {len(energy_frames)} frames to XYZ:\n {filename}")
 
 
 def animate_xyz_trajectory_ase(
@@ -349,7 +354,7 @@ def animate_xyz_trajectory_py3dmol(
 
 
 def animate_xyz_trajectory_pymol(
-    xyz_file, output_gif, max_frames=100, width=800, height=600, ray_trace=False
+    xyz_file, output_gif, max_frames=100, width=800, height=800, ray_trace=False
 ):
     """Create animated GIF of molecular trajectory using PyMOL.
 
@@ -378,8 +383,8 @@ def animate_xyz_trajectory_pymol(
     n_frames = len(atoms_list)
     step = max(1, n_frames // max_frames)
     frame_indices = list(range(0, n_frames, step))
-
-    print(f"Attempting pymol")
+    
+    print(f"Creating PyMOL animation: {n_frames} frames in XYZ → {len(frame_indices)} frames in GIF")
 
     # Reset PyMOL state for a fresh session
     cmd.reinitialize()
@@ -439,7 +444,7 @@ def animate_xyz_trajectory_pymol(
             cmd.color("pastel_C", "traj and elem C")
             cmd.color("pastel_N", "traj and elem N")
             cmd.color("pastel_O", "traj and elem O")
-            cmd.zoom("traj", complete=1)
+            cmd.zoom("traj", buffer=0.5, complete=1)
             saved_view = cmd.get_view()
         else:
             cmd.delete("traj")
@@ -470,15 +475,12 @@ def animate_xyz_trajectory_pymol(
         img = Image.open(temp_png).convert("RGB")
         frames.append(img)
 
-        if (i + 1) % 10 == 0:
-            print(f"Rendered {i + 1}/{len(frame_indices)} frames")
-
     # Clean up PyMOL
     cmd.delete("all")
     # pymol.cmd.quit()
 
     # Save as GIF
-    if len(frames) > 0:
+    if len(frames) > 3:
         frames[0].save(
             output_gif,
             save_all=True,
@@ -488,7 +490,7 @@ def animate_xyz_trajectory_pymol(
             optimize=False,
             disposal=2,
         )
-        print(f"Saved PyMOL trajectory animation to\n {output_gif}")
+        print(f"PyMOL trajectory animation ({len(frames)} frames) to\n {output_gif}")
 
     # Clean up temporary files
     shutil.rmtree(temp_dir, ignore_errors=True)
@@ -507,8 +509,9 @@ def animate_hessian_trajectory(hessian_records, output_path, max_frames=50):
         return
 
     # Subsample if too many frames
-    step = max(1, len(hessian_records) // max_frames)
-    frames = hessian_records[::step]
+    # step = max(1, len(hessian_records) // max_frames)
+    # frames = hessian_records[::step]
+    frames = hessian_records
 
     # Determine global colorbar limits across all frames
     all_hessians = [f["hessian"] for f in frames if f["hessian"] is not None]
@@ -519,8 +522,9 @@ def animate_hessian_trajectory(hessian_records, output_path, max_frames=50):
     vmin = min(h.min() for h in all_hessians)
     vmax = max(h.max() for h in all_hessians)
 
-    # Create figure with single plot
+    # Create figure with single plot (fill canvas, no margins)
     fig, ax = plt.subplots(1, 1, figsize=(8, 8))
+    fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
 
     # Create initial plot objects that will be updated
     im = None
@@ -536,11 +540,12 @@ def animate_hessian_trajectory(hessian_records, output_path, max_frames=50):
         # Hessian heatmap
         im = ax.imshow(H, cmap="RdBu_r", vmin=vmin, vmax=vmax, aspect="auto")
 
-        # Remove axis labels and ticks
+        # Remove all axes and padding for borderless frames
         ax.set_xticks([])
         ax.set_yticks([])
 
-        plt.tight_layout(pad=0)
+        # plt.tight_layout(pad=0)
+        ax.axis("off")
 
         return [im]
 
@@ -552,7 +557,95 @@ def animate_hessian_trajectory(hessian_records, output_path, max_frames=50):
     anim.save(output_path, writer=writer)
     plt.close(fig)
 
-    print(f"Saved Hessian animation to\n {output_path}")
+    print(f"Hessian animation ({len(frames)} frames) to\n {output_path}")
+
+
+def count_gif_frames(gif_path):
+    """Return the number of frames in a GIF."""
+    if not os.path.exists(gif_path):
+        return 0
+    im = Image.open(gif_path)
+    count = 0
+    for _ in ImageSequence.Iterator(im):
+        count += 1
+    im.close()
+    return count
+
+
+def combine_gifs_side_by_side(gif_left_path, gif_right_path, output_path):
+    """Combine two GIFs side by side after verifying equal frame counts.
+
+    The left GIF is placed on the left, the right GIF on the right. If the two
+    GIFs have different heights, the smaller one is vertically centered.
+    """
+    if (not os.path.exists(gif_left_path)) or (not os.path.exists(gif_right_path)):
+        print("One or both GIF paths do not exist; skipping combine")
+        return
+
+    n_left = count_gif_frames(gif_left_path)
+    n_right = count_gif_frames(gif_right_path)
+
+    print(f"PyMOL frames: {n_left}, Hessian frames: {n_right}")
+
+    if n_left == 0 or n_right == 0:
+        print("One GIF has zero frames; skipping combine")
+        return
+
+    if n_left != n_right:
+        if n_right == n_left + 1:
+            print("Hessian has one extra frame; will ignore the last Hessian frame")
+        else:
+            print("Frame counts differ; not creating combined GIF")
+            return
+
+    left_im = Image.open(gif_left_path)
+    right_im = Image.open(gif_right_path)
+
+    # Determine a reasonable duration (ms) for output
+    left_duration = left_im.info.get("duration") if isinstance(left_im.info, dict) else None
+    right_duration = right_im.info.get("duration") if isinstance(right_im.info, dict) else None
+    if left_duration is None and right_duration is None:
+        duration = 400
+    elif left_duration is None:
+        duration = right_duration
+    elif right_duration is None:
+        duration = left_duration
+    else:
+        duration = max(left_duration, right_duration)
+
+    frames_out = []
+
+    left_iter = ImageSequence.Iterator(left_im)
+    right_iter = ImageSequence.Iterator(right_im)
+
+    for f_left, f_right in zip(left_iter, right_iter):
+        fl = f_left.convert("RGB")
+        fr = f_right.convert("RGB")
+        h = max(fl.height, fr.height)
+        w = fl.width + fr.width
+        canvas = Image.new("RGB", (w, h), color="white")
+        y1 = (h - fl.height) // 2
+        y2 = (h - fr.height) // 2
+        canvas.paste(fl, (0, y1))
+        canvas.paste(fr, (fl.width, y2))
+        frames_out.append(canvas)
+
+    if len(frames_out) > 3:
+        frames_out[0].save(
+            output_path,
+            save_all=True,
+            append_images=frames_out[1:],
+            duration=duration,
+            loop=0,
+            optimize=False,
+            # PIL dispoasl=2 clears each frame to the background before showing the next one
+            disposal=2,
+        )
+        print(f"combined GIF ({len(frames_out)} frames) to\n {output_path}")
+    else:
+        print(f"Skipping combined GIF, too few frames ({len(frames_out)})")
+    left_im.close()
+    right_im.close()
 
 
 def clean_str(s):
@@ -1313,6 +1406,8 @@ def do_relaxations(out_dir, source_label, args):
 def main():
     """
     uv run scripts/plot_relax_traj.py --redo True --thresh gau --noiserms 0.05
+    uv run scripts/plot_relax_traj.py --redo True --thresh gau_loose --key ts
+    uv run scripts/plot_relax_traj.py --redo True --thresh gau_loose --key ts --noiserms 0.0
     """
     ap = argparse.ArgumentParser()
     ap.add_argument(
