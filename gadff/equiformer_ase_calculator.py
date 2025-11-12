@@ -29,7 +29,6 @@ from ocpmodels.common.relaxation.ase_utils import (
 )
 
 from nets.equiformer_v2.equiformer_v2_oc20 import EquiformerV2_OC20
-from nets.prediction_utils import compute_extra_props
 
 from gadff.horm.hessian_utils import compute_hessian
 from gadff.inference_utils import get_model_from_checkpoint, get_dataloader
@@ -149,15 +148,14 @@ class EquiformerASECalculator(ASECalculator):
         # Store results
         self.results = {}
 
-        # Prepare batch with extra properties
-        batch = compute_extra_props(batch, pos_require_grad=do_autograd)
-
         # Run prediction
         if "hessian" in properties:
             if hessian_method == "autograd":
                 # Compute energy and forces with autograd
                 with torch.enable_grad():
-                    # batch.pos.requires_grad = True # already set in ase_atoms_to_torch_geometric_hessian
+                    batch.pos.requires_grad = (
+                        True  # already set in ase_atoms_to_torch_geometric_hessian
+                    )
                     energy, forces, _ = self.potential.forward(
                         batch,
                         otf_graph=False,  # TODO: does that work? we should have gradients from ase_atoms_to_torch_geometric_hessian

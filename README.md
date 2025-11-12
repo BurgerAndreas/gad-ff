@@ -27,7 +27,6 @@ cd gad-ff
 
 uv venv .venv --python 3.11
 source .venv/bin/activate
-uv pip install --upgrade pip
 
 uv pip install torch==2.7.0  --index-url https://download.pytorch.org/whl/cu126
 uv pip install torch-scatter -f https://data.pyg.org/whl/torch-2.7.0+cu126.html

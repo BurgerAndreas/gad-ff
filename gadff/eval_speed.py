@@ -25,7 +25,7 @@ import time
 import sys
 import json
 
-from gadff.horm.training_module import PotentialModule, compute_extra_props
+from gadff.horm.training_module import PotentialModule
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.path_config import fix_dataset_path, DATASET_FILES_HORM
 from ocpmodels.hessian_graph_transform import HessianGraphTransform
@@ -224,7 +224,6 @@ def speed_comparison(
     loader = TGDataLoader(dataset, batch_size=1, shuffle=False)
     for i, sample in enumerate(loader):
         batch = sample.to(device)
-        batch = compute_extra_props(batch)
         time_hessian_computation(model, batch, "prediction")
         torch.cuda.empty_cache()
         time_hessian_computation(model, batch, "autograd")
@@ -248,7 +247,6 @@ def speed_comparison(
 
         for _batch in tqdm(loader, desc=f"N={n_atoms}", leave=False):
             batch = _batch.clone().to(device)
-            batch = compute_extra_props(batch)
 
             # Time prediction
             time_prediction, mem_prediction = time_hessian_computation(
@@ -268,7 +266,6 @@ def speed_comparison(
 
             # fresh batch
             batch = _batch.clone().to(device)
-            batch = compute_extra_props(batch)
 
             # Time autograd
             time_autograd, mem_autograd = time_hessian_computation(

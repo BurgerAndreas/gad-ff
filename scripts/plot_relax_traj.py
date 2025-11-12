@@ -88,6 +88,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
@@ -373,7 +374,6 @@ def animate_xyz_trajectory_pymol(
         print(f"XYZ file not found: {xyz_file}")
         return
 
-
     atoms_list = read(xyz_file, index=":")
 
     if len(atoms_list) == 0:
@@ -383,8 +383,10 @@ def animate_xyz_trajectory_pymol(
     n_frames = len(atoms_list)
     step = max(1, n_frames // max_frames)
     frame_indices = list(range(0, n_frames, step))
-    
-    print(f"Creating PyMOL animation: {n_frames} frames in XYZ → {len(frame_indices)} frames in GIF")
+
+    print(
+        f"Creating PyMOL animation: {n_frames} frames in XYZ → {len(frame_indices)} frames in GIF"
+    )
 
     # Reset PyMOL state for a fresh session
     cmd.reinitialize()
@@ -398,16 +400,16 @@ def animate_xyz_trajectory_pymol(
     cmd.set("connect_mode", 4)  # distance-based bonding guess
     # Flat, no-shadow style by default
     cmd.set("ray_shadows", 0)
-    cmd.set("specular", 0) # no specular highlights (white spots)
+    cmd.set("specular", 0)  # no specular highlights (white spots)
     # cmd.set("ambient", 1) # completly flat
-    cmd.set("depth_cue", 0) # further away does not become grayscaled
+    cmd.set("depth_cue", 0)  # further away does not become grayscaled
     # cmd.set("light_count", 1) # 1 to 10
     # Pastel element colors
-    cmd.set_color("pastel_H", [240,240,240]) # #fafafa
-    cmd.set_color("pastel_C", [0,142,109]) # #008b6b
+    cmd.set_color("pastel_H", [240, 240, 240])  # #fafafa
+    cmd.set_color("pastel_C", [0, 142, 109])  # #008b6b
     # cmd.set_color("pastel_N", [255,0,0]) # #006bf7
-    cmd.set_color("pastel_N", [0,107,247]) # #006bf7
-    cmd.set_color("pastel_O", [217,2,0]) # #ff0000
+    cmd.set_color("pastel_N", [0, 107, 247])  # #006bf7
+    cmd.set_color("pastel_O", [217, 2, 0])  # #ff0000
 
     # Render frames with per-frame bond regeneration by reloading single-state XYZ
     frames = []
@@ -485,7 +487,7 @@ def animate_xyz_trajectory_pymol(
             output_gif,
             save_all=True,
             append_images=frames[1:],
-            duration=400, # ms per frame
+            duration=400,  # ms per frame
             loop=0,
             optimize=False,
             disposal=2,
@@ -602,8 +604,12 @@ def combine_gifs_side_by_side(gif_left_path, gif_right_path, output_path):
     right_im = Image.open(gif_right_path)
 
     # Determine a reasonable duration (ms) for output
-    left_duration = left_im.info.get("duration") if isinstance(left_im.info, dict) else None
-    right_duration = right_im.info.get("duration") if isinstance(right_im.info, dict) else None
+    left_duration = (
+        left_im.info.get("duration") if isinstance(left_im.info, dict) else None
+    )
+    right_duration = (
+        right_im.info.get("duration") if isinstance(right_im.info, dict) else None
+    )
     if left_duration is None and right_duration is None:
         duration = 400
     elif left_duration is None:

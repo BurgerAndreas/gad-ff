@@ -44,6 +44,7 @@ DATASET_DIR_T1X_NOISED = os.path.join(ROOT_DIR, "../Datastore/t1x/")
 # Checkpoint directory
 CHECKPOINT_DIR = os.path.join(ROOT_DIR, "ckpt")
 CHECKPOINT_PATH_EQUIFORMER_HORM = os.path.join(CHECKPOINT_DIR, "eqv2.ckpt")
+CHECKPOINT_PATH_EQUIFORMER_ORIG = os.path.join(CHECKPOINT_DIR, "eqv2_orig.ckpt")
 
 #########################################################################################################
 

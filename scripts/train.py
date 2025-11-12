@@ -33,7 +33,10 @@ except ImportError:
 
 from gadff.training_module_eigen import EigenPotentialModule, MyPLTrainer
 from gadff.training_module_hessian import HessianPotentialModule
-from gadff.path_config import CHECKPOINT_PATH_EQUIFORMER_HORM
+from gadff.path_config import (
+    CHECKPOINT_PATH_EQUIFORMER_HORM,
+    CHECKPOINT_PATH_EQUIFORMER_ORIG,
+)
 from gadff.logging_utils import name_from_config, find_latest_checkpoint
 from gadff.ema_callback import EMACallback
 
@@ -76,6 +79,17 @@ def setup_training(cfg: DictConfig):
     elif cfg.ckpt_model_path == "horm":
         ckpt = torch.load(
             CHECKPOINT_PATH_EQUIFORMER_HORM, map_location="cuda", weights_only=True
+        )
+        print(f"Checkpoint keys: {ckpt.keys()}")
+        print(f"Checkpoint state_dict keys: {len(ckpt['state_dict'].keys())}")
+        # keys all start with `potential.`
+        state_dict = {
+            k.replace("potential.", ""): v for k, v in ckpt["state_dict"].items()
+        }
+        pm.potential.load_state_dict(state_dict, strict=False)
+    elif cfg.ckpt_model_path == "orig":
+        ckpt = torch.load(
+            CHECKPOINT_PATH_EQUIFORMER_ORIG, map_location="cuda", weights_only=True
         )
         print(f"Checkpoint keys: {ckpt.keys()}")
         print(f"Checkpoint state_dict keys: {len(ckpt['state_dict'].keys())}")

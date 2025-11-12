@@ -24,12 +24,10 @@ from collections.abc import Mapping
 from typing import Any, List, Optional, Sequence, Union
 
 import torch.utils.data
-from torch.utils.data.dataloader import default_collate
 from torch_geometric.loader.dataloader import Collater as TGCollater
 
 from torch_geometric.data.data import BaseData
 from torch_geometric.data.datapipes import DatasetAdapter
-from torch_geometric.typing import TensorFrame, torch_frame
 
 FOLLOW_BATCH = ["diag_ij", "edge_index", "message_idx_ij"]
 
@@ -68,6 +66,9 @@ class HessianGraphTransform(BaseTransform):
         self.cutoff_hessian = cutoff_hessian
         self.max_neighbors = max_neighbors
         self.use_pbc = use_pbc
+
+    def forward(self, data):
+        return self.__call__(data)
 
     def __call__(self, data):
         """

@@ -24,6 +24,18 @@ from gadff.colours import (
     AXES_FONT_SIZE,
     AXES_TITLE_FONT_SIZE,
 )
+from ocpmodels.units import ATOMIC_NUMBER_TO_ELEMENT
+from collections import Counter
+
+from rdkit import Chem
+from rdkit.Chem import rdDetermineBonds
+
+try:
+    from leftnet.utils.xyz2mol import xyz2mol
+
+    XYZ2MOL_AVAILABLE = True
+except ImportError:
+    XYZ2MOL_AVAILABLE = False
 
 
 def _get_derivatives(x, y, retain_graph=None, create_graph=False):
@@ -45,6 +57,109 @@ def compute_hessian(coords, energy, forces=None):
 
     hessian = torch.stack(hess)
     return hessian.reshape(n_comp, -1)
+
+
+def get_chemical_formula(atomic_numbers):
+    """Compute chemical formula from atomic numbers."""
+    if isinstance(atomic_numbers, torch.Tensor):
+        atomic_numbers = atomic_numbers.cpu().numpy()
+
+    element_counts = Counter(atomic_numbers)
+
+    # Standard element ordering: C, H, N, O, then others by atomic number
+    standard_order = [6, 1, 7, 8]  # C, H, N, O
+    other_elements = sorted(
+        [z for z in element_counts.keys() if z not in standard_order]
+    )
+    ordered_elements = [
+        z for z in standard_order if z in element_counts
+    ] + other_elements
+
+    formula_parts = []
+    for z in ordered_elements:
+        symbol = ATOMIC_NUMBER_TO_ELEMENT.get(z, f"X{z}")
+        count = element_counts[z]
+        if count == 1:
+            formula_parts.append(symbol)
+        else:
+            formula_parts.append(f"{symbol}{count}")
+
+    return "".join(formula_parts)
+
+
+def get_smiles_from_sample(sample):
+    """Extract SMILES from sample if available."""
+    smiles = None
+
+    # Try different possible SMILES attributes
+    for attr in [
+        "smiles",
+        "smiles_reactant",
+        "smiles_product",
+        "reactant_smiles",
+        "product_smiles",
+    ]:
+        if hasattr(sample, attr):
+            value = getattr(sample, attr)
+            if isinstance(value, str) and value:
+                smiles = value
+                break
+
+    return smiles
+
+
+def generate_smiles_from_coords(atomic_numbers, coordinates):
+    """Generate SMILES from atomic numbers and coordinates using RDKit."""
+
+    if isinstance(atomic_numbers, torch.Tensor):
+        atomic_numbers = atomic_numbers.cpu().numpy()
+    if isinstance(coordinates, torch.Tensor):
+        coordinates = coordinates.detach().cpu().numpy()
+
+    # Method 1: Use rdDetermineBonds (simpler, faster)
+    try:
+        mol = Chem.RWMol()
+
+        # Add atoms to molecule
+        for atomic_num in atomic_numbers:
+            atom = Chem.Atom(int(atomic_num))
+            mol.AddAtom(atom)
+
+        # Add conformer with 3D coordinates
+        conf = Chem.Conformer(len(coordinates))
+        for i, (x, y, z) in enumerate(coordinates):
+            conf.SetAtomPosition(i, (float(x), float(y), float(z)))
+        mol.AddConformer(conf)
+
+        # Use RDKit's bond perception
+        rdDetermineBonds.DetermineBonds(mol, charge=0)
+
+        # Convert to regular molecule and generate SMILES
+        mol = mol.GetMol()
+        smiles = Chem.MolToSmiles(mol)
+        return smiles
+    except Exception:
+        pass
+
+    # Method 2: Use xyz2mol (more robust, handles multiple fragments)
+    if XYZ2MOL_AVAILABLE:
+        try:
+            atoms_list = atomic_numbers.tolist()
+            coords_list = coordinates.tolist()
+            mols = xyz2mol(atoms_list, coords_list, charge=0, use_huckel=False)
+            if mols and len(mols) > 0:
+                # Generate SMILES for each fragment and combine with '.'
+                smiles_list = []
+                for mol in mols:
+                    mol_smiles = Chem.MolToSmiles(mol)
+                    if mol_smiles:
+                        smiles_list.append(mol_smiles)
+                if smiles_list:
+                    return ".".join(smiles_list)
+        except Exception:
+            pass
+
+    return None
 
 
 def load_hessians(ckpt_path, dataset_path, hessian_method, sample_idx):
@@ -71,16 +186,38 @@ def load_hessians(ckpt_path, dataset_path, hessian_method, sample_idx):
     else:
         transform = None
 
-    dataset = LmdbDataset(fix_dataset_path(dataset_path), transform=transform)
-    dataset = SchemaUniformDataset(dataset)
-    dataset = Subset(dataset, indices=[sample_idx])
-    dataloader = TGDataLoader(dataset, batch_size=1, shuffle=False)
+    dataset_raw = LmdbDataset(fix_dataset_path(dataset_path), transform=transform)
+    dataset_uniform = SchemaUniformDataset(dataset_raw)
+    dataset_subset = Subset(dataset_uniform, indices=[sample_idx])
+    dataloader = TGDataLoader(dataset_subset, batch_size=1, shuffle=False)
+
+    # Get original sample to extract SMILES if available (before SchemaUniformDataset wrapper)
+    original_sample = dataset_raw[sample_idx]
 
     target_batch = next(iter(dataloader))
     batch = target_batch.to(device)
     batch = compute_extra_props(batch)
 
     n_atoms = batch.pos.shape[0]
+
+    # Extract chemical information
+    atomic_numbers = batch.z.cpu().numpy()
+    chemical_formula = get_chemical_formula(atomic_numbers)
+
+    # Try to get SMILES from dataset first, then generate from coordinates
+    smiles = get_smiles_from_sample(original_sample)
+    if not smiles:
+        # Generate SMILES from coordinates and atomic numbers using RDKit
+        coordinates = batch.pos.detach().cpu().numpy()
+        smiles = generate_smiles_from_coords(atomic_numbers, coordinates)
+
+    # Print chemical information
+    print(f"\nSample {sample_idx}:")
+    print(f"  Chemical formula: {chemical_formula}")
+    if smiles:
+        print(f"  SMILES: {smiles}")
+    else:
+        print(f"  SMILES: Not available (RDKit not available or generation failed)")
 
     if model_name == "LEFTNet":
         batch.pos.requires_grad_()

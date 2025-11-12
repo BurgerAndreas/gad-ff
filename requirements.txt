@@ -9,6 +9,7 @@ dxtb[libcint]
 rmsd
 pyscf
 openbabel-wheel
+rdkit>=2024.3.6 # for smiles generation
 # Visualization and plotting
 plotly
 imageio
@@ -18,7 +19,7 @@ nglview
 py3Dmol==2.5.0
 selenium 
 pillow
-pymol-open-source
+# pymol-open-source
 # Development and formatting
 ruff
 pydantic==2.11.4

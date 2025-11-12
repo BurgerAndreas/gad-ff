@@ -18,8 +18,6 @@ from ocpmodels.common.relaxation.ase_utils import (
     coord_atoms_to_torch_geometric_hessian,
 )
 
-from nets.prediction_utils import compute_extra_props
-
 from gadff.horm.hessian_utils import compute_hessian
 from gadff.inference_utils import get_model_from_checkpoint, get_dataloader
 from gadff.frequency_analysis import (
@@ -86,16 +84,16 @@ class EquiformerTorchCalculator:
         # Store results
         self.results = {}
 
-        # Prepare batch with extra properties
         batch = batch.to(self.potential.device)
-        batch = compute_extra_props(batch, pos_require_grad=do_autograd)
 
         # Run prediction
         if do_hessian:
             if hessian_method == "autograd":
                 # Compute energy and forces with autograd
                 with torch.enable_grad():
-                    # batch.pos.requires_grad = True # already set in ase_atoms_to_torch_geometric_hessian
+                    batch.pos.requires_grad = (
+                        True  # already set in ase_atoms_to_torch_geometric_hessian
+                    )
                     energy, forces, _ = self.potential.forward(
                         batch,
                         otf_graph=False,  # TODO: does that work? we should have gradients from ase_atoms_to_torch_geometric_hessian
