@@ -344,8 +344,9 @@ class Potential(BaseDynamics):
         edge_index = get_edges_index(combined_mask, remove_self_edge=True)
         fragments_nodes = [pyg_batch.natoms]
         n_frag_switch = get_n_frag_switch(fragments_nodes)
+        B = pyg_batch.batch.max().item() + 1
         conditions = conditions or torch.zeros(
-            pyg_batch.ae.size(0), 1, dtype=torch.long
+            B, 1, dtype=torch.long
         )
         conditions = conditions.to(pyg_batch.batch.device)
 
@@ -358,7 +359,7 @@ class Potential(BaseDynamics):
             )
         ]
 
-        t = torch.randint(0, self.timesteps, size=(1,)) / self.timesteps
+        # t = torch.randint(0, self.timesteps, size=(1,)) / self.timesteps
 
         ae, forces = self._forward(
             xh=xh,
@@ -459,8 +460,9 @@ class Potential(BaseDynamics):
         edge_index = get_edges_index(combined_mask, remove_self_edge=True)
         fragments_nodes = [pyg_batch.natoms]
         n_frag_switch = get_n_frag_switch(fragments_nodes)
+        B = pyg_batch.batch.max().item() + 1
         conditions = conditions or torch.zeros(
-            pyg_batch.ae.size(0), 1, dtype=torch.long
+            B, 1, dtype=torch.long
         )
         conditions = conditions.to(pyg_batch.batch.device)
 
@@ -474,7 +476,7 @@ class Potential(BaseDynamics):
             ).float()
         ]
 
-        t = torch.randint(0, self.timesteps, size=(1,)) / self.timesteps
+        # t = torch.randint(0, self.timesteps, size=(1,)) / self.timesteps
 
         ae, forces = self._forward_autograd(
             h=h,

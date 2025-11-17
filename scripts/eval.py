@@ -144,7 +144,8 @@ def evaluate(
     # _name += "_" + data_path.split("/")[-1].split(".")[0]
     if hessian_method != "autograd":
         _name += "_" + hessian_method
-    _name += "_" + str(max_samples)
+    # _name += "_" + str(max_samples)
+    _name += "_gadff"
 
     if wandb_run_id is None:
         wandb.init(

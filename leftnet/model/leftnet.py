@@ -837,7 +837,7 @@ class LEFTNet(torch.nn.Module):
         # assert_rot_equiv(nn_vector, dist_pad, edge_index, pos)  # for debugging
 
         x1 = (a - b) / ((torch.sqrt(torch.sum((a - b) ** 2, 1).unsqueeze(1))) + EPS)
-        y1 = torch.cross(x1, y1, dim=1)
+        y1 = torch.cross(a, b, dim=1)
         normy = (torch.sqrt(torch.sum(y1**2, 1).unsqueeze(1))) + EPS
         y1 = y1 / normy
         # assert torch.trace(torch.matmul(x1, torch.transpose(y1, 0, 1))) < EPS  # for debugging
