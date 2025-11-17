@@ -18,9 +18,10 @@ from gadff.path_config import fix_dataset_path
 from nets.prediction_utils import compute_extra_props, Z_TO_ATOM_SYMBOL
 from ocpmodels.hessian_graph_transform import HessianGraphTransform
 
-from gadff.frequency_analysis import analyze_frequencies
+from gadff.frequency_analysis import analyze_frequencies, eigval_to_wavenumber
 from pathlib import Path
 
+analyze_frequencies_np = analyze_frequencies
 
 def find_checkpoint(checkpoint_path):
     """
@@ -265,6 +266,12 @@ def evaluate(
             batch = compute_extra_props(batch)
 
             n_atoms = batch.pos.shape[0]
+            
+            # Collect per-sample metrics
+            sample_data = {
+                "sample_idx": n_samples,
+                "natoms": n_atoms,
+            }
 
             torch.cuda.reset_peak_memory_stats()
             start_event = torch.cuda.Event(enable_timing=True)
@@ -302,6 +309,8 @@ def evaluate(
 
             time_taken = start_event.elapsed_time(end_event)  # ms
             memory_usage = torch.cuda.max_memory_allocated() / 1e6  # Convert to MB
+            sample_data["time"] = time_taken  # ms
+            sample_data["memory"] = memory_usage
 
             hessian_model = hessian_model.reshape(n_atoms * 3, n_atoms * 3)
 
@@ -309,65 +318,43 @@ def evaluate(
             eigvals_model, eigvecs_model = torch.linalg.eigh(hessian_model)
 
             # Compute errors
-            if "energy" in batch:
+            if "energy" in batch: # RGD1 dataset
                 energy_true = batch.energy
-            else:
+            else: # T1x, QM9 dataset
                 energy_true = batch.ae
-            e_error = torch.mean(torch.abs(energy_model.squeeze() - energy_true))
-            f_error = torch.mean(torch.abs(force_model - batch.forces))
+            e_mae = torch.mean(torch.abs(energy_model.squeeze() - energy_true.squeeze()))
+            e_mae_per_atom = e_mae / n_atoms
+            sample_data["energy_mae"] = e_mae.item()
+            sample_data["energy_mae_per_atom"] = e_mae_per_atom.item()
+            f_mae = torch.mean(torch.abs(force_model - batch.forces))
+            sample_data["forces_mae"] = f_mae.item()
 
             # Reshape true hessian
             n_atoms = batch.pos.shape[0]
             hessian_true = batch.hessian.reshape(n_atoms * 3, n_atoms * 3)
-            h_error = torch.mean(torch.abs(hessian_model - hessian_true))
+            h_mae = torch.mean(torch.abs(hessian_model - hessian_true))
+            sample_data["hessian_mae"] = h_mae.item()
 
             # Eigenvalue error
             eigvals_true, eigvecs_true = torch.linalg.eigh(hessian_true)
 
             # Asymmetry error
-            asymmetry_error = torch.mean(torch.abs(hessian_model - hessian_model.T))
-            true_asymmetry_error = torch.mean(torch.abs(hessian_true - hessian_true.T))
+            asymmetry_mae = torch.mean(torch.abs(hessian_model - hessian_model.T))
+            true_asymmetry_mae = torch.mean(torch.abs(hessian_true - hessian_true.T))
+            sample_data["asymmetry_mae"] = asymmetry_mae.item()
+            sample_data["true_asymmetry_mae"] = true_asymmetry_mae.item()
 
             # Additional metrics
             eigval_mae = torch.mean(
                 torch.abs(eigvals_model - eigvals_true)
             )  # eV/Angstrom^2
-            eigval1_mae = torch.mean(torch.abs(eigvals_model[0] - eigvals_true[0]))
-            eigval2_mae = torch.mean(torch.abs(eigvals_model[1] - eigvals_true[1]))
-            eigvec1_mae = torch.mean(
-                torch.abs(eigvecs_model[:, 0] - eigvecs_true[:, 0])
-            )
-            eigvec2_mae = torch.mean(
-                torch.abs(eigvecs_model[:, 1] - eigvecs_true[:, 1])
-            )
-            eigvec1_cos = torch.abs(torch.dot(eigvecs_model[:, 0], eigvecs_true[:, 0]))
-            eigvec2_cos = torch.abs(torch.dot(eigvecs_model[:, 1], eigvecs_true[:, 1]))
-
-            # Collect per-sample metrics
-            sample_data = {
-                "sample_idx": n_samples,
-                "natoms": n_atoms,
-                "energy_error": e_error.item(),
-                "forces_error": f_error.item(),
-                "hessian_error": h_error.item(),
-                "asymmetry_error": asymmetry_error.item(),
-                "true_asymmetry_error": true_asymmetry_error.item(),
-                "eigval_mae": eigval_mae.item(),
-                "eigval1_mae": eigval1_mae.item(),
-                "eigval2_mae": eigval2_mae.item(),
-                "eigvec1_mae": eigvec1_mae.item(),
-                "eigvec2_mae": eigvec2_mae.item(),
-                "eigvec1_cos": eigvec1_cos.item(),
-                "eigvec2_cos": eigvec2_cos.item(),
-                "time": time_taken,  # ms
-                "memory": memory_usage,
-            }
+            sample_data["eigval_mae"] = eigval_mae.item()
 
             ########################
             # Mass weighted + Eckart projection
             ########################
 
-            true_freqs = analyze_frequencies(
+            true_freqs = analyze_frequencies_np(
                 hessian=hessian_true.detach().cpu().numpy(),
                 cart_coords=batch.pos.detach().cpu().numpy(),
                 atomsymbols=[Z_TO_ATOM_SYMBOL[z.item()] for z in batch.z],
@@ -376,7 +363,7 @@ def evaluate(
             true_eigvecs_eckart = torch.tensor(true_freqs["eigvecs"])
             true_eigvals_eckart = torch.tensor(true_freqs["eigvals"])
 
-            freqs_model = analyze_frequencies(
+            freqs_model = analyze_frequencies_np(
                 hessian=hessian_model.detach().cpu().numpy(),
                 cart_coords=batch.pos.detach().cpu().numpy(),
                 atomsymbols=[Z_TO_ATOM_SYMBOL[z.item()] for z in batch.z],
@@ -386,9 +373,15 @@ def evaluate(
             eigvals_model_eckart = torch.tensor(freqs_model["eigvals"])
 
             sample_data["true_neg_num"] = true_neg_num
+            sample_data["true_is_minima"] = 1 if true_neg_num == 0 else 0
             sample_data["true_is_ts"] = 1 if true_neg_num == 1 else 0
+            sample_data["true_is_ts_order2"] = 1 if true_neg_num == 2 else 0
+            sample_data["true_is_higher_order"] = 1 if true_neg_num > 2 else 0
             sample_data["model_neg_num"] = freqs_model_neg_num
             sample_data["model_is_ts"] = 1 if freqs_model_neg_num == 1 else 0
+            sample_data["model_is_minima"] = 1 if freqs_model_neg_num == 0 else 0
+            sample_data["model_is_ts_order2"] = 1 if freqs_model_neg_num == 2 else 0
+            sample_data["model_is_higher_order"] = 1 if freqs_model_neg_num > 2 else 0
             sample_data["neg_num_agree"] = (
                 1 if (true_neg_num == freqs_model_neg_num) else 0
             )
@@ -402,18 +395,86 @@ def evaluate(
             sample_data["eigval2_mae_eckart"] = torch.mean(
                 torch.abs(eigvals_model_eckart[1] - true_eigvals_eckart[1])
             )
-            sample_data["eigvec1_mae_eckart"] = torch.mean(
-                torch.abs(eigvecs_model_eckart[:, 0] - true_eigvecs_eckart[:, 0])
-            )
-            sample_data["eigvec2_mae_eckart"] = torch.mean(
-                torch.abs(eigvecs_model_eckart[:, 1] - true_eigvecs_eckart[:, 1])
-            )
             sample_data["eigvec1_cos_eckart"] = torch.abs(
                 torch.dot(eigvecs_model_eckart[:, 0], true_eigvecs_eckart[:, 0])
             )
             sample_data["eigvec2_cos_eckart"] = torch.abs(
                 torch.dot(eigvecs_model_eckart[:, 1], true_eigvecs_eckart[:, 1])
             )
+
+            ########################
+            # Vibrational frequencies for QM9 Hessian dataset
+            ########################
+
+            # Convert eigenvalues to wavenumbers and compute MAE for 400-4000 cm⁻¹ range
+            true_eigvals_np = true_eigvals_eckart.detach().cpu().numpy()
+            model_eigvals_np = eigvals_model_eckart.detach().cpu().numpy()
+
+            # Convert to wavenumbers (cm⁻¹)
+            true_wavenumbers = eigval_to_wavenumber(true_eigvals_np)
+            model_wavenumbers = eigval_to_wavenumber(model_eigvals_np)
+
+            # Filter for positive eigenvalues (real vibrational modes) in 400-4000 cm⁻¹ range
+            # Since eigenvalues are sorted and correspond to the same modes, we can compare directly
+            true_mask = (
+                (true_wavenumbers >= 400)
+                & (true_wavenumbers <= 4000)
+                & (true_eigvals_np > 0)
+            )
+            model_mask = (
+                (model_wavenumbers >= 400)
+                & (model_wavenumbers <= 4000)
+                & (model_eigvals_np > 0)
+            )
+
+            # Use intersection of masks to ensure we compare the same vibrational modes
+            combined_mask = true_mask & model_mask
+
+            if combined_mask.sum() > 0:
+                true_filtered = true_wavenumbers[combined_mask]
+                model_filtered = model_wavenumbers[combined_mask]
+                freq_mae = np.mean(np.abs(model_filtered - true_filtered))
+                sample_data["freq_mae_400_4000"] = freq_mae
+            else:
+                # No frequencies in range, set to NaN
+                sample_data["freq_mae_400_4000"] = np.nan
+
+            # Compare model frequencies to dataset frequencies (if available)
+            if hasattr(batch, "frequencies") and batch.frequencies is not None:
+                dataset_frequencies = batch.frequencies.detach().cpu().numpy()
+
+                # Filter dataset frequencies to 400-4000 cm⁻¹ range (already in cm⁻¹)
+                # Only consider positive frequencies (real vibrational modes)
+                dataset_mask = (
+                    (dataset_frequencies >= 400)
+                    & (dataset_frequencies <= 4000)
+                    & (dataset_frequencies > 0)
+                )
+                dataset_filtered = dataset_frequencies[dataset_mask]
+
+                # Filter model wavenumbers to 400-4000 cm⁻¹ range
+                model_mask_dataset = (
+                    (model_wavenumbers >= 400)
+                    & (model_wavenumbers <= 4000)
+                    & (model_eigvals_np > 0)
+                )
+                model_filtered_dataset = model_wavenumbers[model_mask_dataset]
+
+                # Compare frequencies - both arrays are sorted, so compare directly
+                # Use minimum length to ensure we compare the same number of modes
+                if len(dataset_filtered) > 0 and len(model_filtered_dataset) > 0:
+                    min_len = min(len(dataset_filtered), len(model_filtered_dataset))
+                    freq_mae_dataset = np.mean(
+                        np.abs(
+                            model_filtered_dataset[:min_len]
+                            - dataset_filtered[:min_len]
+                        )
+                    )
+                    sample_data["freq_mae_400_4000_dataset"] = freq_mae_dataset
+                else:
+                    sample_data["freq_mae_400_4000_dataset"] = np.nan
+            else:
+                sample_data["freq_mae_400_4000_dataset"] = np.nan
 
             sample_metrics.append(sample_data)
             n_samples += 1
@@ -436,38 +497,17 @@ def evaluate(
         df_results.to_csv(results_file, index=False)
         print(f"Saved results to {results_file}")
 
-    aggregated_results = {
-        "energy_mae": df_results["energy_error"].mean(),
-        "forces_mae": df_results["forces_error"].mean(),
-        "hessian_mae": df_results["hessian_error"].mean(),
-        "asymmetry_mae": df_results["asymmetry_error"].mean(),
-        "true_asymmetry_mae": df_results["true_asymmetry_error"].mean(),
-        "eigval_mae": df_results["eigval_mae"].mean(),
-        "eigval1_mae": df_results["eigval1_mae"].mean(),
-        "eigval2_mae": df_results["eigval2_mae"].mean(),
-        "eigvec1_mae": df_results["eigvec1_mae"].mean(),
-        "eigvec2_mae": df_results["eigvec2_mae"].mean(),
-        "eigvec1_cos": df_results["eigvec1_cos"].mean(),
-        "eigvec2_cos": df_results["eigvec2_cos"].mean(),
-        # Eckart projection
-        "eigval_mae_eckart": df_results["eigval_mae_eckart"].mean(),
-        "eigval1_mae_eckart": df_results["eigval1_mae_eckart"].mean(),
-        "eigval2_mae_eckart": df_results["eigval2_mae_eckart"].mean(),
-        "eigvec1_mae_eckart": df_results["eigvec1_mae_eckart"].mean(),
-        "eigvec2_mae_eckart": df_results["eigvec2_mae_eckart"].mean(),
-        "eigvec1_cos_eckart": df_results["eigvec1_cos_eckart"].mean(),
-        "eigvec2_cos_eckart": df_results["eigvec2_cos_eckart"].mean(),
-        # Frequencies
-        "neg_num_agree": df_results["neg_num_agree"].mean(),
-        "true_neg_num": df_results["true_neg_num"].mean(),
-        "model_neg_num": df_results["model_neg_num"].mean(),
-        "true_is_ts": df_results["true_is_ts"].mean(),
-        "model_is_ts": df_results["model_is_ts"].mean(),
-        "is_ts_agree": (df_results["model_is_ts"] == df_results["true_is_ts"]).mean(),
-        # Speed
-        "time": df_results["time"].mean(),  # ms
-        "memory": df_results["memory"].mean(),
-    }
+    # Compute aggregated results by looping over all numeric columns
+    aggregated_results = {}
+    for col in df_results.columns:
+        if pd.api.types.is_numeric_dtype(df_results[col]):
+            aggregated_results[col] = df_results[col].mean()
+
+    # Special case: is_ts_agree computed from comparing two columns
+    if "model_is_ts" in df_results.columns and "true_is_ts" in df_results.columns:
+        aggregated_results["is_ts_agree"] = (
+            df_results["model_is_ts"] == df_results["true_is_ts"]
+        ).mean()
     if time_taken_all is not None:
         # ms per forward pass
         aggregated_results["time_incltransform"] = time_taken_all / n_total_samples
@@ -489,9 +529,9 @@ def plot_accuracy_vs_natoms(df_results, name):
 
     # Define metrics to plot and their labels
     metrics = [
-        ("energy_error", "Energy MAE", "Energy Error"),
-        ("forces_error", "Forces MAE", "Forces Error"),
-        ("hessian_error", "Hessian MAE", "Hessian Error"),
+        ("energy_mae", "Energy MAE", "Energy Error"),
+        ("forces_mae", "Forces MAE", "Forces Error"),
+        ("hessian_mae", "Hessian MAE", "Hessian Error"),
         ("eigvec1_cos", "Eigenvector 1 Cosine", "Eigenvector 1 Cosine"),
         ("eigval1_mae", "Eigenvalue 1 MAE", "Eigenvalue 1 MAE"),
         ("is_ts_agree", "Is TS Agree", "Is TS Agree"),
