@@ -309,7 +309,11 @@ def evaluate(
             eigvals_model, eigvecs_model = torch.linalg.eigh(hessian_model)
 
             # Compute errors
-            e_error = torch.mean(torch.abs(energy_model.squeeze() - batch.ae))
+            if "energy" in batch:
+                energy_true = batch.energy
+            else:
+                energy_true = batch.ae
+            e_error = torch.mean(torch.abs(energy_model.squeeze() - energy_true))
             f_error = torch.mean(torch.abs(force_model - batch.forces))
 
             # Reshape true hessian
@@ -560,6 +564,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--hessian_method",
+        "-hm",
         type=str,
         default="autograd",
         help="Hessian computation method",
