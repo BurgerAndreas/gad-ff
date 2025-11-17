@@ -26,6 +26,11 @@ IGNORE_OVERRIDES_CHECKPOINT = [
     "num_workers",
 ]
 
+IGNORE_OVERRIDES_HUMAN = [
+    "bz",
+    "bz_val",
+]
+
 REPLACE = {
     "+": "",
     "experiment=": "",
@@ -55,7 +60,7 @@ REPLACE_HUMAN = {
     "hesspred_": "",
     "num_layers_hessian": "l",
     "symmetric": "sym",
-    "bz=128": "",
+    "ckpt_model_path=": "",
 }
 
 
@@ -79,6 +84,10 @@ def name_from_config(args: omegaconf.DictConfig, is_checkpoint_name=False) -> st
                     if np.any(
                         [ignore in arg for ignore in IGNORE_OVERRIDES_CHECKPOINT]
                     ):
+                        continue
+                else:
+                    # human
+                    if np.any([ignore in arg for ignore in IGNORE_OVERRIDES_HUMAN]):
                         continue
                 override_names += " " + arg
     except Exception as error:

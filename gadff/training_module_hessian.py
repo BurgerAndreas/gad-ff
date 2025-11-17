@@ -353,55 +353,20 @@ class HessianPotentialModule(PotentialModule):
     def compute_loss(self, batch):
         loss = 0.0
         info = {}
-        batch.pos.requires_grad_()
+        # batch.pos.requires_grad_()
         batch = compute_extra_props(batch, pos_require_grad=self.pos_require_grad)
 
         hat_ae, hat_forces, outputs = self.potential.forward(
             batch.to(self.device), hessian=True, add_props=False
         )
-        hessian_pred = outputs["hessian"].to(self.device)
+        hessian_pred = outputs["hessian"]  # .to(self.device)
         hessian_true = batch.hessian.to(self.device)
-        # if self.training_config["mask_hessian"]:
-        #     data = batch
-        #     natoms = data.natoms
-        #     B = data.batch.max() + 1
-        #     numels = data.natoms.pow(2).mul(9)
-        #     ptr_hessian = torch.cat(
-        #         [torch.tensor([0], device=numels.device), numels], dim=0
-        #     )
-        #     ptr_hessian = torch.cumsum(ptr_hessian, dim=0)
-        #     total_numel = sum(numels)
-        #     hessian_pred = hessian_pred.view(-1)
-        #     hessian_true = hessian_true.view(-1)
-        #     losses = []
-        #     for _b in range(B):
-        #         _start = ptr_hessian[_b].item()
-        #         ND = natoms[_b] * 3
-        #         _numel = ND**2
-        #         _end = _numel + _start
-        #         hessian_pred_b = hessian_pred[_start:_end].reshape(ND, ND)
-        #         hessian_true_b = hessian_true[_start:_end].reshape(ND, ND)
-        #         # only regress the upper triangular part of the Hessian, including the diagonal
-        #         mask = torch.ones(
-        #             (ND, ND),
-        #             device=hessian_pred_b.device,
-        #             dtype=torch.long,
-        #         ).triu(diagonal=0)
-        #         loss_b = self.loss_fn_hessian(
-        #             hessian_pred_b[mask], hessian_true_b[mask]
-        #         )
-        #         losses.append(loss_b)
-        #     hessian_loss = torch.stack(losses).mean()
-        # else:
-        #     hessian_loss = self.loss_fn_hessian(hessian_pred, hessian_true)
+        # hessian_true = batch.hessian.pin_memory().to(self.device, non_blocking=True)
 
-        assert hessian_pred.shape == hessian_true.shape, (
-            f"{hessian_pred.shape} != {hessian_true.shape}"
-        )
         if self.training_config["hessian_loss_weight"] > 0.0:
             hessian_loss = self.loss_fn_hessian(hessian_pred, hessian_true)
             loss += hessian_loss * self.training_config["hessian_loss_weight"]
-            info["Loss Hessian"] = hessian_loss.detach().item()
+            # info["Loss Hessian"] = hessian_loss.detach().item()
 
         if self.do_eigen_loss:
             eigen_loss = self.loss_fn_eigen(
@@ -410,7 +375,7 @@ class HessianPotentialModule(PotentialModule):
                 data=batch,
             )
             loss += eigen_loss
-            info["Loss Eigen"] = eigen_loss.detach().item()
+            # info["Loss Eigen"] = eigen_loss.detach().item()
 
         if not self.training_config["train_heads_only"]:
             # energy
@@ -418,15 +383,27 @@ class HessianPotentialModule(PotentialModule):
             ae = batch.ae.to(self.device)
             eloss = self.loss_fn(ae, hat_ae)
             loss += eloss * self.training_config["energy_loss_weight"]
-            info["Loss E"] = eloss.detach().item()
+            # info["Loss E"] = eloss.detach().item()
             # forces
             hat_forces = hat_forces.to(self.device)
             forces = batch.forces.to(self.device)
             floss = self.loss_fn(forces, hat_forces)
             loss += floss * self.training_config["force_loss_weight"]
-            info["Loss F"] = floss.detach().item()
+            # info["Loss F"] = floss.detach().item()
 
         return loss, info
+
+    def training_step(self, batch, batch_idx):
+        loss, info = self.compute_loss(batch)
+
+        # loss_dict = {"train-totloss": loss}
+
+        # for k, v in info.items():
+        #     # self.log(f"train-{k}", v, rank_zero_only=True)
+        #     loss_dict[f"train-{k}"] = v
+        # self.log_dict(loss_dict, rank_zero_only=True)
+        # del info
+        return loss
 
     def compute_eval_loss(self, batch, prefix):
         """Compute comprehensive evaluation metrics for eigenvalues and eigenvectors."""

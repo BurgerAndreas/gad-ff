@@ -138,7 +138,7 @@ print(f"natoms: {frequency_analysis['natoms']}")
 
 Training run we used: 
 ```bash
-uv run scripts/train.py trgt=hessian experiment=hesspred_alldata preset=luca8w10only training.bz=128 model.num_layers_hessian=3
+uv run scripts/train.py preset=luca8w10only training.bz=128 model.num_layers_hessian=3
 ```
 
 Evaluation: 

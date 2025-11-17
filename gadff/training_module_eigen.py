@@ -6,6 +6,7 @@ from typing import Dict, List, Optional, Tuple, Any, Mapping
 import os
 from pathlib import Path
 import torch
+import time
 
 # from torch_geometric.loader import DataLoader as TGDataLoader
 from torch.optim.lr_scheduler import (
@@ -451,13 +452,37 @@ class EigenPotentialModule(PotentialModule):
     def on_validation_epoch_end(self):
         val_epoch_metrics = average_over_batch_metrics(self.val_step_outputs)
 
-        # print all keys and values
-        if self.trainer.is_global_zero:
-            pretty_print(self.current_epoch, val_epoch_metrics, prefix="val")
-            # pretty_print(self.current_epoch, val_epoch_metrics["totloss"], prefix="val")
+        print(f"Validation time: {time.time() - self.val_start_time:.2f} seconds")
+
+        # # print all keys and values
+        # if self.trainer.is_global_zero:
+        #     pretty_print(self.current_epoch, val_epoch_metrics, prefix="val")
+        #     # pretty_print(self.current_epoch, val_epoch_metrics["totloss"], prefix="val")
 
         val_epoch_metrics.update({"epoch": self.current_epoch})
-        for k, v in val_epoch_metrics.items():
-            self.log(k, v, sync_dist=True)
+        self.log_dict(val_epoch_metrics, sync_dist=True, prog_bar=False)
 
         self.val_step_outputs.clear()
+
+    def on_train_epoch_start(self):
+        """Record the start time of the training epoch."""
+        self.epoch_start_time = time.time()
+
+    def on_train_epoch_end(self):
+        """Calculate and log the time taken for the training epoch."""
+        epoch_duration = time.time() - self.epoch_start_time
+        print(f"Epoch {self.current_epoch} completed in {epoch_duration:.2f} seconds")
+        self.log(
+            "train-epoch_duration_seconds",
+            epoch_duration,
+            rank_zero_only=True,
+            sync_dist=True,
+            prog_bar=False,
+        )
+        # if self.trainer.is_global_zero:
+        #     print(f"Epoch {self.current_epoch} completed in {epoch_duration:.2f} seconds")
+
+    def on_validation_epoch_start(self):
+        """Reset the validation dataloader at the start of every epoch."""
+        self.val_start_time = time.time()
+        super().on_validation_epoch_start()

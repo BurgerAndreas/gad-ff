@@ -53,6 +53,12 @@ def setup_training(cfg: DictConfig):
     model_config = cfg.model
     # print("Model config:\n", yaml.dump(model_config))
 
+    if "betas" in cfg.optimizer:
+        with open_dict(cfg.optimizer):
+            cfg.optimizer.beta1 = cfg.optimizer.betas[0]
+            cfg.optimizer.beta2 = cfg.optimizer.betas[1]
+            del cfg.optimizer.betas
+
     optimizer_config = dict(cfg.optimizer)
     training_config = dict(cfg.training)
 

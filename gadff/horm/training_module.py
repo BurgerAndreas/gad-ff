@@ -249,7 +249,16 @@ class PotentialModule(LightningModule):
         # else:
         #     parameters = model.parameters()
         if optim_type.lower() == "adamw":
-            optimizer = torch.optim.AdamW(trainable_params, **self.optimizer_config)
+            optimizer = torch.optim.AdamW(
+                trainable_params,
+                betas=(
+                    self.optimizer_config.get("beta1", 0.9),
+                    self.optimizer_config.get("beta2", 0.999),
+                ),
+                eps=self.optimizer_config.get("eps", 1e-8),
+                weight_decay=self.optimizer_config.get("weight_decay", 0.01),
+                amsgrad=self.optimizer_config.get("amsgrad", False),
+            )
         elif optim_type.lower() == "muon":
             assert not self.training_config.get("train_heads_only", False)
             # Muon is an optimizer for the hidden weights of a neural network.
@@ -278,8 +287,11 @@ class PotentialModule(LightningModule):
                     params=adam_params,
                     use_muon=False,
                     lr=self.optimizer_config.get("lr", 0.0005),
-                    betas=self.optimizer_config.get("betas", (0.9, 0.999)),
-                    eps=self.optimizer_config.get("eps", 1e-12),
+                    betas=(
+                        self.optimizer_config.get("beta1", 0.9),
+                        self.optimizer_config.get("beta2", 0.999),
+                    ),
+                    eps=self.optimizer_config.get("eps", 1e-8),
                     weight_decay=self.optimizer_config.get("weight_decay", 0.01),
                     # **self.optimizer_config
                 ),
@@ -608,9 +620,9 @@ class PotentialModule(LightningModule):
             "MAE_F": floss.detach().item(),
             "MAE_hessian": hessian_loss.detach().item(),
         }
-        self.MAEEval.reset()
-        self.MAPEEval.reset()
-        self.cosineEval.reset()
+        # self.MAEEval.reset()
+        # self.MAPEEval.reset()
+        # self.cosineEval.reset()
 
         loss = floss * 100 + eloss * 4 + hessian_loss * 4
         return loss, info
@@ -618,14 +630,13 @@ class PotentialModule(LightningModule):
     def training_step(self, batch, batch_idx):
         loss, info = self.compute_loss(batch)
 
-        # self.log("train-totloss", loss, rank_zero_only=True)
-        loss_dict = {"train-totloss": loss}
+        # loss_dict = {"train-totloss": loss}
 
-        for k, v in info.items():
-            # self.log(f"train-{k}", v, rank_zero_only=True)
-            loss_dict[f"train-{k}"] = v
-        self.log_dict(loss_dict, rank_zero_only=True)
-        del info
+        # for k, v in info.items():
+        #     # self.log(f"train-{k}", v, rank_zero_only=True)
+        #     loss_dict[f"train-{k}"] = v
+        # self.log_dict(loss_dict, rank_zero_only=True)
+        # del info
         return loss
 
     def __shared_eval(self, batch, batch_idx, prefix, *args):
@@ -659,13 +670,13 @@ class PotentialModule(LightningModule):
         info["totloss"] = detached_loss.item()
         # info["totloss"] = loss.item()
 
-        info_prefix = {}
-        for k, v in info.items():
-            info_prefix[f"{prefix}-{k}"] = v
-        del info
+        # info_prefix = {}
+        # for k, v in info.items():
+        #     info_prefix[f"{prefix}-{k}"] = v
+        info_prefix = info
 
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        # if torch.cuda.is_available():
+        #     torch.cuda.empty_cache()
         return info_prefix
 
     def validation_step(self, batch, batch_idx, *args):
@@ -679,19 +690,18 @@ class PotentialModule(LightningModule):
 
     def on_validation_epoch_end(self):
         val_epoch_metrics = average_over_batch_metrics(self.val_step_outputs)
-        if self.trainer.is_global_zero:
-            pretty_print(self.current_epoch, val_epoch_metrics, prefix="val")
+        # if self.trainer.is_global_zero:
+        #     pretty_print(self.current_epoch, val_epoch_metrics, prefix="val")
 
         val_epoch_metrics.update({"epoch": self.current_epoch})
-        for k, v in val_epoch_metrics.items():
-            self.log(k, v, sync_dist=True, prog_bar=False)
-        if hasattr(self, "val_start_time"):
-            self.log(
-                "val-val_duration_seconds",
-                time.time() - self.val_start_time,
-                prog_bar=False,
-                rank_zero_only=True,
-            )
+        self.log_dict(val_epoch_metrics, prog_bar=False)
+        self.log(
+            "val-val_duration_seconds",
+            time.time() - self.val_start_time,
+            prog_bar=False,
+            rank_zero_only=True,
+        )
+        print(f"\nValidation time: {time.time() - self.val_start_time:.2f} seconds")
 
         self.val_step_outputs.clear()
 
@@ -701,13 +711,16 @@ class PotentialModule(LightningModule):
 
     def on_train_epoch_end(self):
         """Calculate and log the time taken for the training epoch."""
-        if hasattr(self, "epoch_start_time"):
-            epoch_duration = time.time() - self.epoch_start_time
-            self.log(
-                "train-epoch_duration_seconds", epoch_duration, rank_zero_only=True
-            )
-            # if self.trainer.is_global_zero:
-            #     print(f"Epoch {self.current_epoch} completed in {epoch_duration:.2f} seconds")
+        epoch_duration = time.time() - self.epoch_start_time
+        self.log(
+            "train-epoch_duration_seconds",
+            epoch_duration,
+            rank_zero_only=True,
+            prog_bar=False,
+        )
+        print(f"\nEpoch {self.current_epoch} completed in {epoch_duration:.2f} seconds")
+        # if self.trainer.is_global_zero:
+        #     print(f"Epoch {self.current_epoch} completed in {epoch_duration:.2f} seconds")
 
     def on_validation_epoch_start(self):
         """Reset the validation dataloader at the start of every epoch."""

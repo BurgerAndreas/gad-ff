@@ -19,6 +19,59 @@ from nets.prediction_utils import compute_extra_props, Z_TO_ATOM_SYMBOL
 from ocpmodels.hessian_graph_transform import HessianGraphTransform
 
 from gadff.frequency_analysis import analyze_frequencies
+from pathlib import Path
+
+
+def find_checkpoint(checkpoint_path):
+    """
+    Find checkpoint path. If the provided path doesn't exist, search for it
+    in checkpoint/hip/*<arg>*/last.ckpt pattern.
+
+    Args:
+        checkpoint_path: Original checkpoint path or search pattern (e.g., "1430809")
+
+    Returns:
+        Resolved checkpoint path
+    """
+    # If path exists, return as-is
+    if os.path.exists(checkpoint_path):
+        return checkpoint_path
+
+    # Search in checkpoint/hip/ for directories containing the pattern
+    checkpoint_dir = Path("checkpoint/hip")
+    if not checkpoint_dir.exists():
+        raise FileNotFoundError(
+            f"Checkpoint path {checkpoint_path} does not exist and "
+            f"checkpoint directory {checkpoint_dir} not found"
+        )
+
+    # Find directories matching the pattern
+    matching_dirs = [
+        d for d in checkpoint_dir.iterdir() if d.is_dir() and checkpoint_path in d.name
+    ]
+
+    if not matching_dirs:
+        raise FileNotFoundError(
+            f"Checkpoint path {checkpoint_path} does not exist and "
+            f"no matching directory found in {checkpoint_dir} containing '{checkpoint_path}'"
+        )
+
+    if len(matching_dirs) > 1:
+        print(
+            f"Warning: Multiple matching directories found: {[d.name for d in matching_dirs]}"
+        )
+        print(f"Using: {matching_dirs[0].name}")
+
+    # Look for last.ckpt in the matching directory
+    found_ckpt = matching_dirs[0] / "last.ckpt"
+    if not found_ckpt.exists():
+        raise FileNotFoundError(
+            f"Checkpoint path {checkpoint_path} does not exist and "
+            f"last.ckpt not found in {matching_dirs[0]}"
+        )
+
+    print(f"Found checkpoint: {found_ckpt}")
+    return str(found_ckpt)
 
 
 def _get_derivatives(x, y, retain_graph=None, create_graph=False):
@@ -51,7 +104,7 @@ def compute_hessian(coords, energy, forces=None):
 
 
 def evaluate(
-    lmdb_path,
+    data_path,
     checkpoint_path,
     config_path,  # not used
     hessian_method,
@@ -60,15 +113,34 @@ def evaluate(
     wandb_kwargs={},
     redo=False,
 ):
-    ckpt = torch.load(checkpoint_path, weights_only=False)
+    # Auto-find checkpoint if path doesn't exist
+    checkpoint_path = find_checkpoint(checkpoint_path)
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    ckpt = torch.load(checkpoint_path, weights_only=False, map_location=device)
     model_name = ckpt["hyper_parameters"]["model_config"]["name"]
     model_config = ckpt["hyper_parameters"]["model_config"]
     print(f"Model name: {model_name}")
 
+    # Get dataset from checkpoint if not provided
+    if data_path is None:
+        if "training_config" in ckpt.get("hyper_parameters", {}):
+            training_config = ckpt["hyper_parameters"]["training_config"]
+            data_path = training_config.get("val_path")
+            if data_path is None:
+                raise ValueError(
+                    "Dataset not provided and val_path not found in checkpoint training_config"
+                )
+            print(f"Using dataset from checkpoint: {data_path}")
+        else:
+            raise ValueError(
+                "Dataset not provided and training_config not found in checkpoint"
+            )
+
     _name = ""
     # _name += checkpoint_path.split("/")[-2]
     _name += checkpoint_path.split("/")[-1].split(".")[0]
-    # _name += "_" + lmdb_path.split("/")[-1].split(".")[0]
+    # _name += "_" + data_path.split("/")[-1].split(".")[0]
     if hessian_method != "autograd":
         _name += "_" + hessian_method
     _name += "_" + str(max_samples)
@@ -79,7 +151,7 @@ def evaluate(
             name=_name,
             config={
                 "checkpoint": checkpoint_path,
-                "dataset": lmdb_path,
+                "dataset": data_path,
                 "max_samples": max_samples,
                 "model_name": model_name,
                 "config_path": config_path,
@@ -100,7 +172,7 @@ def evaluate(
     print(f"do_autograd: {do_autograd}")
 
     # Create results file path
-    dataset_name = lmdb_path.split("/")[-1].split(".")[0]
+    dataset_name = data_path.split("/")[-1].split(".")[0]
     results_dir = "results_evalhorm"
     os.makedirs(results_dir, exist_ok=True)
     ckpt_name = checkpoint_path.split("/")[-1].split(".")[0]
@@ -131,8 +203,8 @@ def evaluate(
         else:
             transform = None
 
-        dataset = LmdbDataset(fix_dataset_path(lmdb_path), transform=transform)
-        # dataset = LmdbDataset(fix_dataset_path(lmdb_path))
+        dataset = LmdbDataset(fix_dataset_path(data_path), transform=transform)
+        # dataset = LmdbDataset(fix_dataset_path(data_path))
         dataloader = TGDataLoader(dataset, batch_size=1, shuffle=True)
 
         # Initialize metrics collection for per-sample DataFrame
@@ -396,28 +468,6 @@ def evaluate(
         # ms per forward pass
         aggregated_results["time_incltransform"] = time_taken_all / n_total_samples
 
-    # print(f"\nResults for {dataset_name}:")
-    # print(f"Energy MAE: {aggregated_results['energy_mae']:.6f}")
-    # print(f"Forces MAE: {aggregated_results['forces_mae']:.6f}")
-    # print(f"Hessian MAE: {aggregated_results['hessian_mae']:.6f}")
-    # print(f"Asymmetry MAE: {aggregated_results['asymmetry_mae']:.6f}")
-    # print(f"True Asymmetry MAE: {aggregated_results['true_asymmetry_mae']:.6f}")
-    # print(f"Eigenvalue MAE: {aggregated_results['eigval_mae']:.6f} eV/Angstrom^2")
-    # print(f"Eigenvalue 1 MAE: {aggregated_results['eigval1_mae']:.6f}")
-    # print(f"Eigenvalue 2 MAE: {aggregated_results['eigval2_mae']:.6f}")
-    # print(f"Eigenvector 1 MAE: {aggregated_results['eigvec1_mae']:.6f}")
-    # print(f"Eigenvector 2 MAE: {aggregated_results['eigvec2_mae']:.6f}")
-    # print(f"Eigenvector 1 Cosine: {aggregated_results['eigvec1_cos']:.6f}")
-    # print(f"Eigenvector 2 Cosine: {aggregated_results['eigvec2_cos']:.6f}")
-
-    # # Frequencies
-    # print(f"True Neg Num: {aggregated_results['true_neg_num']:.6f}")
-    # print(f"Model Neg Num: {aggregated_results['model_neg_num']:.6f}")
-    # print(f"Neg Num Agree: {aggregated_results['neg_num_agree']:.6f}")
-    # print(f"True Is TS: {aggregated_results['true_is_ts']:.6f}")
-    # print(f"Model Is TS: {aggregated_results['model_is_ts']:.6f}")
-    # print(f"Is TS Agree: {aggregated_results['is_ts_agree']:.6f}")
-
     wandb.log(aggregated_results)
 
     if wandb_run_id is None:
@@ -518,7 +568,7 @@ if __name__ == "__main__":
         "--dataset",
         "-d",
         type=str,
-        default="ts1x-val.lmdb",
+        default=None,  # "ts1x-val.lmdb",
         help="Dataset file name (e.g., ts1x-val.lmdb, ts1x_hess_train_big.lmdb, RGD1.lmdb)",
     )
     parser.add_argument(
@@ -541,16 +591,16 @@ if __name__ == "__main__":
     torch.manual_seed(42)
 
     checkpoint_path = args.ckpt_path
-    lmdb_path = args.dataset
+    data_path = args.dataset
     max_samples = args.max_samples
     config_path = args.config_path
     hessian_method = args.hessian_method
     redo = args.redo
 
-    name = f"{checkpoint_path.split('/')[-1].split('.')[0]}_{lmdb_path.split('/')[-1].split('.')[0]}_{hessian_method}"
+    name = f"{checkpoint_path.split('/')[-1].split('.')[0]}_{data_path.split('/')[-1].split('.')[0]}_{hessian_method}"
 
     df_results, aggregated_results = evaluate(
-        lmdb_path=lmdb_path,
+        data_path=data_path,
         checkpoint_path=checkpoint_path,
         config_path=config_path,
         hessian_method=hessian_method,
@@ -559,4 +609,4 @@ if __name__ == "__main__":
     )
 
     # Plot accuracy over Natoms
-    plot_accuracy_vs_natoms(df_results, name)
+    # plot_accuracy_vs_natoms(df_results, name)
