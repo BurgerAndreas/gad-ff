@@ -10,7 +10,7 @@ authors = [
     {name = "Andreas Burger", email = "andreas.burger@mail.utoronto.ca"},
 ]
 readme = "README.md"
-requires-python = "3.10"
+requires-python = "==3.10"
 dependencies = [
     # Core ML
     "torch==2.7.0",
