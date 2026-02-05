@@ -212,13 +212,13 @@ source .venv/bin/activate
 
 # Table 1: MAE, cosine similarity, ...
 # other HORM autograd models
-uv run scripts/eval_horm.py --max_samples=1000 --ckpt_path=ckpt/alpha.ckpt 
-uv run scripts/eval_horm.py --max_samples=1000 --ckpt_path=ckpt/left.ckpt  
-uv run scripts/eval_horm.py --max_samples=1000 --ckpt_path=ckpt/left-df.ckpt 
+uv run scripts/eval.py --max_samples=1000 --ckpt_path=ckpt/alpha.ckpt 
+uv run scripts/eval.py --max_samples=1000 --ckpt_path=ckpt/left.ckpt  
+uv run scripts/eval.py --max_samples=1000 --ckpt_path=ckpt/left-df.ckpt 
 # autograd EquiformerV2
-uv run scripts/eval_horm.py --max_samples=1000 --ckpt_path=ckpt/eqv2.ckpt 
+uv run scripts/eval.py --max_samples=1000 --ckpt_path=ckpt/eqv2.ckpt 
 # Learned EquiformerV2
-uv run scripts/eval_horm.py --max_samples=1000 --ckpt_path=$HPCKPT --hessian_method=predict 
+uv run scripts/eval.py --max_samples=1000 --ckpt_path=$HPCKPT --hessian_method=predict 
 
 # Plot results in ../gad-ff/results/eqv2_ts1x-val_autograd_metrics.csv / wandb export
 uv run scripts/plot_frequency_analysis.py
