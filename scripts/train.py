@@ -97,7 +97,7 @@ def setup_training(cfg: DictConfig):
         ckpt = torch.load(
             CHECKPOINT_PATH_EQUIFORMER_ORIG, map_location="cuda", weights_only=True
         )
-        print(f"Checkpoint keys: {ckpt.keys()}")
+        print(f"Checkpoint keys: {ckpt.keys()}") 
         print(f"Checkpoint state_dict keys: {len(ckpt['state_dict'].keys())}")
         # keys all start with `potential.`
         state_dict = {
