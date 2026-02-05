@@ -23,7 +23,7 @@ import pandas as pd
 import torch
 from ase.io import read
 from pyscf import gto
-from pysisyphus.constants import BOHR2ANG, AU2EV
+from gadff.constants import BOHR2ANG, AU2EV
 from torch_geometric.data import Data
 from tqdm import tqdm
 
