@@ -65,10 +65,10 @@ dependencies = [
     "pydantic==2.11.4",
 
     # Hydra config
-    "hydra-core>=1.3.*",
-    "hydra-submitit-launcher==1.2.0",
+    "hydra-core",
+    "hydra-submitit-launcher",
     "omegaconf",
-    "submitit==1.5.3",
+    "submitit",
 
     # Visualization
     "matplotlib==3.10.7",
@@ -101,9 +101,6 @@ include = ["gadff*", "nets*", "ocpmodels*", "alphanet*", "leftnet*", "recipes*",
 
 [tool.ruff]
 lint.ignore = ["F541"]
-
-[tool.uv.override]
-antlr4-python3-runtime = "4.9.2"
 
 [tool.uv.extra-build-dependencies]
 torch-cluster = ["torch"]
