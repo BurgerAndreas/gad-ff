@@ -17,8 +17,9 @@ which python
 # get environment variables
 # source .env
 
-#module load cuda/12.6
-#module load gcc/12.3
+module load cuda/12.6
+module load gcc/12.3
+export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
 
 # append command to slurmlog.txt
 echo "sbatch scripts/killarney.sh $@ # $SLURM_JOB_ID" >> slurmlog.txt

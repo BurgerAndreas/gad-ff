@@ -180,7 +180,7 @@ uv pip install -r requirements.txt
 
 For the relaxations:
 ```bash
-uv pip install gpu4pyscf-cuda12x cutensor-cu12
+uv pip install cupy-cuda12x gpu4pyscf-cuda12x cutensor-cu12
 
 wget https://huggingface.co/andreasburger/heigen/resolve/main/data/t1x_val_reactant_hessian_100_noiserms0.03.h5 -O data/t1x_val_reactant_hessian_100_noiserms0.03.h5
 

@@ -248,6 +248,7 @@ def main():
 
     # Checkpoint file sits next to the output LMDB
     ckpt_path = args.output.replace(".lmdb", "_ckpt.pkl")
+    print(f"ckpt_path={ckpt_path}")
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
     ckpt = load_checkpoint(ckpt_path)
 
