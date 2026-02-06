@@ -6,9 +6,6 @@ resolution-markers = [
     "sys_platform != 'linux'",
 ]
 
-[manifest]
-overrides = [{ name = "antlr4-python3-runtime", specifier = "==4.9.2" }]
-
 [[package]]
 name = "aiohappyeyeballs"
 version = "2.6.1"
@@ -368,20 +365,6 @@ wheels = [
 ]
 
 [[package]]
-name = "cupy-cuda12x"
-version = "13.6.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "fastrlock" },
-    { name = "numpy" },
-]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/f7/2e/db22c5148884e4e384f6ebbc7971fa3710f3ba67ca492798890a0fdebc45/cupy_cuda12x-13.6.0-cp310-cp310-manylinux2014_aarch64.whl", hash = "sha256:9e37f60f27ff9625dfdccc4688a09852707ec613e32ea9404f425dd22a386d14", size = 126341714, upload-time = "2025-08-18T08:24:08.335Z" },
-    { url = "https://files.pythonhosted.org/packages/53/2b/8064d94a6ab6b5c4e643d8535ab6af6cabe5455765540931f0ef60a0bc3b/cupy_cuda12x-13.6.0-cp310-cp310-manylinux2014_x86_64.whl", hash = "sha256:e78409ea72f5ac7d6b6f3d33d99426a94005254fa57e10617f430f9fd7c3a0a1", size = 112238589, upload-time = "2025-08-18T08:24:15.541Z" },
-    { url = "https://files.pythonhosted.org/packages/de/7b/bac3ca73e164d2b51c6298620261637c7286e06d373f597b036fc45f5563/cupy_cuda12x-13.6.0-cp310-cp310-win_amd64.whl", hash = "sha256:f33c9c975782ef7a42c79b6b4fb3d5b043498f9b947126d792592372b432d393", size = 89874119, upload-time = "2025-08-18T08:24:20.628Z" },
-]
-
-[[package]]
 name = "cycler"
 version = "0.12.1"
 source = { registry = "https://pypi.org/simple" }
@@ -510,22 +493,6 @@ wheels = [
 ]
 
 [[package]]
-name = "fastrlock"
-version = "0.8.3"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/73/b1/1c3d635d955f2b4bf34d45abf8f35492e04dbd7804e94ce65d9f928ef3ec/fastrlock-0.8.3.tar.gz", hash = "sha256:4af6734d92eaa3ab4373e6c9a1dd0d5ad1304e172b1521733c6c3b3d73c8fa5d", size = 79327, upload-time = "2024-12-17T11:03:39.638Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/e7/02/3f771177380d8690812d5b2b7736dc6b6c8cd1c317e4572e65f823eede08/fastrlock-0.8.3-cp310-cp310-macosx_11_0_universal2.whl", hash = "sha256:cc5fa9166e05409f64a804d5b6d01af670979cdb12cd2594f555cb33cdc155bd", size = 55094, upload-time = "2024-12-17T11:01:49.721Z" },
-    { url = "https://files.pythonhosted.org/packages/be/b4/aae7ed94b8122c325d89eb91336084596cebc505dc629b795fcc9629606d/fastrlock-0.8.3-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.manylinux_2_24_aarch64.whl", hash = "sha256:7a77ebb0a24535ef4f167da2c5ee35d9be1e96ae192137e9dc3ff75b8dfc08a5", size = 48220, upload-time = "2024-12-17T11:01:51.071Z" },
-    { url = "https://files.pythonhosted.org/packages/96/87/9807af47617fdd65c68b0fcd1e714542c1d4d3a1f1381f591f1aa7383a53/fastrlock-0.8.3-cp310-cp310-manylinux_2_5_i686.manylinux1_i686.manylinux_2_24_i686.whl", hash = "sha256:d51f7fb0db8dab341b7f03a39a3031678cf4a98b18533b176c533c122bfce47d", size = 49551, upload-time = "2024-12-17T11:01:52.316Z" },
-    { url = "https://files.pythonhosted.org/packages/9d/12/e201634810ac9aee59f93e3953cb39f98157d17c3fc9d44900f1209054e9/fastrlock-0.8.3-cp310-cp310-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_24_x86_64.whl", hash = "sha256:767ec79b7f6ed9b9a00eb9ff62f2a51f56fdb221c5092ab2dadec34a9ccbfc6e", size = 49398, upload-time = "2024-12-17T11:01:53.514Z" },
-    { url = "https://files.pythonhosted.org/packages/15/a1/439962ed439ff6f00b7dce14927e7830e02618f26f4653424220a646cd1c/fastrlock-0.8.3-cp310-cp310-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:0d6a77b3f396f7d41094ef09606f65ae57feeb713f4285e8e417f4021617ca62", size = 53334, upload-time = "2024-12-17T11:01:55.518Z" },
-    { url = "https://files.pythonhosted.org/packages/b5/9e/1ae90829dd40559ab104e97ebe74217d9da794c4bb43016da8367ca7a596/fastrlock-0.8.3-cp310-cp310-musllinux_1_1_aarch64.whl", hash = "sha256:92577ff82ef4a94c5667d6d2841f017820932bc59f31ffd83e4a2c56c1738f90", size = 52495, upload-time = "2024-12-17T11:01:57.76Z" },
-    { url = "https://files.pythonhosted.org/packages/e5/8c/5e746ee6f3d7afbfbb0d794c16c71bfd5259a4e3fb1dda48baf31e46956c/fastrlock-0.8.3-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:3df8514086e16bb7c66169156a8066dc152f3be892c7817e85bf09a27fa2ada2", size = 51972, upload-time = "2024-12-17T11:02:01.384Z" },
-    { url = "https://files.pythonhosted.org/packages/76/a7/8b91068f00400931da950f143fa0f9018bd447f8ed4e34bed3fe65ed55d2/fastrlock-0.8.3-cp310-cp310-win_amd64.whl", hash = "sha256:001fd86bcac78c79658bac496e8a17472d64d558cd2227fdc768aa77f877fe40", size = 30946, upload-time = "2024-12-17T11:02:03.491Z" },
-]
-
-[[package]]
 name = "filelock"
 version = "3.20.3"
 source = { registry = "https://pypi.org/simple" }
@@ -633,7 +600,6 @@ dependencies = [
     { name = "e3nn" },
     { name = "einops" },
     { name = "geometric" },
-    { name = "gpu4pyscf-cuda12x" },
     { name = "h5py" },
     { name = "hydra-core" },
     { name = "hydra-submitit-launcher" },
@@ -658,7 +624,6 @@ dependencies = [
     { name = "py3dmol" },
     { name = "pydantic" },
     { name = "pyscf" },
-    { name = "pyscf-dispersion" },
     { name = "pytest" },
     { name = "pytest-timeout" },
     { name = "pytorch-lightning" },
@@ -690,10 +655,9 @@ requires-dist = [
     { name = "e3nn", specifier = "==0.5.1" },
     { name = "einops", specifier = "==0.8.1" },
     { name = "geometric", specifier = "==1.1" },
-    { name = "gpu4pyscf-cuda12x", specifier = "==1.5.2" },
     { name = "h5py", specifier = "==3.15.1" },
-    { name = "hydra-core", specifier = ">=1.3.2" },
-    { name = "hydra-submitit-launcher", specifier = "==1.2.0" },
+    { name = "hydra-core" },
+    { name = "hydra-submitit-launcher" },
     { name = "ipykernel", specifier = "==7.1.0" },
     { name = "ipython", specifier = "==8.37.0" },
     { name = "ipywidgets", specifier = "==8.1.8" },
@@ -715,7 +679,6 @@ requires-dist = [
     { name = "py3dmol", specifier = "==2.5.0" },
     { name = "pydantic", specifier = "==2.11.4" },
     { name = "pyscf", specifier = "==2.11.0" },
-    { name = "pyscf-dispersion", specifier = "==1.3.0" },
     { name = "pytest", specifier = "==8.4.2" },
     { name = "pytest-timeout", specifier = "==2.4.0" },
     { name = "pytorch-lightning", specifier = "==2.5.5" },
@@ -729,12 +692,12 @@ requires-dist = [
     { name = "scipy", specifier = "==1.15.3" },
     { name = "seaborn", specifier = "==0.13.2" },
     { name = "selenium", specifier = "==4.38.0" },
-    { name = "submitit", specifier = "==1.5.3" },
+    { name = "submitit" },
     { name = "sympy", specifier = "==1.14.0" },
-    { name = "torch", specifier = "==2.7.0" },
-    { name = "torch-cluster", specifier = "==1.6.3" },
+    { name = "torch", specifier = "==2.7.0", index = "https://download.pytorch.org/whl/cu126" },
+    { name = "torch-cluster", specifier = "==1.6.3", index = "https://data.pyg.org/whl/torch-2.7.0+cu126.html" },
     { name = "torch-geometric", specifier = "==2.7.0" },
-    { name = "torch-scatter", specifier = "==2.1.2" },
+    { name = "torch-scatter", specifier = "==2.1.2", index = "https://data.pyg.org/whl/torch-2.7.0+cu126.html" },
     { name = "torchmetrics", specifier = "==1.8.2" },
     { name = "tqdm", specifier = "==4.67.1" },
     { name = "wandb", specifier = "==0.21.0" },
@@ -774,29 +737,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/df/b5/59d16470a1f0dfe8c793f9ef56fd3826093fc52b3bd96d6b9d6c26c7e27b/gitpython-3.1.46.tar.gz", hash = "sha256:400124c7d0ef4ea03f7310ac2fbf7151e09ff97f2a3288d64a440c584a29c37f", size = 215371, upload-time = "2026-01-01T15:37:32.073Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/6a/09/e21df6aef1e1ffc0c816f0522ddc3f6dcded766c3261813131c78a704470/gitpython-3.1.46-py3-none-any.whl", hash = "sha256:79812ed143d9d25b6d176a10bb511de0f9c67b1fa641d82097b0ab90398a2058", size = 208620, upload-time = "2026-01-01T15:37:30.574Z" },
-]
-
-[[package]]
-name = "gpu4pyscf-cuda12x"
-version = "1.5.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "cupy-cuda12x" },
-    { name = "geometric" },
-    { name = "gpu4pyscf-libxc-cuda12x" },
-    { name = "pyscf" },
-    { name = "pyscf-dispersion" },
-]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/56/e9/1d667c085b4cb5f12f5bcad395d946e73c1f05df8fb93ba4605937fa66e3/gpu4pyscf_cuda12x-1.5.2-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:5b5fdd8c698e9563eb812926aa1765d84c7bfc3c4349b6f88adbf129fc68c65a", size = 148879184, upload-time = "2025-12-26T17:19:45.513Z" },
-]
-
-[[package]]
-name = "gpu4pyscf-libxc-cuda12x"
-version = "0.5"
-source = { registry = "https://pypi.org/simple" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c8/6e/f88e31fd6ef6eab7a1bd6f8811dc251c443ab3b3fe4a521379d0c8be2053/gpu4pyscf_libxc_cuda12x-0.5-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:67e5763edf15ee14b95263229a8a36a4e377ebd0e3b6e9eec173fd877ed60280", size = 164094376, upload-time = "2024-08-24T22:47:23.151Z" },
 ]
 
 [[package]]
@@ -2182,18 +2122,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pyscf-dispersion"
-version = "1.3.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pyscf" },
-]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/d2/9e/5e0cda13e03c63b6d646cb861e6e31b80d05de408edd317a6c0908436b92/pyscf_dispersion-1.3.0-py3-none-macosx_10_9_x86_64.whl", hash = "sha256:7a9e4b5114b740ce7a809aef6b8bbe5c8d7185b856519da2a8f7039e587a71ef", size = 3642292, upload-time = "2025-02-04T18:35:06.928Z" },
-    { url = "https://files.pythonhosted.org/packages/69/01/1b6fbffb4189bd6f9cab4bff31cd3fcd053aa07e1f7c62c012010b1e23d3/pyscf_dispersion-1.3.0-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f17bf50d24d46b320ecea5441bac193b34b95896b89eb38dd9287013bfbcceb8", size = 12391407, upload-time = "2025-02-04T18:45:03.462Z" },
-]
-
-[[package]]
 name = "pysocks"
 version = "1.7.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2750,8 +2678,8 @@ wheels = [
 
 [[package]]
 name = "torch"
-version = "2.7.0"
-source = { registry = "https://pypi.org/simple" }
+version = "2.7.0+cu126"
+source = { registry = "https://download.pytorch.org/whl/cu126" }
 dependencies = [
     { name = "filelock" },
     { name = "fsspec" },
@@ -2776,20 +2704,21 @@ dependencies = [
     { name = "typing-extensions" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/46/c2/3fb87940fa160d956ee94d644d37b99a24b9c05a4222bf34f94c71880e28/torch-2.7.0-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:c9afea41b11e1a1ab1b258a5c31afbd646d6319042bfe4f231b408034b51128b", size = 99158447, upload-time = "2025-04-23T14:35:10.557Z" },
-    { url = "https://files.pythonhosted.org/packages/cc/2c/91d1de65573fce563f5284e69d9c56b57289625cffbbb6d533d5d56c36a5/torch-2.7.0-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:0b9960183b6e5b71239a3e6c883d8852c304e691c0b2955f7045e8a6d05b9183", size = 865164221, upload-time = "2025-04-23T14:33:27.864Z" },
-    { url = "https://files.pythonhosted.org/packages/7f/7e/1b1cc4e0e7cc2666cceb3d250eef47a205f0821c330392cf45eb08156ce5/torch-2.7.0-cp310-cp310-win_amd64.whl", hash = "sha256:2ad79d0d8c2a20a37c5df6052ec67c2078a2c4e9a96dd3a8b55daaff6d28ea29", size = 212521189, upload-time = "2025-04-23T14:34:53.898Z" },
-    { url = "https://files.pythonhosted.org/packages/dc/0b/b2b83f30b8e84a51bf4f96aa3f5f65fdf7c31c591cc519310942339977e2/torch-2.7.0-cp310-none-macosx_11_0_arm64.whl", hash = "sha256:34e0168ed6de99121612d72224e59b2a58a83dae64999990eada7260c5dd582d", size = 68559462, upload-time = "2025-04-23T14:35:39.889Z" },
+    { url = "https://download.pytorch.org/whl/cu126/torch-2.7.0%2Bcu126-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:9dcf77ddf385412a1eea276e9b812de11c3092f7ed29508a5abef064984da3a0" },
+    { url = "https://download.pytorch.org/whl/cu126/torch-2.7.0%2Bcu126-cp310-cp310-win_amd64.whl", hash = "sha256:587dec2f6c9e3316faea05f22434a386d402cf02d6faeb97a8978f73b3a0ed7a" },
 ]
 
 [[package]]
 name = "torch-cluster"
-version = "1.6.3"
-source = { registry = "https://pypi.org/simple" }
+version = "1.6.3+pt27cu126"
+source = { registry = "https://data.pyg.org/whl/torch-2.7.0+cu126.html" }
 dependencies = [
     { name = "scipy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/54/31/e7f7a28253cd907404eb652607613b35779140b326d15d0636511b7b9438/torch_cluster-1.6.3.tar.gz", hash = "sha256:78d5a930a5bbd0d8788df8c6d66addd68d6dd292fe3edb401e3dacba26308152", size = 54550, upload-time = "2023-10-12T06:52:43.728Z" }
+wheels = [
+    { url = "https://data.pyg.org/whl/torch-2.7.0%2Bcu126/torch_cluster-1.6.3%2Bpt27cu126-cp310-cp310-linux_x86_64.whl" },
+    { url = "https://data.pyg.org/whl/torch-2.7.0%2Bcu126/torch_cluster-1.6.3%2Bpt27cu126-cp310-cp310-win_amd64.whl" },
+]
 
 [[package]]
 name = "torch-geometric"
@@ -2813,9 +2742,12 @@ wheels = [
 
 [[package]]
 name = "torch-scatter"
-version = "2.1.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/f5/ab/2a44ecac0f891dd0d765fc59ac8d277c6283a31907626560e72685df2ed6/torch_scatter-2.1.2.tar.gz", hash = "sha256:69b3aa435f2424ac6a1bfb6ff702da6eb73b33ca0db38fb26989c74159258e47", size = 108045, upload-time = "2023-10-06T08:49:07.081Z" }
+version = "2.1.2+pt27cu126"
+source = { registry = "https://data.pyg.org/whl/torch-2.7.0+cu126.html" }
+wheels = [
+    { url = "https://data.pyg.org/whl/torch-2.7.0%2Bcu126/torch_scatter-2.1.2%2Bpt27cu126-cp310-cp310-linux_x86_64.whl" },
+    { url = "https://data.pyg.org/whl/torch-2.7.0%2Bcu126/torch_scatter-2.1.2%2Bpt27cu126-cp310-cp310-win_amd64.whl" },
+]
 
 [[package]]
 name = "torchmetrics"

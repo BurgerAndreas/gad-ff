@@ -216,7 +216,7 @@ def main():
     parser.add_argument(
         "--max_samples_per_natoms",
         type=int,
-        default=None,
+        default=1,
         help="Max geometries to process per unique natoms value",
     )
     args = parser.parse_args()

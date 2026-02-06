@@ -102,7 +102,21 @@ include = ["gadff*", "nets*", "ocpmodels*", "alphanet*", "leftnet*", "recipes*",
 [tool.ruff]
 lint.ignore = ["F541"]
 
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[[tool.uv.index]]
+name = "pyg-cu126"
+url = "https://data.pyg.org/whl/torch-2.7.0+cu126.html"
+format = "flat"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu126" }
+torch-scatter = { index = "pyg-cu126" }
+torch-cluster = { index = "pyg-cu126" }
+
 [tool.uv.extra-build-dependencies]
-torch-cluster = ["torch"]
-torch-scatter = ["torch"]
 antlr4-python3-runtime = ["setuptools"]
