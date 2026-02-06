@@ -42,6 +42,7 @@ try:
 except ImportError:
     HAS_GPU4PYSCF = False
     print("gpu4pyscf not available, using CPU PySCF")
+    print(traceback.format_exc())
 
 
 def compute_atom_energies():
@@ -63,10 +64,10 @@ def compute_atom_energies():
 
         if HAS_GPU4PYSCF:
             from gpu4pyscf.dft import uks as gpu_uks
-            mf = gpu_uks.UKS(mol)
+            mf = gpu_uks.UKS(mol).density_fit()
         else:
             from pyscf import dft
-            mf = dft.UKS(mol)
+            mf = dft.UKS(mol).density_fit()
         mf.xc = "wb97x"
         mf.verbose = 0
         mf.kernel()
@@ -106,20 +107,20 @@ def compute_dft(atomic_numbers, coords_ang):
         mol.spin = 0
         mol.build()
         if HAS_GPU4PYSCF:
-            mf = gpu_rks.RKS(mol)
+            mf = gpu_rks.RKS(mol).density_fit()
         else:
             from pyscf import dft
-            mf = dft.RKS(mol)
+            mf = dft.RKS(mol).density_fit()
     else:
         mol.spin = 1
         mol.build()
         print(f"  Odd electrons ({total_electrons}), using UKS with spin=1")
         if HAS_GPU4PYSCF:
             from gpu4pyscf.dft import uks as gpu_uks
-            mf = gpu_uks.UKS(mol)
+            mf = gpu_uks.UKS(mol).density_fit()
         else:
             from pyscf import dft
-            mf = dft.UKS(mol)
+            mf = dft.UKS(mol).density_fit()
     mf.xc = "wb97x"
     mf.verbose = 0
     mf.kernel()

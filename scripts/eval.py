@@ -348,6 +348,10 @@ def evaluate(
                 torch.abs(eigvals_model - eigvals_true)
             )  # eV/Angstrom^2
             sample_data["eigval_mae"] = eigval_mae.item()
+            eigval_mre = torch.mean(
+                torch.abs(eigvals_model - eigvals_true) / (torch.abs(eigvals_true) + 1e-8)
+            )
+            sample_data["eigval_mre"] = eigval_mre.item()
 
             ########################
             # Mass weighted + Eckart projection
@@ -388,11 +392,20 @@ def evaluate(
             sample_data["eigval_mae_eckart"] = torch.mean(
                 torch.abs(eigvals_model_eckart - true_eigvals_eckart)
             ).item()
+            sample_data["eigval_mre_eckart"] = torch.mean(
+                torch.abs(eigvals_model_eckart - true_eigvals_eckart) / (torch.abs(true_eigvals_eckart) + 1e-8)
+            ).item()
             sample_data["eigval1_mae_eckart"] = torch.mean(
                 torch.abs(eigvals_model_eckart[0] - true_eigvals_eckart[0])
             ).item()
+            sample_data["eigval1_mre_eckart"] = (
+                torch.abs(eigvals_model_eckart[0] - true_eigvals_eckart[0]) / (torch.abs(true_eigvals_eckart[0]) + 1e-8)
+            ).item()
             sample_data["eigval2_mae_eckart"] = torch.mean(
                 torch.abs(eigvals_model_eckart[1] - true_eigvals_eckart[1])
+            ).item()
+            sample_data["eigval2_mre_eckart"] = (
+                torch.abs(eigvals_model_eckart[1] - true_eigvals_eckart[1]) / (torch.abs(true_eigvals_eckart[1]) + 1e-8)
             ).item()
             sample_data["eigvec1_cos_eckart"] = torch.abs(
                 torch.dot(eigvecs_model_eckart[:, 0], true_eigvecs_eckart[:, 0])

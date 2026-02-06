@@ -13,10 +13,18 @@ RESULTS = {
 
 METRICS = [
     ("hessian_mae", "Hessian MAE"),
+    ("hessian_mre", "Hessian MRE"),
     ("eigvec1_cos_eckart", "Eigvec 1 Cosine Similarity"),
     ("eigval_mae_eckart", "Eigval MAE (Eckart)"),
+    ("eigval_mre_eckart", "Eigval MRE (Eckart)"),
     ("eigval1_mae_eckart", "Eigval 1 MAE (Eckart)"),
+    ("eigval1_mre_eckart", "Eigval 1 MRE (Eckart)"),
 ]
+
+HESSIAN_METHOD_TO_COLOUR = {
+    "HIP": "#ae5a41",
+    "AD": "#295c7e",
+}
 
 if __name__ == "__main__":
     plot_dir = "plots/eval_horm"
@@ -44,6 +52,7 @@ if __name__ == "__main__":
                 markersize=4,
                 linewidth=2,
                 label=label,
+                color=HESSIAN_METHOD_TO_COLOUR[label],
             )
             color = line[0].get_color()
             ax.fill_between(
