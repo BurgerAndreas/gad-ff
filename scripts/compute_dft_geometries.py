@@ -31,6 +31,9 @@ from nets.prediction_utils import onehot_convert
 
 SYMBOL_TO_Z = {"H": 1, "C": 6, "N": 7, "O": 8}
 
+# Ground-state spin multiplicities (2S) for free atoms
+ATOM_SPIN = {1: 1, 6: 2, 7: 3, 8: 2}
+
 # Try to use GPU-accelerated PySCF
 try:
     from gpu4pyscf.dft import rks as gpu_rks
@@ -39,6 +42,42 @@ try:
 except ImportError:
     HAS_GPU4PYSCF = False
     print("gpu4pyscf not available, using CPU PySCF")
+
+
+def compute_atom_energies():
+    """Compute wB97X/6-31g(d) free-atom energies (eV) for H, C, N, O.
+
+    Uses UKS for open-shell atoms with the same grid settings as molecular
+    calculations so atomization energies are consistent.
+    """
+    atom_energies = {}
+    for z, spin in ATOM_SPIN.items():
+        mol = gto.Mole()
+        mol.atom = [(z, (0.0, 0.0, 0.0))]
+        mol.charge = 0
+        mol.spin = spin
+        mol.basis = "6-31g(d)"
+        mol.unit = "Bohr"
+        mol.verbose = 0
+        mol.build()
+
+        if HAS_GPU4PYSCF:
+            from gpu4pyscf.dft import uks as gpu_uks
+            mf = gpu_uks.UKS(mol)
+        else:
+            from pyscf import dft
+            mf = dft.UKS(mol)
+        mf.xc = "wb97x"
+        mf.verbose = 0
+        mf.kernel()
+
+        if not mf.converged:
+            raise RuntimeError(f"SCF for free atom Z={z} did not converge")
+
+        atom_energies[z] = mf.e_tot * AU2EV
+        print(f"  Z={z:2d}  E={atom_energies[z]:.8f} eV")
+
+    return atom_energies
 
 
 def compute_dft(atomic_numbers, coords_ang):
@@ -70,11 +109,7 @@ def compute_dft(atomic_numbers, coords_ang):
         from pyscf import dft
         mf = dft.RKS(mol)
     mf.xc = "wb97x"
-    mf.conv_tol = 1e-12
-    mf.max_cycle = 200
     mf.verbose = 0
-    mf.grids.atom_grid = (99, 590)
-    mf.grids.prune = None
     mf.kernel()
 
     if not mf.converged:
@@ -88,8 +123,6 @@ def compute_dft(atomic_numbers, coords_ang):
 
     # Hessian
     hobj = mf.Hessian()
-    hobj.conv_tol = 1e-10
-    hobj.max_cycle = 100
     hessian_au = hobj.kernel()  # (N, N, 3, 3)
     N = mol.natm
     hess_cart_au = hessian_au.transpose(0, 2, 1, 3).reshape(3 * N, 3 * N)
@@ -106,12 +139,14 @@ def compute_dft(atomic_numbers, coords_ang):
     }
 
 
-def sdf_to_data(sdf_path, dft_result):
+def sdf_to_data(sdf_path, dft_result, atom_energies):
     """Convert SDF file + DFT results into a torch_geometric Data object."""
     atoms = read(sdf_path)
     coords = atoms.get_positions().astype(np.float32)  # (N, 3) Angstrom
     atomic_numbers = atoms.get_atomic_numbers()
     n_atoms = len(atomic_numbers)
+
+    ae = dft_result["energy"] - sum(atom_energies[z] for z in atomic_numbers)
 
     device = torch.device("cpu")
     one_hot = onehot_convert(atomic_numbers.tolist(), device)
@@ -122,6 +157,7 @@ def sdf_to_data(sdf_path, dft_result):
         one_hot=one_hot,
         natoms=torch.tensor([n_atoms], dtype=torch.int64),
         energy=torch.tensor([dft_result["energy"]], dtype=torch.float64),
+        ae=torch.tensor([ae], dtype=torch.float64),
         forces=torch.tensor(dft_result["forces"], dtype=torch.float32),
         hessian=torch.tensor(dft_result["hessian"], dtype=torch.float32),
     )
@@ -184,6 +220,11 @@ def main():
         help="Max geometries to process per unique natoms value",
     )
     args = parser.parse_args()
+
+    print("Computing free-atom reference energies...")
+    atom_energies = compute_atom_energies()
+    print("atom_energies", atom_energies)
+    print()
 
     df = pd.read_csv(args.geom_csv)
     if args.max_samples_per_natoms is not None:
@@ -249,12 +290,13 @@ def main():
         if entry is None:
             continue
         if entry["status"] == "ok":
-            data = sdf_to_data(sdf_path, entry["result"])
+            data = sdf_to_data(sdf_path, entry["result"], atom_energies)
             data_list.append(data)
             records.append({
                 **row.to_dict(),
                 "status": "ok",
                 "energy_ev": entry["result"]["energy"],
+                "ae_ev": data.ae.item(),
                 "lmdb_idx": len(data_list) - 1,
             })
         else:
