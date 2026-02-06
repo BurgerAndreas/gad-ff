@@ -277,9 +277,7 @@ If you found this code useful, please consider citing:
 burger2025hessians,
 title={Molecular Hessians Without Derivatives},
 author={Andreas Burger and Luca Thiede and  Nikolaj Rønne and Nandita Vijaykumar and Tejs Vegge and Arghya Bhowmik and Alan Aspuru-Guzik},
-booktitle={The Fourteenth International Conference on Learning Representations},
-year={2026},
-url={https://openreview.net/forum?id=CNLC4ZkLmW}
+year={2025},
 }
 ```
 

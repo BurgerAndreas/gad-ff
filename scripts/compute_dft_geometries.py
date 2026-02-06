@@ -97,17 +97,29 @@ def compute_dft(atomic_numbers, coords_ang):
     mol = gto.Mole()
     mol.atom = atoms_bohr
     mol.charge = 0
-    mol.spin = 0
     mol.basis = "6-31g(d)"
     mol.unit = "Bohr"
     mol.verbose = 0
-    mol.build()
 
-    if HAS_GPU4PYSCF:
-        mf = gpu_rks.RKS(mol)
+    total_electrons = sum(int(z) for z in atomic_numbers)
+    if total_electrons % 2 == 0:
+        mol.spin = 0
+        mol.build()
+        if HAS_GPU4PYSCF:
+            mf = gpu_rks.RKS(mol)
+        else:
+            from pyscf import dft
+            mf = dft.RKS(mol)
     else:
-        from pyscf import dft
-        mf = dft.RKS(mol)
+        mol.spin = 1
+        mol.build()
+        print(f"  Odd electrons ({total_electrons}), using UKS with spin=1")
+        if HAS_GPU4PYSCF:
+            from gpu4pyscf.dft import uks as gpu_uks
+            mf = gpu_uks.UKS(mol)
+        else:
+            from pyscf import dft
+            mf = dft.UKS(mol)
     mf.xc = "wb97x"
     mf.verbose = 0
     mf.kernel()
@@ -227,6 +239,7 @@ def main():
     print()
 
     df = pd.read_csv(args.geom_csv)
+    df = df.sort_values("natoms").reset_index(drop=True)
     if args.max_samples_per_natoms is not None:
         df = df.groupby("natoms").head(args.max_samples_per_natoms).reset_index(drop=True)
     if args.max_samples is not None:
@@ -242,13 +255,17 @@ def main():
 
     for _, row in tqdm(df.iterrows(), total=len(df), desc="DFT"):
         sdf_path = row["file"]
+        natoms = row["natoms"]
+        print(f"sdf_path={sdf_path}  natoms={natoms}")
 
         # Skip if already computed
         if sdf_path in ckpt:
+            print("Skipping because already computed")
             continue
 
         if not os.path.exists(sdf_path):
             print(f"  Missing: {sdf_path}")
+            print("Skipping because missing")
             continue
 
         try:

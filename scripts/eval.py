@@ -331,6 +331,8 @@ def evaluate(
             hessian_true = batch.hessian.reshape(n_atoms * 3, n_atoms * 3)
             h_mae = torch.mean(torch.abs(hessian_model - hessian_true))
             sample_data["hessian_mae"] = h_mae.item()
+            h_mre = torch.mean(torch.abs(hessian_model - hessian_true) / (torch.abs(hessian_true) + 1e-8))
+            sample_data["hessian_mre"] = h_mre.item()
 
             # Eigenvalue error
             eigvals_true, eigvecs_true = torch.linalg.eigh(hessian_true)
@@ -489,6 +491,10 @@ def evaluate(
         df_results.to_csv(results_file, index=False)
         print(f"Saved results to {results_file}")
 
+    # Coerce columns to numeric (handles string "nan" from CSV loading)
+    for col in df_results.columns:
+        df_results[col] = pd.to_numeric(df_results[col], errors="coerce")
+
     # Compute aggregated results by looping over all numeric columns
     aggregated_results = {}
     for col in df_results.columns:
@@ -514,39 +520,29 @@ def evaluate(
 
 def plot_accuracy_vs_natoms(df_results, name):
     """Plot accuracy metrics over number of atoms"""
+    import seaborn as sns
 
-    # Create figure with subplots
-    fig, axes = plt.subplots(nrows=5, ncols=2, figsize=(12, 10))
-    fig.suptitle("Model Accuracy vs Number of Atoms", fontsize=16)
-
-    # Define metrics to plot and their labels
     metrics = [
-        ("energy_mae", "Energy MAE", "Energy Error"),
-        ("forces_mae", "Forces MAE", "Forces Error"),
-        ("hessian_mae", "Hessian MAE", "Hessian Error"),
-        ("eigvec1_cos", "Eigenvector 1 Cosine", "Eigenvector 1 Cosine"),
-        ("eigval1_mae", "Eigenvalue 1 MAE", "Eigenvalue 1 MAE"),
-        ("is_ts_agree", "Is TS Agree", "Is TS Agree"),
-        ("neg_num_agree", "Neg Num Agree", "Neg Num Agree"),
-        ("true_is_ts", "True Is TS", "True Is TS"),
-        ("model_is_ts", "Model Is TS", "Model Is TS"),
+        ("hessian_mae", "Hessian MAE"),
+        ("eigvec1_cos_eckart", "Eigvec 1 Cosine Similarity"),
+        ("eigval_mae_eckart", "Eigval MAE (Eckart)"),
+        ("eigval1_mae_eckart", "Eigval 1 MAE (Eckart)"),
     ]
 
-    # Plot each metric
-    for i, (metric, title, ylabel) in enumerate(metrics):
-        ax = axes[i // 2, i % 2]
+    plot_dir = "plots/eval_horm"
+    os.makedirs(plot_dir, exist_ok=True)
 
-        # Skip metrics not available in results
-        if metric not in df_results.columns:
-            ax.set_visible(False)
+    sns.set_theme(style="whitegrid", context="poster")
+
+    for col, ylabel in metrics:
+        if col not in df_results.columns:
             continue
 
-        # Group by natoms and calculate mean and std
         grouped = (
-            df_results.groupby("natoms")[metric].agg(["mean", "std"]).reset_index()
+            df_results.groupby("natoms")[col].agg(["mean", "std"]).reset_index()
         )
 
-        # Plot mean with error bars
+        fig, ax = plt.subplots(figsize=(8, 8))
         ax.errorbar(
             grouped["natoms"],
             grouped["mean"],
@@ -556,27 +552,14 @@ def plot_accuracy_vs_natoms(df_results, name):
             capthick=2,
             linewidth=2,
         )
-
         ax.set_xlabel("Number of Atoms")
         ax.set_ylabel(ylabel)
-        ax.set_title(title)
-        ax.grid(True, alpha=0.3)
+        plt.tight_layout()
 
-        # Set log scale for y-axis if needed (based on data range)
-        if grouped["mean"].max() / (grouped["mean"].min() + 1e-8) > 100:
-            ax.set_yscale("log")
-
-    plt.tight_layout()
-
-    # Save plot
-    plot_dir = "plots/eval_horm"
-    os.makedirs(plot_dir, exist_ok=True)
-    plot_filename = f"{plot_dir}/accuracy_vs_natoms_{name}.png"
-    plt.savefig(plot_filename, dpi=300, bbox_inches="tight")
-    print(f"Saved plot to {plot_filename}")
-
-    # Show plot
-    plt.show()
+        plot_path = f"{plot_dir}/{col}_vs_natoms_{name}.png"
+        plt.savefig(plot_path, dpi=300, bbox_inches="tight")
+        print(f"Saved plot to {plot_path}")
+        plt.show()
 
 
 if __name__ == "__main__":
@@ -645,5 +628,4 @@ if __name__ == "__main__":
         redo=redo,
     )
 
-    # Plot accuracy over Natoms
-    # plot_accuracy_vs_natoms(df_results, name)
+    plot_accuracy_vs_natoms(df_results, name)

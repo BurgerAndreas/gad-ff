@@ -1,17 +1,17 @@
 source .venv/bin/activate
 
 
-uv run scripts/eval.py --max_samples=1000 --ckpt_path=ckpt/alpha.ckpt;
-uv run scripts/eval.py --max_samples=1000 --ckpt_path=ckpt/left.ckpt;  
-uv run scripts/eval.py --max_samples=1000 --ckpt_path=ckpt/left-df.ckpt; 
-uv run scripts/eval.py --max_samples=1000 --ckpt_path=ckpt/eqv2.ckpt;
+# uv run scripts/eval.py --max_samples=1000 --ckpt_path=ckpt/alpha.ckpt --redo=True;
+# uv run scripts/eval.py --max_samples=1000 --ckpt_path=ckpt/left.ckpt --redo=True;  
+# uv run scripts/eval.py --max_samples=1000 --ckpt_path=ckpt/left-df.ckpt --redo=True; 
+# uv run scripts/eval.py --max_samples=1000 --ckpt_path=ckpt/eqv2.ckpt --redo=True;
 
-uv run scripts/eval.py --max_samples=1000 --ckpt_path=ckpt/alpha_orig.ckpt;
-uv run scripts/eval.py --max_samples=1000 --ckpt_path=ckpt/left_orig.ckpt;  
-uv run scripts/eval.py --max_samples=1000 --ckpt_path=ckpt/left-df_orig.ckpt;
-uv run scripts/eval.py --max_samples=1000 --ckpt_path=ckpt/eqv2_orig.ckpt;
+# uv run scripts/eval.py --max_samples=1000 --ckpt_path=ckpt/alpha_orig.ckpt --redo=True;
+# uv run scripts/eval.py --max_samples=1000 --ckpt_path=ckpt/left_orig.ckpt --redo=True;  
+# uv run scripts/eval.py --max_samples=1000 --ckpt_path=ckpt/left-df_orig.ckpt --redo=True;
+# uv run scripts/eval.py --max_samples=1000 --ckpt_path=ckpt/eqv2_orig.ckpt --redo=True;
 
-uv run scripts/eval.py --max_samples=1000 --ckpt_path=ckpt/hesspred_v2.ckpt --hessian_method=predict;
+# uv run scripts/eval.py --max_samples=1000 --ckpt_path=ckpt/hesspred_v2.ckpt --hessian_method=predict --redo=True;
 
 ##################### RGD1.lmdb #####################
 
