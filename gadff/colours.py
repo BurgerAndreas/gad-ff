@@ -77,6 +77,7 @@ METHOD_TO_COLOUR = {
 HESSIAN_METHOD_TO_COLOUR = {
     "predict": "#ffb482",
     "autograd": "#295c7e",
+    "E-F": "#cfcbc5", # #5a5255",
 }
 
 HESSIAN_METHOD_TO_COLOUR["prediction"] = HESSIAN_METHOD_TO_COLOUR["predict"]
