@@ -252,15 +252,27 @@ def evaluate(
             hessian_true = batch.hessian.reshape(n_atoms * 3, n_atoms * 3)
             h_mae = torch.mean(torch.abs(hessian_model - hessian_true))
             sample_data["hessian_mae"] = h_mae.item()
+            h_mre = torch.mean(
+                torch.abs(hessian_model - hessian_true)
+                / (torch.abs(hessian_true) + 1e-8)
+            )
+            sample_data["hessian_mre"] = h_mre.item()
 
             # Eigenvalue error
             eigvals_true, eigvecs_true = torch.linalg.eigh(hessian_true)
             eigval_mae = torch.mean(torch.abs(eigvals_model - eigvals_true))
             sample_data["eigval_mae"] = eigval_mae.item()
+            eigval_mre = torch.mean(
+                torch.abs(eigvals_model - eigvals_true)
+                / (torch.abs(eigvals_true) + 1e-8)
+            )
+            sample_data["eigval_mre"] = eigval_mre.item()
 
             # Asymmetry
             asymmetry_mae = torch.mean(torch.abs(hessian_model - hessian_model.T))
+            true_asymmetry_mae = torch.mean(torch.abs(hessian_true - hessian_true.T))
             sample_data["asymmetry_mae"] = asymmetry_mae.item()
+            sample_data["true_asymmetry_mae"] = true_asymmetry_mae.item()
 
             # Eckart-projected frequency analysis
             true_freqs = analyze_frequencies(
@@ -280,7 +292,15 @@ def evaluate(
             eigvals_model_eckart = torch.tensor(freqs_model["eigvals"])
 
             sample_data["true_neg_num"] = true_freqs["neg_num"]
+            sample_data["true_is_minima"] = 1 if true_freqs["neg_num"] == 0 else 0
+            sample_data["true_is_ts"] = 1 if true_freqs["neg_num"] == 1 else 0
+            sample_data["true_is_ts_order2"] = 1 if true_freqs["neg_num"] == 2 else 0
+            sample_data["true_is_higher_order"] = 1 if true_freqs["neg_num"] > 2 else 0
             sample_data["model_neg_num"] = freqs_model["neg_num"]
+            sample_data["model_is_minima"] = 1 if freqs_model["neg_num"] == 0 else 0
+            sample_data["model_is_ts"] = 1 if freqs_model["neg_num"] == 1 else 0
+            sample_data["model_is_ts_order2"] = 1 if freqs_model["neg_num"] == 2 else 0
+            sample_data["model_is_higher_order"] = 1 if freqs_model["neg_num"] > 2 else 0
             sample_data["neg_num_agree"] = (
                 1 if true_freqs["neg_num"] == freqs_model["neg_num"] else 0
             )
@@ -288,11 +308,35 @@ def evaluate(
             sample_data["eigval_mae_eckart"] = torch.mean(
                 torch.abs(eigvals_model_eckart - true_eigvals_eckart)
             ).item()
+            sample_data["eigval_mre_eckart"] = torch.mean(
+                torch.abs(eigvals_model_eckart - true_eigvals_eckart)
+                / (torch.abs(true_eigvals_eckart) + 1e-8)
+            ).item()
             sample_data["eigval1_mae_eckart"] = torch.mean(
                 torch.abs(eigvals_model_eckart[0] - true_eigvals_eckart[0])
             ).item()
+            sample_data["eigval1_mre_eckart"] = (
+                torch.abs(eigvals_model_eckart[0] - true_eigvals_eckart[0])
+                / (torch.abs(true_eigvals_eckart[0]) + 1e-8)
+            ).item()
+            sample_data["eigval2_mae_eckart"] = torch.mean(
+                torch.abs(eigvals_model_eckart[1] - true_eigvals_eckart[1])
+            ).item()
+            sample_data["eigval2_mre_eckart"] = (
+                torch.abs(eigvals_model_eckart[1] - true_eigvals_eckart[1])
+                / (torch.abs(true_eigvals_eckart[1]) + 1e-8)
+            ).item()
             sample_data["eigvec1_cos_eckart"] = torch.abs(
                 torch.dot(eigvecs_model_eckart[:, 0], true_eigvecs_eckart[:, 0])
+            ).item()
+            sample_data["eigvec2_cos_eckart"] = torch.abs(
+                torch.dot(eigvecs_model_eckart[:, 1], true_eigvecs_eckart[:, 1])
+            ).item()
+
+            # Global eigenvector overlap: ||abs(Q_model @ Q_true^T) - I||_F
+            M = eigvecs_model_eckart.T @ true_eigvecs_eckart
+            sample_data["eigvec_overlap_error"] = torch.norm(
+                M.abs() - torch.eye(M.shape[0]), p="fro"
             ).item()
 
             # Vibrational frequency MAE (400-4000 cm⁻¹)
