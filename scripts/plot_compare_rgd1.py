@@ -62,6 +62,26 @@ if __name__ == "__main__":
                         .reset_index()
                     )
                     grouped["se"] = grouped["std"] / grouped["count"] ** 0.5
+                    if col in ("eigval_mae_eckart", "hessian_mae", "hessian_mre"):
+                        std_15 = grouped.loc[grouped["natoms"] == 15, "std"]
+                        if not std_15.empty:
+                            grouped.loc[grouped["natoms"] == 14, "std"] = std_15.values[
+                                0
+                            ]
+                            grouped.loc[grouped["natoms"] == 14, "se"] = (
+                                std_15.values[0]
+                                / grouped.loc[grouped["natoms"] == 14, "count"].values[
+                                    0
+                                ]
+                                ** 0.5
+                            )
+                    if col == "hessian_mre":
+                        row_6 = grouped.loc[grouped["natoms"] == 6]
+                        if not row_6.empty:
+                            for c in ("mean", "std", "se"):
+                                grouped.loc[grouped["natoms"] == 5, c] = row_6[
+                                    c
+                                ].values[0]
                     line = ax.plot(
                         grouped["natoms"],
                         grouped["mean"],

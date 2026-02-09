@@ -11,8 +11,10 @@ Usage:
 import argparse
 import os
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import seaborn as sns
 import torch
 from torch_geometric.loader import DataLoader as TGDataLoader
 from tqdm import tqdm
@@ -300,7 +302,9 @@ def evaluate(
             sample_data["model_is_minima"] = 1 if freqs_model["neg_num"] == 0 else 0
             sample_data["model_is_ts"] = 1 if freqs_model["neg_num"] == 1 else 0
             sample_data["model_is_ts_order2"] = 1 if freqs_model["neg_num"] == 2 else 0
-            sample_data["model_is_higher_order"] = 1 if freqs_model["neg_num"] > 2 else 0
+            sample_data["model_is_higher_order"] = (
+                1 if freqs_model["neg_num"] > 2 else 0
+            )
             sample_data["neg_num_agree"] = (
                 1 if true_freqs["neg_num"] == freqs_model["neg_num"] else 0
             )
@@ -388,6 +392,57 @@ def evaluate(
     return df_results
 
 
+METRICS = [
+    ("energy_mae_per_atom", "Energy MAE / atom [eV]"),
+    ("forces_mae", r"Forces MAE [eV/$\AA$]"),
+    ("hessian_mae", r"Hessian MAE [eV/$\AA^2$]"),
+    ("hessian_mre", "Hessian MRE"),
+    ("eigval_mae_eckart", r"$\lambda$ MAE [eV/$\AA^2$]"),
+    ("eigval_mre_eckart", r"$\lambda$ MRE"),
+    ("eigval1_mae_eckart", r"$\lambda_1$ MAE [eV/$\AA^2$]"),
+    ("eigval1_mre_eckart", r"$\lambda_1$ MRE"),
+    ("eigvec1_cos_eckart", r"CosSim $\mathbf{v}_1$"),
+    (
+        "eigvec_overlap_error",
+        r"$\|| Q_{\mathrm{model}} Q_{\mathrm{true}}^T | - I \|_F$",
+    ),
+    ("freq_mae_400_4000", r"Freq MAE 400–4000 [cm$^{-1}$]"),
+    ("asymmetry_mae", "Asymmetry MAE"),
+    ("time", "Time [ms]"),
+    ("memory", "Memory [MB]"),
+]
+
+
+def plot_size_eval(df, plot_dir="plots/size_eval", prefix=""):
+    os.makedirs(plot_dir, exist_ok=True)
+    sns.set_theme(style="whitegrid", context="poster")
+
+    for col, ylabel in METRICS:
+        if col not in df.columns:
+            continue
+
+        grouped = df.groupby("natoms")[col].agg(["mean"]).reset_index()
+
+        fig, ax = plt.subplots(figsize=(8, 8))
+        ax.plot(
+            grouped["natoms"],
+            grouped["mean"],
+            marker="o",
+            markersize=4,
+            linewidth=2,
+            color="#295c7e",
+        )
+
+        ax.set_xlabel("Number of Atoms")
+        ax.set_ylabel(ylabel)
+        plt.tight_layout(pad=0.0)
+
+        plot_path = f"{plot_dir}/{prefix}{col}.png"
+        plt.savefig(plot_path, dpi=300, bbox_inches="tight")
+        print(f"Saved {plot_path}")
+        plt.close()
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Evaluate model on DFT geometries (size scaling)"
@@ -435,3 +490,6 @@ if __name__ == "__main__":
         max_samples=args.max_samples,
         redo=args.redo,
     )
+
+    ckpt_name = os.path.basename(args.ckpt_path).split(".")[0]
+    plot_size_eval(df_results, prefix=f"{ckpt_name}_{args.hessian_method}_")

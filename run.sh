@@ -35,3 +35,8 @@ uv run python scripts/eval.py -c ckpt/hesspred_v2.ckpt -d RGD1.lmdb -r True -hm 
 # uv run python scripts/eval.py -c ckpt/hesspred_v1.ckpt -d RGD1.lmdb -m 1000 -r True -hm predict;
 
 # uv run python scripts/eval.py -c ckpt/hesspred_v2.ckpt -d RGD1.lmdb -m 1000 -r True -hm predict;
+
+
+uv run scripts/size_eval.py -c ckpt/hesspred_v2.ckpt -hm predict
+uv run scripts/size_eval.py -c ckpt/eqv2.ckpt -hm autograd
+uv run scripts/size_eval.py -c ckpt/eqv2_orig.ckpt -hm autograd
