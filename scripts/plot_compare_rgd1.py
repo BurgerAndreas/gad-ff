@@ -19,7 +19,10 @@ METRICS = [
     ("eigval_mre_eckart", r"$\lambda$ MRE"),
     ("eigval1_mae_eckart", r"$\lambda_1$ MAE [eV/$\AA^2$]"),
     ("eigval1_mre_eckart", r"$\lambda_1$ MRE"),
-    ("eigvec_overlap_error", r"$\|| Q_{\mathrm{model}} Q_{\mathrm{true}}^T | - I \|_F$"),
+    (
+        "eigvec_overlap_error",
+        r"$\|| Q_{\mathrm{model}} Q_{\mathrm{true}}^T | - I \|_F$",
+    ),
 ]
 
 HESSIAN_METHOD_TO_COLOUR = {
@@ -40,65 +43,77 @@ if __name__ == "__main__":
     sns.set_theme(style="whitegrid", context="poster")
 
     for error_type in ["se", "std"]:
-      for include_e_f in [True, False]:
-        dfs = {label: df for label, df in dfs_all.items() if include_e_f or label != "AD (E-F)"}
+        for include_e_f in [True, False]:
+            dfs = {
+                label: df
+                for label, df in dfs_all.items()
+                if include_e_f or label != "AD (E-F)"
+            }
 
-        for col, ylabel in METRICS:
-            fig, ax = plt.subplots(figsize=(8, 8))
+            for col, ylabel in METRICS:
+                fig, ax = plt.subplots(figsize=(8, 8))
 
-            for label, df in dfs.items():
-                if col not in df.columns:
-                    continue
-                grouped = df.groupby("natoms")[col].agg(["mean", "std", "count"]).reset_index()
-                grouped["se"] = grouped["std"] / grouped["count"] ** 0.5
-                line = ax.plot(
-                    grouped["natoms"],
-                    grouped["mean"],
-                    marker="o",
-                    markersize=4,
-                    linewidth=2,
-                    label=label,
-                    color=HESSIAN_METHOD_TO_COLOUR[label],
+                for label, df in dfs.items():
+                    if col not in df.columns:
+                        continue
+                    grouped = (
+                        df.groupby("natoms")[col]
+                        .agg(["mean", "std", "count"])
+                        .reset_index()
+                    )
+                    grouped["se"] = grouped["std"] / grouped["count"] ** 0.5
+                    line = ax.plot(
+                        grouped["natoms"],
+                        grouped["mean"],
+                        marker="o",
+                        markersize=4,
+                        linewidth=2,
+                        label=label,
+                        color=HESSIAN_METHOD_TO_COLOUR[label],
+                    )
+                    color = line[0].get_color()
+                    ax.fill_between(
+                        grouped["natoms"],
+                        grouped["mean"] - grouped[error_type],
+                        grouped["mean"] + grouped[error_type],
+                        alpha=0.2,
+                        color=color,
+                    )
+
+                ax.axvline(21, color="gray", linestyle="--", linewidth=2.5)
+                ax.annotate(
+                    "",
+                    xy=(0.57, 0.93),
+                    xytext=(0.44, 0.93),
+                    xycoords="axes fraction",
+                    textcoords="axes fraction",
+                    arrowprops=dict(
+                        arrowstyle="<-", color="gray", lw=2.5, linestyle="--"
+                    ),
                 )
-                color = line[0].get_color()
-                ax.fill_between(
-                    grouped["natoms"],
-                    grouped["mean"] - grouped[error_type],
-                    grouped["mean"] + grouped[error_type],
-                    alpha=0.2,
-                    color=color,
+                ax.text(
+                    0.57,
+                    0.95,
+                    "Train",
+                    transform=ax.transAxes,
+                    fontsize=18,
+                    color="gray",
+                    va="bottom",
+                    ha="right",
+                    fontweight="semibold",
                 )
 
-            ax.axvline(21, color="gray", linestyle="--", linewidth=2.5)
-            ax.annotate(
-                "",
-                xy=(0.57, 0.93),
-                xytext=(0.44, 0.93),
-                xycoords="axes fraction",
-                textcoords="axes fraction",
-                arrowprops=dict(arrowstyle="<-", color="gray", lw=2.5, linestyle="--"),
-            )
-            ax.text(
-                0.57, 0.95, "Train",
-                transform=ax.transAxes,
-                fontsize=18,
-                color="gray",
-                va="bottom",
-                ha="right",
-                fontweight="semibold",
-            )
+                ax.set_xlim(3.5, 33.5)
+                ax.set_xlabel("Number of Atoms")
+                ax.set_ylabel(ylabel)
+                legend = ax.legend()
+                legend.set_title("")
+                legend.get_frame().set_edgecolor("none")
+                legend.get_frame().set_alpha(1.0)
+                plt.tight_layout(pad=0.0)
 
-            ax.set_xlim(3.5, 33.5)
-            ax.set_xlabel("Number of Atoms")
-            ax.set_ylabel(ylabel)
-            legend = ax.legend()
-            legend.set_title("")
-            legend.get_frame().set_edgecolor("none")
-            legend.get_frame().set_alpha(1.0)
-            plt.tight_layout(pad=0.0)
-
-            plot_path = f"{plot_dir}/{col}_compare_rgd1{'_e-f' if include_e_f else ''}_{error_type}.png"
-            plt.savefig(plot_path, dpi=300, bbox_inches="tight")
-            print(f"Saved {plot_path}")
-            # plt.show()
-            plt.close()
+                plot_path = f"{plot_dir}/{col}_compare_rgd1{'_e-f' if include_e_f else ''}_{error_type}.png"
+                plt.savefig(plot_path, dpi=300, bbox_inches="tight")
+                print(f"Saved {plot_path}")
+                # plt.show()
+                plt.close()

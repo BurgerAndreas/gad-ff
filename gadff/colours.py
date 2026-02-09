@@ -77,7 +77,7 @@ METHOD_TO_COLOUR = {
 HESSIAN_METHOD_TO_COLOUR = {
     "predict": "#ffb482",
     "autograd": "#295c7e",
-    "E-F": "#cfcbc5", # #5a5255",
+    "E-F": "#cfcbc5",  # #5a5255",
 }
 
 HESSIAN_METHOD_TO_COLOUR["prediction"] = HESSIAN_METHOD_TO_COLOUR["predict"]
@@ -85,9 +85,9 @@ HESSIAN_METHOD_TO_COLOUR["learned"] = HESSIAN_METHOD_TO_COLOUR["predict"]
 
 # Relaxations
 OPTIM_TO_COLOUR = {
-    "firstorder": "#295c7e",
-    "bfgs": "#636EFA",
-    "secondorder": "#db95a6",
+    "firstorder": "#5a5255",  # #cfcbc5
+    "bfgs": "#5a5255",  # #5a5255
+    "secondorder": "#295c7e",
 }
 OPTIM_TO_COLOUR["First-Order"] = OPTIM_TO_COLOUR["firstorder"]
 OPTIM_TO_COLOUR["Second-Order"] = OPTIM_TO_COLOUR["secondorder"]
@@ -96,7 +96,10 @@ OPTIM_TO_COLOUR["No Hessian"] = OPTIM_TO_COLOUR["firstorder"]
 OPTIM_TO_COLOUR["No Hessians"] = OPTIM_TO_COLOUR["firstorder"]
 OPTIM_TO_COLOUR["Hessian Free"] = OPTIM_TO_COLOUR["firstorder"]
 OPTIM_TO_COLOUR["Quasi-Hessian"] = OPTIM_TO_COLOUR["bfgs"]
+OPTIM_TO_COLOUR["BFGS"] = OPTIM_TO_COLOUR["bfgs"]
+OPTIM_TO_COLOUR["RFO-BFGS"] = OPTIM_TO_COLOUR["bfgs"]
 OPTIM_TO_COLOUR["Hessian"] = OPTIM_TO_COLOUR["secondorder"]
+OPTIM_TO_COLOUR["HIP Hessian"] = "#ffb482"
 
 
 ANNOTATION_FONT_SIZE = 16

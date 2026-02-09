@@ -51,7 +51,9 @@ def find_checkpoint(checkpoint_path):
         )
 
     if len(matching_dirs) > 1:
-        print(f"Warning: Multiple matching directories found: {[d.name for d in matching_dirs]}")
+        print(
+            f"Warning: Multiple matching directories found: {[d.name for d in matching_dirs]}"
+        )
         print(f"Using: {matching_dirs[0].name}")
 
     found_ckpt = matching_dirs[0] / "last.ckpt"
@@ -106,7 +108,9 @@ def evaluate(
     results_dir = "results_size_eval"
     os.makedirs(results_dir, exist_ok=True)
     ckpt_name = os.path.basename(checkpoint_path).split(".")[0]
-    results_file = f"{results_dir}/{ckpt_name}_{dataset_name}_{hessian_method}_metrics.csv"
+    results_file = (
+        f"{results_dir}/{ckpt_name}_{dataset_name}_{hessian_method}_metrics.csv"
+    )
 
     if os.path.exists(results_file) and not redo:
         print(f"Loading existing results from {results_file}")
@@ -160,7 +164,9 @@ def evaluate(
                     energy_model, force_model, out = model.forward(
                         batch, otf_graph=False, hessian=False
                     )
-                    hessian_model = compute_hessian(batch.pos, energy_model, force_model)
+                    hessian_model = compute_hessian(
+                        batch.pos, energy_model, force_model
+                    )
                 else:
                     with torch.no_grad():
                         energy_model, force_model, out = model.forward(
@@ -231,7 +237,9 @@ def evaluate(
 
             # Energy error
             energy_true = batch.energy
-            e_mae = torch.mean(torch.abs(energy_model.squeeze() - energy_true.squeeze()))
+            e_mae = torch.mean(
+                torch.abs(energy_model.squeeze() - energy_true.squeeze())
+            )
             e_mae_per_atom = e_mae / n_atoms
             sample_data["energy_mae"] = e_mae.item()
             sample_data["energy_mae_per_atom"] = e_mae_per_atom.item()
@@ -273,7 +281,9 @@ def evaluate(
 
             sample_data["true_neg_num"] = true_freqs["neg_num"]
             sample_data["model_neg_num"] = freqs_model["neg_num"]
-            sample_data["neg_num_agree"] = 1 if true_freqs["neg_num"] == freqs_model["neg_num"] else 0
+            sample_data["neg_num_agree"] = (
+                1 if true_freqs["neg_num"] == freqs_model["neg_num"] else 0
+            )
 
             sample_data["eigval_mae_eckart"] = torch.mean(
                 torch.abs(eigvals_model_eckart - true_eigvals_eckart)
@@ -291,13 +301,24 @@ def evaluate(
             true_wavenumbers = eigval_to_wavenumber(true_eigvals_np)
             model_wavenumbers = eigval_to_wavenumber(model_eigvals_np)
 
-            true_mask = (true_wavenumbers >= 400) & (true_wavenumbers <= 4000) & (true_eigvals_np > 0)
-            model_mask = (model_wavenumbers >= 400) & (model_wavenumbers <= 4000) & (model_eigvals_np > 0)
+            true_mask = (
+                (true_wavenumbers >= 400)
+                & (true_wavenumbers <= 4000)
+                & (true_eigvals_np > 0)
+            )
+            model_mask = (
+                (model_wavenumbers >= 400)
+                & (model_wavenumbers <= 4000)
+                & (model_eigvals_np > 0)
+            )
             combined_mask = true_mask & model_mask
 
             if combined_mask.sum() > 0:
                 sample_data["freq_mae_400_4000"] = np.mean(
-                    np.abs(model_wavenumbers[combined_mask] - true_wavenumbers[combined_mask])
+                    np.abs(
+                        model_wavenumbers[combined_mask]
+                        - true_wavenumbers[combined_mask]
+                    )
                 )
             else:
                 sample_data["freq_mae_400_4000"] = np.nan
@@ -324,33 +345,40 @@ def evaluate(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Evaluate model on DFT geometries (size scaling)")
+    parser = argparse.ArgumentParser(
+        description="Evaluate model on DFT geometries (size scaling)"
+    )
     parser.add_argument(
-        "--ckpt_path", "-c",
+        "--ckpt_path",
+        "-c",
         type=str,
         default="ckpt/eqv2.ckpt",
         help="Path to checkpoint file",
     )
     parser.add_argument(
-        "--dataset", "-d",
+        "--dataset",
+        "-d",
         type=str,
         default="geometries/dft_geometries.lmdb",
         help="Path to DFT geometries LMDB",
     )
     parser.add_argument(
-        "--hessian_method", "-hm",
+        "--hessian_method",
+        "-hm",
         type=str,
         default="autograd",
         help="Hessian computation method (autograd or predict)",
     )
     parser.add_argument(
-        "--max_samples", "-m",
+        "--max_samples",
+        "-m",
         type=int,
         default=None,
         help="Maximum number of samples to evaluate",
     )
     parser.add_argument(
-        "--redo", "-r",
+        "--redo",
+        "-r",
         action="store_true",
         help="Re-run eval even if results CSV exists",
     )

@@ -345,9 +345,7 @@ class Potential(BaseDynamics):
         fragments_nodes = [pyg_batch.natoms]
         n_frag_switch = get_n_frag_switch(fragments_nodes)
         B = pyg_batch.batch.max().item() + 1
-        conditions = conditions or torch.zeros(
-            B, 1, dtype=torch.long
-        )
+        conditions = conditions or torch.zeros(B, 1, dtype=torch.long)
         conditions = conditions.to(pyg_batch.batch.device)
 
         pyg_batch.pos = remove_mean_batch(pyg_batch.pos, pyg_batch.batch)
@@ -461,9 +459,7 @@ class Potential(BaseDynamics):
         fragments_nodes = [pyg_batch.natoms]
         n_frag_switch = get_n_frag_switch(fragments_nodes)
         B = pyg_batch.batch.max().item() + 1
-        conditions = conditions or torch.zeros(
-            B, 1, dtype=torch.long
-        )
+        conditions = conditions or torch.zeros(B, 1, dtype=torch.long)
         conditions = conditions.to(pyg_batch.batch.device)
 
         pyg_batch.pos = remove_mean_batch(pyg_batch.pos, pyg_batch.batch)

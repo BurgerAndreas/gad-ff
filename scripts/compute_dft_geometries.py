@@ -37,6 +37,7 @@ ATOM_SPIN = {1: 1, 6: 2, 7: 3, 8: 2}
 # Try to use GPU-accelerated PySCF
 try:
     from gpu4pyscf.dft import rks as gpu_rks
+
     HAS_GPU4PYSCF = True
     print("Using gpu4pyscf (GPU-accelerated DFT)")
 except ImportError:
@@ -64,9 +65,11 @@ def compute_atom_energies():
 
         if HAS_GPU4PYSCF:
             from gpu4pyscf.dft import uks as gpu_uks
+
             mf = gpu_uks.UKS(mol).density_fit()
         else:
             from pyscf import dft
+
             mf = dft.UKS(mol).density_fit()
         mf.xc = "wb97x"
         mf.verbose = 0
@@ -110,6 +113,7 @@ def compute_dft(atomic_numbers, coords_ang):
             mf = gpu_rks.RKS(mol).density_fit()
         else:
             from pyscf import dft
+
             mf = dft.RKS(mol).density_fit()
     else:
         mol.spin = 1
@@ -117,9 +121,11 @@ def compute_dft(atomic_numbers, coords_ang):
         print(f"  Odd electrons ({total_electrons}), using UKS with spin=1")
         if HAS_GPU4PYSCF:
             from gpu4pyscf.dft import uks as gpu_uks
+
             mf = gpu_uks.UKS(mol).density_fit()
         else:
             from pyscf import dft
+
             mf = dft.UKS(mol).density_fit()
     mf.xc = "wb97x"
     mf.verbose = 0
@@ -143,7 +149,7 @@ def compute_dft(atomic_numbers, coords_ang):
     # Convert units: Hartree -> eV, Bohr -> Angstrom
     energy_ev = energy_au * AU2EV
     forces_ev_ang = forces_au * AU2EV / BOHR2ANG  # eV/Angstrom
-    hess_ev_ang2 = hess_cart_au * AU2EV / (BOHR2ANG ** 2)  # eV/Angstrom^2
+    hess_ev_ang2 = hess_cart_au * AU2EV / (BOHR2ANG**2)  # eV/Angstrom^2
 
     return {
         "energy": energy_ev,
@@ -242,7 +248,11 @@ def main():
     df = pd.read_csv(args.geom_csv)
     df = df.sort_values("natoms").reset_index(drop=True)
     if args.max_samples_per_natoms is not None:
-        df = df.groupby("natoms").head(args.max_samples_per_natoms).reset_index(drop=True)
+        df = (
+            df.groupby("natoms")
+            .head(args.max_samples_per_natoms)
+            .reset_index(drop=True)
+        )
     if args.max_samples is not None:
         df = df.head(args.max_samples)
 
@@ -292,7 +302,9 @@ def main():
 
             ckpt[sdf_path] = {"status": "ok", "result": result}
             save_checkpoint(ckpt, ckpt_path)
-            print(f"  OK: {sdf_path} | {len(atomic_numbers)} atoms | E={result['energy']:.4f} eV")
+            print(
+                f"  OK: {sdf_path} | {len(atomic_numbers)} atoms | E={result['energy']:.4f} eV"
+            )
 
         except Exception as e:
             print(f"  Error on {sdf_path}: {e}")
@@ -311,13 +323,15 @@ def main():
         if entry["status"] == "ok":
             data = sdf_to_data(sdf_path, entry["result"], atom_energies)
             data_list.append(data)
-            records.append({
-                **row.to_dict(),
-                "status": "ok",
-                "energy_ev": entry["result"]["energy"],
-                "ae_ev": data.ae.item(),
-                "lmdb_idx": len(data_list) - 1,
-            })
+            records.append(
+                {
+                    **row.to_dict(),
+                    "status": "ok",
+                    "energy_ev": entry["result"]["energy"],
+                    "ae_ev": data.ae.item(),
+                    "lmdb_idx": len(data_list) - 1,
+                }
+            )
         else:
             records.append({**row.to_dict(), "status": entry["status"]})
 
