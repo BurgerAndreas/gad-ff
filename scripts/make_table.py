@@ -31,6 +31,7 @@ COLUMN_ALIASES = {
 def _parse_col(series):
     """Parse a column, handling tensor(...) strings from older CSVs."""
     import re
+
     def _parse_val(x):
         if isinstance(x, (int, float)):
             return x
@@ -42,6 +43,7 @@ def _parse_col(series):
             return float(s)
         except (ValueError, TypeError):
             return float("nan")
+
     return series.map(_parse_val)
 
 
@@ -74,8 +76,11 @@ def make_table(csv_files, labels, groups=None, bold_best=False):
     """
     rows = []
     orig_flags = []
-    for f in csv_files:
-        rows.append(load_results(f))
+    for f, label in zip(csv_files, labels):
+        if label in HARDCODED_RESULTS:
+            rows.append(HARDCODED_RESULTS[label])
+        else:
+            rows.append(load_results(f))
         orig_flags.append("_orig" in os.path.basename(f))
 
     # Find best per column if needed
@@ -89,7 +94,7 @@ def make_table(csv_files, labels, groups=None, bold_best=False):
                 best[csv_col] = max(vals)
 
     # Header
-    header_top = r"\multirow{2}{*}{Hessian} & \multirow{2}{*}{Model} & \multirow{2}{*}{Hessian Data}"
+    header_top = r"\multirow{2}{*}{Model} & \multirow{2}{*}{Hessian} & \multirow{2}{*}{Hessian Data}"
     header_bot = " & & "
     units = {
         "hessian_mae": r"eV/\AA$^2$",
@@ -108,7 +113,7 @@ def make_table(csv_files, labels, groups=None, bold_best=False):
 
     ncols = 3 + len(COLUMNS)
     lines = []
-    lines.append(r"\begin{tabular}{" + "c" * ncols + "}")
+    lines.append(r"\begin{tabular}{" + "l" + "c" * (ncols - 1) + "}")
     lines.append(r"\hline")
     lines.append(header_top)
     lines.append(header_bot)
@@ -118,12 +123,15 @@ def make_table(csv_files, labels, groups=None, bold_best=False):
     idx = 0
     if groups:
         for gname, gcount in groups:
-            lines.append(r"\multirow{" + str(gcount) + r"}{*}{" + gname + "}")
             for j in range(gcount):
                 row = rows[idx]
                 label = labels[idx]
                 orig = "" if orig_flags[idx] else r"\checkmark"
-                cells = f" & {label} & {orig}"
+                if j == 0:
+                    hess_cell = r"\multirow{" + str(gcount) + r"}{*}{" + gname + "}"
+                else:
+                    hess_cell = ""
+                cells = f"{label} & {hess_cell} & {orig}"
                 for csv_col, _, fmt, _ in COLUMNS:
                     val = fmt.format(row[csv_col])
                     if bold_best and row[csv_col] == best[csv_col]:
@@ -136,7 +144,7 @@ def make_table(csv_files, labels, groups=None, bold_best=False):
     else:
         for i, (row, label) in enumerate(zip(rows, labels)):
             orig = "" if orig_flags[i] else r"\checkmark"
-            cells = f" & {label} & {orig}"
+            cells = f"{label} & & {orig}"
             for csv_col, _, fmt, _ in COLUMNS:
                 val = fmt.format(row[csv_col])
                 if bold_best and row[csv_col] == best[csv_col]:
@@ -170,13 +178,59 @@ def _model_key(filename):
     return None
 
 
+HARDCODED_RESULTS = {
+    "HIP-EquiformerV2": {
+        "hessian_mae": 0.030,
+        "eigval_mae_eckart": 0.063,
+        "eigvec1_cos_eckart": 0.982,
+        "eigval1_mae_eckart": 0.031,
+        "time": 38.5,
+    },
+    "HIP-EquiformerV2*": {
+        "hessian_mae": 0.020,
+        "eigval_mae_eckart": 0.041,
+        "eigvec1_cos_eckart": 0.982,
+        "eigval1_mae_eckart": 0.031,
+        "time": 31.4,
+    },
+}
+
 PLOT_DIR = "plots/eval_horm"
 
+# Hard-coded display order, grouped in pairs (for plot)
+LABEL_ORDER = [
+    "AlphaNet (E-F)",
+    "AlphaNet",
+    "LEFTNet-DF (E-F)",
+    "LEFTNet-DF",
+    "LEFTNet (E-F)",
+    "LEFTNet",
+    "EquiformerV2 (E-F)",
+    "EquiformerV2",
+    "HIP-EquiformerV2",
+    "HIP-EquiformerV2*",
+]
 
-def make_plot(csv_files, labels, output=None):
+# For the table: all E-F first, then the rest
+TABLE_LABEL_ORDER = [
+    "AlphaNet (E-F)",
+    "LEFTNet-DF (E-F)",
+    "LEFTNet (E-F)",
+    "EquiformerV2 (E-F)",
+    "AlphaNet",
+    "LEFTNet-DF",
+    "LEFTNet",
+    "EquiformerV2",
+    "HIP-EquiformerV2",
+    "HIP-EquiformerV2*",
+]
+
+
+def make_plot(csv_files, labels, output=None, with_broken_yaxis=False):
     """Bar plot of hessian MAE using seaborn poster style."""
     import matplotlib.pyplot as plt
     import seaborn as sns
+
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
     from gadff.colours import METHOD_TO_COLOUR, HESSIAN_METHOD_TO_COLOUR
 
@@ -187,7 +241,10 @@ def make_plot(csv_files, labels, output=None):
     values = []
     colours = []
     for f, label in zip(csv_files, labels):
-        row = load_results(f)
+        if label in HARDCODED_RESULTS:
+            row = HARDCODED_RESULTS[label]
+        else:
+            row = load_results(f)
         values.append(row["hessian_mae"])
         if "_orig" in os.path.basename(f):
             colours.append(HESSIAN_METHOD_TO_COLOUR["E-F"])
@@ -196,14 +253,6 @@ def make_plot(csv_files, labels, output=None):
         else:
             colours.append(HESSIAN_METHOD_TO_COLOUR["autograd"])
 
-    # Hard-coded display order, grouped in pairs
-    LABEL_ORDER = [
-        "AlphaNet (E-F)", "AlphaNet",
-        "LEFTNet-DF (E-F)", "LEFTNet-DF",
-        "LEFTNet (E-F)", "LEFTNet",
-        "EquiformerV2 (E-F)", "EquiformerV2",
-        "HIP-EquiformerV2", "HIP-EquiformerV2*",
-    ]
     label_to_idx = {l: i for i, l in enumerate(labels)}
     order = [label_to_idx[l] for l in LABEL_ORDER if l in label_to_idx]
     values = [values[i] for i in order]
@@ -217,31 +266,176 @@ def make_plot(csv_files, labels, output=None):
 
     label_fontsize = sns.plotting_context()["font.size"] * 0.65
     os.makedirs(PLOT_DIR, exist_ok=True)
+    from matplotlib.patches import Patch
+
     for log_scale in [False, True]:
-        fig, ax = plt.subplots(figsize=(10, 9))
-        bars = ax.bar(positions, values, color=colours, edgecolor="none")
-        ax.set_xticks(positions)
-        ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=label_fontsize)
-        ax.set_ylabel("Hessian MAE [eV/\u00c5$^2$]")
         if log_scale:
+            fig, ax = plt.subplots(figsize=(10, 9))
+            axes = [ax]
+        else:
+            if with_broken_yaxis:
+                fig, (ax_top, ax_bot) = plt.subplots(
+                    2,
+                    1,
+                    sharex=True,
+                    figsize=(10, 9),
+                    gridspec_kw={"height_ratios": [1, 3], "hspace": 0.05},
+                )
+                axes = [ax_top, ax_bot]
+            else:
+                fig, ax = plt.subplots(figsize=(10, 9))
+                axes = [ax]
+                ax_bot = ax
+                ax_top = ax
+
+        for ax in axes:
+            ax.bar(positions, values, color=colours, edgecolor="none")
+
+        if log_scale:
+            ax = axes[0]
+            ax.set_xticks(positions)
+            ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=label_fontsize)
+            ax.set_ylabel("Hessian MAE [eV/\u00c5$^2$]")
             ax.set_yscale("log")
-        # Bar value labels
-        for bar, val in zip(bars, values):
-            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height(),
-                    f"{val:.3f}", ha="center", va="bottom", fontsize=label_fontsize * 0.8, fontweight="bold")
-        # Legend
-        from matplotlib.patches import Patch
-        legend_items = [
-            Patch(facecolor=HESSIAN_METHOD_TO_COLOUR["E-F"], label="AD (E-F)"),
-            Patch(facecolor=HESSIAN_METHOD_TO_COLOUR["autograd"], label="AD"),
-            Patch(facecolor=HESSIAN_METHOD_TO_COLOUR["predict"], label="HIP"),
-        ]
-        ax.legend(handles=legend_items, fontsize=label_fontsize+2, loc="upper right", edgecolor="none")
-        sns.despine(left=True)
-        fig.tight_layout()
+            for bar, val in zip(ax.containers[0], values):
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2,
+                    bar.get_height(),
+                    f"{val:.3f}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=label_fontsize * 0.8,
+                    fontweight="bold",
+                )
+            legend_items = [
+                Patch(facecolor=HESSIAN_METHOD_TO_COLOUR["E-F"], label="AD (E-F)"),
+                Patch(facecolor=HESSIAN_METHOD_TO_COLOUR["autograd"], label="AD"),
+                Patch(facecolor=HESSIAN_METHOD_TO_COLOUR["predict"], label="HIP"),
+            ]
+            ax.legend(
+                handles=legend_items,
+                fontsize=label_fontsize + 2,
+                loc="upper right",
+                edgecolor="none",
+                framealpha=1.0,
+            )
+            sns.despine(left=True)
+        else:
+            if with_broken_yaxis:
+                # Configure broken axis limits
+                break_y = 0.55
+                max_val = max(values)
+                ax_top.set_ylim(break_y, max_val * 1.15)
+                ax_bot.set_ylim(0, break_y)
+
+                # Hide spines at the break
+                ax_top.spines["bottom"].set_visible(False)
+                ax_bot.spines["top"].set_visible(False)
+                ax_top.tick_params(bottom=False)
+
+                # Diagonal break marks on left y-axis only
+                import matplotlib.lines as mlines
+
+                d = 0.01  # half-length of break mark in figure coords
+                spine_x = ax_bot.get_position().x0
+                y_break = ax_bot.get_position().y1
+                _offset = 0.01
+                for dy in [0, _offset]:
+                    fig.add_artist(
+                        mlines.Line2D(
+                            [spine_x - d, spine_x + d],
+                            [y_break - d + dy, y_break + d + dy],
+                            transform=fig.transFigure,
+                            color="k",
+                            clip_on=False,
+                            linewidth=1,
+                        )
+                    )
+
+            # # Break marks on bars that cross the break boundary
+            # if with_broken_yaxis:
+            # from matplotlib.transforms import blended_transform_factory
+            # trans_bot = blended_transform_factory(ax_bot.transData, fig.transFigure)
+            # bar_d = 0.01
+            # for bar_b, val in zip(ax_bot.containers[0], values):
+            #     if val >= break_y:
+            #         bx = bar_b.get_x()
+            #         bw = bar_b.get_width()
+            #         for dy in [0, _offset]:
+            #             fig.add_artist(
+            #                 mlines.Line2D(
+            #                     [bx, bx + bw],
+            #                     [y_break - bar_d + dy, y_break + bar_d + dy],
+            #                     transform=trans_bot,
+            #                     color="k",
+            #                     clip_on=False,
+            #                     linewidth=1,
+            #                 )
+            #             )
+
+            ax_bot.set_xticks(positions)
+            ax_bot.set_xticklabels(
+                labels, rotation=45, ha="right", fontsize=label_fontsize
+            )
+            if with_broken_yaxis:
+                fig.text(
+                    0.01,
+                    0.5,
+                    "Hessian MAE [eV/\u00c5$^2$]",
+                    va="center",
+                    rotation="vertical",
+                    fontsize=sns.plotting_context()["axes.labelsize"],
+                )
+            else:
+                ax.set_ylabel("Hessian MAE [eV/\u00c5$^2$]")
+
+            # Bar value labels on whichever axis the bar top falls in
+            for bar_t, bar_b, val in zip(
+                ax_top.containers[0], ax_bot.containers[0], values
+            ):
+                if with_broken_yaxis and val >= break_y:
+                    ax_top.text(
+                        bar_t.get_x() + bar_t.get_width() / 2,
+                        bar_t.get_height(),
+                        f"{val:.3f}",
+                        ha="center",
+                        va="bottom",
+                        fontsize=label_fontsize * 0.8,
+                        fontweight="bold",
+                    )
+                else:
+                    ax_bot.text(
+                        bar_b.get_x() + bar_b.get_width() / 2,
+                        bar_b.get_height(),
+                        f"{val:.3f}",
+                        ha="center",
+                        va="bottom",
+                        fontsize=label_fontsize * 0.8,
+                        fontweight="bold",
+                    )
+
+            legend_items = [
+                Patch(facecolor=HESSIAN_METHOD_TO_COLOUR["E-F"], label="AD (E-F)"),
+                Patch(facecolor=HESSIAN_METHOD_TO_COLOUR["autograd"], label="AD"),
+                Patch(facecolor=HESSIAN_METHOD_TO_COLOUR["predict"], label="HIP"),
+            ]
+            ax_top.legend(
+                handles=legend_items,
+                fontsize=label_fontsize + 2,
+                loc="upper right",
+                edgecolor="none",
+                framealpha=1.0,
+            )
+            sns.despine(ax=ax_top, left=False, bottom=True)
+            sns.despine(ax=ax_bot, left=False)
+
+        fig.tight_layout(pad=0.01)
 
         suffix = "_log" if log_scale else ""
-        out = output or os.path.join(PLOT_DIR, f"hessian_mae_bar{suffix}.png")
+        out = output or os.path.join(
+            PLOT_DIR,
+            f"hessian_mae_bar{suffix}{'_broken' if with_broken_yaxis else ''}.png",
+        )
         fig.savefig(out, dpi=300, bbox_inches="tight")
         print(f"Saved plot to {out}")
         plt.close(fig)
@@ -254,9 +448,7 @@ if __name__ == "__main__":
         nargs="*",
         help="CSV files to include. If empty, uses a default set.",
     )
-    parser.add_argument(
-        "--labels", "-l", nargs="*", help="Display labels for each CSV"
-    )
+    parser.add_argument("--labels", "-l", nargs="*", help="Display labels for each CSV")
     args = parser.parse_args()
 
     MODEL_DISPLAY_NAMES = {
@@ -275,11 +467,11 @@ if __name__ == "__main__":
         base = os.path.basename(f).replace("_metrics.csv", "")
         is_orig = "_orig" in base
         is_predict = "predict" in base
-        if is_predict:               
-            print("HIP", base)                                  
-            clean = "HIP-EquiformerV2"                                  
-        else:                                                          
-            clean = base 
+        if is_predict:
+            print("HIP", base)
+            clean = "HIP-EquiformerV2"
+        else:
+            clean = base
         # Strip suffixes to find model key
         for suf in ["_orig", "_ts1x-val", "_autograd", "_predict"]:
             clean = clean.replace(suf, "")
@@ -297,8 +489,7 @@ if __name__ == "__main__":
     else:
         # Auto-discover all ts1x-val CSVs
         csv_files = sorted(
-            f
-            for f in glob.glob(os.path.join(RESULTS_DIR, "*ts1x*val*_metrics.csv"))
+            f for f in glob.glob(os.path.join(RESULTS_DIR, "*ts1x*val*_metrics.csv"))
         )
         if not csv_files:
             print("No ts1x-val CSV files found in", RESULTS_DIR, file=sys.stderr)
@@ -323,14 +514,29 @@ if __name__ == "__main__":
             hess_files.append(f)
             hess_labels.append(l)
 
-    ordered_files = orig_files + hess_files
-    ordered_labels = orig_labels + hess_labels
-    groups = []
-    if orig_files:
-        groups.append(("E-F Only", len(orig_files)))
-    if hess_files:
-        groups.append(("Hessian Data", len(hess_files)))
+    all_files = orig_files + hess_files
+    all_labels = orig_labels + hess_labels
 
-    
-    make_plot(ordered_files, ordered_labels)
-    print(make_table(ordered_files, ordered_labels, groups=groups or None, bold_best=True))
+    label_to_idx = {l: i for i, l in enumerate(all_labels)}
+
+    # Plot uses paired ordering
+    plot_order = [label_to_idx[l] for l in LABEL_ORDER if l in label_to_idx]
+    plot_files = [all_files[i] for i in plot_order]
+    plot_labels = [all_labels[i] for i in plot_order]
+    make_plot(plot_files, plot_labels)
+
+    # Table uses E-F first, then hessian data
+    table_order = [label_to_idx[l] for l in TABLE_LABEL_ORDER if l in label_to_idx]
+    table_files = [all_files[i] for i in table_order]
+    table_labels = [all_labels[i] for i in table_order]
+    n_ef = sum(1 for l in table_labels if "(E-F)" in l)
+    n_hess = len(table_labels) - n_ef
+    groups = []
+    if n_ef:
+        groups.append(("E-F Only", n_ef))
+    if n_hess:
+        groups.append(("Hessian Data", n_hess))
+
+    print()
+    print(make_table(table_files, table_labels, groups=groups or None, bold_best=True))
+    print()

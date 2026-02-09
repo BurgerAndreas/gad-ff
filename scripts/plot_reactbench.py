@@ -17,6 +17,8 @@ from gadff.colours import (
 import plotly.graph_objects as go
 import plotly.express as px
 
+LEGEND_FONT_SIZE += 2
+
 api = wandb.Api()
 
 # for .csv files
@@ -175,7 +177,7 @@ for src_key, method_label in method_key_map.items():
     if ts_block is not None:
         extra_records.append(
             {
-                "Metric": "DFT-Verified TS Success",
+                "Metric": "DFT-Verified TS",
                 "Value": ts_block.get("correct_proposed_estimated"),
                 "Method": method_label,
             }
@@ -183,7 +185,7 @@ for src_key, method_label in method_key_map.items():
     if conv_ts_block is not None:
         extra_records.append(
             {
-                "Metric": "DFT-Verified Converged and TS Success",
+                "Metric": "+ DFT-Verified Converged",
                 "Value": conv_ts_block.get("correct_proposed_estimated"),
                 "Method": method_label,
             }
@@ -196,12 +198,12 @@ sns.set_theme(style="whitegrid", palette="pastel")
 # data
 allowed_metrics = [
     "GSM Success",
-    "TS Success",
+    # "TS Success",
     "RFO Converged",
     # "RFO Converged and TS Success",
     "IRC Verified",
-    "DFT-Verified TS Success",
-    "DFT-Verified Converged and TS Success",
+    "DFT-Verified TS",
+    "+ DFT-Verified Converged",
 ]
 df = df[df["Metric"].isin(allowed_metrics)]
 
@@ -361,7 +363,7 @@ else:
         ),
         yaxis=dict(
             title=dict(text="Success Count", font=dict(size=AXES_TITLE_FONT_SIZE)),
-            range=[398.5, 920],
+            range=[498.5, 920],
             tickfont=dict(size=AXES_FONT_SIZE),
         ),
         margin=dict(l=40, r=10, t=0, b=10),
@@ -373,7 +375,7 @@ else:
             y=0.98,
             xanchor="left",
             yanchor="top",
-            bgcolor="rgba(255,255,255,0.5)",
+            bgcolor="rgba(255,255,255,1.0)",
         ),
     )
 

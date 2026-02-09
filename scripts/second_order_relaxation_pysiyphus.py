@@ -27,7 +27,7 @@ try:
     from pysisyphus.optimizers.FIRE import FIRE  # first-order baseline
     from pysisyphus.optimizers.RFOptimizer import RFOptimizer  # second-order RFO + BFGS
     from pysisyphus.optimizers.BFGS import BFGS
-    from pysisyphus.optimizers.SteepestDescent import SteepestDescent
+    from pysisyphus.optimizers.Descent import Descent
     from pysisyphus.optimizers.ConjugateGradient import ConjugateGradient
     from pysisyphus.optimizers.BacktrackingOptimizer import BacktrackingOptimizer
 
@@ -42,18 +42,27 @@ except ImportError:
     print()
     traceback.print_exc()
     print("\nFollow the instructions here: https://github.com/BurgerAndreas/ReactBench")
-    exit()
+    # exit()
 
+    # define dummies so we can still plot results even if pysisyphus is not installed
 
-from ase import Atoms
-from ase.io import read
-from ase.calculators.emt import EMT
-from ase.constraints import FixAtoms
-from ase.vibrations.data import VibrationsData
-from ase.vibrations import Vibrations
-from ase.optimize import BFGS
-from ase.mep import NEB
-from sella import Sella, Constraints, IRC
+    class BacktrackingOptimizer:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    class Calculator:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+# from ase import Atoms
+# from ase.io import read
+# from ase.calculators.emt import EMT
+# from ase.constraints import FixAtoms
+# from ase.vibrations.data import VibrationsData
+# from ase.vibrations import Vibrations
+# from ase.optimize import BFGS
+# from ase.mep import NEB
+# from sella import Sella, Constraints, IRC
 
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.path_config import fix_dataset_path, ROOT_DIR
@@ -103,7 +112,7 @@ It implements four variants:
 3. initial-only: RFO+BFGS with learned only at step 0
 4. periodic replace: RFO+BFGS with learned every k in {3,1}
 
-- baseline: FIRE -> first-order only, no Hessian
+- baseline: FIRE -> first-order only, no HessianHIP Hessian
 - no-Hessian: RFOptimizer(hessian_init='unit', hessian_update='bfgs') -> quasi-Newton with a diagonal initial guess (no external Hessian) ([pysisyphus.readthedocs.io][1])
 - initial-only: RFOptimizer(hessian_init='calc', hessian_recalc=None) -> your H at step 0, then BFGS updates only ([pysisyphus.readthedocs.io][1])
 - periodic replace: RFOptimizer(hessian_init='calc', hessian_recalc=k) -> your H injected every k steps (k=3,1) ([pysisyphus.readthedocs.io][1])
@@ -221,10 +230,10 @@ pysis_all_optimizers = [
     "MicroOptimizer",
     "NCOptimizer",
     "PreconLBFGS",
-    "PreconSteepestDescent",
+    "PreconDescent",
     "QuickMin",
     "RFOptimizer",
-    "SteepestDescent",
+    "Descent",
     "StringOptimizer",
     "StabilizedQNMethod",
 ]
@@ -359,9 +368,9 @@ class CountingCalc(Calculator):
 # --------------------------
 
 
-class NaiveSteepestDescent(BacktrackingOptimizer):
+class NaiveDescent(BacktrackingOptimizer):
     def __init__(self, geometry, **kwargs):
-        super(NaiveSteepestDescent, self).__init__(geometry, alpha=0.1, **kwargs)
+        super(NaiveDescent, self).__init__(geometry, alpha=0.1, **kwargs)
 
     def optimize(self):
         if self.is_cos and self.align:
@@ -447,9 +456,11 @@ def _run_opt_safely(
     else:
         os.makedirs(os.path.dirname(log_path), exist_ok=True)
         print(f"Saving log to {log_path}")
-        with open(log_path, "a") as _log_fh, contextlib.redirect_stdout(
-            _log_fh
-        ), contextlib.redirect_stderr(_log_fh):
+        with (
+            open(log_path, "a") as _log_fh,
+            contextlib.redirect_stdout(_log_fh),
+            contextlib.redirect_stderr(_log_fh),
+        ):
             return _try_to_run(opt)
 
 
@@ -563,8 +574,8 @@ def print_header(i, method):
 
 # match OPTIM_TO_COLOUR
 METHOD_TO_CATEGORY = {
-    "NaiveSteepestDescent": "First-Order",
-    "SteepestDescent": "First-Order",
+    "NaiveDescent": "First-Order",
+    "Descent": "First-Order",
     "FIRE": "First-Order",
     "ConjugateGradient": "First-Order",
     "RFO-BFGS (unit init)": "Quasi-Second-Order",
@@ -577,20 +588,22 @@ METHOD_TO_CATEGORY = {
     "RFO (NumHess 4)": "Second-Order",
     "RFO (autograd)": "Second-Order",
     # "RFO (learned)": "ours",
-    "RFO (learned)": "Second-Order",
+    "RFO (learned)": "HIP Hessian",
 }
 rename_categories = {
     "First-Order": "No Hessians",
     "Quasi-Second-Order": "Quasi-Hessian",
     "Second-Order": "Hessian",
+    "HIP Hessian": "HIP Hessian",
 }
 METHOD_TO_CATEGORY = {k: rename_categories[v] for k, v in METHOD_TO_CATEGORY.items()}
 METHOD_TO_COLOUR = {
     m: OPTIM_TO_COLOUR[METHOD_TO_CATEGORY[m]] for m in METHOD_TO_CATEGORY
 }
+METHOD_TO_COLOUR["RFO-BFGS"] = OPTIM_TO_COLOUR["RFO-BFGS"]
 DO_METHOD = [
-    "NaiveSteepestDescent",
-    # "SteepestDescent",
+    "NaiveDescent",
+    # "Descent",
     "FIRE",
     "RFO (autograd)",
     "RFO (NumHess)",
@@ -616,11 +629,12 @@ COMPETATIVE_METHODS_STEPS = [
     "RFO (learned)",
 ]
 COMPETATIVE_METHODS_WALL_TIME = [
-    # "NaiveSteepestDescent",
-    # "SteepestDescent",
+    # "NaiveDescent",
+    # "Descent",
     "FIRE",
     "ConjugateGradient",
     "RFO-BFGS (unit init)",
+    "RFO-BFGS",  # renamed from "RFO-BFGS (unit init)"
     # "RFO-BFGS (DFT init)",
     "RFO-BFGS (NumHess init)",
     "RFO-BFGS (learned init)",
@@ -628,12 +642,21 @@ COMPETATIVE_METHODS_WALL_TIME = [
     "RFO-BFGS (autograd init)",
     "RFO (learned)",
 ]
+# Methods shown as median-only annotations (too large wall time for violin)
+WALL_TIME_ANNOTATION_ONLY = [
+    "Descent",
+    "RFO (autograd)",
+    "RFO (NumHess)",
+]
 
 RENAME_METHODS_PLOT = {
-    "NaiveSteepestDescent": "SteepestDescent",
-    "RFO-BFGS (NumHess init)": "RFO-BFGS (FiniteDifference init)",
-    "RFO (NumHess)": "RFO (FiniteDifference)",
+    "NaiveDescent": "Descent",
+    "RFO-BFGS (unit init)": "RFO-BFGS",
+    "RFO-BFGS (NumHess init)": "RFO-BFGS (FD init)",
+    "RFO (NumHess)": "RFO FD",
 }
+
+SHOW_OURS = False
 
 
 def do_relaxations(out_dir, source_label, args):
@@ -845,13 +868,13 @@ def do_relaxations(out_dir, source_label, args):
             results = []
 
             # first order:
-            method_name = "NaiveSteepestDescent"
+            method_name = "NaiveDescent"
             if method_name in DO_METHOD:
                 print_header(cnt, method_name)
                 method_name_clean = clean_str(method_name)
                 out_dir_method = os.path.join(out_dir, method_name_clean)
                 geom_nsd = get_geom(atomssymbols, coords, args.coord, base_calc, args)
-                opt = NaiveSteepestDescent(
+                opt = NaiveDescent(
                     geom_nsd,
                     max_cycles=args.max_cycles,
                     thresh=args.thresh,
@@ -870,13 +893,13 @@ def do_relaxations(out_dir, source_label, args):
                 )
 
             # first order, with backtracking line search
-            method_name = "SteepestDescent"
+            method_name = "Descent"
             if method_name in DO_METHOD:
                 print_header(cnt, method_name)
                 geom_sd = get_geom(atomssymbols, coords, args.coord, base_calc, args)
                 method_name_clean = clean_str(method_name)
                 out_dir_method = os.path.join(out_dir, method_name_clean)
-                opt = SteepestDescent(
+                opt = Descent(
                     geom_sd,
                     max_cycles=args.max_cycles,
                     thresh=args.thresh,
@@ -1546,39 +1569,60 @@ def plot_results(df, out_dir, args):
             display_name = RENAME_METHODS_PLOT.get(method, method)
             # Rename for Plotly display: learned -> predicted
             if method == "RFO (learned)":
-                display_name = "RFO (HIP)"
+                display_name = "RFO HIP"
             elif method == "RFO-BFGS (learned init)":
                 display_name = "RFO-BFGS (HIP init)"
             elif method == "RFO-BFGS (autograd init)":
                 display_name = "RFO-BFGS (AD init)"
             elif method == "RFO (autograd)":
-                display_name = "RFO (AD)"
+                display_name = "RFO AD"
             # Keep the (ours) suffix for our methods
             # if method in ("RFO (learned)", "RFO-BFGS (learned init)"):
             #     display_name = f"{display_name} (ours)"
-            color = METHOD_TO_COLOUR.get(method, "#1f77b4")
+            color = METHOD_TO_COLOUR[method]
             display_order.append(display_name)
             methods_plotted.append(method)
             method_to_display_name[method] = display_name
+            # Identify samples that hit max steps (max_cycles or max_cycles-1)
+            method_rows = _d[_d["name"] == method]
+            max_steps = args.max_cycles
+            hit_max_mask = method_rows["steps"].isin([max_steps, max_steps - 1])
+            series_noconv = method_rows.loc[hit_max_mask, metric_name].dropna()
             fig.add_trace(
                 go.Violin(
                     y=series.astype(float),
                     name=display_name,
                     line_color=color,
-                    # Defaults to a half-transparent variant of the line color
-                    # fillcolor=color,
                     fillcolor=_hex_to_rgba(color, 0.25),
                     opacity=1.0,
-                    box_visible=True,
+                    line_width=1,
+                    box_visible=False,
                     meanline_visible=False,
                     spanmode="hard",
                     points="all",
-                    jitter=0.3,
+                    jitter=0.5,
                     pointpos=0,
                     marker=dict(color=color, opacity=0.5, size=4),
                     showlegend=False,
                 )
             )
+            # # Overlay non-converged samples with "x" markers
+            # if len(series_noconv) > 0:
+            #     fig.add_trace(
+            #         go.Scatter(
+            #             x=[display_name] * len(series_noconv),
+            #             y=series_noconv.astype(float),
+            #             mode="markers",
+            #             marker=dict(
+            #                 symbol="x",
+            #                 color=color,
+            #                 opacity=1.0,
+            #                 size=14,
+            #             ),
+            #             showlegend=False,
+            #             hovertemplate="not converged: %{y}<extra></extra>",
+            #         )
+            #     )
         # Add legend for categories (three colours) using dummy scatter traces
         categories_in_plot = []
         for m in methods_plotted:
@@ -1591,42 +1635,43 @@ def plot_results(df, out_dir, args):
                     x=[None],
                     y=[None],
                     mode="markers",
-                    marker=dict(color=OPTIM_TO_COLOUR.get(cat, "#1f77b4"), size=10),
+                    marker=dict(color=OPTIM_TO_COLOUR[cat], size=10),
                     name=cat,
                     showlegend=True,
                 )
             )
 
         # Annotate "ours" over highest values of selected methods
-        target_methods = [
-            "RFO-BFGS (learned init)",
-            "RFO (learned)",
-        ]
-        if metric_name in _d.columns and len(_d[metric_name].dropna()) > 0:
-            y_min = float(_d[metric_name].min())
-            y_max = float(_d[metric_name].max())
-        else:
-            y_min = 0.0
-            y_max = 0.0
-        y_pad = 0.02 * (y_max - y_min) if y_max > y_min else 0.0
-        for method in target_methods:
-            if method in order:
-                series_ann = _d[_d["name"] == method][metric_name].dropna()
-                if len(series_ann) == 0:
-                    continue
-                y_top = float(series_ann.max())
-                display_name = method_to_display_name.get(method, method)
-                fig.add_annotation(
-                    x=display_name,
-                    y=y_top + y_pad,
-                    text="<b>ours</b>",
-                    showarrow=False,
-                    xref="x",
-                    yref="y",
-                    xanchor="center",
-                    yanchor="bottom",
-                    font=dict(size=10),
-                )
+        if SHOW_OURS:
+            target_methods = [
+                "RFO-BFGS (learned init)",
+                "RFO (learned)",
+            ]
+            if metric_name in _d.columns and len(_d[metric_name].dropna()) > 0:
+                y_min = float(_d[metric_name].min())
+                y_max = float(_d[metric_name].max())
+            else:
+                y_min = 0.0
+                y_max = 0.0
+            y_pad = 0.02 * (y_max - y_min) if y_max > y_min else 0.0
+            for method in target_methods:
+                if method in order:
+                    series_ann = _d[_d["name"] == method][metric_name].dropna()
+                    if len(series_ann) == 0:
+                        continue
+                    y_top = float(series_ann.max())
+                    display_name = method_to_display_name.get(method, method)
+                    fig.add_annotation(
+                        x=display_name,
+                        y=y_top + y_pad,
+                        text="<b>ours</b>",
+                        showarrow=False,
+                        xref="x",
+                        yref="y",
+                        xanchor="center",
+                        yanchor="bottom",
+                        font=dict(size=14, weight="bold"),
+                    )
 
         # Bold our two methods in tick labels
         bold_targets = set()
@@ -1657,6 +1702,7 @@ def plot_results(df, out_dir, args):
                 bgcolor="rgba(255,255,255,0.6)",
                 bordercolor="rgba(0,0,0,0)",
                 borderwidth=0,
+                font=dict(size=LEGEND_FONT_SIZE),
             ),
             showlegend=True,
             height=600,
@@ -1672,6 +1718,10 @@ def plot_results(df, out_dir, args):
         Plotly violin plot with two subplots: steps to convergence and wall time
         """
         # Data variants
+        # Rename "RFO-BFGS (unit init)" -> "RFO-BFGS" before filtering
+        _df.loc[_df["name"] == "RFO-BFGS (unit init)", "name"] = "RFO-BFGS"
+        # Filter out remaining "init" methods
+        _df = _df[~_df["name"].str.contains("init", case=False)].copy()
         df_steps = _df.dropna(subset=["steps"]).copy()
         df_wall_comp = _df.dropna(subset=["wall_time_s"]).copy()
         df_wall_comp = df_wall_comp[
@@ -1714,20 +1764,26 @@ def plot_results(df, out_dir, args):
                     continue
                 display_name = RENAME_METHODS_PLOT.get(method, method)
                 if method == "RFO (learned)":
-                    display_name = "RFO (HIP)"
+                    display_name = "RFO HIP"
                 elif method == "RFO-BFGS (learned init)":
                     display_name = "RFO-BFGS (HIP init)"
                 elif method == "RFO-BFGS (autograd init)":
                     display_name = "RFO-BFGS (AD init)"
                 elif method == "RFO (autograd)":
-                    display_name = "RFO (AD)"
+                    display_name = "RFO AD"
                 # if method in ("RFO (learned)", "RFO-BFGS (learned init)"):
                 #     display_name = f"{display_name} (ours)"
-                color = METHOD_TO_COLOUR.get(method, "#1f77b4")
+                color = METHOD_TO_COLOUR[method]
 
                 display_order.append(display_name)
                 methods_plotted.append(method)
                 method_to_display_name[method] = display_name
+
+                # Identify samples that hit max steps (max_cycles or max_cycles-1)
+                method_rows = df_i[df_i["name"] == method]
+                max_steps = args.max_cycles
+                hit_max_mask = method_rows["steps"].isin([max_steps, max_steps - 1])
+                series_noconv = method_rows.loc[hit_max_mask, metric_i].dropna()
 
                 # Violin plot
                 fig.add_trace(
@@ -1737,12 +1793,13 @@ def plot_results(df, out_dir, args):
                         line_color=color,
                         fillcolor=_hex_to_rgba(color, 0.1),
                         opacity=1.0,
+                        line_width=1,
                         width=0.9,  # fixed width
-                        box_visible=False,  # show the boxplot
+                        box_visible=False,
                         meanline_visible=False,
                         spanmode="hard",
                         points="all",
-                        jitter=0.3,
+                        jitter=0.5,
                         pointpos=0,
                         marker=dict(color=color, opacity=0.3, size=4),
                         showlegend=False,
@@ -1750,27 +1807,25 @@ def plot_results(df, out_dir, args):
                     row=1,
                     col=col_idx,
                 )
-
-                # Overlay median as a horizontal tick marker (no box)
-                median_value = float(np.median(series.astype(float)))
-                fig.add_trace(
-                    go.Scatter(
-                        x=[display_name],
-                        y=[median_value],
-                        mode="markers",
-                        marker=dict(
-                            symbol="line-ew",  # horizontal line marker
-                            size=18,
-                            color=color,
-                            line=dict(color=color, width=2),
-                            opacity=1.0,
+                # Overlay non-converged samples with "x" markers
+                if len(series_noconv) > 0:
+                    fig.add_trace(
+                        go.Scatter(
+                            x=[display_name] * len(series_noconv),
+                            y=series_noconv.astype(float),
+                            mode="markers",
+                            marker=dict(
+                                symbol="x",
+                                color=color,
+                                opacity=1.0,
+                                size=14,
+                            ),
+                            showlegend=False,
+                            hovertemplate="not converged: %{y}<extra></extra>",
                         ),
-                        hovertemplate="median: %{y:.3g}<extra></extra>",
-                        showlegend=False,
-                    ),
-                    row=1,
-                    col=col_idx,
-                )
+                        row=1,
+                        col=col_idx,
+                    )
 
             for m in methods_plotted:
                 cat = METHOD_TO_CATEGORY.get(m)
@@ -1803,36 +1858,138 @@ def plot_results(df, out_dir, args):
             )
 
             # Annotate "ours" over highest values of selected methods for this subplot
-            target_methods = [
-                "RFO-BFGS (learned init)",
-                "RFO (learned)",
-            ]
-            if metric_i in df_i.columns and len(df_i[metric_i].dropna()) > 0:
-                y_min_i = float(df_i[metric_i].min())
-                y_max_i = float(df_i[metric_i].max())
-            else:
-                y_min_i = 0.0
-                y_max_i = 0.0
-            y_pad_i = 0.01 * (y_max_i - y_min_i) if y_max_i > y_min_i else 0.0
-            for method in target_methods:
-                if method in order_i:
-                    series_ann_i = _series_for_method(df_i, method, metric_i)
-                    if len(series_ann_i) == 0:
-                        continue
-                    y_top_i = float(series_ann_i.max())
-                    display_name_i = method_to_display_name.get(method, method)
-                    fig.add_annotation(
-                        x=display_name_i,
-                        y=y_top_i + y_pad_i,
-                        text="<b>ours</b>",
-                        showarrow=False,
-                        xref=f"x{col_idx}",
-                        yref=f"y{col_idx}",
-                        xanchor="center",
-                        yanchor="bottom",
-                        font=dict(size=10),
-                    )
+            if SHOW_OURS:
+                target_methods = [
+                    "RFO-BFGS (learned init)",
+                    "RFO (learned)",
+                ]
+                if metric_i in df_i.columns and len(df_i[metric_i].dropna()) > 0:
+                    y_min_i = float(df_i[metric_i].min())
+                    y_max_i = float(df_i[metric_i].max())
+                else:
+                    y_min_i = 0.0
+                    y_max_i = 0.0
+                y_pad_i = 0.01 * (y_max_i - y_min_i) if y_max_i > y_min_i else 0.0
+                for method in target_methods:
+                    if method in order_i:
+                        series_ann_i = _series_for_method(df_i, method, metric_i)
+                        if len(series_ann_i) == 0:
+                            continue
+                        y_top_i = float(series_ann_i.max())
+                        display_name_i = method_to_display_name.get(method, method)
+                        fig.add_annotation(
+                            x=display_name_i,
+                            y=y_top_i + y_pad_i,
+                            text="<b>ours</b>",
+                            showarrow=False,
+                            xref=f"x{col_idx}",
+                            yref=f"y{col_idx}",
+                            xanchor="center",
+                            yanchor="bottom",
+                            font=dict(size=10),
+                        )
         # metrics plotted
+
+        # Add annotations for methods with very large wall times
+        # Placed at their own x-axis column positions, sorted by median
+        df_wall_all = _df.dropna(subset=["wall_time_s"]).copy()
+        if len(df_wall_comp) > 0 and "wall_time_s" in df_wall_comp.columns:
+            wt_y_max = float(df_wall_comp["wall_time_s"].max())
+        else:
+            wt_y_max = 100.0
+        # Collect annotation-only methods with their means
+        anno_entries = []  # (display_name, median_val, cat_color, method)
+        for method in WALL_TIME_ANNOTATION_ONLY:
+            series_wt = _series_for_method(df_wall_all, method, "wall_time_s")
+            if len(series_wt) == 0:
+                continue
+            median_val = float(series_wt.mean())
+            display_name = RENAME_METHODS_PLOT.get(method, method)
+            if method == "RFO (autograd)":
+                display_name = "RFO AD"
+            elif method == "RFO (NumHess)":
+                display_name = "RFO FD"
+            cat = METHOD_TO_CATEGORY.get(method)
+            cat_color = OPTIM_TO_COLOUR.get(cat, "#1f77b4") if cat else "#1f77b4"
+            anno_entries.append((display_name, median_val, cat_color, method))
+        if anno_entries:
+            # Sort descending by median (consistent with _prepare_order)
+            anno_entries.sort(key=lambda t: t[1], reverse=True)
+            # Get existing violin medians for merging into sorted order
+            existing_cats = list(
+                fig.layout.xaxis2.categoryarray
+                if fig.layout.xaxis2.categoryarray is not None
+                else []
+            )
+            existing_ticks = list(
+                fig.layout.xaxis2.ticktext
+                if fig.layout.xaxis2.ticktext is not None
+                else []
+            )
+            # Build median map for existing violin methods
+            existing_medians = {}
+            for cat_name in existing_cats:
+                # Find original method name for this display name
+                orig = cat_name
+                for m, dn in method_to_display_name.items():
+                    if dn == cat_name:
+                        orig = m
+                        break
+                s = _series_for_method(df_wall_comp, orig, "wall_time_s")
+                if len(s) > 0:
+                    existing_medians[cat_name] = float(s.median())
+            # Merge: build combined list sorted by median descending
+            all_items = [(c, existing_medians.get(c, 0.0)) for c in existing_cats]
+            for dn, med, _, _ in anno_entries:
+                all_items.append((dn, med))
+            all_items.sort(key=lambda t: t[1], reverse=True)
+            merged_cats = [t[0] for t in all_items]
+            # Rebuild ticktext preserving bold for existing entries
+            tick_map = dict(zip(existing_cats, existing_ticks))
+            for dn, _, _, _ in anno_entries:
+                tick_map[dn] = dn
+            merged_ticks = [tick_map.get(c, c) for c in merged_cats]
+            for dn, median_val, cat_color, method in anno_entries:
+                # Invisible point to register the x category
+                fig.add_trace(
+                    go.Scatter(
+                        x=[dn],
+                        y=[None],
+                        mode="markers",
+                        marker=dict(size=0, opacity=0),
+                        showlegend=False,
+                        hoverinfo="skip",
+                    ),
+                    row=1,
+                    col=2,
+                )
+                # Mean value text with arrow pointing up
+                color = METHOD_TO_COLOUR[method]
+                fig.add_annotation(
+                    x=dn,
+                    y=wt_y_max * 0.45,
+                    xref="x2",
+                    yref="y2",
+                    text=f"<b>{median_val:.0f}s</b>",
+                    showarrow=True,
+                    arrowhead=2,
+                    arrowsize=1.2,
+                    arrowwidth=2.5,
+                    arrowcolor=color,
+                    ax=0,
+                    ay=40,
+                    font=dict(size=14, color=color),
+                    xanchor="center",
+                    yanchor="top",
+                )
+            fig.update_xaxes(
+                categoryorder="array",
+                categoryarray=merged_cats,
+                tickvals=merged_cats,
+                ticktext=merged_ticks,
+                row=1,
+                col=2,
+            )
 
         for cat in categories_all:
             fig.add_trace(
@@ -1840,7 +1997,7 @@ def plot_results(df, out_dir, args):
                     x=[None],
                     y=[None],
                     mode="markers",
-                    marker=dict(color=OPTIM_TO_COLOUR.get(cat, "#1f77b4"), size=10),
+                    marker=dict(color=OPTIM_TO_COLOUR[cat], size=10),
                     name=cat,
                     showlegend=True,
                 ),
@@ -1867,10 +2024,12 @@ def plot_results(df, out_dir, args):
                 bgcolor="rgba(255,255,255,0.6)",
                 bordercolor="rgba(0,0,0,0)",
                 borderwidth=0,
+                font=dict(size=LEGEND_FONT_SIZE),
             ),
         )
-        fig.update_yaxes(title_standoff=1, row=1, col=1)
-        fig.update_yaxes(title_standoff=1, row=1, col=2)
+        fig.update_yaxes(title_standoff=10, row=1, col=1)
+        fig.update_yaxes(title_standoff=10, row=1, col=2)
+        fig.update_yaxes(range=[0, 155], row=1, col=1)
 
         # Panel labels a (left) and b (right)
         dom1 = fig.layout.xaxis.domain if hasattr(fig.layout, "xaxis") else [0.0, 0.48]
@@ -2098,6 +2257,9 @@ def main():
     plot_results(df, out_dir, args)
     compute_zero_point_energy(df, out_dir, source_label, args)
 
+
+if __name__ == "__main__":
+    main()
 
 if __name__ == "__main__":
     main()

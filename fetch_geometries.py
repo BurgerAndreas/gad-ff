@@ -11,7 +11,11 @@ ALLOWED_ELEMENTS = {"H", "C", "N", "O"}
 
 def parse_formula(formula):
     """Parse a molecular formula string into a dict of {element: count}."""
-    return dict((el, int(n) if n else 1) for el, n in re.findall(r'([A-Z][a-z]?)(\d*)', formula) if el)
+    return dict(
+        (el, int(n) if n else 1)
+        for el, n in re.findall(r"([A-Z][a-z]?)(\d*)", formula)
+        if el
+    )
 
 
 def total_atoms(formula_dict):
@@ -38,7 +42,7 @@ def fetch_geometries(max_per_natoms=5, natoms_min=30, natoms_max=100, max_cid=10
         if total_found >= total_to_find:
             break
 
-        batch_cids = cids[i:i + batch_size]
+        batch_cids = cids[i : i + batch_size]
         print(f"Batch {i // batch_size + 1} | found {total_found}/{total_to_find}")
 
         try:
@@ -64,27 +68,33 @@ def fetch_geometries(max_per_natoms=5, natoms_min=30, natoms_max=100, max_cid=10
             if os.path.exists(filename):
                 found_counts[natoms] += 1
                 total_found += 1
-                records.append({
-                    "file": filename,
-                    "natoms": natoms,
-                    "formula": c.molecular_formula,
-                    "pubchem_cid": c.cid,
-                    "pubchem_url": f"https://pubchem.ncbi.nlm.nih.gov/compound/{c.cid}",
-                })
+                records.append(
+                    {
+                        "file": filename,
+                        "natoms": natoms,
+                        "formula": c.molecular_formula,
+                        "pubchem_cid": c.cid,
+                        "pubchem_url": f"https://pubchem.ncbi.nlm.nih.gov/compound/{c.cid}",
+                    }
+                )
                 continue
 
             try:
-                pcp.download('SDF', filename, c.cid, record_type='3d', overwrite=False)
-                print(f"  Downloaded CID {c.cid} | {c.molecular_formula} | {natoms} atoms")
+                pcp.download("SDF", filename, c.cid, record_type="3d", overwrite=False)
+                print(
+                    f"  Downloaded CID {c.cid} | {c.molecular_formula} | {natoms} atoms"
+                )
                 found_counts[natoms] += 1
                 total_found += 1
-                records.append({
-                    "file": filename,
-                    "natoms": natoms,
-                    "formula": c.molecular_formula,
-                    "pubchem_cid": c.cid,
-                    "pubchem_url": f"https://pubchem.ncbi.nlm.nih.gov/compound/{c.cid}",
-                })
+                records.append(
+                    {
+                        "file": filename,
+                        "natoms": natoms,
+                        "formula": c.molecular_formula,
+                        "pubchem_cid": c.cid,
+                        "pubchem_url": f"https://pubchem.ncbi.nlm.nih.gov/compound/{c.cid}",
+                    }
+                )
             except pcp.NotFoundError:
                 pass
 

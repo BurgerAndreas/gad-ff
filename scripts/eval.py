@@ -23,6 +23,7 @@ from pathlib import Path
 
 analyze_frequencies_np = analyze_frequencies
 
+
 def find_checkpoint(checkpoint_path):
     """
     Find checkpoint path. If the provided path doesn't exist, search for it
@@ -263,7 +264,7 @@ def evaluate(
             batch = compute_extra_props(batch)
 
             n_atoms = batch.pos.shape[0]
-            
+
             # Collect per-sample metrics
             sample_data = {
                 "sample_idx": n_samples,
@@ -315,11 +316,13 @@ def evaluate(
             eigvals_model, eigvecs_model = torch.linalg.eigh(hessian_model)
 
             # Compute errors
-            if "energy" in batch: # RGD1 dataset
+            if "energy" in batch:  # RGD1 dataset
                 energy_true = batch.energy
-            else: # T1x, QM9 dataset
+            else:  # T1x, QM9 dataset
                 energy_true = batch.ae
-            e_mae = torch.mean(torch.abs(energy_model.squeeze() - energy_true.squeeze()))
+            e_mae = torch.mean(
+                torch.abs(energy_model.squeeze() - energy_true.squeeze())
+            )
             e_mae_per_atom = e_mae / n_atoms
             sample_data["energy_mae"] = e_mae.item()
             sample_data["energy_mae_per_atom"] = e_mae_per_atom.item()
@@ -331,7 +334,10 @@ def evaluate(
             hessian_true = batch.hessian.reshape(n_atoms * 3, n_atoms * 3)
             h_mae = torch.mean(torch.abs(hessian_model - hessian_true))
             sample_data["hessian_mae"] = h_mae.item()
-            h_mre = torch.mean(torch.abs(hessian_model - hessian_true) / (torch.abs(hessian_true) + 1e-8))
+            h_mre = torch.mean(
+                torch.abs(hessian_model - hessian_true)
+                / (torch.abs(hessian_true) + 1e-8)
+            )
             sample_data["hessian_mre"] = h_mre.item()
 
             # Eigenvalue error
@@ -349,7 +355,8 @@ def evaluate(
             )  # eV/Angstrom^2
             sample_data["eigval_mae"] = eigval_mae.item()
             eigval_mre = torch.mean(
-                torch.abs(eigvals_model - eigvals_true) / (torch.abs(eigvals_true) + 1e-8)
+                torch.abs(eigvals_model - eigvals_true)
+                / (torch.abs(eigvals_true) + 1e-8)
             )
             sample_data["eigval_mre"] = eigval_mre.item()
 
@@ -393,19 +400,22 @@ def evaluate(
                 torch.abs(eigvals_model_eckart - true_eigvals_eckart)
             ).item()
             sample_data["eigval_mre_eckart"] = torch.mean(
-                torch.abs(eigvals_model_eckart - true_eigvals_eckart) / (torch.abs(true_eigvals_eckart) + 1e-8)
+                torch.abs(eigvals_model_eckart - true_eigvals_eckart)
+                / (torch.abs(true_eigvals_eckart) + 1e-8)
             ).item()
             sample_data["eigval1_mae_eckart"] = torch.mean(
                 torch.abs(eigvals_model_eckart[0] - true_eigvals_eckart[0])
             ).item()
             sample_data["eigval1_mre_eckart"] = (
-                torch.abs(eigvals_model_eckart[0] - true_eigvals_eckart[0]) / (torch.abs(true_eigvals_eckart[0]) + 1e-8)
+                torch.abs(eigvals_model_eckart[0] - true_eigvals_eckart[0])
+                / (torch.abs(true_eigvals_eckart[0]) + 1e-8)
             ).item()
             sample_data["eigval2_mae_eckart"] = torch.mean(
                 torch.abs(eigvals_model_eckart[1] - true_eigvals_eckart[1])
             ).item()
             sample_data["eigval2_mre_eckart"] = (
-                torch.abs(eigvals_model_eckart[1] - true_eigvals_eckart[1]) / (torch.abs(true_eigvals_eckart[1]) + 1e-8)
+                torch.abs(eigvals_model_eckart[1] - true_eigvals_eckart[1])
+                / (torch.abs(true_eigvals_eckart[1]) + 1e-8)
             ).item()
             sample_data["eigvec1_cos_eckart"] = torch.abs(
                 torch.dot(eigvecs_model_eckart[:, 0], true_eigvecs_eckart[:, 0])
@@ -416,7 +426,9 @@ def evaluate(
 
             # Global eigenvector overlap: ||abs(Q_model @ Q_true^T) - I||_F
             M = eigvecs_model_eckart.T @ true_eigvecs_eckart
-            sample_data["eigvec_overlap_error"] = torch.norm(M.abs() - torch.eye(M.shape[0]), p="fro").item()
+            sample_data["eigvec_overlap_error"] = torch.norm(
+                M.abs() - torch.eye(M.shape[0]), p="fro"
+            ).item()
 
             ########################
             # Vibrational frequencies for QM9 Hessian dataset
@@ -518,7 +530,9 @@ def evaluate(
         if pd.api.types.is_numeric_dtype(df_results[col]):
             aggregated_results[col] = df_results[col].mean()
         else:
-            print(f"Skipping non-numeric column: {col}. type: {type(df_results[col][0])}")
+            print(
+                f"Skipping non-numeric column: {col}. type: {type(df_results[col][0])}"
+            )
             continue
 
     # Special case: is_ts_agree computed from comparing two columns
@@ -555,9 +569,7 @@ def plot_accuracy_vs_natoms(df_results, name):
         if col not in df_results.columns:
             continue
 
-        grouped = (
-            df_results.groupby("natoms")[col].agg(["mean", "std"]).reset_index()
-        )
+        grouped = df_results.groupby("natoms")[col].agg(["mean", "std"]).reset_index()
 
         fig, ax = plt.subplots(figsize=(8, 8))
         ax.errorbar(
