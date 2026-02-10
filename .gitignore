@@ -24,8 +24,8 @@ runs_relaxation/
 !**/*.csv
 
 _*
-plots/
-plots_*/
+# plots/
+# plots_*/
 
 tmp_quacc*/
 vib
@@ -54,7 +54,7 @@ Data/RGD1
 *.ckpt
 *.lmdb
 *.lmdb-lock
-*.png
+# *.png
 *.txt
 *.log
 *.traj
